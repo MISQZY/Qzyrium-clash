@@ -9,6 +9,7 @@ dist/
 out/
 release/
 *.asar
+*.tsbuildinfo
 
 # Local Mihomo binaries and downloaded runtime data
 extra/

@@ -1,4 +1,4 @@
-import { app, Menu, nativeImage, Tray } from 'electron'
+import { app, Menu, nativeImage, Tray, NativeImage } from 'electron'
 import path from 'path'
 import { is } from '@electron-toolkit/utils'
 import { BaseService } from './BaseService'
@@ -35,7 +35,7 @@ export class TrayService implements BaseService {
 
   private createTray(): void {
     // Generate a default 16x16 icon in memory if file is not found
-    let icon: nativeImage
+    let icon: NativeImage
     const iconPath = is.dev
       ? path.join(app.getAppPath(), 'resources', 'icon.png')
       : path.join(process.resourcesPath, 'icon.png')
