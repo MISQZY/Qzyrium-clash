@@ -10,17 +10,14 @@ let services: ServiceManager | null = null
 const gotTheLock = app.requestSingleInstanceLock()
 
 if (!gotTheLock) {
-  logger.info('Another instance of QzyriumVPN is already running. Exiting.')
+  logger.warn('Another instance of QzyriumVPN is already running. Exiting.')
+  console.warn('\n[QzyriumVPN] Another instance is already running.')
+  console.warn('[QzyriumVPN] If no window is visible, please check the system tray or close existing electron processes in Task Manager.\n')
   app.quit()
 } else {
   app.on('second-instance', () => {
     if (services) {
-      const mainWindow = services.windowService.getMainWindow()
-      if (mainWindow) {
-        if (mainWindow.isMinimized()) mainWindow.restore()
-        mainWindow.show()
-        mainWindow.focus()
-      }
+      services.windowService.show()
     }
   })
 

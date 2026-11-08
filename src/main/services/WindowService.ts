@@ -73,7 +73,8 @@ export class WindowService implements BaseService {
       height: 720,
       minWidth: 840,
       minHeight: 560,
-      show: false,
+      show: true,
+      center: true,
       titleBarStyle: 'hidden',
       titleBarOverlay,
       autoHideMenuBar: true,
@@ -88,7 +89,35 @@ export class WindowService implements BaseService {
     disableWindowTransitionAnimations(this.mainWindow)
 
     this.mainWindow.on('ready-to-show', () => {
+      logger.info('Main window ready-to-show event fired')
       this.mainWindow?.show()
+      this.mainWindow?.focus()
+    })
+
+    this.mainWindow.webContents.on('did-finish-load', () => {
+      logger.info('Main window did-finish-load event fired')
+      this.mainWindow?.show()
+      this.mainWindow?.focus()
+    })
+
+    this.mainWindow.webContents.on('console-message', (_, level, message, line, sourceId) => {
+      logger.info(`[Renderer Console] [${level}] ${message} (${sourceId}:${line})`)
+    })
+
+    this.mainWindow.webContents.on('render-process-gone', (_, details) => {
+      logger.error(`Renderer process gone: ${details.reason} (exitCode: ${details.exitCode})`)
+      if (details.reason !== 'clean-exit') {
+        setTimeout(() => this.mainWindow?.reload(), 300)
+      }
+    })
+
+    this.mainWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
+      logger.error(`Main window did-fail-load: ${errorCode} ${errorDescription} (${validatedURL})`)
+      if (process.env.ELECTRON_RENDERER_URL) {
+        setTimeout(() => {
+          this.mainWindow?.loadURL(process.env.ELECTRON_RENDERER_URL!)
+        }, 500)
+      }
     })
 
     this.mainWindow.on('close', (e) => {
@@ -104,19 +133,20 @@ export class WindowService implements BaseService {
       return { action: 'deny' }
     })
 
-    if (isDev) {
-      const devUrl = process.env['ELECTRON_RENDERER_URL'] || 'http://127.0.0.1:5173'
-      const tryLoad = (): void => {
-        if (!this.mainWindow || this.mainWindow.isDestroyed()) return
-        this.mainWindow.loadURL(devUrl).catch((err) => {
-          logger.warn(`Dev renderer not ready yet, retrying... (${err.message})`)
-          setTimeout(tryLoad, 800)
-        })
-      }
-      tryLoad()
+    logger.info(`Loading renderer: ELECTRON_RENDERER_URL=${process.env.ELECTRON_RENDERER_URL}`)
+    if (process.env.ELECTRON_RENDERER_URL) {
+      this.mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
     } else {
-      await this.mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+      this.mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
     }
+
+    // Force show fallback so the window is NEVER invisible
+    setTimeout(() => {
+      if (this.mainWindow && !this.mainWindow.isDestroyed() && !this.mainWindow.isVisible()) {
+        logger.info('Fallback showing main window after timeout')
+        this.mainWindow.show()
+      }
+    }, 1000)
 
     return this.mainWindow
   }
@@ -143,11 +173,13 @@ export class WindowService implements BaseService {
   }
 
   show(): void {
-    if (this.mainWindow) {
-      if (this.mainWindow.isMinimized()) this.mainWindow.restore()
-      this.mainWindow.show()
-      this.mainWindow.focus()
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) {
+      void this.createWindow()
+      return
     }
+    if (this.mainWindow.isMinimized()) this.mainWindow.restore()
+    this.mainWindow.show()
+    this.mainWindow.focus()
   }
 
   async openFolder(target: 'logs' | 'data' | 'profiles'): Promise<void> {

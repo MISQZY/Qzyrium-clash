@@ -37,13 +37,13 @@ export class ServiceManager {
       }
     })
 
-    // Ordered lifecycle array
+    // Ordered lifecycle array: window is created early for instant UI presentation
     this.services = [
       this.settingService,
       this.profileService,
       this.sysProxyService,
-      this.kernelService,
       this.windowService,
+      this.kernelService,
       this.trayService
     ]
   }
