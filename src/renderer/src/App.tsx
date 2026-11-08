@@ -49,12 +49,12 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-slate-950 overflow-hidden font-sans select-none text-slate-100">
-      {/* Frameless Draggable TitleBar */}
+    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground select-none">
+      {/* TitleBar with native Windows overlay integration */}
       <TitleBar coreStatus={coreStatus} traffic={traffic} />
 
-      {/* Main App Workspace */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* Main Workspace Frame */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Navigation Sidebar */}
         <Sidebar
           activeTab={activeTab}
@@ -64,7 +64,7 @@ export const App: React.FC = () => {
         />
 
         {/* Viewport Content */}
-        <main className="flex-1 bg-slate-950/40 overflow-hidden">
+        <main className="flex-1 min-h-0 h-full overflow-hidden flex flex-col bg-background">
           {activeTab === 'dashboard' && (
             <DashboardPage
               coreStatus={coreStatus}

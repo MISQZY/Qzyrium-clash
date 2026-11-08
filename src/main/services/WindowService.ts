@@ -1,10 +1,31 @@
 import { app, BrowserWindow, shell } from 'electron'
+import { execFile } from 'child_process'
 import path from 'path'
 import { is } from '@electron-toolkit/utils'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 import { BaseService } from './BaseService'
 import { SettingService } from './SettingService'
+
+const DWMWA_TRANSITIONS_FORCEDISABLED = 3
+
+function disableWindowTransitionAnimations(win: BrowserWindow): void {
+  if (process.platform !== 'win32') return
+  try {
+    const hwnd = win.getNativeWindowHandle().readBigUInt64LE(0)
+    const script = `Add-Type -Namespace N -Name Dwm -MemberDefinition '[DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);'; $v = 1; [N.Dwm]::DwmSetWindowAttribute([IntPtr]${hwnd}, ${DWMWA_TRANSITIONS_FORCEDISABLED}, [ref]$v, 4) | Out-Null`
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', script],
+      { windowsHide: true },
+      (error) => {
+        if (error) logger.warn(`Failed to disable window transition animations: ${error.message}`)
+      }
+    )
+  } catch (err) {
+    logger.error('Error querying window handle for DWM setup', err)
+  }
+}
 
 export class WindowService implements BaseService {
   private mainWindow: BrowserWindow | null = null
@@ -43,22 +64,28 @@ export class WindowService implements BaseService {
   async createWindow(): Promise<BrowserWindow> {
     const isDev = is.dev && process.env['ELECTRON_RENDERER_URL']
 
+    const titleBarOverlay = process.platform === 'win32'
+      ? { color: '#161c1a', symbolColor: '#9ca3af', height: 36 }
+      : undefined
+
     this.mainWindow = new BrowserWindow({
       width: 1040,
       height: 720,
       minWidth: 840,
       minHeight: 560,
       show: false,
-      frame: false,
       titleBarStyle: 'hidden',
+      titleBarOverlay,
       autoHideMenuBar: true,
-      backgroundColor: '#0f172a',
+      backgroundColor: '#121615',
       webPreferences: {
         preload: path.join(__dirname, '../preload/index.js'),
         sandbox: false,
         contextIsolation: true
       }
     })
+
+    disableWindowTransitionAnimations(this.mainWindow)
 
     this.mainWindow.on('ready-to-show', () => {
       this.mainWindow?.show()

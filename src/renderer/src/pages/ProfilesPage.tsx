@@ -1,6 +1,19 @@
 import React, { useState } from 'react'
 import { Plus, RefreshCw, Trash2, Check, Globe, FileCode } from 'lucide-react'
 import { ProfileItem } from '@shared/profile'
+import { Button } from '../components/ui/button'
+import { Badge } from '../components/ui/badge'
+import { Card, CardContent } from '../components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '../components/ui/dialog'
+import { Input } from '../components/ui/input'
+import { Textarea } from '../components/ui/textarea'
 
 interface ProfilesPageProps {
   profiles: ProfileItem[]
@@ -63,21 +76,23 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
   }
 
   return (
-    <div className="flex flex-col gap-5 p-6 h-[calc(100vh-2.5rem)] overflow-y-auto">
+    <div className="flex-1 min-h-0 h-full overflow-y-auto p-6 flex flex-col gap-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-slate-100">Profiles & Subscriptions</h2>
-          <p className="text-xs text-slate-400">Manage remote subscription URLs or local configuration files</p>
+          <h2 className="text-base font-semibold text-foreground">Subscriptions</h2>
+          <p className="text-xs text-muted-foreground">Manage remote proxy subscriptions and configurations</p>
         </div>
 
-        <button
+        <Button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition-colors shadow-sm shadow-indigo-600/30"
+          variant="glow"
+          size="sm"
+          className="gap-2"
         >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Add Profile</span>
-        </button>
+          <Plus className="size-3.5" />
+          <span>Add Subscription</span>
+        </Button>
       </div>
 
       {/* Profile List */}
@@ -88,171 +103,175 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
             const dateStr = new Date(p.updatedAt).toLocaleString()
 
             return (
-              <div
+              <Card
                 key={p.id}
-                className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
+                className={`transition-all ${
                   isActive
-                    ? 'bg-slate-900/90 border-indigo-500/50 shadow-md shadow-indigo-500/10'
-                    : 'bg-slate-900/50 border-slate-800/80 hover:border-slate-700'
+                    ? 'border-primary/60 bg-primary/10 shadow-[0_0_12px_var(--glow-bg)]'
+                    : 'bg-card/70'
                 }`}
               >
-                <div className="flex items-center gap-3.5">
-                  <div
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      p.type === 'remote'
-                        ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    }`}
-                  >
-                    {p.type === 'remote' ? <Globe className="w-5 h-5" /> : <FileCode className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-200">{p.name}</span>
-                      {isActive && (
-                        <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                          <Check className="w-2.5 h-2.5" /> Active
-                        </span>
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3.5">
+                    <div
+                      className={`size-10 rounded-lg flex items-center justify-center ${
+                        p.type === 'remote'
+                          ? 'bg-primary/15 text-primary border border-primary/30'
+                          : 'bg-warning/15 text-warning border border-warning/30'
+                      }`}
+                    >
+                      {p.type === 'remote' ? (
+                        <Globe className="size-5" />
+                      ) : (
+                        <FileCode className="size-5" />
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-400 font-mono truncate max-w-md mt-0.5">
-                      {p.url || 'Local YAML Config'}
-                    </p>
-                    <span className="text-[10px] text-slate-500">Updated: {dateStr}</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-foreground">{p.name}</span>
+                        {isActive && (
+                          <Badge variant="glow" className="gap-1 py-0 px-2 text-[10px]">
+                            <Check className="size-2.5" /> Active
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground font-mono truncate max-w-md mt-0.5">
+                        {p.url || 'Local YAML Config'}
+                      </p>
+                      <span className="text-[10px] text-muted-foreground/80">
+                        Updated: {dateStr}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  {!isActive && (
-                    <button
-                      onClick={() => onSwitchProfile(p.id)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+                  <div className="flex items-center gap-2">
+                    {!isActive && (
+                      <Button
+                        onClick={() => onSwitchProfile(p.id)}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        Select
+                      </Button>
+                    )}
+                    {p.type === 'remote' && (
+                      <Button
+                        onClick={() => handleUpdate(p.id)}
+                        variant="outline"
+                        size="icon-sm"
+                        title="Update Subscription"
+                      >
+                        <RefreshCw className="size-3.5" />
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => handleDelete(p.id)}
+                      variant="ghost"
+                      size="icon-sm"
+                      className="hover:text-destructive"
+                      title="Delete Profile"
                     >
-                      Use
-                    </button>
-                  )}
-                  {p.type === 'remote' && (
-                    <button
-                      onClick={() => handleUpdate(p.id)}
-                      className="p-2 rounded-lg bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-                      title="Update Subscription"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleDelete(p.id)}
-                    className="p-2 rounded-lg bg-slate-800/80 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                    title="Delete Profile"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             )
           })
         ) : (
-          <div className="flex flex-col items-center justify-center p-12 rounded-xl bg-slate-900/40 border border-slate-800 text-center">
-            <Globe className="w-8 h-8 text-slate-600 mb-2" />
-            <span className="text-sm text-slate-400">No subscription profiles loaded</span>
-            <span className="text-xs text-slate-500 mt-1">
-              Click &quot;Add Profile&quot; to import your Clash/Mihomo subscription link or local config.
+          <Card className="p-12 text-center flex flex-col items-center justify-center">
+            <Globe className="size-8 text-muted-foreground/40 mb-2" />
+            <span className="text-sm font-medium text-foreground">No subscriptions loaded</span>
+            <span className="text-xs text-muted-foreground mt-1">
+              Click &quot;Add Subscription&quot; to import your Clash/Mihomo provider URL or local YAML.
             </span>
-          </div>
+          </Card>
         )}
       </div>
 
-      {/* Add Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <form
-            onSubmit={handleAddProfile}
-            className="w-full max-w-md p-5 rounded-xl bg-slate-900 border border-slate-800 shadow-2xl flex flex-col gap-4"
-          >
-            <h3 className="text-sm font-semibold text-slate-100">Add Subscription Profile</h3>
+      {/* Add Subscription Dialog */}
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent>
+          <form onSubmit={handleAddProfile} className="flex flex-col gap-4">
+            <DialogHeader>
+              <DialogTitle>Add Subscription</DialogTitle>
+              <DialogDescription>
+                Import a remote Clash/Mihomo subscription link or paste local YAML.
+              </DialogDescription>
+            </DialogHeader>
 
-            <div className="flex items-center gap-3">
-              <button
+            <div className="flex items-center gap-2">
+              <Button
                 type="button"
+                variant={profileType === 'remote' ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => setProfileType('remote')}
-                className={`flex-1 py-2 text-xs font-medium rounded-lg border transition-all ${
-                  profileType === 'remote'
-                    ? 'bg-indigo-600/20 text-indigo-400 border-indigo-500/50'
-                    : 'bg-slate-950 text-slate-400 border-slate-800'
-                }`}
+                className="flex-1"
               >
                 Remote URL
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant={profileType === 'local' ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => setProfileType('local')}
-                className={`flex-1 py-2 text-xs font-medium rounded-lg border transition-all ${
-                  profileType === 'local'
-                    ? 'bg-indigo-600/20 text-indigo-400 border-indigo-500/50'
-                    : 'bg-slate-950 text-slate-400 border-slate-800'
-                }`}
+                className="flex-1"
               >
                 Local YAML
-              </button>
+              </Button>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-slate-400 font-medium">Profile Name</label>
-              <input
+              <label className="text-xs text-muted-foreground font-medium">Profile Name</label>
+              <Input
                 type="text"
                 required
                 value={profileName}
                 onChange={(e) => setProfileName(e.target.value)}
-                placeholder="e.g. My Premium Proxy"
-                className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                placeholder="e.g. Fast Proxy EU"
               />
             </div>
 
             {profileType === 'remote' ? (
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-slate-400 font-medium">Subscription URL</label>
-                <input
+                <label className="text-xs text-muted-foreground font-medium">Subscription URL</label>
+                <Input
                   type="url"
                   required
                   value={profileUrl}
                   onChange={(e) => setProfileUrl(e.target.value)}
                   placeholder="https://provider.com/api/v1/client/subscribe?token=..."
-                  className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
                 />
               </div>
             ) : (
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-slate-400 font-medium">YAML Content</label>
-                <textarea
+                <label className="text-xs text-muted-foreground font-medium">YAML Content</label>
+                <Textarea
                   required
-                  rows={6}
+                  rows={5}
                   value={yamlContent}
                   onChange={(e) => setYamlContent(e.target.value)}
-                  placeholder="Paste clash/mihomo YAML configuration here..."
-                  className="px-3 py-2 font-mono text-xs rounded-lg bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500"
+                  placeholder="Paste YAML content here..."
                 />
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
-              <button
+            <DialogFooter>
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setShowAddModal(false)}
-                className="px-3 py-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-200 transition-colors"
               >
                 Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="px-4 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
-              >
-                {submitting ? 'Downloading...' : 'Save Profile'}
-              </button>
-            </div>
+              </Button>
+              <Button type="submit" variant="glow" size="sm" disabled={submitting}>
+                {submitting ? 'Downloading...' : 'Save Subscription'}
+              </Button>
+            </DialogFooter>
           </form>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -13,6 +13,9 @@ import { CoreState, TrafficStats, TunnelMode } from '@shared/types'
 import { ProfileItem } from '@shared/profile'
 import { AppConfig } from '@shared/app-config'
 import { ConnectionsSnapshot } from '@shared/mihomo'
+import { Card, CardContent } from '../components/ui/card'
+import { Button } from '../components/ui/button'
+import { Badge } from '../components/ui/badge'
 
 interface DashboardPageProps {
   coreStatus: CoreState
@@ -47,10 +50,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onUpdateMode
 }) => {
   const modes: TunnelMode[] = ['rule', 'global', 'direct']
+  const isRunning = coreStatus === 'running'
 
   const handleStartStop = async () => {
     if (!window.api) return
-    if (coreStatus === 'running') {
+    if (isRunning) {
       await window.api.kernel.stop()
     } else {
       await window.api.kernel.start()
@@ -58,159 +62,176 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   }
 
   return (
-    <div className="flex flex-col gap-5 p-6 h-[calc(100vh-2.5rem)] overflow-y-auto">
+    <div className="flex-1 min-h-0 h-full overflow-y-auto p-6 flex flex-col gap-5">
       {/* Top Banner: Status & Quick Controls */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Core Status Card */}
-        <div className="col-span-2 flex items-center justify-between p-5 rounded-xl bg-slate-900/70 border border-slate-800/80 backdrop-blur">
-          <div className="flex items-center gap-4">
-            <div
-              className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                coreStatus === 'running'
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-slate-800 text-slate-400 border border-slate-700'
-              }`}
-            >
-              {coreStatus === 'running' ? (
-                <CheckCircle2 className="w-6 h-6 animate-pulse" />
-              ) : (
-                <AlertCircle className="w-6 h-6" />
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-semibold text-slate-100">Mihomo Core</h2>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
-                  v1.19+ (Meta)
-                </span>
+        <Card className="col-span-2 relative overflow-hidden">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div
+                className={`size-12 rounded-xl flex items-center justify-center transition-colors ${
+                  isRunning
+                    ? 'bg-primary/15 text-primary border border-primary/30 shadow-[0_0_12px_var(--glow)]'
+                    : 'bg-muted text-muted-foreground border border-border'
+                }`}
+              >
+                {isRunning ? (
+                  <CheckCircle2 className="size-6 text-primary" />
+                ) : (
+                  <AlertCircle className="size-6" />
+                )}
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Status: <span className="capitalize font-mono font-medium text-slate-200">{coreStatus}</span> | Mixed Port:{' '}
-                <span className="font-mono text-indigo-400">{settings.kernel.mixedPort}</span>
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-foreground">Mihomo Core</h2>
+                  <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                    Meta Engine
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Status:{' '}
+                  <span className="capitalize font-mono font-medium text-foreground">
+                    {coreStatus}
+                  </span>{' '}
+                  | Mixed Port:{' '}
+                  <span className="font-mono text-primary font-medium">
+                    {settings.kernel.mixedPort}
+                  </span>
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleStartStop}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all ${
-                coreStatus === 'running'
-                  ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25'
-                  : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-lg shadow-emerald-600/20'
-              }`}
-            >
-              {coreStatus === 'running' ? (
-                <>
-                  <Square className="w-3.5 h-3.5" /> Stop
-                </>
-              ) : (
-                <>
-                  <Play className="w-3.5 h-3.5" /> Start
-                </>
-              )}
-            </button>
-            <button
-              onClick={onRestart}
-              className="p-2 rounded-lg bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-              title="Restart Core"
-            >
-              <RotateCw className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleStartStop}
+                variant={isRunning ? 'destructive' : 'glow'}
+                size="sm"
+                className="gap-2"
+              >
+                {isRunning ? (
+                  <>
+                    <Square className="size-3.5 fill-current" /> Stop Core
+                  </>
+                ) : (
+                  <>
+                    <Play className="size-3.5 fill-current" /> Start Core
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={onRestart}
+                variant="outline"
+                size="icon-sm"
+                title="Restart Core"
+              >
+                <RotateCw className="size-3.5" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Active Profile Card */}
-        <div className="flex flex-col justify-center p-5 rounded-xl bg-slate-900/70 border border-slate-800/80 backdrop-blur">
-          <span className="text-xs text-slate-400">Active Profile</span>
-          <span className="text-sm font-semibold text-slate-100 truncate mt-1">
-            {activeProfile?.name || 'Default Config'}
-          </span>
-          <span className="text-[10px] font-mono text-slate-500 mt-0.5">
-            {activeProfile ? `Type: ${activeProfile.type}` : 'Internal Skeleton'}
-          </span>
-        </div>
+        <Card>
+          <CardContent className="p-5 flex flex-col justify-center h-full">
+            <span className="text-xs text-muted-foreground">Active Subscription</span>
+            <span className="text-sm font-semibold text-foreground truncate mt-1">
+              {activeProfile?.name || 'Default Skeleton'}
+            </span>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="secondary" className="text-[9px]">
+                {activeProfile ? `type: ${activeProfile.type}` : 'builtin'}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Traffic Speed Real-time Meters */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Download Speed */}
-        <div className="p-5 rounded-xl bg-slate-900/70 border border-slate-800/80 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
-              <ArrowDown className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs text-slate-400 font-medium">Download Rate</span>
-              <div className="text-xl font-bold font-mono text-slate-100 tracking-tight">
-                {formatSpeed(traffic.down)}
+        <Card className="hover:border-primary/40 transition-colors">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-lg bg-success/15 text-success flex items-center justify-center border border-success/30">
+                <ArrowDown className="size-5" />
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground font-medium">Download Rate</span>
+                <div className="text-xl font-bold font-mono text-foreground tracking-tight">
+                  {formatSpeed(traffic.down)}
+                </div>
               </div>
             </div>
-          </div>
-          <div className="text-right">
-            <span className="text-[10px] text-slate-500 block">Total Download</span>
-            <span className="text-xs font-mono text-slate-300">
-              {formatBytes(connections.downloadTotal || 0)}
-            </span>
-          </div>
-        </div>
+            <div className="text-right">
+              <span className="text-[10px] text-muted-foreground block">Session Inbound</span>
+              <span className="text-xs font-mono text-foreground font-medium">
+                {formatBytes(connections.downloadTotal || 0)}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Upload Speed */}
-        <div className="p-5 rounded-xl bg-slate-900/70 border border-slate-800/80 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center border border-cyan-500/20">
-              <ArrowUp className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs text-slate-400 font-medium">Upload Rate</span>
-              <div className="text-xl font-bold font-mono text-slate-100 tracking-tight">
-                {formatSpeed(traffic.up)}
+        <Card className="hover:border-primary/40 transition-colors">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-lg bg-primary/15 text-primary flex items-center justify-center border border-primary/30">
+                <ArrowUp className="size-5" />
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground font-medium">Upload Rate</span>
+                <div className="text-xl font-bold font-mono text-foreground tracking-tight">
+                  {formatSpeed(traffic.up)}
+                </div>
               </div>
             </div>
-          </div>
-          <div className="text-right">
-            <span className="text-[10px] text-slate-500 block">Total Upload</span>
-            <span className="text-xs font-mono text-slate-300">
-              {formatBytes(connections.uploadTotal || 0)}
-            </span>
-          </div>
-        </div>
+            <div className="text-right">
+              <span className="text-[10px] text-muted-foreground block">Session Outbound</span>
+              <span className="text-xs font-mono text-foreground font-medium">
+                {formatBytes(connections.uploadTotal || 0)}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Mode Selector & Routing Policy */}
-      <div className="p-5 rounded-xl bg-slate-900/70 border border-slate-800/80 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sliders className="w-4 h-4 text-indigo-400" />
-            <span className="text-sm font-semibold text-slate-200">Routing Mode</span>
+      <Card>
+        <CardContent className="p-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sliders className="size-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Traffic Routing Mode</span>
+            </div>
+            <span className="text-xs text-muted-foreground">Rules policy for outbound traffic</span>
           </div>
-          <span className="text-xs text-slate-500">Determines how traffic matches rules</span>
-        </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          {modes.map((m) => {
-            const isSelected = settings.kernel.mode === m
-            return (
-              <button
-                key={m}
-                onClick={() => onUpdateMode(m)}
-                className={`py-3 px-4 rounded-lg flex flex-col items-center justify-center gap-1 border transition-all ${
-                  isSelected
-                    ? 'bg-indigo-600/20 text-indigo-400 border-indigo-500/50 shadow-md'
-                    : 'bg-slate-950/40 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200'
-                }`}
-              >
-                <span className="capitalize font-semibold text-xs">{m}</span>
-                <span className="text-[10px] text-slate-500">
-                  {m === 'rule' && 'Routes via custom rules'}
-                  {m === 'global' && 'Forces all traffic through proxy'}
-                  {m === 'direct' && 'Bypasses proxy completely'}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
+          <div className="grid grid-cols-3 gap-3">
+            {modes.map((m) => {
+              const isSelected = settings.kernel.mode === m
+              return (
+                <button
+                  key={m}
+                  onClick={() => onUpdateMode(m)}
+                  className={`py-3 px-4 rounded-xl flex flex-col items-center justify-center gap-1 border transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-primary/10 text-primary border-primary/50 shadow-[0_0_12px_var(--glow-bg)]'
+                      : 'bg-card/40 text-muted-foreground border-border hover:border-border/80 hover:text-foreground'
+                  }`}
+                >
+                  <span className="capitalize font-semibold text-xs tracking-wide">{m}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {m === 'rule' && 'Routes via domain rules'}
+                    {m === 'global' && 'All traffic through proxy'}
+                    {m === 'direct' && 'Bypass all proxies'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

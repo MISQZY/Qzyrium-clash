@@ -1,6 +1,9 @@
 import React from 'react'
 import { Trash2, Radio } from 'lucide-react'
 import { ConnectionsSnapshot } from '@shared/mihomo'
+import { Button } from '../components/ui/button'
+import { Badge } from '../components/ui/badge'
+import { Card } from '../components/ui/card'
 
 interface ConnectionsPageProps {
   connections: ConnectionsSnapshot
@@ -17,7 +20,7 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({ connections, o
   const connList = connections.connections || []
 
   const handleCloseAll = async () => {
-    if (!window.api || !confirm('Close all active connections?')) return
+    if (!window.api || !confirm('Terminate all active sessions?')) return
     await window.api.mihomo.closeAllConnections()
     onRefresh()
   }
@@ -29,78 +32,87 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({ connections, o
   }
 
   return (
-    <div className="flex flex-col gap-5 p-6 h-[calc(100vh-2.5rem)] overflow-y-auto">
+    <div className="flex-1 min-h-0 h-full overflow-y-auto p-6 flex flex-col gap-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-slate-100">Active Connections</h2>
-            <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+            <h2 className="text-base font-semibold text-foreground">Active Sessions</h2>
+            <Badge variant="outline" className="font-mono">
               {connList.length} sockets
-            </span>
+            </Badge>
           </div>
-          <p className="text-xs text-slate-400">Live network sessions routed through Mihomo core</p>
+          <p className="text-xs text-muted-foreground">Live network connections routed through Mihomo</p>
         </div>
 
-        <button
+        <Button
           onClick={handleCloseAll}
           disabled={connList.length === 0}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 transition-colors disabled:opacity-40"
+          variant="destructive"
+          size="sm"
+          className="gap-2"
         >
-          <Trash2 className="w-3.5 h-3.5" />
+          <Trash2 className="size-3.5" />
           <span>Close All</span>
-        </button>
+        </Button>
       </div>
 
-      {/* Table */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
-        <div className="grid grid-cols-12 gap-2 px-4 py-2.5 bg-slate-950/60 border-b border-slate-800 text-[11px] font-medium text-slate-400">
+      {/* Table Card */}
+      <Card className="overflow-hidden">
+        <div className="grid grid-cols-12 gap-2 px-4 py-2.5 bg-muted/40 border-b border-border text-[11px] font-medium text-muted-foreground">
           <span className="col-span-4">Host / Destination</span>
-          <span className="col-span-2">Network / Process</span>
-          <span className="col-span-2">Traffic</span>
-          <span className="col-span-3">Rule / Chain</span>
+          <span className="col-span-2">Network / App</span>
+          <span className="col-span-2">Transfer</span>
+          <span className="col-span-3">Chain & Rule</span>
           <span className="col-span-1 text-right">Action</span>
         </div>
 
-        <div className="divide-y divide-slate-800/60 max-h-[500px] overflow-y-auto">
+        <div className="divide-y divide-border/60 max-h-[500px] overflow-y-auto">
           {connList.length > 0 ? (
             connList.map((c) => {
               const host = c.metadata?.host || c.metadata?.destinationIP || 'unknown'
               const port = c.metadata?.destinationPort || ''
               const netType = c.metadata?.network || 'TCP'
-              const processName = c.metadata?.processPath ? c.metadata.processPath.split(/[\\/]/).pop() : 'System'
+              const processName = c.metadata?.processPath
+                ? c.metadata.processPath.split(/[\\/]/).pop()
+                : 'System'
               const rule = c.rule || 'Direct'
               const chainStr = c.chains ? c.chains.join(' → ') : 'DIRECT'
 
               return (
-                <div key={c.id} className="grid grid-cols-12 gap-2 px-4 py-2.5 items-center text-xs hover:bg-slate-800/40 transition-colors">
+                <div
+                  key={c.id}
+                  className="grid grid-cols-12 gap-2 px-4 py-2.5 items-center text-xs hover:bg-muted/30 transition-colors"
+                >
                   <div className="col-span-4 flex flex-col min-w-0">
-                    <span className="font-semibold text-slate-200 truncate">{host}</span>
-                    <span className="text-[10px] text-slate-500 font-mono">Port: {port}</span>
+                    <span className="font-medium text-foreground truncate">{host}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">Port: {port}</span>
                   </div>
 
                   <div className="col-span-2 flex flex-col">
-                    <span className="text-[11px] font-mono uppercase text-indigo-400">{netType}</span>
-                    <span className="text-[10px] text-slate-400 truncate">{processName}</span>
+                    <span className="text-[11px] font-mono uppercase text-primary font-semibold">
+                      {netType}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate">{processName}</span>
                   </div>
 
                   <div className="col-span-2 flex flex-col font-mono text-[11px]">
-                    <span className="text-emerald-400">↓ {formatBytes(c.download)}</span>
-                    <span className="text-cyan-400">↑ {formatBytes(c.upload)}</span>
+                    <span className="text-success">↓ {formatBytes(c.download)}</span>
+                    <span className="text-primary">↑ {formatBytes(c.upload)}</span>
                   </div>
 
                   <div className="col-span-3 flex flex-col min-w-0">
-                    <span className="text-[11px] text-slate-300 truncate">{chainStr}</span>
-                    <span className="text-[10px] text-slate-500 truncate">{rule}</span>
+                    <span className="text-[11px] text-foreground truncate">{chainStr}</span>
+                    <span className="text-[10px] text-muted-foreground truncate">{rule}</span>
                   </div>
 
                   <div className="col-span-1 text-right">
                     <button
                       onClick={() => handleCloseSingle(c.id)}
-                      className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                      className="p-1 rounded text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
                       title="Terminate session"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="size-3.5" />
                     </button>
                   </div>
                 </div>
@@ -108,12 +120,12 @@ export const ConnectionsPage: React.FC<ConnectionsPageProps> = ({ connections, o
             })
           ) : (
             <div className="flex flex-col items-center justify-center p-12 text-center">
-              <Radio className="w-7 h-7 text-slate-600 mb-2" />
-              <span className="text-xs text-slate-400">No active network connections</span>
+              <Radio className="size-7 text-muted-foreground/40 mb-2" />
+              <span className="text-xs text-muted-foreground">No active sockets found</span>
             </div>
           )}
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

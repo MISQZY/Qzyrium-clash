@@ -19,6 +19,8 @@
     "@electron-toolkit/utils": "^4.0.0",
     "adm-zip": "^0.5.16",
     "axios": "^1.8.1",
+    "class-variance-authority": "^0.7.1",
+    "radix-ui": "^1.8.1",
     "ws": "^8.18.1",
     "yaml": "^2.7.0"
   },

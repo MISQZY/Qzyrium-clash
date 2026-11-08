@@ -1,6 +1,9 @@
 import React, { useState } from 'react'
 import { Zap, Check, Wifi } from 'lucide-react'
 import { ProxyGroup, ProxyNode } from '@shared/mihomo'
+import { Button } from '../components/ui/button'
+import { Badge } from '../components/ui/badge'
+import { Card, CardContent } from '../components/ui/card'
 
 interface ProxiesPageProps {
   proxies: Record<string, ProxyNode>
@@ -8,7 +11,6 @@ interface ProxiesPageProps {
 }
 
 export const ProxiesPage: React.FC<ProxiesPageProps> = ({ proxies, onSelectNode }) => {
-  // Find all groups (types like 'Selector', 'URLTest', 'Fallback')
   const groupNames = Object.keys(proxies).filter((k) => {
     const item = proxies[k] as unknown as ProxyGroup
     return Array.isArray(item.all) && item.all.length > 0
@@ -32,7 +34,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({ proxies, onSelectNode 
         const delay = await window.api.mihomo.testDelay(nodeName)
         newDelays[nodeName] = delay
       } catch {
-        newDelays[nodeName] = -1 // timeout / error
+        newDelays[nodeName] = -1
       }
     }
 
@@ -40,61 +42,66 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({ proxies, onSelectNode 
     setTesting(false)
   }
 
-  const getDelayBadge = (delay?: number) => {
+  const renderDelayBadge = (delay?: number) => {
     if (delay === undefined) return null
     if (delay === -1) {
-      return <span className="text-[10px] font-mono text-rose-400">Timeout</span>
+      return <Badge variant="destructive">Timeout</Badge>
     }
     if (delay < 200) {
-      return <span className="text-[10px] font-mono text-emerald-400">{delay} ms</span>
+      return <Badge variant="success">{delay} ms</Badge>
     }
     if (delay < 500) {
-      return <span className="text-[10px] font-mono text-amber-400">{delay} ms</span>
+      return <Badge variant="warning">{delay} ms</Badge>
     }
-    return <span className="text-[10px] font-mono text-rose-400">{delay} ms</span>
+    return <Badge variant="destructive">{delay} ms</Badge>
   }
 
   return (
-    <div className="flex flex-col gap-5 p-6 h-[calc(100vh-2.5rem)] overflow-y-auto">
+    <div className="flex-1 min-h-0 h-full overflow-y-auto p-6 flex flex-col gap-5">
       {/* Top Header & Group Selector Tabs */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-slate-100">Proxy Groups & Nodes</h2>
-          <p className="text-xs text-slate-400">Select active proxy nodes and test server latency</p>
+          <h2 className="text-base font-semibold text-foreground">Proxy Nodes</h2>
+          <p className="text-xs text-muted-foreground">Select active exit node and test latency</p>
         </div>
 
-        <button
+        <Button
           onClick={handleTestLatency}
           disabled={testing || currentNodes.length === 0}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors disabled:opacity-50"
+          variant="outline"
+          size="sm"
+          className="gap-2"
         >
-          <Zap className={`w-3.5 h-3.5 ${testing ? 'animate-bounce text-amber-400' : 'text-slate-400'}`} />
+          <Zap className={`size-3.5 ${testing ? 'animate-bounce text-warning' : 'text-primary'}`} />
           <span>{testing ? 'Testing...' : 'Test Latency'}</span>
-        </button>
+        </Button>
       </div>
 
       {/* Group Tabs */}
       {groupNames.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {groupNames.map((name) => (
-            <button
-              key={name}
-              onClick={() => setActiveGroup(name)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-                activeGroup === name
-                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
-                  : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              {name}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 shrink-0">
+          {groupNames.map((name) => {
+            const isCurrent = activeGroup === name
+            return (
+              <button
+                key={name}
+                onClick={() => setActiveGroup(name)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                  isCurrent
+                    ? 'bg-primary text-primary-foreground shadow-xs shadow-primary/20'
+                    : 'bg-card text-muted-foreground hover:text-foreground border border-border'
+                }`}
+              >
+                {name}
+              </button>
+            )
+          })}
         </div>
       )}
 
       {/* Node Cards Grid */}
       {currentNodes.length > 0 ? (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {currentNodes.map((nodeName) => {
             const isSelected = activeNow === nodeName
             const nodeData = proxies[nodeName]
@@ -102,38 +109,48 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({ proxies, onSelectNode 
             const delay = delays[nodeName]
 
             return (
-              <button
+              <Card
                 key={nodeName}
                 onClick={() => onSelectNode(activeGroup, nodeName)}
-                className={`p-3.5 rounded-xl flex flex-col justify-between text-left border transition-all ${
+                className={`cursor-pointer transition-all hover:border-primary/50 ${
                   isSelected
-                    ? 'bg-indigo-600/15 border-indigo-500/50 shadow-md shadow-indigo-500/10'
-                    : 'bg-slate-900/60 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900'
+                    ? 'border-primary/60 bg-primary/10 shadow-[0_0_12px_var(--glow-bg)]'
+                    : 'bg-card/70'
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Wifi className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-indigo-400' : 'text-slate-500'}`} />
-                    <span className="text-xs font-semibold text-slate-200 truncate">{nodeName}</span>
+                <CardContent className="p-3.5 flex flex-col justify-between h-full gap-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Wifi
+                        className={`size-3.5 shrink-0 ${
+                          isSelected ? 'text-primary' : 'text-muted-foreground'
+                        }`}
+                      />
+                      <span className="text-xs font-semibold text-foreground truncate">
+                        {nodeName}
+                      </span>
+                    </div>
+                    {isSelected && <Check className="size-3.5 text-primary shrink-0" />}
                   </div>
-                  {isSelected && <Check className="w-3.5 h-3.5 text-indigo-400 shrink-0" />}
-                </div>
 
-                <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-800/60">
-                  <span className="text-[10px] font-mono uppercase text-slate-400">{nodeType}</span>
-                  {getDelayBadge(delay)}
-                </div>
-              </button>
+                  <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                    <Badge variant="outline" className="text-[9px] uppercase font-mono">
+                      {nodeType}
+                    </Badge>
+                    {renderDelayBadge(delay)}
+                  </div>
+                </CardContent>
+              </Card>
             )
           })}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center p-12 rounded-xl bg-slate-900/40 border border-slate-800 text-center">
-          <span className="text-sm text-slate-400">No proxy nodes found</span>
-          <span className="text-xs text-slate-500 mt-1">
-            Import a subscription profile in the Profiles tab to load proxy nodes.
+        <Card className="p-12 text-center flex flex-col items-center justify-center">
+          <span className="text-sm font-medium text-foreground">No proxy nodes available</span>
+          <span className="text-xs text-muted-foreground mt-1">
+            Import a subscription in the Profiles tab to populate proxy nodes.
           </span>
-        </div>
+        </Card>
       )}
     </div>
   )
