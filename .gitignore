@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Knowledge base & documentation
+/docs/
+
+# Build and distribution outputs
+dist/
+out/
+release/
+*.asar
+
+# Local Mihomo binaries and downloaded runtime data
+extra/
+resources/sidecar/
+resources/files/
+data/
+*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# IDE and editor files
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.sublime-workspace
+*.swp
