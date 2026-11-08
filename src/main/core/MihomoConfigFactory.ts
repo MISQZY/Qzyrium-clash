@@ -11,13 +11,7 @@ export class MihomoConfigFactory {
       'log-level': appConfig.kernel.logLevel,
       'external-controller': `127.0.0.1:${appConfig.kernel.controllerPort}`,
       secret: appConfig.kernel.controllerSecret,
-      proxies: [
-        {
-          name: 'DIRECT',
-          type: 'direct',
-          udp: true
-        }
-      ],
+      proxies: [],
       'proxy-groups': [
         {
           name: 'PROXY',

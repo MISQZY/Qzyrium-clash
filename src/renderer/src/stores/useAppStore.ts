@@ -11,7 +11,7 @@ export function useAppStore() {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard')
   const [coreStatus, setCoreStatus] = useState<CoreState>('stopped')
   const [traffic, setTraffic] = useState<TrafficStats>({ up: 0, down: 0 })
-  const [sysProxy, setSysProxy] = useState<SysProxyStatus>({ enabled: false, mode: 'manual', port: 7890 })
+  const [sysProxy, setSysProxy] = useState<SysProxyStatus>({ enabled: false, mode: 'manual', port: 7895 })
   const [profiles, setProfiles] = useState<ProfileItem[]>([])
   const [activeProfile, setActiveProfile] = useState<ProfileItem | null>(null)
   const [settings, setSettings] = useState<AppConfig>(DEFAULT_APP_CONFIG)

@@ -8,6 +8,7 @@ export interface AppPaths {
   profilesDir: string
   logsDir: string
   sidecarDir: string
+  geoFilesDir: string
   activeConfigPath: string
   settingsFilePath: string
   profilesFilePath: string
@@ -30,6 +31,10 @@ export function getAppPaths(): AppPaths {
     ? path.join(app.getAppPath(), 'extra', 'sidecar')
     : path.join(process.resourcesPath, 'sidecar')
 
+  const geoFilesDir = isDev
+    ? path.join(app.getAppPath(), 'extra', 'files')
+    : path.join(process.resourcesPath, 'files')
+
   const ext = process.platform === 'win32' ? '.exe' : ''
   const coreBinaryPath = path.join(sidecarDir, `mihomo${ext}`)
 
@@ -51,6 +56,7 @@ export function getAppPaths(): AppPaths {
     profilesDir,
     logsDir,
     sidecarDir,
+    geoFilesDir,
     activeConfigPath,
     settingsFilePath,
     profilesFilePath,

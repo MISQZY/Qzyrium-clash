@@ -41,8 +41,8 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   kernel: {
     mode: 'rule',
     logLevel: 'info',
-    mixedPort: 7890,
-    controllerPort: 9090,
+    mixedPort: 7895,
+    controllerPort: 9095,
     controllerSecret: 'qzyrium_secret_token',
     allowLan: false,
     tun: {

@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell } from 'electron'
 import path from 'path'
 import { is } from '@electron-toolkit/utils'
 import { getAppPaths } from '../utils/paths'
+import { logger } from '../utils/logger'
 import { BaseService } from './BaseService'
 import { SettingService } from './SettingService'
 
@@ -77,7 +78,15 @@ export class WindowService implements BaseService {
     })
 
     if (isDev) {
-      await this.mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']!)
+      const devUrl = process.env['ELECTRON_RENDERER_URL'] || 'http://127.0.0.1:5173'
+      const tryLoad = (): void => {
+        if (!this.mainWindow || this.mainWindow.isDestroyed()) return
+        this.mainWindow.loadURL(devUrl).catch((err) => {
+          logger.warn(`Dev renderer not ready yet, retrying... (${err.message})`)
+          setTimeout(tryLoad, 800)
+        })
+      }
+      tryLoad()
     } else {
       await this.mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
     }

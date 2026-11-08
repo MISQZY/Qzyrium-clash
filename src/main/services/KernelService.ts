@@ -1,4 +1,5 @@
 import fs from 'fs'
+import path from 'path'
 import {
   ConnectionsSnapshot,
   MihomoRule,
@@ -90,6 +91,21 @@ export class KernelService implements BaseService {
   async start(): Promise<void> {
     const paths = getAppPaths()
     const settings = this.settingService.getSettings()
+
+    // Ensure geo database files are present in mihomoDir
+    const geoFiles = ['country.mmdb', 'geosite.dat', 'geoip.dat']
+    for (const file of geoFiles) {
+      const src = path.join(paths.geoFilesDir, file)
+      const dst = path.join(paths.mihomoDir, file)
+      if (fs.existsSync(src) && !fs.existsSync(dst)) {
+        try {
+          fs.copyFileSync(src, dst)
+          logger.info(`Copied geo resource ${file} to ${dst}`)
+        } catch {
+          // ignore
+        }
+      }
+    }
 
     // Get active profile content
     const activeProfile = this.profileService.getActiveProfile()

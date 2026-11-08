@@ -18,6 +18,9 @@ export class MihomoApiClient extends EventEmitter {
   private trafficWs: WebSocket | null = null
   private logsWs: WebSocket | null = null
   private memoryWs: WebSocket | null = null
+  private shouldStreamTraffic = false
+  private shouldStreamLogs = false
+  private currentLogLevel = 'info'
 
   constructor(host = '127.0.0.1', port = 9090, secret = '') {
     super()
@@ -115,6 +118,7 @@ export class MihomoApiClient extends EventEmitter {
   // --- WebSocket Streaming ---
 
   startTrafficStream(): void {
+    this.shouldStreamTraffic = true
     if (this.trafficWs) return
 
     const wsUrl = `ws://${this.host}:${this.port}/traffic${this.secret ? `?token=${this.secret}` : ''}`
@@ -124,7 +128,7 @@ export class MihomoApiClient extends EventEmitter {
       try {
         const stats: TrafficStats = JSON.parse(data.toString())
         this.emit('traffic', stats)
-      } catch (err) {
+      } catch {
         // ignore parse errors
       }
     })
@@ -135,10 +139,16 @@ export class MihomoApiClient extends EventEmitter {
 
     this.trafficWs.on('close', () => {
       this.trafficWs = null
+      if (this.shouldStreamTraffic) {
+        setTimeout(() => {
+          if (this.shouldStreamTraffic) this.startTrafficStream()
+        }, 2000)
+      }
     })
   }
 
   stopTrafficStream(): void {
+    this.shouldStreamTraffic = false
     if (this.trafficWs) {
       this.trafficWs.terminate()
       this.trafficWs = null
@@ -146,6 +156,8 @@ export class MihomoApiClient extends EventEmitter {
   }
 
   startLogStream(level = 'info'): void {
+    this.shouldStreamLogs = true
+    this.currentLogLevel = level
     if (this.logsWs) return
 
     const wsUrl = `ws://${this.host}:${this.port}/logs?level=${level}${this.secret ? `&token=${this.secret}` : ''}`
@@ -160,7 +172,7 @@ export class MihomoApiClient extends EventEmitter {
           time: new Date().toLocaleTimeString()
         }
         this.emit('log', entry)
-      } catch (err) {
+      } catch {
         // ignore parse errors
       }
     })
@@ -171,10 +183,16 @@ export class MihomoApiClient extends EventEmitter {
 
     this.logsWs.on('close', () => {
       this.logsWs = null
+      if (this.shouldStreamLogs) {
+        setTimeout(() => {
+          if (this.shouldStreamLogs) this.startLogStream(this.currentLogLevel)
+        }, 2000)
+      }
     })
   }
 
   stopLogStream(): void {
+    this.shouldStreamLogs = false
     if (this.logsWs) {
       this.logsWs.terminate()
       this.logsWs = null

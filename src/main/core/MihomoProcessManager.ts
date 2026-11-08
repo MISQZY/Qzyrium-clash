@@ -140,7 +140,11 @@ export class MihomoProcessManager extends EventEmitter {
         }
       })
 
-      this.setState('running')
+      setTimeout(() => {
+        if (this.childProcess && !this.explicitStop && this.state === 'starting') {
+          this.setState('running')
+        }
+      }, 600)
     } catch (err) {
       logger.error('Error starting Mihomo process', err)
       this.setState('error')
