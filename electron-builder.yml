@@ -1,0 +1,31 @@
+appId: com.qzyrium.vpn
+productName: QzyriumVPN
+directories:
+  buildResources: build
+files:
+  - 'out/**'
+  - 'resources/**'
+electronLanguages:
+  - 'en'
+  - 'ru'
+extraResources:
+  - from: './extra/'
+    to: ''
+protocols:
+  name: 'QzyriumVPN URI Scheme'
+  schemes:
+    - 'clash'
+    - 'mihomo'
+    - 'qzyrium'
+win:
+  target:
+    - nsis
+    - portable
+  artifactName: ${productName}_${version}_${arch}.${ext}
+nsis:
+  artifactName: ${productName}_${version}_${arch}_setup.${ext}
+  uninstallDisplayName: ${productName}
+  allowToChangeInstallationDirectory: true
+  oneClick: false
+  perMachine: true
+  createDesktopShortcut: true

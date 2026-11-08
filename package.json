@@ -1,0 +1,44 @@
+{
+  "name": "qzyrium-vpn",
+  "version": "0.1.0",
+  "description": "Extensible Electron VPN and proxy client powered by Mihomo core",
+  "main": "./out/main/index.js",
+  "author": "MISQZY",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "postinstall": "electron-builder install-app-deps",
+    "build:win": "electron-vite build && electron-builder --publish never --win",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "prepare:resources": "node scripts/prepare-resources.mjs"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "adm-zip": "^0.5.16",
+    "axios": "^1.8.1",
+    "ws": "^8.18.1",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.9",
+    "@types/adm-zip": "^0.5.7",
+    "@types/node": "^22.13.5",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@types/ws": "^8.5.14",
+    "@vitejs/plugin-react": "^4.3.4",
+    "clsx": "^2.1.1",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^3.1.0",
+    "lucide-react": "^0.475.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.0.1",
+    "tailwindcss": "^4.0.9",
+    "typescript": "^5.7.3"
+  }
+}
