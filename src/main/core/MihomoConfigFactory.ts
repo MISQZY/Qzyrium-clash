@@ -34,7 +34,13 @@ export class MihomoConfigFactory {
 
     if (rawProfileYaml && rawProfileYaml.trim().length > 0) {
       try {
-        parsed = yaml.parse(rawProfileYaml) || {}
+        const doc = yaml.parse(rawProfileYaml)
+        if (doc && typeof doc === 'object' && !Array.isArray(doc)) {
+          parsed = doc as Record<string, unknown>
+        } else {
+          logger.error('Profile content is not a valid YAML object, falling back to default skeleton')
+          parsed = this.createDefaultConfig(appConfig)
+        }
       } catch (err) {
         logger.error('Failed to parse profile YAML, falling back to default skeleton', err)
         parsed = this.createDefaultConfig(appConfig)

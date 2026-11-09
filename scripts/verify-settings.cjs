@@ -50,6 +50,11 @@ function verifyConfiguration() {
   assert.deepEqual(yaml.parse(MihomoConfigFactory.synthesize(profile, config)).dns.nameserver, ['8.8.8.8'], 'disabling override restores subscription')
   config.kernel.tun.enable = true
   assert.equal(yaml.parse(MihomoConfigFactory.synthesize(profile, config)).tun.mtu, 1400)
+  const base64Sample = 'aHlzdGVyaWEyOi8vbm9kZTE='
+  assert.doesNotThrow(() => {
+    const fallback = yaml.parse(MihomoConfigFactory.synthesize(base64Sample, config))
+    assert.equal(fallback['mixed-port'], config.kernel.mixedPort)
+  }, 'non-YAML profile string content must fall back to default skeleton instead of throwing')
   const invalid = fresh()
   invalid.kernel.options = { 'socks-port': 70000 }
   assert.throws(() => validateAppConfig(invalid), /invalid value/)
