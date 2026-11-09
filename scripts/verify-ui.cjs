@@ -94,7 +94,12 @@ if (process.type === 'renderer') {
     }
     try {
       await win.webContents.session.clearStorageData()
-      const load = () => process.env.UI_RENDERER_URL ? win.loadURL(process.env.UI_RENDERER_URL) : win.loadFile(path.resolve(__dirname, '../out/renderer/index.html'))
+      const load = async () => {
+        if (process.env.UI_RENDERER_URL) await win.loadURL(process.env.UI_RENDERER_URL)
+        else await win.loadFile(path.resolve(__dirname, '../out/renderer/index.html'))
+        // Hidden windows can pause compositor transitions. Assert the final sidebar layout directly.
+        await win.webContents.insertCSS('.app-sidebar { transition: none !important; }')
+      }
       await load()
       await waitFor(`document.querySelector('h1')?.textContent === 'Home' && document.querySelector('.overview-power[aria-pressed="true"]') !== null`)
       await waitFor(`document.querySelector('.overview-session-duration')?.textContent.startsWith('01:00:')`)
@@ -284,11 +289,20 @@ if (process.type === 'renderer') {
       await navigate('Profiles')
       assert.equal(await evaluate(`document.querySelector('.page-scroll').textContent.includes('https://example.com/subscription/')`), false, 'subscription links are hidden from cards')
       assert.equal(await evaluate(`performance.getEntriesByType('resource').some(entry => /ProfileEditorDialog[^/]*[.]js/.test(entry.name))`), false, 'editor chunk is not loaded before opening it')
-      await evaluate(`Array.from(document.querySelectorAll('button')).find(el => el.textContent.trim() === 'Edit rules').click()`)
+      assert.equal(await evaluate(`document.querySelector('button[aria-label="Edit rules"]').textContent.trim()`), '', 'rules action is an accessible icon button')
+      await evaluate(`document.querySelector('button[aria-label="Edit rules"]').click()`)
+      await waitFor(`Array.from(document.querySelectorAll('[role="dialog"] button')).some(button => button.textContent.trim() === 'YAML Mode')`)
+      assert.equal(await evaluate(`document.querySelector('[role="dialog"] .monaco-editor')`), null, 'visual rule editing does not mount Monaco')
+      assert.equal(await evaluate(`performance.getEntriesByType('resource').some(entry => /(?:YamlEditor|editor[.]worker)[^/]*[.]js/.test(entry.name))`), false, 'visual rule editing does not download Monaco or its worker')
+      await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(button => button.textContent.trim() === 'YAML Mode').click()`)
+      await waitFor(`document.querySelector('[role="dialog"] .monaco-editor') !== null`)
+      await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(button => button.textContent.trim() === 'Visual Mode').click()`)
+      await waitFor(`document.querySelector('[role="dialog"] .monaco-editor') === null`)
+      await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(button => button.textContent.trim() === 'YAML Mode').click()`)
       await waitFor(`document.querySelector('[role="dialog"] .monaco-editor') !== null`)
       await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(el => el.textContent.trim() === 'Close').click()`)
       await waitFor(`document.querySelector('[role="dialog"]') === null && document.querySelector('.monaco-editor') === null`)
-      result.checks.push('Profile editor loads on demand, mounts Monaco and cleans up when closed')
+      result.checks.push('Rules action is icon-only; visual mode skips Monaco and YAML mode loads and unmounts it on demand')
       await evaluate(`Array.from(document.querySelectorAll('button')).find(el => el.textContent.trim() === 'Add Subscription').click()`)
       await waitFor(`document.querySelector('[role="dialog"]') !== null`)
       assert.equal(await evaluate(`document.querySelector('#profile-name').required`), false, 'profile name is optional')

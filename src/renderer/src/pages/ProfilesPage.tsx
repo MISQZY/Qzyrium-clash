@@ -1,8 +1,9 @@
 import { useLocale, useTranslations } from '../i18n'
 import React, { lazy, Suspense, useRef, useState } from 'react'
-import { Plus, RefreshCw, Trash2, Check, Globe, FileCode, CodeXml, EllipsisVertical, Pencil, Copy } from 'lucide-react'
+import { Plus, RefreshCw, Trash2, Check, Globe, FileCode, EllipsisVertical, Pencil } from 'lucide-react'
+import { RulesIcon } from '../lib/icons'
 import { ProfileItem } from '@shared/profile'
-import { parseSubscriptionImportUrl, buildClashImportUrl } from '@shared/clash-url'
+import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Card, CardContent } from '../components/ui/card'
@@ -239,12 +240,11 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
                     <Button
                       onClick={() => setEditingProfile(p)}
                       variant="outline"
-                      size="sm"
-                      className="gap-1.5"
+                      size="icon-sm"
                       title={t('editRules')}
+                      aria-label={t('editRules')}
                     >
-                      <CodeXml className="size-3.5" />
-                      <span>{t('editRules')}</span>
+                      <RulesIcon className="size-3.5" />
                     </Button>
                     {p.type === 'remote' && (
                       <Button
@@ -284,18 +284,6 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
                           <FileCode className="size-3.5 text-muted-foreground" />
                           <span>{t('editFile')}</span>
                         </DropdownMenuItem>
-                        {p.type === 'remote' && p.url && (
-                          <DropdownMenuItem
-                            onClick={() => {
-                              const clashUrl = buildClashImportUrl(p.url!, p.name)
-                              void navigator.clipboard.writeText(clashUrl)
-                            }}
-                            className="gap-2 cursor-pointer"
-                          >
-                            <Copy className="size-3.5 text-muted-foreground" />
-                            <span>{t('copyClashLink')}</span>
-                          </DropdownMenuItem>
-                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={() => setProfileToDelete(p)}
