@@ -235,10 +235,22 @@ export function registerIpcHandlers(services: ServiceManager): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.APP_RESTART_AS_ADMIN, async () => {
-    await services.desktopService.dispose()
-    await services.kernelService.stop()
-    await services.sysProxyService.setSysProxy(false)
-    restartAsAdmin()
+    try {
+      await services.sysProxyService.setSysProxy(false)
+    } catch (err) {
+      logger.warn(`Failed to disable system proxy before admin restart: ${String(err)}`)
+    }
+    try {
+      await services.kernelService.stop()
+    } catch (err) {
+      logger.warn(`Failed to stop kernel before admin restart: ${String(err)}`)
+    }
+    try {
+      await services.desktopService.dispose()
+    } catch (err) {
+      logger.warn(`Failed to dispose desktop service before admin restart: ${String(err)}`)
+    }
+    return await restartAsAdmin()
   })
 
   const iconCache = new Map<string, string>()
