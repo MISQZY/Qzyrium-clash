@@ -34,6 +34,12 @@ const DORMANT_COLOR_DARK: [number, number, number] = [0.72, 0.74, 0.78]
 const DORMANT_COLOR_LIGHT: [number, number, number] = [0.62, 0.65, 0.68]
 const IGNITION_DURATION = 950
 
+function getOptimalSamples(): number {
+  if (typeof window === 'undefined') return 6500
+  const screenWidth = window.screen?.width || 1920
+  return screenWidth >= 2560 ? 8000 : 6500
+}
+
 export function ConnectionGlobe({
   running,
   routes,
@@ -97,6 +103,7 @@ export function ConnectionGlobe({
     let lastBrightness = -1
     let cachedActiveColor: [number, number, number] | null = null
     const dpr = Math.min(window.devicePixelRatio || 1, 1.0)
+    const optimalSamples = getOptimalSamples()
 
     const draw = () => {
       rAfId = null
@@ -159,7 +166,7 @@ export function ConnectionGlobe({
           markerColor: targetColor,
           mapBrightness: targetBrightness,
           dark: theme === 'dark' ? 0.94 : 0.1,
-          ...(resized || frames < 4 ? { width: view.width, height: view.height, mapSamples: view.width < 700 ? 5000 : 7000 } : {})
+          ...(resized || frames < 4 ? { width: view.width, height: view.height } : {})
         })
         sizedWidth = view.width
         sizedHeight = view.height
@@ -178,7 +185,9 @@ export function ConnectionGlobe({
         canvas.dataset.frameCount = String(++frames)
       }
 
-      setProjected(projectRoutes(routesRef.current, camera.current, view))
+      if (frames < 4 || resized || cameraChanged) {
+        setProjected(projectRoutes(routesRef.current, camera.current, view))
+      }
     }
 
     const schedule = () => {
@@ -207,7 +216,7 @@ export function ConnectionGlobe({
         width: 1, height: 1, devicePixelRatio: dpr,
         phi: camera.current.phi, theta: camera.current.theta, scale: camera.current.scale,
         dark: initialTheme === 'dark' ? 0.94 : 0.1, diffuse: 0.25, opacity: 1,
-        mapSamples: 7000, mapBrightness: initialBrightness, mapBaseBrightness: 0,
+        mapSamples: optimalSamples, mapBrightness: initialBrightness, mapBaseBrightness: 0,
         baseColor: initialColor, markerColor: initialColor, glowColor: [0, 0, 0],
         markers: [], arcs: [], context: contextOptions
       })
