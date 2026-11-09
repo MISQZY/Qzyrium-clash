@@ -51,6 +51,13 @@ export class ServiceManager {
     this.kernelService.setBroadcaster((channel, data) => {
       this.windowService.broadcast(channel, data)
       if (channel === 'event:core-status') {
+        if (data === 'running') {
+          void this.trayService.refreshProxies().then(() => {
+            this.trayService.updateContextMenu()
+          })
+        } else if (data === 'error' || data === 'stopped') {
+          this.trayService.clearProxies()
+        }
         this.trayService.updateContextMenu()
         // If core crashed or stopped, ensure OS system proxy is disabled so internet is not blocked
         if (data === 'error' || data === 'stopped') {

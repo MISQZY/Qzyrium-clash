@@ -61,6 +61,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
 
   ipcMain.handle(IPC_CHANNELS.MIHOMO_SELECT_PROXY, async (_, group: string, proxy: string) => {
     await services.kernelService.selectProxy(group, proxy)
+    services.trayService.setProxySelection(group, proxy)
   })
 
   ipcMain.handle(

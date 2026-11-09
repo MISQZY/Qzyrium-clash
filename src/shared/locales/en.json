@@ -14,5 +14,9 @@
   "connect": "Connect",
   "disconnect": "Disconnect",
   "tunRequiresAdmin": "TUN mode requires Administrator privileges. Restart as Administrator.",
-  "jsonConfig": "JSON configuration"
+  "jsonConfig": "JSON configuration",
+  "routingMode": "Routing mode",
+  "modeRule": "Rule",
+  "modeGlobal": "Global",
+  "modeDirect": "Direct"
 }
