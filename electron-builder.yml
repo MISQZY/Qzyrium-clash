@@ -28,9 +28,9 @@ win:
   target:
     - nsis
     - portable
-  artifactName: ${productName}_${version}_${arch}.${ext}
+  artifactName: Qzyrium-clash_${version}_${arch}.${ext}
 nsis:
-  artifactName: ${productName}_${version}_${arch}_setup.${ext}
+  artifactName: Qzyrium-clash_${version}_${arch}_setup.${ext}
   uninstallDisplayName: ${productName}
   allowToChangeInstallationDirectory: true
   oneClick: false

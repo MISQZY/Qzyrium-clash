@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*.*.*']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  checks:
+    name: Typecheck and ESLint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      # Static checks do not need Electron binaries or native dependency builds.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm typecheck
+      - run: pnpm lint
+
+  release:
+    name: Build and publish Windows release
+    needs: checks
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify tag matches the application version
+        run: node scripts/verify-release.cjs version
+      - name: Download Mihomo and geodata
+        run: pnpm prepare:resources
+      - name: Verify bundled runtime resources
+        run: node scripts/verify-release.cjs resources
+      - name: Build NSIS installer and portable executable
+        run: pnpm build:win
+      - name: Verify release assets
+        run: node scripts/verify-release.cjs assets
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Qzyrium-clash-${{ github.ref_name }}-windows-x64
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/latest.yml
+      # Publish once after both targets finish, so the updater sees a complete release.
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $releaseAssets = Get-ChildItem -Path dist/*.exe,dist/*.blockmap,dist/latest.yml -File | Select-Object -ExpandProperty FullName
+          gh release create $env:RELEASE_TAG @releaseAssets --repo $env:GITHUB_REPOSITORY --verify-tag --title $env:RELEASE_TAG --generate-notes
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
