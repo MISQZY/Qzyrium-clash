@@ -1,13 +1,31 @@
-import { ipcMain } from 'electron'
+import { nativeMessage } from '@shared/localization'
+import { app, dialog, ipcMain, shell } from 'electron'
+import { existsSync } from 'node:fs'
+import { readFile, writeFile } from 'node:fs/promises'
+import { basename } from 'node:path'
 import { AddProfileDto, IPC_CHANNELS } from '@shared/ipc'
+import { CustomRuleItem } from '@shared/profile'
 import { AppConfig } from '@shared/app-config'
+import type { CustomThemePack } from '@shared/theme'
 import { ServiceManager } from '../services/ServiceManager'
 import { logger } from '../utils/logger'
+import { isDeepStrictEqual } from 'node:util'
+import { validateAppConfig } from '@shared/settings-validation'
+import { pacScript } from '../utils/pac'
+import { isProcessElevated, restartAsAdmin } from '../utils/elevation'
 
 export function registerIpcHandlers(services: ServiceManager): void {
   logger.info('Registering type-safe IPC handlers...')
+  const profileUpdates = new Map<string, Promise<void>>()
+  const restartActiveProfile = async (id: string | undefined): Promise<void> => {
+    const status = services.kernelService.getStatus()
+    if (id && services.profileService.getActiveProfile()?.id === id && (status === 'running' || status === 'starting')) {
+      await services.kernelService.restart()
+    }
+  }
 
   // --- Kernel Channels ---
+  ipcMain.handle(IPC_CHANNELS.KERNEL_GET_SESSION_STARTED_AT, () => services.kernelService.getSessionStartedAt())
   ipcMain.handle(IPC_CHANNELS.KERNEL_GET_STATUS, () => {
     return services.kernelService.getStatus()
   })
@@ -60,6 +78,8 @@ export function registerIpcHandlers(services: ServiceManager): void {
     return await services.kernelService.getConnections()
   })
 
+  ipcMain.handle(IPC_CHANNELS.MIHOMO_GET_GLOBE_LOCATIONS, () => services.kernelService.getGlobeLocations())
+
   ipcMain.handle(IPC_CHANNELS.MIHOMO_CLOSE_CONNECTION, async (_, id: string) => {
     await services.kernelService.closeConnection(id)
   })
@@ -78,33 +98,77 @@ export function registerIpcHandlers(services: ServiceManager): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.PROFILE_SET_ACTIVE, async (_, id: string) => {
+    const previousId = services.profileService.getActiveProfile()?.id
     await services.profileService.setActiveProfile(id)
-    await services.kernelService.restart()
+    if (previousId !== id) await restartActiveProfile(id)
   })
 
   ipcMain.handle(IPC_CHANNELS.PROFILE_ADD, async (_, dto: AddProfileDto) => {
     const item = await services.profileService.addProfile(dto)
-    await services.kernelService.restart()
+    await restartActiveProfile(item.id)
     return item
   })
 
   ipcMain.handle(IPC_CHANNELS.PROFILE_DELETE, async (_, id: string) => {
+    const active = services.profileService.getActiveProfile()?.id === id
     await services.profileService.deleteProfile(id)
-    await services.kernelService.restart()
+    // Removing the final active profile also requires a default kernel configuration.
+    if (active && ['running', 'starting'].includes(services.kernelService.getStatus())) {
+      await services.kernelService.restart()
+    }
   })
 
-  ipcMain.handle(IPC_CHANNELS.PROFILE_UPDATE, async (_, id: string) => {
-    await services.profileService.updateProfile(id)
-    await services.kernelService.restart()
+  ipcMain.handle(IPC_CHANNELS.PROFILE_GET_CUSTOM_RULES, (_, id: string) => {
+    return services.profileService.getCustomRules(id)
+  })
+
+  ipcMain.handle(
+    IPC_CHANNELS.PROFILE_SAVE_CUSTOM_RULES,
+    async (_, id: string, rules: CustomRuleItem[]) => {
+      if (await services.profileService.saveCustomRules(id, rules)) await restartActiveProfile(id)
+    }
+  )
+
+  ipcMain.handle(IPC_CHANNELS.PROFILE_GET_RAW_CONFIG, (_, id: string) => {
+    return services.profileService.getProfileContent(id)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.PROFILE_SAVE_RAW_CONFIG, async (_, id: string, content: string) => {
+    if (await services.profileService.saveProfileContent(id, content)) await restartActiveProfile(id)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.PROFILE_UPDATE_INFO, async (_, id: string, patch: Record<string, unknown>) => {
+    return services.profileService.updateProfileInfo(id, patch)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.PROFILE_UPDATE, (_, id: string) => {
+    const pending = profileUpdates.get(id)
+    if (pending) return pending
+    const update = (async () => {
+      if (await services.profileService.updateProfile(id)) await restartActiveProfile(id)
+    })().finally(() => profileUpdates.delete(id))
+    profileUpdates.set(id, update)
+    return update
   })
 
   // --- System Proxy Channels ---
-  ipcMain.handle(IPC_CHANNELS.SYSPROXY_GET_STATUS, () => {
+  ipcMain.handle(IPC_CHANNELS.SYSPROXY_GET_STATUS, async () => {
+    await services.sysProxyService.waitForUpdates()
     return services.sysProxyService.getStatus()
   })
 
   ipcMain.handle(IPC_CHANNELS.SYSPROXY_SET, async (_, enable: boolean) => {
+    if (enable) {
+      const current = services.settingService.getSettings()
+      if (current.kernel.tun.enable) {
+        await services.settingService.updateSettings({ kernel: { ...current.kernel, tun: { ...current.kernel.tun, enable: false } } })
+        if (['running', 'starting'].includes(services.kernelService.getStatus())) {
+          await services.kernelService.restart()
+        }
+      }
+    }
     await services.sysProxyService.setSysProxy(enable)
+    services.trayService.updateContextMenu()
   })
 
   // --- App & Window Channels ---
@@ -113,11 +177,40 @@ export function registerIpcHandlers(services: ServiceManager): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.APP_UPDATE_SETTINGS, async (_, patch: Partial<AppConfig>) => {
-    const updated = await services.settingService.updateSettings(patch)
-    // If ports or tun changed, restart kernel
-    if (patch.kernel) {
+    const previous = services.settingService.getSettings()
+    const nextKernel = { ...previous.kernel, ...patch.kernel }
+    const candidate = { ...previous, ...patch, general: { ...previous.general, ...patch.general }, kernel: { ...nextKernel, tun: { ...previous.kernel.tun, ...patch.kernel?.tun } }, sysProxy: { ...previous.sysProxy, ...patch.sysProxy } }
+    validateAppConfig(candidate)
+    if (candidate.sysProxy.mode === 'pac') pacScript(candidate)
+
+    if (patch.kernel?.tun?.enable && !isProcessElevated()) {
+      throw new Error(nativeMessage(candidate.general.language, 'tunRequiresAdmin'))
+    }
+    if (patch.kernel?.tun?.enable) {
+      if (services.sysProxyService.getStatus().enabled) {
+        await services.sysProxyService.setSysProxy(false)
+      }
+    }
+    const kernelChanged = !isDeepStrictEqual(previous.kernel, nextKernel)
+    const modeOnly = kernelChanged && isDeepStrictEqual({ ...previous.kernel, mode: nextKernel.mode }, nextKernel)
+    // Routing mode is a live setting. Apply it before persisting so an API
+    // rejection leaves the saved mode and the renderer's selection unchanged.
+    if (modeOnly && services.kernelService.getStatus() === 'running') {
+      await services.kernelService.patchConfigs({ mode: nextKernel.mode })
+    }
+    if (patch.general) services.desktopService?.applySettings(candidate)
+    let updated: AppConfig
+    try { updated = await services.settingService.updateSettings(patch) }
+    catch (err) { if (patch.general) services.desktopService?.applySettings(previous); throw err }
+    if (kernelChanged && !modeOnly && ['running', 'starting'].includes(services.kernelService.getStatus())) {
       await services.kernelService.restart()
     }
+    if (patch.sysProxy || (previous.kernel.mixedPort !== updated.kernel.mixedPort && updated.sysProxy.enable)) {
+      // Reapply changed bypass rules/port to Windows as well as the saved config.
+      await services.sysProxyService.setSysProxy(updated.sysProxy.enable)
+    }
+    if (patch.general) services.windowService.updateTheme()
+    services.trayService.updateContextMenu()
     return updated
   })
 
@@ -135,6 +228,95 @@ export function registerIpcHandlers(services: ServiceManager): void {
 
   ipcMain.handle(IPC_CHANNELS.APP_OPEN_FOLDER, async (_, target: 'logs' | 'data' | 'profiles') => {
     await services.windowService.openFolder(target)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.APP_IS_ELEVATED, () => {
+    return isProcessElevated()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.APP_RESTART_AS_ADMIN, async () => {
+    await services.desktopService.dispose()
+    await services.kernelService.stop()
+    await services.sysProxyService.setSysProxy(false)
+    restartAsAdmin()
+  })
+
+  const iconCache = new Map<string, string>()
+
+  ipcMain.handle(IPC_CHANNELS.APP_GET_PROCESS_ICON, async (_, processPath: string) => {
+    if (!processPath || typeof processPath !== 'string') return null
+    if (iconCache.has(processPath)) return iconCache.get(processPath) || null
+    try {
+      if (existsSync(processPath)) {
+        const icon = await app.getFileIcon(processPath, { size: 'normal' })
+        if (icon && !icon.isEmpty()) {
+          const dataUrl = icon.toDataURL()
+          iconCache.set(processPath, dataUrl)
+          return dataUrl
+        }
+      }
+    } catch {
+      // Ignore file icon extraction failures
+    }
+    iconCache.set(processPath, '')
+    return null
+  })
+
+  ipcMain.handle(IPC_CHANNELS.APP_GET_APP_VERSION, () => {
+    return app.getVersion()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.APP_CHECK_UPDATES, () => services.updateService.checkUpdates())
+  ipcMain.handle(IPC_CHANNELS.APP_GET_UPDATER_STATUS, () => services.updateService.getStatus())
+  ipcMain.handle(IPC_CHANNELS.APP_DOWNLOAD_UPDATE, () => services.updateService.downloadUpdate())
+  ipcMain.handle(IPC_CHANNELS.APP_GET_WHATS_NEW, () => services.updateService.getWhatsNew())
+
+  ipcMain.handle(IPC_CHANNELS.APP_OPEN_URL, async (_, url: string) => {
+    if (typeof url === 'string' && url.startsWith('https://')) {
+      await shell.openExternal(url)
+    }
+  })
+
+  // --- Custom Themes & Config Files ---
+  ipcMain.handle(IPC_CHANNELS.THEME_GET_CUSTOM_THEMES, (): CustomThemePack[] => {
+    return services.themeStore.listThemes()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.THEME_SAVE_CUSTOM_THEME, (_event, pack: CustomThemePack): CustomThemePack[] => {
+    return services.themeStore.saveTheme(pack)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.THEME_DELETE_CUSTOM_THEME, (_event, id: string): CustomThemePack[] => {
+    return services.themeStore.deleteTheme(id)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.WINDOW_SET_TITLEBAR_OVERLAY, (_event, overlay: { color?: string; symbolColor?: string }): void => {
+    services.windowService.setTitleBarOverlay(overlay)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.CONFIG_OPEN_JSON_FILE, async (): Promise<{ fileName: string; content: string } | null> => {
+    const win = services.windowService.getMainWindow()
+    if (!win) return null
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      filters: [{ name: nativeMessage(services.settingService.getSettings().general.language, 'jsonConfig'), extensions: ['json'] }]
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    const filePath = result.filePaths[0]
+    const content = await readFile(filePath, 'utf-8')
+    return { fileName: basename(filePath), content }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.CONFIG_SAVE_TEXT_FILE, async (_event, defaultFileName: string, content: string): Promise<boolean> => {
+    const win = services.windowService.getMainWindow()
+    if (!win) return false
+    const result = await dialog.showSaveDialog(win, {
+      defaultPath: defaultFileName,
+      filters: [{ name: nativeMessage(services.settingService.getSettings().general.language, 'jsonConfig'), extensions: ['json'] }]
+    })
+    if (result.canceled || !result.filePath) return false
+    await writeFile(result.filePath, content, 'utf-8')
+    return true
   })
 
   logger.info('IPC handlers registered successfully.')

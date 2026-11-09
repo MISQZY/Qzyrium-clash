@@ -17,7 +17,8 @@ export class MihomoApiClient extends EventEmitter {
 
   private trafficWs: WebSocket | null = null
   private logsWs: WebSocket | null = null
-  private memoryWs: WebSocket | null = null
+  private trafficTimer: ReturnType<typeof setTimeout> | null = null
+  private logsTimer: ReturnType<typeof setTimeout> | null = null
   private shouldStreamTraffic = false
   private shouldStreamLogs = false
   private currentLogLevel = 'info'
@@ -77,6 +78,11 @@ export class MihomoApiClient extends EventEmitter {
     return res.data.proxies || {}
   }
 
+  async resolveHost(name: string): Promise<string[]> {
+    const { data } = await this.client.get<{ Answer?: { type: number; data: string }[] }>('/dns/query', { params: { name, type: 'A' } })
+    return (data.Answer ?? []).filter((answer) => answer.type === 1 || answer.type === 28).map((answer) => answer.data)
+  }
+
   async selectProxy(groupName: string, proxyName: string): Promise<void> {
     await this.client.put(`/proxies/${encodeURIComponent(groupName)}`, {
       name: proxyName
@@ -91,7 +97,8 @@ export class MihomoApiClient extends EventEmitter {
     const res = await this.client.get<{ delay: number }>(
       `/proxies/${encodeURIComponent(proxyName)}/delay`,
       {
-        params: { url, timeout }
+        params: { url, timeout },
+        timeout: timeout + 1000
       }
     )
     return res.data.delay
@@ -103,8 +110,11 @@ export class MihomoApiClient extends EventEmitter {
   }
 
   async getConnections(): Promise<ConnectionsSnapshot> {
-    const res = await this.client.get<ConnectionsSnapshot>('/connections')
-    return res.data
+    const res = await this.client.get<Omit<ConnectionsSnapshot, 'connections'> & {
+      connections: ConnectionsSnapshot['connections'] | null
+    }>('/connections')
+    // The core can return null when there are no active connections.
+    return { ...res.data, connections: res.data.connections ?? [] }
   }
 
   async closeConnection(id: string): Promise<void> {
@@ -140,7 +150,9 @@ export class MihomoApiClient extends EventEmitter {
     this.trafficWs.on('close', () => {
       this.trafficWs = null
       if (this.shouldStreamTraffic) {
-        setTimeout(() => {
+        if (this.trafficTimer) clearTimeout(this.trafficTimer)
+        this.trafficTimer = setTimeout(() => {
+          this.trafficTimer = null
           if (this.shouldStreamTraffic) this.startTrafficStream()
         }, 2000)
       }
@@ -149,6 +161,10 @@ export class MihomoApiClient extends EventEmitter {
 
   stopTrafficStream(): void {
     this.shouldStreamTraffic = false
+    if (this.trafficTimer) {
+      clearTimeout(this.trafficTimer)
+      this.trafficTimer = null
+    }
     if (this.trafficWs) {
       this.trafficWs.terminate()
       this.trafficWs = null
@@ -184,7 +200,9 @@ export class MihomoApiClient extends EventEmitter {
     this.logsWs.on('close', () => {
       this.logsWs = null
       if (this.shouldStreamLogs) {
-        setTimeout(() => {
+        if (this.logsTimer) clearTimeout(this.logsTimer)
+        this.logsTimer = setTimeout(() => {
+          this.logsTimer = null
           if (this.shouldStreamLogs) this.startLogStream(this.currentLogLevel)
         }, 2000)
       }
@@ -193,6 +211,10 @@ export class MihomoApiClient extends EventEmitter {
 
   stopLogStream(): void {
     this.shouldStreamLogs = false
+    if (this.logsTimer) {
+      clearTimeout(this.logsTimer)
+      this.logsTimer = null
+    }
     if (this.logsWs) {
       this.logsWs.terminate()
       this.logsWs = null

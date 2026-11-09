@@ -1,19 +1,23 @@
-import { ChildProcess, spawn, execSync } from 'child_process'
+import { ChildProcess, spawn, execFile } from 'child_process'
+import { promisify } from 'node:util'
+import axios from 'axios'
 import { existsSync } from 'fs'
 import { EventEmitter } from 'events'
 import { CoreState, LogEntry } from '@shared/types'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 
+const runFile = promisify(execFile)
+
 export class MihomoProcessManager extends EventEmitter {
   private childProcess: ChildProcess | null = null
   private state: CoreState = 'stopped'
   private binaryPath: string | null = null
   private explicitStop = false
+  private startSequence = 0
 
   constructor() {
     super()
-    this.resolveBinaryPath()
   }
 
   getState(): CoreState {
@@ -28,7 +32,8 @@ export class MihomoProcessManager extends EventEmitter {
     }
   }
 
-  private resolveBinaryPath(): string | null {
+  private async resolveBinaryPath(): Promise<string | null> {
+    if (this.binaryPath && existsSync(this.binaryPath)) return this.binaryPath
     const paths = getAppPaths()
     if (existsSync(paths.coreBinaryPath)) {
       this.binaryPath = paths.coreBinaryPath
@@ -37,9 +42,9 @@ export class MihomoProcessManager extends EventEmitter {
 
     // Check system PATH
     try {
-      const cmd = process.platform === 'win32' ? 'where mihomo.exe' : 'which mihomo'
-      const stdout = execSync(cmd, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
-      const firstLine = stdout.split(/\r?\n/)[0]
+      const { stdout } = await runFile(process.platform === 'win32' ? 'where.exe' : 'which',
+        [process.platform === 'win32' ? 'mihomo.exe' : 'mihomo'], { encoding: 'utf-8', windowsHide: true, timeout: 3000 })
+      const firstLine = stdout.trim().split(/\r?\n/)[0]
       if (firstLine && existsSync(firstLine)) {
         this.binaryPath = firstLine
         logger.info(`Discovered Mihomo core in system PATH: ${this.binaryPath}`)
@@ -64,11 +69,16 @@ export class MihomoProcessManager extends EventEmitter {
       logger.warn('Mihomo core is already running or starting')
       return
     }
+    if (this.childProcess) {
+      throw new Error('The previous Mihomo process has not stopped yet')
+    }
 
+    const sequence = ++this.startSequence
     this.explicitStop = false
     this.setState('starting')
 
-    const binary = this.resolveBinaryPath()
+    const binary = await this.resolveBinaryPath()
+    if (sequence !== this.startSequence || this.explicitStop || this.getState() !== 'starting') return
     if (!binary) {
       logger.warn('Cannot spawn Mihomo core binary: binary not found. Running in mock/standby mode.')
       this.setState('error')
@@ -93,27 +103,53 @@ export class MihomoProcessManager extends EventEmitter {
       args.push('-secret', secret)
     }
 
-    logger.info(`Spawning Mihomo: ${binary} ${args.join(' ')}`)
+    const sanitizedArgs = args.map((arg, idx) => (args[idx - 1] === '-secret' ? '[REDACTED]' : arg))
+    logger.info(`Spawning Mihomo: ${binary} ${sanitizedArgs.join(' ')}`)
+
+    let exitedPrematurely = false
+    let exitCode: number | null = null
 
     try {
-      this.childProcess = spawn(binary, args, {
+      const spawned = spawn(binary, args, {
         windowsHide: true,
         stdio: ['ignore', 'pipe', 'pipe']
       })
+      this.childProcess = spawned
 
-      this.childProcess.stdout?.on('data', (data: Buffer) => {
+      const onPrematureExit = (code: number | null) => {
+        if (this.startSequence === sequence && !this.explicitStop) {
+          exitedPrematurely = true
+          exitCode = code
+        }
+      }
+      spawned.once('exit', onPrematureExit)
+
+      spawned.stdout?.on('data', (data: Buffer) => {
         const text = data.toString('utf-8').trim()
         if (text) {
-          logger.debug(`[Mihomo stdout] ${text}`)
+          const isTunError = text.includes('Start TUN listening error') || text.includes('configure tun interface')
+          const isError = isTunError || text.includes('level=error')
+          const isWarning = text.includes('level=warning')
+          const logType: LogEntry['type'] = isError ? 'error' : isWarning ? 'warning' : 'info'
+
+          if (isTunError) {
+            logger.error(`[Mihomo TUN error] ${text}`)
+            this.emit('tun-error', text)
+          } else if (isError) {
+            logger.error(`[Mihomo stdout] ${text}`)
+          } else {
+            logger.debug(`[Mihomo stdout] ${text}`)
+          }
+
           this.emit('log', {
-            type: 'info',
+            type: logType,
             payload: text,
             time: new Date().toLocaleTimeString()
           } as LogEntry)
         }
       })
 
-      this.childProcess.stderr?.on('data', (data: Buffer) => {
+      spawned.stderr?.on('data', (data: Buffer) => {
         const text = data.toString('utf-8').trim()
         if (text) {
           logger.warn(`[Mihomo stderr] ${text}`)
@@ -125,13 +161,16 @@ export class MihomoProcessManager extends EventEmitter {
         }
       })
 
-      this.childProcess.on('error', (err) => {
+      spawned.on('error', (err) => {
+        if (this.childProcess !== spawned) return
         logger.error('Failed to spawn Mihomo process', err)
+        if (!spawned.pid) this.childProcess = null
         this.setState('error')
       })
 
-      this.childProcess.on('exit', (code, signal) => {
+      spawned.on('exit', (code, signal) => {
         logger.info(`Mihomo process exited with code ${code}, signal ${signal}`)
+        if (this.childProcess !== spawned) return
         this.childProcess = null
         if (!this.explicitStop) {
           this.setState('error')
@@ -140,20 +179,53 @@ export class MihomoProcessManager extends EventEmitter {
         }
       })
 
-      setTimeout(() => {
-        if (this.childProcess && !this.explicitStop && this.state === 'starting') {
-          this.setState('running')
-        }
-      }, 600)
+      await this.waitForReady(spawned, controllerPort, secret, sequence, () => exitedPrematurely, () => exitCode)
     } catch (err) {
       logger.error('Error starting Mihomo process', err)
-      this.setState('error')
+      if (sequence === this.startSequence && !this.explicitStop) this.setState('error')
       throw err
     }
   }
 
+  private async waitForReady(
+    child: ChildProcess,
+    port: number,
+    secret: string,
+    sequence: number,
+    isPrematurelyExited: () => boolean,
+    getExitCode: () => number | null
+  ): Promise<void> {
+    const deadline = Date.now() + 15_000
+    const current = () => this.childProcess === child && !this.explicitStop && this.state === 'starting' && this.startSequence === sequence
+    while (current() && Date.now() < deadline) {
+      if (isPrematurelyExited()) {
+        throw new Error(`Mihomo process terminated prematurely with exit code ${getExitCode()}`)
+      }
+      try {
+        const { data } = await axios.get(`http://127.0.0.1:${port}/version`, {
+          proxy: false, timeout: 500,
+          headers: secret ? { Authorization: `Bearer ${secret}` } : undefined
+        })
+        if (current() && typeof data?.version === 'string') {
+          this.setState('running')
+          return
+        }
+      } catch { /* The controller may still be loading its configuration. */ }
+      if (current()) await new Promise<void>((resolve) => setTimeout(resolve, 200))
+    }
+    if (isPrematurelyExited()) {
+      throw new Error(`Mihomo process terminated prematurely with exit code ${getExitCode()}`)
+    }
+    // An old probe must never change a replacement process's state.
+    if (this.startSequence !== sequence || this.explicitStop) return
+    if (this.state === 'starting') this.setState('error')
+    throw new Error('Mihomo controller did not become ready within 15 seconds')
+  }
+
   async stop(): Promise<void> {
-    if (!this.childProcess) {
+    this.startSequence++
+    const child = this.childProcess
+    if (!child) {
       this.setState('stopped')
       return
     }
@@ -161,22 +233,33 @@ export class MihomoProcessManager extends EventEmitter {
     this.explicitStop = true
     logger.info('Stopping Mihomo core process...')
 
-    try {
-      if (process.platform === 'win32' && this.childProcess.pid) {
-        try {
-          execSync(`taskkill /pid ${this.childProcess.pid} /t /f`, { stdio: 'ignore' })
-        } catch {
-          this.childProcess.kill()
+    // Wait for this child's exit before a replacement can bind the same ports.
+    // Keep the handle on failure so another start cannot orphan a live core.
+    await new Promise<void>((resolve, reject) => {
+      const onExit = () => { clearTimeout(timer); resolve() }
+      const timer = setTimeout(() => {
+        child.removeListener('exit', onExit)
+        reject(new Error('Timed out waiting for Mihomo to stop'))
+      }, 5000)
+      child.once('exit', onExit)
+      try {
+        if (process.platform === 'win32' && child.pid) {
+          try {
+            execFile('taskkill', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true }, (error) => {
+              if (error && this.childProcess === child) child.kill()
+            })
+          } catch {
+            child.kill()
+          }
+        } else {
+          child.kill('SIGTERM')
         }
-      } else {
-        this.childProcess.kill('SIGTERM')
+      } catch (err) {
+        clearTimeout(timer)
+        child.removeListener('exit', onExit)
+        reject(err)
       }
-    } catch (err) {
-      logger.error('Error stopping Mihomo process', err)
-    }
-
-    this.childProcess = null
-    this.setState('stopped')
+    })
   }
 
   async restart(

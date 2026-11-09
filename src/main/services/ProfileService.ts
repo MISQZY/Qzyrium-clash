@@ -1,42 +1,172 @@
 import fs from 'fs'
 import path from 'path'
 import axios from 'axios'
+import { isDeepStrictEqual } from 'node:util'
 import { AddProfileDto } from '@shared/ipc'
-import { ProfileItem } from '@shared/profile'
+import { ProfileItem, CustomRuleItem, ProfileUserInfo } from '@shared/profile'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 import { BaseService } from './BaseService'
+import { subscriptionName } from '../utils/subscription-name'
+import { parseSubscriptionImportUrl } from '@shared/clash-url'
+import type { SettingService } from './SettingService'
+import { subscriptionUserAgent } from '@shared/app-config'
+
+function parseUserInfo(header?: unknown): ProfileUserInfo | undefined {
+  if (!header || typeof header !== 'string') return undefined
+  const info: ProfileUserInfo = {}
+  const pairs = header.split(';')
+  for (const pair of pairs) {
+    const [k, v] = pair.trim().split('=')
+    if (!k || !v) continue
+    const key = k.toLowerCase().trim()
+    const num = Number(v.trim())
+    if (!isNaN(num)) {
+      if (key === 'upload') info.upload = num
+      else if (key === 'download') info.download = num
+      else if (key === 'total') info.total = num
+      else if (key === 'expire') info.expire = num
+    }
+  }
+  return Object.keys(info).length > 0 ? info : undefined
+}
+
+function getHeader(headers: Record<string, unknown> | undefined, key: string): string | undefined {
+  if (!headers) return undefined
+  const target = key.toLowerCase()
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() === target) {
+      if (typeof v === 'string') return v
+      if (Array.isArray(v) && typeof v[0] === 'string') return v[0]
+    }
+  }
+  return undefined
+}
+
+function parseProfileLogo(raw: string | undefined): string | undefined {
+  if (!raw || typeof raw !== 'string') return undefined
+  const trimmed = raw.trim()
+  try {
+    const url = new URL(trimmed)
+    if (url.protocol === 'https:') return trimmed
+  } catch {
+    // Invalid URL
+  }
+  return undefined
+}
+
+function parseSupportUrl(raw: string | undefined): string | undefined {
+  if (!raw || typeof raw !== 'string') return undefined
+  const trimmed = raw.trim()
+  try {
+    const url = new URL(trimmed)
+    if (url.protocol === 'https:') return trimmed
+  } catch {
+    // Invalid URL
+  }
+  return undefined
+}
+
+function parseAnnounce(raw: string | undefined): string | undefined {
+  if (!raw || typeof raw !== 'string') return undefined
+  let text = raw.trim()
+  if (!text) return undefined
+
+  if (/^base64:/i.test(text)) {
+    const encoded = text.slice(7).trim()
+    try {
+      const decoded = Buffer.from(encoded, 'base64').toString('utf8')
+      if (decoded && !decoded.includes('\ufffd')) return decoded.trim()
+    } catch {
+      // fallback
+    }
+  }
+
+  if (text.includes('%')) {
+    try {
+      text = decodeURIComponent(text)
+    } catch {
+      // keep original
+    }
+  }
+
+  if (/^[A-Za-z0-9+/=]+$/.test(text) && text.length > 8 && text.length % 4 === 0) {
+    try {
+      const decoded = Buffer.from(text, 'base64').toString('utf-8')
+      if (/[\p{L}\p{N}]/u.test(decoded) && !/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(decoded)) {
+        text = decoded
+      }
+    } catch {
+      // keep original
+    }
+  }
+  return text.trim() || undefined
+}
+
+function sanitizeUrl(rawUrl?: string): string {
+  if (!rawUrl) return ''
+  try {
+    const u = new URL(rawUrl)
+    for (const key of ['token', 'secret', 'password', 'key', 'auth']) {
+      if (u.searchParams.has(key)) u.searchParams.set(key, '[REDACTED]')
+    }
+    return u.toString()
+  } catch {
+    return '[REDACTED_URL]'
+  }
+}
 
 export class ProfileService implements BaseService {
   private profiles: ProfileItem[] = []
   private activeProfileId: string | null = null
   private profilesFilePath: string
   private profilesDir: string
+  private metadataSave: Promise<void> = Promise.resolve()
+  private updates = new Map<string, Promise<boolean>>()
 
-  constructor() {
+  constructor(private settingService?: SettingService) {
     const paths = getAppPaths()
     this.profilesFilePath = paths.profilesFilePath
     this.profilesDir = paths.profilesDir
   }
 
+  private validateProfileId(id: string): string {
+    if (!id || typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(id)) {
+      throw new Error(`Invalid profile id format: ${id}`)
+    }
+    const resolved = path.resolve(this.profilesDir, `${id}.yaml`)
+    const boundary = path.resolve(this.profilesDir)
+    if (!resolved.startsWith(boundary + path.sep) && resolved !== boundary) {
+      throw new Error(`Directory traversal detected: ${id}`)
+    }
+    return resolved
+  }
+
   async initialize(): Promise<void> {
     try {
-      if (fs.existsSync(this.profilesFilePath)) {
-        const raw = fs.readFileSync(this.profilesFilePath, 'utf-8')
-        this.profiles = JSON.parse(raw)
-        logger.info(`Loaded ${this.profiles.length} profiles from disk`)
-      } else {
-        this.profiles = []
-        this.saveProfilesList()
-      }
+      const raw = await fs.promises.readFile(this.profilesFilePath, 'utf-8')
+      this.profiles = JSON.parse(raw)
+      this.activeProfileId = this.settingService?.getSettings().activeProfileId ?? null
+      logger.info(`Loaded ${this.profiles.length} profiles from disk`)
     } catch (err) {
-      logger.error('Failed to load profiles metadata', err)
-      this.profiles = []
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        await this.saveProfilesList()
+        return
+      }
+      try {
+        const bak = await fs.promises.readFile(`${this.profilesFilePath}.bak`, 'utf-8')
+        this.profiles = JSON.parse(bak)
+        this.activeProfileId = this.settingService?.getSettings().activeProfileId ?? null
+        logger.warn('Recovered profiles metadata from backup file (.bak)')
+      } catch {
+        logger.error('Failed to load profiles metadata', err)
+        this.profiles = []
+      }
     }
   }
 
   async dispose(): Promise<void> {
-    this.saveProfilesList()
+    await this.saveProfilesList()
   }
 
   getProfiles(): ProfileItem[] {
@@ -54,96 +184,217 @@ export class ProfileService implements BaseService {
       throw new Error(`Profile ${id} not found`)
     }
     this.activeProfileId = id
+    await this.settingService?.updateSettings({ activeProfileId: id })
     logger.info(`Active profile switched to: ${found.name} (${id})`)
   }
 
-  getProfileContent(id: string): string | null {
-    const filePath = path.join(this.profilesDir, `${id}.yaml`)
-    if (fs.existsSync(filePath)) {
-      return fs.readFileSync(filePath, 'utf-8')
+  async getProfileContent(id: string): Promise<string | null> {
+    const filePath = this.validateProfileId(id)
+    try {
+      return await fs.promises.readFile(filePath, 'utf-8')
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
+      return null
     }
-    return null
+  }
+
+  getCustomRules(id: string): CustomRuleItem[] {
+    const found = this.profiles.find((p) => p.id === id)
+    return found?.customRules || []
+  }
+
+  async saveCustomRules(id: string, rules: CustomRuleItem[]): Promise<boolean> {
+    const found = this.profiles.find((p) => p.id === id)
+    if (!found) throw new Error(`Profile ${id} not found`)
+    if (isDeepStrictEqual(found.customRules || [], rules)) return false
+    found.customRules = rules
+    found.updatedAt = Date.now()
+    await this.saveProfilesList()
+    logger.info(`Saved ${rules.length} custom rules for profile ${found.name} (${id})`)
+    return true
+  }
+
+  async saveProfileContent(id: string, content: string): Promise<boolean> {
+    const filePath = this.validateProfileId(id)
+    if (await this.getProfileContent(id) === content) return false
+    await fs.promises.writeFile(filePath, content, 'utf-8')
+    const found = this.profiles.find((p) => p.id === id)
+    if (found) {
+      found.updatedAt = Date.now()
+      await this.saveProfilesList()
+    }
+    logger.info(`Saved raw YAML content for profile ${id}`)
+    return true
+  }
+
+  async updateProfileInfo(id: string, patch: Partial<ProfileItem>): Promise<ProfileItem> {
+    const found = this.profiles.find((p) => p.id === id)
+    if (!found) throw new Error(`Profile ${id} not found`)
+    if (patch.interval !== undefined && (!Number.isInteger(patch.interval) || patch.interval < 15 || patch.interval > 43200)) throw new Error('Profile update interval must be between 15 and 43200 minutes')
+    if (patch.name !== undefined) {
+      found.name = patch.name.trim()
+      found.nameSource = 'manual'
+    }
+    if (patch.url !== undefined) {
+      found.url = patch.url.trim()
+    }
+    if (patch.autoUpdate !== undefined) {
+      found.autoUpdate = patch.autoUpdate
+    }
+    if (patch.interval !== undefined) {
+      found.interval = patch.interval
+    }
+    if (patch.customUA !== undefined) {
+      found.customUA = patch.customUA.trim() || undefined
+    }
+    found.updatedAt = Date.now()
+    await this.saveProfilesList()
+    logger.info(`Updated info for profile ${found.name} (${id})`)
+    return found
   }
 
   async addProfile(dto: AddProfileDto): Promise<ProfileItem> {
     const id = Date.now().toString(36) + Math.random().toString(36).substring(2, 6)
     let content = dto.content || ''
+    let providerName: string | undefined
+    let userInfo: ProfileUserInfo | undefined
+    let profileLogo: string | undefined
+    let announce: string | undefined
+    let supportUrl: string | undefined
 
-    if (dto.type === 'remote' && dto.url) {
-      logger.info(`Fetching remote subscription from: ${dto.url}`)
-      const res = await axios.get(dto.url, {
+    let targetUrl = dto.url?.trim()
+    if (targetUrl) {
+      const parsed = parseSubscriptionImportUrl(targetUrl)
+      targetUrl = parsed.url
+      if (!dto.name?.trim() && parsed.name) {
+        dto.name = parsed.name
+      }
+    }
+
+    if (dto.type === 'remote' && targetUrl) {
+      logger.info(`Fetching remote subscription from: ${sanitizeUrl(targetUrl)}`)
+      const res = await axios.get(targetUrl, {
         timeout: 15000,
         headers: {
-          'User-Agent': 'clash.meta / QzyriumVPN'
+          'User-Agent': subscriptionUserAgent(this.settingService?.getSettings().general.userAgent)
         }
       })
       content = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
+      providerName = subscriptionName(res.headers, content)
+      userInfo = parseUserInfo(res.headers?.['subscription-userinfo'])
+      profileLogo = parseProfileLogo(getHeader(res.headers, 'profile-logo'))
+      announce = parseAnnounce(getHeader(res.headers, 'announce') || getHeader(res.headers, 'profile-announce'))
+      supportUrl = parseSupportUrl(getHeader(res.headers, 'support-url'))
     }
 
-    const filePath = path.join(this.profilesDir, `${id}.yaml`)
-    fs.writeFileSync(filePath, content, 'utf-8')
+    const filePath = this.validateProfileId(id)
+    await fs.promises.writeFile(filePath, content, 'utf-8')
 
     const item: ProfileItem = {
       id,
-      name: dto.name,
-      url: dto.url,
+      name: dto.name?.trim() || providerName || 'Без названия',
+      nameSource: dto.name?.trim() ? 'manual' : providerName ? 'subscription' : 'fallback',
+      url: targetUrl,
       type: dto.type,
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      userInfo,
+      profileLogo,
+      announce,
+      supportUrl
     }
 
-    this.profiles.push(item)
-    this.saveProfilesList()
-
-    if (!this.activeProfileId) {
+    if (!this.getActiveProfile()) {
       this.activeProfileId = id
+      await this.settingService?.updateSettings({ activeProfileId: id })
     }
+    this.profiles.push(item)
+    await this.saveProfilesList()
 
-    logger.info(`Added profile: ${dto.name} (${id})`)
+    logger.info(`Added profile: ${item.name} (${id})`)
     return item
   }
 
-  async updateProfile(id: string): Promise<void> {
+  updateProfile(id: string): Promise<boolean> {
+    const pending = this.updates.get(id)
+    if (pending) return pending
+    const update = this.fetchProfileUpdate(id).finally(() => this.updates.delete(id))
+    this.updates.set(id, update)
+    return update
+  }
+
+  private async fetchProfileUpdate(id: string): Promise<boolean> {
     const item = this.profiles.find((p) => p.id === id)
     if (!item) throw new Error(`Profile not found: ${id}`)
 
     if (item.type === 'remote' && item.url) {
-      logger.info(`Updating remote profile ${item.name} from ${item.url}`)
+      logger.info(`Updating remote profile ${item.name} from ${sanitizeUrl(item.url)}`)
       const res = await axios.get(item.url, {
         timeout: 15000,
         headers: {
-          'User-Agent': 'clash.meta / QzyriumVPN'
+          'User-Agent': item.customUA || subscriptionUserAgent(this.settingService?.getSettings().general.userAgent)
         }
       })
       const content = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
-      const filePath = path.join(this.profilesDir, `${id}.yaml`)
-      fs.writeFileSync(filePath, content, 'utf-8')
-      item.updatedAt = Date.now()
-      this.saveProfilesList()
+      // A subscription can be removed while its download is in flight.
+      if (!this.profiles.includes(item)) return false
+      const changed = await this.saveProfileContent(id, content)
+      const providerName = subscriptionName(res.headers, content)
+      const userInfo = parseUserInfo(res.headers?.['subscription-userinfo'])
+      const profileLogo = parseProfileLogo(getHeader(res.headers, 'profile-logo'))
+      const announce = parseAnnounce(getHeader(res.headers, 'announce') || getHeader(res.headers, 'profile-announce'))
+      const supportUrl = parseSupportUrl(getHeader(res.headers, 'support-url'))
+      let metadataChanged = false
+      if (userInfo && !isDeepStrictEqual(item.userInfo, userInfo)) {
+        item.userInfo = userInfo
+        metadataChanged = true
+      }
+      if (profileLogo !== item.profileLogo) {
+        item.profileLogo = profileLogo
+        metadataChanged = true
+      }
+      if (announce !== item.announce) {
+        item.announce = announce
+        metadataChanged = true
+      }
+      if (supportUrl !== item.supportUrl) {
+        item.supportUrl = supportUrl
+        metadataChanged = true
+      }
+      // Existing profiles without provenance retain their user-chosen names.
+      if (providerName && item.nameSource && item.nameSource !== 'manual' && (item.name !== providerName || item.nameSource === 'fallback')) {
+        item.name = providerName
+        item.nameSource = 'subscription'
+        metadataChanged = true
+      }
+      if (metadataChanged) {
+        await this.saveProfilesList()
+      }
+      return changed
     }
+    return false
   }
 
   async deleteProfile(id: string): Promise<void> {
+    const filePath = this.validateProfileId(id)
     this.profiles = this.profiles.filter((p) => p.id !== id)
-    const filePath = path.join(this.profilesDir, `${id}.yaml`)
-    if (fs.existsSync(filePath)) {
-      try {
-        fs.unlinkSync(filePath)
-      } catch {
-        // ignore
-      }
+    try {
+      await fs.promises.unlink(filePath)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
     }
     if (this.activeProfileId === id) {
       this.activeProfileId = this.profiles[0]?.id || null
+      await this.settingService?.updateSettings({ activeProfileId: this.activeProfileId })
     }
-    this.saveProfilesList()
+    await this.saveProfilesList()
     logger.info(`Deleted profile: ${id}`)
   }
 
-  private saveProfilesList(): void {
-    try {
-      fs.writeFileSync(this.profilesFilePath, JSON.stringify(this.profiles, null, 2), 'utf-8')
-    } catch (err) {
-      logger.error('Failed to save profiles list', err)
-    }
+  private saveProfilesList(): Promise<void> {
+    const content = JSON.stringify(this.profiles, null, 2)
+    // Preserve write order so a slower earlier save cannot overwrite newer metadata.
+    const save = this.metadataSave.then(() => fs.promises.writeFile(this.profilesFilePath, content, 'utf-8'))
+    this.metadataSave = save.catch((err) => logger.error('Failed to save profiles list', err))
+    return save
   }
 }

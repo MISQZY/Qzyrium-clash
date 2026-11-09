@@ -15,6 +15,16 @@ export class Logger {
     const formatted = `[${time}] [${level.toUpperCase()}] ${message}\n`
     console.log(formatted.trim())
     try {
+      if (fs.existsSync(this.logFilePath)) {
+        const stats = fs.statSync(this.logFilePath)
+        if (stats.size > 10 * 1024 * 1024) {
+          const backup = `${this.logFilePath}.1`
+          try {
+            if (fs.existsSync(backup)) fs.unlinkSync(backup)
+            fs.renameSync(this.logFilePath, backup)
+          } catch {}
+        }
+      }
       fs.appendFileSync(this.logFilePath, formatted, { encoding: 'utf-8' })
     } catch {
       // Ignore write errors to prevent crashes

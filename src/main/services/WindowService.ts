@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, nativeTheme, shell } from 'electron'
 import { execFile } from 'child_process'
 import path from 'path'
 import { is } from '@electron-toolkit/utils'
@@ -31,16 +31,20 @@ export class WindowService implements BaseService {
   private mainWindow: BrowserWindow | null = null
   private settingService: SettingService
   private isQuitting = false
+  private startHidden = false
 
   constructor(settingService: SettingService) {
     this.settingService = settingService
   }
 
   async initialize(): Promise<void> {
+    this.startHidden = !!this.settingService.getSettings().general.silentStart
     await this.createWindow()
+    nativeTheme.on('updated', this.updateTheme)
   }
 
   async dispose(): Promise<void> {
+    nativeTheme.removeListener('updated', this.updateTheme)
     this.isQuitting = true
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.close()
@@ -55,6 +59,27 @@ export class WindowService implements BaseService {
     return this.mainWindow
   }
 
+  updateTheme = (): void => {
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) return
+    const theme = this.settingService.getSettings().general.theme
+    const dark = theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors)
+    this.mainWindow.setBackgroundColor(dark ? '#121615' : '#f7f9f8')
+    if (process.platform === 'win32') {
+      this.mainWindow.setTitleBarOverlay({ color: '#00000000', symbolColor: dark ? '#b4b9b7' : '#636a67', height: 36 })
+    }
+  }
+
+  setTitleBarOverlay = (overlay: { color?: string; symbolColor?: string }): void => {
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) return
+    if (process.platform === 'win32') {
+      this.mainWindow.setTitleBarOverlay({
+        color: '#00000000',
+        symbolColor: overlay.symbolColor ?? '#b4b9b7',
+        height: 36
+      })
+    }
+  }
+
   broadcast(channel: string, data: unknown): void {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.webContents.send(channel, data)
@@ -65,37 +90,61 @@ export class WindowService implements BaseService {
     const isDev = is.dev && process.env['ELECTRON_RENDERER_URL']
 
     const titleBarOverlay = process.platform === 'win32'
-      ? { color: '#161c1a', symbolColor: '#9ca3af', height: 36 }
+      ? { color: '#00000000', symbolColor: '#b4b9b7', height: 36 }
       : undefined
 
     this.mainWindow = new BrowserWindow({
+      title: 'Qzyrium - clash',
+      icon: path.join(app.getAppPath(), 'resources', 'icon.png'),
       width: 1040,
       height: 720,
       minWidth: 840,
-      minHeight: 560,
-      show: true,
+      minHeight: 620,
+      show: !this.startHidden,
       center: true,
       titleBarStyle: 'hidden',
       titleBarOverlay,
       autoHideMenuBar: true,
       backgroundColor: '#121615',
       webPreferences: {
+        spellcheck: false,
         preload: path.join(__dirname, '../preload/index.js'),
-        sandbox: false,
+        sandbox: true,
         contextIsolation: true
       }
     })
 
+    // Deny all unsolicited web API permissions
+    this.mainWindow.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => {
+      callback(false)
+    })
+    this.mainWindow.webContents.session.setPermissionCheckHandler(() => false)
+
+    // Navigation security guards: block navigating the top frame or subframes away from app
+    this.mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+      const allowedOrigin = process.env.ELECTRON_RENDERER_URL || 'file://'
+      if (!navigationUrl.startsWith(allowedOrigin)) {
+        event.preventDefault()
+        logger.warn(`Blocked unauthorized navigation attempt to: ${navigationUrl}`)
+      }
+    })
+    this.mainWindow.webContents.on('will-frame-navigate', (event) => {
+      event.preventDefault()
+    })
+
     disableWindowTransitionAnimations(this.mainWindow)
+    this.updateTheme()
 
     this.mainWindow.on('ready-to-show', () => {
       logger.info('Main window ready-to-show event fired')
+      if (this.startHidden) return
       this.mainWindow?.show()
       this.mainWindow?.focus()
     })
 
     this.mainWindow.webContents.on('did-finish-load', () => {
       logger.info('Main window did-finish-load event fired')
+      if (this.startHidden) return
       this.mainWindow?.show()
       this.mainWindow?.focus()
     })
@@ -129,7 +178,16 @@ export class WindowService implements BaseService {
     })
 
     this.mainWindow.webContents.setWindowOpenHandler((details) => {
-      shell.openExternal(details.url)
+      try {
+        const parsed = new URL(details.url)
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          void shell.openExternal(details.url)
+        } else {
+          logger.warn(`Blocked opening unsafe external URL scheme: ${parsed.protocol}`)
+        }
+      } catch {
+        logger.warn(`Blocked invalid external URL: ${details.url}`)
+      }
       return { action: 'deny' }
     })
 
@@ -142,7 +200,7 @@ export class WindowService implements BaseService {
 
     // Force show fallback so the window is NEVER invisible
     setTimeout(() => {
-      if (this.mainWindow && !this.mainWindow.isDestroyed() && !this.mainWindow.isVisible()) {
+      if (!this.startHidden && this.mainWindow && !this.mainWindow.isDestroyed() && !this.mainWindow.isVisible()) {
         logger.info('Fallback showing main window after timeout')
         this.mainWindow.show()
       }
@@ -173,6 +231,7 @@ export class WindowService implements BaseService {
   }
 
   show(): void {
+    this.startHidden = false
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
       void this.createWindow()
       return

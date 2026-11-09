@@ -5,6 +5,10 @@ import { SettingService } from './SettingService'
 import { SysProxyService } from './SysProxyService'
 import { TrayService } from './TrayService'
 import { WindowService } from './WindowService'
+import { DesktopService } from './DesktopService'
+import { ThemeStore } from './ThemeStore'
+import { UpdateService } from './UpdateService'
+import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 
 export class ServiceManager {
@@ -14,26 +18,49 @@ export class ServiceManager {
   public kernelService: KernelService
   public windowService: WindowService
   public trayService: TrayService
+  public desktopService: DesktopService
+  public themeStore: ThemeStore
+  public updateService: UpdateService
 
   private services: BaseService[] = []
 
   constructor() {
     this.settingService = new SettingService()
-    this.profileService = new ProfileService()
+    this.profileService = new ProfileService(this.settingService)
     this.sysProxyService = new SysProxyService(this.settingService)
     this.kernelService = new KernelService(this.settingService, this.profileService)
     this.windowService = new WindowService(this.settingService)
     this.trayService = new TrayService(
       this.windowService,
       this.kernelService,
-      this.sysProxyService
+      this.sysProxyService,
+      this.settingService
     )
+    this.desktopService = new DesktopService(this.settingService, this.profileService, this.kernelService, this.sysProxyService, this.windowService, () => {
+      this.windowService.broadcast('event:settings-changed', null)
+      this.trayService.updateContextMenu()
+    })
+    this.themeStore = new ThemeStore(getAppPaths().userData)
+    this.updateService = new UpdateService((channel, payload) => this.windowService.broadcast(channel, payload), async () => {
+      await this.desktopService.dispose()
+      await this.kernelService.stop()
+      await this.sysProxyService.setSysProxy(false)
+    })
 
     // Route kernel broadcasts to renderer via WindowService
     this.kernelService.setBroadcaster((channel, data) => {
       this.windowService.broadcast(channel, data)
       if (channel === 'event:core-status') {
         this.trayService.updateContextMenu()
+        // If core crashed or stopped, ensure OS system proxy is disabled so internet is not blocked
+        if (data === 'error' || data === 'stopped') {
+          if (this.sysProxyService.getStatus().enabled) {
+            void this.sysProxyService.setSysProxy(false).then(() => {
+              this.windowService.broadcast('event:settings-changed', null)
+              this.trayService.updateContextMenu()
+            }).catch((error) => logger.error('Failed to disable system proxy after the core stopped', error))
+          }
+        }
       }
     })
 
@@ -41,10 +68,12 @@ export class ServiceManager {
     this.services = [
       this.settingService,
       this.profileService,
-      this.sysProxyService,
+      this.updateService,
       this.windowService,
+      this.sysProxyService,
+      this.trayService,
       this.kernelService,
-      this.trayService
+      this.desktopService
     ]
   }
 

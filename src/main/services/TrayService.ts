@@ -1,21 +1,27 @@
 import { app, Menu, nativeImage, Tray, NativeImage } from 'electron'
 import path from 'path'
-import { is } from '@electron-toolkit/utils'
 import { BaseService } from './BaseService'
 import { KernelService } from './KernelService'
 import { SysProxyService } from './SysProxyService'
 import { WindowService } from './WindowService'
+import { SettingService } from './SettingService'
+import en from '@shared/locales/en.json'
+import ru from '@shared/locales/ru.json'
+import { getVpnStatus, type VpnStatus } from '@shared/vpn-status'
+import { createTrayIcon } from '../utils/tray-icon'
 
 export class TrayService implements BaseService {
   private tray: Tray | null = null
   private windowService: WindowService
   private kernelService: KernelService
   private sysProxyService: SysProxyService
+  private statusIcons: Partial<Record<VpnStatus, NativeImage>> = {}
 
   constructor(
     windowService: WindowService,
     kernelService: KernelService,
-    sysProxyService: SysProxyService
+    sysProxyService: SysProxyService,
+    private settingService: SettingService
   ) {
     this.windowService = windowService
     this.kernelService = kernelService
@@ -31,14 +37,13 @@ export class TrayService implements BaseService {
       this.tray.destroy()
       this.tray = null
     }
+    this.statusIcons = {}
   }
 
   private createTray(): void {
     // Generate a default 16x16 icon in memory if file is not found
     let icon: NativeImage
-    const iconPath = is.dev
-      ? path.join(app.getAppPath(), 'resources', 'icon.png')
-      : path.join(process.resourcesPath, 'icon.png')
+    const iconPath = path.join(app.getAppPath(), 'resources', 'icon.png')
 
     try {
       icon = nativeImage.createFromPath(iconPath)
@@ -49,8 +54,11 @@ export class TrayService implements BaseService {
       icon = nativeImage.createEmpty()
     }
 
-    this.tray = new Tray(icon)
-    this.tray.setToolTip('QzyriumVPN')
+    for (const status of ['on', 'off', 'starting', 'error'] as const) {
+      this.statusIcons[status] = createTrayIcon(icon, status)
+    }
+    this.tray = new Tray(this.statusIcons.off!)
+    this.tray.setToolTip('Qzyrium - clash')
 
     this.tray.on('click', () => {
       this.windowService.show()
@@ -64,19 +72,36 @@ export class TrayService implements BaseService {
 
     const coreStatus = this.kernelService.getStatus()
     const sysProxyStatus = this.sysProxyService.getStatus()
+    const settings = this.settingService.getSettings()
+    const messages = settings.general.language === 'ru' ? ru : en
+    const status = getVpnStatus(coreStatus)
+    const statusMessage = messages[status === 'on' ? 'vpnOn' : status === 'off' ? 'vpnOff' : status]
+    this.tray.setImage(this.statusIcons[status]!)
+    this.tray.setToolTip(`Qzyrium - clash: ${statusMessage} (${messages[coreStatus]})`)
 
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: `QzyriumVPN [${coreStatus.toUpperCase()}]`,
+        label: `Qzyrium - clash [${messages[coreStatus]}]`,
         enabled: false
       },
       { type: 'separator' },
       {
-        label: 'Open Dashboard',
+        label: coreStatus === 'running' ? messages.disconnect : messages.connect,
+        click: async () => {
+          if (coreStatus === 'running') {
+            await this.kernelService.stop()
+          } else {
+            await this.kernelService.start()
+          }
+          this.updateContextMenu()
+        }
+      },
+      {
+        label: messages.open,
         click: () => this.windowService.show()
       },
       {
-        label: `System Proxy (${sysProxyStatus.enabled ? 'ON' : 'OFF'})`,
+        label: `${messages.proxy} (${sysProxyStatus.enabled ? messages.on : messages.off})`,
         click: async () => {
           await this.sysProxyService.setSysProxy(!sysProxyStatus.enabled)
           this.updateContextMenu()
@@ -84,14 +109,14 @@ export class TrayService implements BaseService {
       },
       { type: 'separator' },
       {
-        label: 'Restart Core',
+        label: messages.restart,
         click: async () => {
           await this.kernelService.restart()
           this.updateContextMenu()
         }
       },
       {
-        label: 'Quit',
+        label: messages.quit,
         click: () => {
           this.windowService.setQuitting(true)
           app.quit()
