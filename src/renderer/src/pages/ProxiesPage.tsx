@@ -647,7 +647,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
                               aria-pressed={isSelected}
                               onClick={() => onSelectNode(groupName, nodeName)}
                               className={cn(
-                                'relative flex items-center justify-between gap-2.5 p-2.5 rounded-lg border text-left text-xs transition-all cursor-pointer',
+                                'relative flex items-center justify-between gap-2.5 p-2.5 rounded-lg border text-left text-xs transition-colors cursor-pointer',
                                 isSelected
                                   ? 'border-primary bg-primary/10 text-foreground font-medium shadow-xs shadow-primary/15 ring-1 ring-primary/40'
                                   : 'border-border/70 bg-card hover:bg-muted/60 hover:border-border text-foreground/85 hover:text-foreground'
