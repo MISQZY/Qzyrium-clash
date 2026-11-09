@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+.pnpm-store/
 
 # Knowledge base & documentation
 /docs/
@@ -10,6 +11,7 @@ out/
 release/
 *.asar
 *.tsbuildinfo
+artifacts/
 
 # Local Mihomo binaries and downloaded runtime data
 extra/
@@ -21,6 +23,7 @@ data/
 # Operating system files
 .DS_Store
 Thumbs.db
+**/Microsoft/Spelling/
 
 # IDE and editor files
 .vscode/*

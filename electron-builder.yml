@@ -1,5 +1,10 @@
 appId: com.qzyrium.vpn
-productName: QzyriumVPN
+productName: 'Qzyrium - clash'
+publish:
+  provider: github
+  owner: MISQZY
+  repo: Qzyrium-clash
+  releaseType: release
 directories:
   buildResources: build
 files:
@@ -12,12 +17,14 @@ extraResources:
   - from: './extra/'
     to: ''
 protocols:
-  name: 'QzyriumVPN URI Scheme'
+  name: 'Qzyrium - clash URI Scheme'
   schemes:
     - 'clash'
     - 'mihomo'
     - 'qzyrium'
 win:
+  icon: resources/icon.ico
+  requestedExecutionLevel: asInvoker
   target:
     - nsis
     - portable
