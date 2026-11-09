@@ -1,0 +1,6 @@
+Emoji artwork: Twemoji 16.0.1, by Twitter, Inc. and other contributors.
+Source: https://github.com/jdecked/twemoji/tree/v16.0.1
+Graphics license: Creative Commons Attribution 4.0 International.
+https://creativecommons.org/licenses/by/4.0/
+Unmodified SVGs are loaded on demand from jsDelivr; Unicode/system-font
+fallback is retained when the network or an individual asset is unavailable.
