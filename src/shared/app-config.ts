@@ -53,11 +53,11 @@ export interface AppConfig {
   activeProfileId: string | null
 }
 
-export const DEFAULT_SUBSCRIPTION_USER_AGENT = 'Qzyrium-clash'
+export const DEFAULT_SUBSCRIPTION_USER_AGENT = 'clash.meta/qzyrium'
 
 export function subscriptionUserAgent(value?: string): string {
   const trimmed = value?.trim()
-  if (!trimmed || /^(?:clash\.meta\s*\/\s*)?qzyrium(?:vpn|\s*-\s*clash)$/i.test(trimmed)) {
+  if (!trimmed || /^(?:clash\.meta\s*(?:\/\s*qzyrium(?:vpn|\s*-\s*clash)?)?|qzyrium(?:vpn|\s*-\s*clash)?)$/i.test(trimmed)) {
     return DEFAULT_SUBSCRIPTION_USER_AGENT
   }
   return trimmed

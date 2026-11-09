@@ -241,7 +241,7 @@ if (process.type === 'renderer') {
       await setControl('#general-userAgent', '')
       await evaluate(`document.querySelector('button[form="settings-settings"]').click()`)
       await waitFor(`document.querySelector('button[form="settings-settings"]').disabled`)
-      assert.equal(await evaluate(`window.api.settings.get().then(s => s.general.userAgent)`), 'Qzyrium-clash', 'clearing a client preference restores its effective default')
+      assert.equal(await evaluate(`window.api.settings.get().then(s => s.general.userAgent)`), 'clash.meta/qzyrium', 'clearing a client preference restores its effective default')
       result.checks.push('Advanced TUN/core, PAC and client preferences serialize through the settings form')
       await navigate('Home')
       await waitFor(`document.querySelector('.overview-session-duration')?.textContent.startsWith('01:00:')`)
