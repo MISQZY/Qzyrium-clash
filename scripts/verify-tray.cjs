@@ -84,6 +84,85 @@ app.whenReady().then(async () => {
   assert.match(currentTray.tooltip, /Error/)
   await service.dispose()
   assert.equal(currentTray.destroyed, true)
+
+  // Verify Routing Mode and Selectors in tray context menu
+  let selectedProxy = { group: '', proxy: '' }
+  const proxiesData = {
+    PROXY: { name: 'PROXY', type: 'Selector', now: 'Node 1', all: ['Node 1', 'Node 2'] },
+    GLOBAL: { name: 'GLOBAL', type: 'Selector', now: 'PROXY', all: ['PROXY', 'DIRECT'] }
+  }
+  const testKernel = {
+    getStatus: () => core,
+    getProxies: async () => proxiesData,
+    selectProxy: async (g, p) => { selectedProxy = { group: g, proxy: p }; proxiesData[g].now = p },
+    patchConfigs: async () => {}
+  }
+  const testSettings = {
+    general: { language: 'ru' },
+    kernel: { mode: 'rule', tun: { enable: false } }
+  }
+  const testSettingService = {
+    getSettings: () => testSettings,
+    updateSettings: async (patch) => {
+      if (patch.kernel) testSettings.kernel = { ...testSettings.kernel, ...patch.kernel }
+      return testSettings
+    }
+  }
+  const testWinService = {
+    broadcast: () => {},
+    show: () => {},
+    setQuitting: () => {}
+  }
+  const fullService = new TrayService(testWinService, testKernel, { getStatus: () => ({ enabled: false }), setSysProxy: async () => {} }, testSettingService)
+  await fullService.initialize()
+
+  // When stopped: no selectors or proxy groups in tray menu
+  core = 'stopped'
+  fullService.updateContextMenu()
+  assert.equal(currentTray.menu.some(item => item.label === 'Селекторы'), false, 'Selectors item must not exist')
+  assert.equal(currentTray.menu.some(item => item.label?.startsWith('PROXY')), false, 'Proxy groups must not exist when stopped')
+
+  // When running:
+  core = 'running'
+  await fullService.refreshProxies()
+  fullService.updateContextMenu()
+
+  // Verify Routing mode menu
+  const modeItem = currentTray.menu.find(item => item.label?.startsWith('Режим маршрутизации'))
+  assert.ok(modeItem, 'Routing mode menu item must exist')
+  assert.equal(modeItem.submenu.length, 3, 'Must have 3 mode options')
+  const ruleOption = modeItem.submenu.find(i => i.label === 'По правилам')
+  assert.equal(ruleOption.checked, true, 'Rule mode must be checked')
+
+  // Verify no "Селекторы" item exists
+  assert.equal(currentTray.menu.some(item => item.label === 'Селекторы'), false, 'Selectors item must not exist')
+
+  // Verify proxy groups appear directly in tray context menu as subgroups
+  const proxyGroup = currentTray.menu.find(item => item.label?.startsWith('PROXY'))
+  assert.ok(proxyGroup, 'PROXY group must be present directly in tray menu')
+  assert.ok(Array.isArray(proxyGroup.submenu), 'PROXY group must have submenu')
+  const node2Option = proxyGroup.submenu.find(item => item.label === 'Node 2')
+  assert.ok(node2Option, 'Node 2 option must exist in PROXY group')
+  assert.equal(node2Option.checked, false, 'Node 2 must initially not be checked')
+  await node2Option.click()
+  assert.deepEqual(selectedProxy, { group: 'PROXY', proxy: 'Node 2' }, 'Proxy node selection must be sent to kernel')
+
+  fullService.updateContextMenu()
+  const updatedGroup = currentTray.menu.find(item => item.label?.startsWith('PROXY'))
+  assert.equal(updatedGroup.submenu.find(item => item.label === 'Node 2').checked, true, 'Node 2 must now be checked')
+
+  // Click Global mode and verify inner group selection in GLOBAL group
+  const globalOption = modeItem.submenu.find(i => i.label === 'Глобальный')
+  await globalOption.click()
+  assert.equal(testSettings.kernel.mode, 'global', 'Mode must switch to global')
+  fullService.updateContextMenu()
+  const globalGroup = currentTray.menu.find(item => item.label?.startsWith('GLOBAL'))
+  assert.ok(globalGroup, 'GLOBAL group must be present in global mode')
+  const innerProxyOption = globalGroup.submenu.find(item => item.label === 'PROXY')
+  assert.ok(innerProxyOption, 'Inner group PROXY must exist in GLOBAL group')
+  assert.equal(innerProxyOption.checked, true, 'Inner group PROXY must be checked')
+  await fullService.dispose()
+
   console.log('PASS: VPN state, rounded transparent corners, four colors, DPI scales and live tray updates')
   app.exit(0)
 }).catch(error => { console.error(error); app.exit(1) })
