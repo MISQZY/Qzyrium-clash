@@ -14,6 +14,12 @@ electronLanguages:
   - 'en'
   - 'ru'
 extraResources:
+  - from: LICENSE
+    to: licenses/GPL-3.0.txt
+  - from: THIRD_PARTY_NOTICES.md
+    to: licenses/THIRD_PARTY_NOTICES.md
+  - from: resources/licenses/
+    to: licenses/
   - from: './extra/'
     to: ''
 protocols:

@@ -1,0 +1,4 @@
+Country centroid coordinates: Google Developers, countries.csv (Dataset Publishing Language).
+https://developers.google.com/public-data/docs/canonical/countries_csv
+Licensed under Creative Commons Attribution 4.0: https://creativecommons.org/licenses/by/4.0/
+Coordinates are rounded to two decimal places, stored as [longitude, latitude], and used only as country-level GeoIP estimates.
