@@ -1,0 +1,17 @@
+{
+  "updateInstall": "Download and install v{version}",
+  "updateDownloading": "Downloading update: {percent}%",
+  "updateInstalling": "Installing update and restarting…",
+  "updateRetry": "Update failed. Click to check again.",
+  "whatsNewTitle": "What's new",
+  "whatsNewDescription": "Updated from v{from} to v{to}",
+  "whatsNewEmpty": "No release notes for this version.",
+  "workspace": "Workspace",
+  "applyingChanges": "Applying changes…",
+  "noActiveProfile": "No active profile",
+  "dismissError": "Dismiss error",
+  "interfacePreviewOpenQzyriumInElectronToConnectToMihomo": "Interface preview. Open Qzyrium in Electron to connect to Mihomo.",
+  "loadingWorkspace": "Loading workspace…",
+  "coreUnexpectedError": "The VPN core stopped unexpectedly or encountered an error. Check the logs.",
+  "tunStartRequiresAdmin": "Failed to start TUN: Administrator privileges are required. Restart as Administrator."
+}

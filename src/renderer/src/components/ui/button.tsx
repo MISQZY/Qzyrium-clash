@@ -3,12 +3,12 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@renderer/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent font-medium transition-all outline-none select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 cursor-pointer active:scale-[0.98]',
+  'inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent font-medium transition-colors outline-none select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 cursor-pointer',
   {
     variants: {
       variant: {
         default:
-          'bg-primary text-primary-foreground shadow-sm hover:brightness-110 shadow-primary/20',
+          'bg-primary text-primary-foreground hover:bg-primary/90',
         outline:
           'border-border bg-card/60 shadow-xs hover:bg-muted hover:text-foreground text-muted-foreground',
         secondary:
@@ -20,7 +20,7 @@ const buttonVariants = cva(
         success:
           'bg-success/15 text-success border border-success/30 hover:bg-success/25',
         glow:
-          'bg-primary text-primary-foreground shadow-[0_0_15px_var(--glow)] hover:shadow-[0_0_20px_var(--glow)] hover:brightness-105'
+          'bg-primary text-primary-foreground hover:bg-primary/90'
       },
       size: {
         default: 'h-9 px-3.5 py-1.5 text-xs gap-2',

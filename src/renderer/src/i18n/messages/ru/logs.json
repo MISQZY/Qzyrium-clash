@@ -1,0 +1,7 @@
+{
+  "logs": "Журнал",
+  "realtimeOutputStreamFromMihomoEngine": "События ядра Mihomo в реальном времени",
+  "autoscroll": "Автопрокрутка",
+  "clearLogs": "Очистить журнал",
+  "noLogEntriesRecordedYet": "В журнале пока нет записей."
+}

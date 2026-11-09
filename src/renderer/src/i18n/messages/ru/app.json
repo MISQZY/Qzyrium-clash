@@ -1,0 +1,17 @@
+{
+  "updateInstall": "Скачать и установить v{version}",
+  "updateDownloading": "Загрузка обновления: {percent}%",
+  "updateInstalling": "Установка обновления и перезапуск…",
+  "updateRetry": "Ошибка обновления. Нажмите, чтобы проверить снова.",
+  "whatsNewTitle": "Что нового",
+  "whatsNewDescription": "Обновлено с v{from} до v{to}",
+  "whatsNewEmpty": "Для этой версии нет списка изменений.",
+  "workspace": "Рабочая область",
+  "applyingChanges": "Применение изменений…",
+  "noActiveProfile": "Нет активного профиля",
+  "dismissError": "Закрыть сообщение об ошибке",
+  "interfacePreviewOpenQzyriumInElectronToConnectToMihomo": "Предпросмотр интерфейса. Откройте Qzyrium в Electron для подключения к Mihomo.",
+  "loadingWorkspace": "Загрузка рабочей области…",
+  "coreUnexpectedError": "Ядро VPN неожиданно остановилось или возникла ошибка. Проверьте журнал.",
+  "tunStartRequiresAdmin": "Не удалось запустить TUN: требуются права администратора. Перезапустите приложение от имени администратора."
+}

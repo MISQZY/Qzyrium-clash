@@ -1,0 +1,19 @@
+{
+  "dNS": "DNS",
+  "dNSResolutionUpstreamServersAndFakeIPBehavior": "Разрешение DNS, серверы и режим fake-IP.",
+  "sniffer": "Сниффер",
+  "detectHostnamesFromHTTPTLSAndQUICTraffic": "Определение доменных имён из трафика HTTP, TLS и QUIC.",
+  "resources": "Ресурсы",
+  "proxyProvidersRuleProvidersAndGeographicDatabases": "Провайдеры прокси, правил и географические базы данных.",
+  "managedByYourProfile": "Настраивается в профиле",
+  "providersAndGeographicDataAreConfiguredInTheActiveMihomoProfileProviderDownloadsAndUpdatesAreNotExposedInThisVersionOfQzyrium": "Провайдеры и географические базы настраиваются в активном профиле Mihomo. Загрузка и обновление провайдеров пока недоступны в Qzyrium.",
+  "activeProfile": "Активный профиль",
+  "remoteSubscription": "Удалённая подписка",
+  "localYAMLConfiguration": "Локальная конфигурация YAML",
+  "noneSelected": "Не выбран",
+  "manageProfiles": "Управление профилями",
+  "configurationFields": "Поля конфигурации",
+  "theseKeysAreReadFromYourProfileByMihomo": "Mihomo читает эти параметры из вашего профиля.",
+  "openApplicationData": "Открыть папку данных",
+  "profileSettings": "Настройки раздела «{title}» берутся из активного профиля Mihomo. Добавьте локальный YAML или подписку с нужной конфигурацией."
+}

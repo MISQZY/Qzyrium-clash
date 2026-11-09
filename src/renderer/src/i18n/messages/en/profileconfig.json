@@ -1,0 +1,19 @@
+{
+  "dNS": "DNS",
+  "dNSResolutionUpstreamServersAndFakeIPBehavior": "DNS resolution, upstream servers and fake-IP behavior.",
+  "sniffer": "Sniffer",
+  "detectHostnamesFromHTTPTLSAndQUICTraffic": "Detect hostnames from HTTP, TLS and QUIC traffic.",
+  "resources": "Resources",
+  "proxyProvidersRuleProvidersAndGeographicDatabases": "Proxy providers, rule providers and geographic databases.",
+  "managedByYourProfile": "Managed by your profile",
+  "providersAndGeographicDataAreConfiguredInTheActiveMihomoProfileProviderDownloadsAndUpdatesAreNotExposedInThisVersionOfQzyrium": "Providers and geographic data are configured in the active Mihomo profile. Provider downloads and updates are not exposed in this version of Qzyrium.",
+  "activeProfile": "Active profile",
+  "remoteSubscription": "Remote subscription",
+  "localYAMLConfiguration": "Local YAML configuration",
+  "noneSelected": "None selected",
+  "manageProfiles": "Manage profiles",
+  "configurationFields": "Configuration fields",
+  "theseKeysAreReadFromYourProfileByMihomo": "These keys are read from your profile by Mihomo.",
+  "openApplicationData": "Open application data",
+  "profileSettings": "{title} settings are preserved from the active Mihomo profile. Import a local YAML or a subscription with the configuration you need. A dedicated editor can be added here as the client grows."
+}
