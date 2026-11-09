@@ -136,6 +136,5 @@ if (process.contextIsolated) {
     console.error('Failed to expose api bridge:', error)
   }
 } else {
-  // @ts-ignore (fallback)
-  window.api = api
+  Object.assign(window, { api })
 }

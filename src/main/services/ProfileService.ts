@@ -93,6 +93,7 @@ function parseAnnounce(raw: string | undefined): string | undefined {
   if (/^[A-Za-z0-9+/=]+$/.test(text) && text.length > 8 && text.length % 4 === 0) {
     try {
       const decoded = Buffer.from(text, 'base64').toString('utf-8')
+      // eslint-disable-next-line no-control-regex -- Reject binary data while retaining tabs and line breaks.
       if (/[\p{L}\p{N}]/u.test(decoded) && !/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(decoded)) {
         text = decoded
       }

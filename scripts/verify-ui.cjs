@@ -283,7 +283,7 @@ if (process.type === 'renderer') {
       await screenshot('settings-light')
       await navigate('Profiles')
       assert.equal(await evaluate(`document.querySelector('.page-scroll').textContent.includes('https://example.com/subscription/')`), false, 'subscription links are hidden from cards')
-      assert.equal(await evaluate(`performance.getEntriesByType('resource').some(entry => /ProfileEditorDialog[^/]*\.js/.test(entry.name))`), false, 'editor chunk is not loaded before opening it')
+      assert.equal(await evaluate(`performance.getEntriesByType('resource').some(entry => /ProfileEditorDialog[^/]*[.]js/.test(entry.name))`), false, 'editor chunk is not loaded before opening it')
       await evaluate(`Array.from(document.querySelectorAll('button')).find(el => el.textContent.trim() === 'Edit rules').click()`)
       await waitFor(`document.querySelector('[role="dialog"] .monaco-editor') !== null`)
       await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(el => el.textContent.trim() === 'Close').click()`)

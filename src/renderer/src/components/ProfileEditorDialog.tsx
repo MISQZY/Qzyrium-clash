@@ -552,7 +552,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
       if (cancelled) return
 
 
-      let parsedProfileYaml: Record<string, unknown> | null = null
+      let parsedProfileYaml: Record<string, unknown> | null
       try {
         parsedProfileYaml = yaml.parse(rawConfig || '') as Record<string, unknown>
       } catch {

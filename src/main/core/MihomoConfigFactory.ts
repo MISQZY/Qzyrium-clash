@@ -30,7 +30,7 @@ export class MihomoConfigFactory {
     appConfig: AppConfig,
     customRules?: CustomRuleItem[]
   ): string {
-    let parsed: Record<string, unknown> = {}
+    let parsed: Record<string, unknown>
 
     if (rawProfileYaml && rawProfileYaml.trim().length > 0) {
       try {

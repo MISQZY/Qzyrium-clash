@@ -2,6 +2,7 @@ import type { AxiosResponse } from 'axios'
 import yaml from 'yaml'
 
 function cleanName(value: string): string | undefined {
+  // eslint-disable-next-line no-control-regex -- Strip control characters from remote display names.
   const name = value.replace(/[\u0000-\u001f\u007f]/g, '').trim()
   return name && !name.includes('\ufffd') ? name : undefined
 }
