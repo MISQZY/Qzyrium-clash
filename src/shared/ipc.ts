@@ -155,7 +155,7 @@ export interface IElectronApi {
   }
   app: {
     isElevated: () => Promise<boolean>
-    restartAsAdmin: () => Promise<void>
+    restartAsAdmin: () => Promise<boolean | void>
     getProcessIcon: (processPath: string) => Promise<string | null>
     getVersion: () => Promise<string>
     checkUpdates: () => Promise<AppUpdaterStatus>
