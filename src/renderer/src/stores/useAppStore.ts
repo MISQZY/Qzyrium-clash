@@ -124,6 +124,12 @@ export function useAppStore() {
     const unsubTunError = window.api.events.onTunError?.(() => {
       reportError(translate(preferences.current.language, 'app', 'tunStartRequiresAdmin'))
     })
+    const unsubVisibility = window.api.events.onWindowVisibility?.((isWinVisible) => {
+      setVisible(isWinVisible)
+      if (isWinVisible) {
+        void refreshAll().catch(reportError)
+      }
+    })
     const unsubLog = window.api.events.onLog((log) => {
       logBuffer.current.push(log)
       const limit = preferences.current.maxLogs ?? 300
@@ -132,7 +138,7 @@ export function useAppStore() {
     return () => {
       mounted.current = false
       document.removeEventListener('visibilitychange', visibility)
-      unsubTraffic(); unsubStatus(); unsubLog(); unsubSettings?.(); unsubTunError?.()
+      unsubTraffic(); unsubStatus(); unsubLog(); unsubSettings?.(); unsubTunError?.(); unsubVisibility?.()
     }
   }, [refreshAll, reportError])
 

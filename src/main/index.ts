@@ -38,13 +38,15 @@ function notifyImportProfile(services: ServiceManager, rawUrl: string): void {
   }
 }
 
-// This Electron switch must be applied before app.ready.
+// Memory optimization and acceleration switches must be applied before app.ready.
 try {
   const boot = JSON.parse(readFileSync(path.join(app.getPath('userData'), 'settings.json'), 'utf8'))
   if (boot.general?.disableGpu === true) app.disableHardwareAcceleration()
 } catch { /* First launch uses Electron's normal acceleration settings. */ }
 
-app.commandLine.appendSwitch('disable-features', 'WinUseBrowserSpellChecker')
+app.commandLine.appendSwitch('gpu-rasterization-msaa-sample-count', '0')
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=160 --expose-gc')
+app.commandLine.appendSwitch('disable-features', 'SpareRendererForSitePerProcess,BackForwardCache,WinUseBrowserSpellChecker')
 app.commandLine.appendSwitch('disable-spellcheck')
 
 let services: ServiceManager | null = null

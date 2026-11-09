@@ -6,22 +6,34 @@ import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 import { BaseService } from './BaseService'
 import { SettingService } from './SettingService'
+import { IPC_CHANNELS } from '@shared/ipc'
 
 const DWMWA_TRANSITIONS_FORCEDISABLED = 3
+
+function runEncodedPowerShell(script: string, onError?: (err: Error) => void): void {
+  const encoded = Buffer.from(script, 'utf16le').toString('base64')
+  execFile(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand', encoded],
+    { windowsHide: true },
+    (error) => {
+      if (error && onError) onError(error)
+    }
+  )
+}
 
 function disableWindowTransitionAnimations(win: BrowserWindow): void {
   if (process.platform !== 'win32') return
   try {
     const hwnd = win.getNativeWindowHandle().readBigUInt64LE(0)
-    const script = `Add-Type -Namespace N -Name Dwm -MemberDefinition '[DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);'; $v = 1; [N.Dwm]::DwmSetWindowAttribute([IntPtr]${hwnd}, ${DWMWA_TRANSITIONS_FORCEDISABLED}, [ref]$v, 4) | Out-Null`
-    execFile(
-      'powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', script],
-      { windowsHide: true },
-      (error) => {
-        if (error) logger.warn(`Failed to disable window transition animations: ${error.message}`)
-      }
-    )
+    const script = `
+Add-Type -Namespace N -Name Dwm -MemberDefinition '[DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);'
+$v = 1
+[N.Dwm]::DwmSetWindowAttribute([IntPtr]${hwnd}, ${DWMWA_TRANSITIONS_FORCEDISABLED}, [ref]$v, 4) | Out-Null
+`
+    runEncodedPowerShell(script, (error) => {
+      logger.warn(`Failed to disable window transition animations: ${error.message}`)
+    })
   } catch (err) {
     logger.error('Error querying window handle for DWM setup', err)
   }
@@ -32,14 +44,39 @@ export class WindowService implements BaseService {
   private settingService: SettingService
   private isQuitting = false
   private startHidden = false
+  private visibilityHandler?: (visible: boolean) => void
 
   constructor(settingService: SettingService) {
     this.settingService = settingService
   }
 
+  setVisibilityHandler(handler: (visible: boolean) => void): void {
+    this.visibilityHandler = handler
+  }
+
+  trimMemory(): void {
+    if (process.platform !== 'win32') return
+    try {
+      const script = `
+Add-Type -Namespace N -Name Mem -MemberDefinition '[DllImport("kernel32.dll")] public static extern bool SetProcessWorkingSetSize(IntPtr h, IntPtr min, IntPtr max);'
+$pids = @(${process.pid}) + (Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq ${process.pid} }).ProcessId
+$pids | ForEach-Object {
+  $p = Get-Process -Id $_ -ErrorAction SilentlyContinue
+  if ($p) {
+    [N.Mem]::SetProcessWorkingSetSize($p.Handle, [IntPtr](-1), [IntPtr](-1)) | Out-Null
+  }
+}
+`
+      runEncodedPowerShell(script)
+    } catch {}
+  }
+
   async initialize(): Promise<void> {
     this.startHidden = !!this.settingService.getSettings().general.silentStart
     await this.createWindow()
+    if (this.startHidden) {
+      this.visibilityHandler?.(false)
+    }
     nativeTheme.on('updated', this.updateTheme)
   }
 
@@ -175,6 +212,31 @@ export class WindowService implements BaseService {
         e.preventDefault()
         this.mainWindow?.hide()
       }
+    })
+
+    this.mainWindow.on('hide', () => {
+      this.broadcast(IPC_CHANNELS.EVENT_WINDOW_VISIBILITY, false)
+      this.visibilityHandler?.(false)
+    })
+
+    this.mainWindow.on('show', () => {
+      this.broadcast(IPC_CHANNELS.EVENT_WINDOW_VISIBILITY, true)
+      this.visibilityHandler?.(true)
+    })
+
+    this.mainWindow.on('minimize', () => {
+      const settings = this.settingService.getSettings()
+      if (settings.general.minimizeToTray) {
+        this.mainWindow?.hide()
+      } else {
+        this.broadcast(IPC_CHANNELS.EVENT_WINDOW_VISIBILITY, false)
+        this.visibilityHandler?.(false)
+      }
+    })
+
+    this.mainWindow.on('restore', () => {
+      this.broadcast(IPC_CHANNELS.EVENT_WINDOW_VISIBILITY, true)
+      this.visibilityHandler?.(true)
     })
 
     this.mainWindow.webContents.setWindowOpenHandler((details) => {

@@ -74,10 +74,37 @@ export class LocalGeoIp {
   private failed = false
   private sequence = 0
   private pending = new Map<number, { resolve: (country: string | null) => void; timer: ReturnType<typeof setTimeout> }>()
+  private idleTimer: ReturnType<typeof setTimeout> | null = null
   constructor(private database: () => string | undefined) {}
+
+  private checkIdle(): void {
+    if (this.pending.size === 0 && this.worker) {
+      if (this.idleTimer) clearTimeout(this.idleTimer)
+      this.idleTimer = setTimeout(() => {
+        this.shutdownWorker()
+      }, 15000)
+      this.idleTimer.unref()
+    }
+  }
+
+  private shutdownWorker(): void {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer)
+      this.idleTimer = null
+    }
+    if (this.worker && this.pending.size === 0) {
+      const w = this.worker
+      this.worker = null
+      void w.terminate()
+    }
+  }
 
   private ensureWorker(): Worker | null {
     if (this.failed) return null
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer)
+      this.idleTimer = null
+    }
     if (this.worker) return this.worker
     const filename = this.database()
     if (!filename) return null
@@ -87,9 +114,14 @@ export class LocalGeoIp {
       const request = this.pending.get(id)
       if (!request) return
       clearTimeout(request.timer); this.pending.delete(id); request.resolve(country)
+      this.checkIdle()
     })
     const fail = () => {
       this.failed = true; this.worker = null
+      if (this.idleTimer) {
+        clearTimeout(this.idleTimer)
+        this.idleTimer = null
+      }
       for (const request of this.pending.values()) { clearTimeout(request.timer); request.resolve(null) }
       this.pending.clear()
     }
@@ -114,16 +146,25 @@ export class LocalGeoIp {
     if (!worker) return null
     const country = await new Promise<string | null>((resolve) => {
       const id = ++this.sequence
-      const timer = setTimeout(() => { this.pending.delete(id); resolve(null) }, 3000)
+      const timer = setTimeout(() => {
+        this.pending.delete(id)
+        this.checkIdle()
+        resolve(null)
+      }, 3000)
       this.pending.set(id, { resolve, timer })
       worker.postMessage({ id, bytes })
     })
+    this.checkIdle()
     const coordinate = country && (centers as Record<string, number[]>)[country]
     if (!country || !coordinate) return null
     return { ip, longitude: coordinate[0], latitude: coordinate[1], city: '', country: new Intl.DisplayNames(['en'], { type: 'region' }).of(country) || country, countryCode: country, precision: 'country' }
   }
 
   dispose(): void {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer)
+      this.idleTimer = null
+    }
     for (const request of this.pending.values()) { clearTimeout(request.timer); request.resolve(null) }
     this.pending.clear()
     void this.worker?.terminate()

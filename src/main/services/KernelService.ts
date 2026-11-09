@@ -217,6 +217,17 @@ export class KernelService implements BaseService {
     return this.enqueueLifecycle(() => this.stopCore())
   }
 
+  pauseStreams(): void {
+    this.apiClient.stopAllStreams()
+  }
+
+  resumeStreams(): void {
+    if (this.getStatus() === 'running') {
+      this.apiClient.startTrafficStream()
+      this.apiClient.startLogStream(this.settingService.getSettings().kernel.logLevel)
+    }
+  }
+
   private async stopCore(): Promise<void> {
     this.apiClient.stopAllStreams()
     await this.processManager.stop()

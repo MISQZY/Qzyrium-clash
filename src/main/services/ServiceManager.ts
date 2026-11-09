@@ -71,6 +71,19 @@ export class ServiceManager {
       }
     })
 
+    // Background hibernation and memory trimming
+    this.windowService.setVisibilityHandler((visible: boolean) => {
+      if (visible) {
+        this.kernelService.resumeStreams()
+      } else {
+        this.kernelService.pauseStreams()
+        if (typeof global.gc === 'function') {
+          try { global.gc() } catch {}
+        }
+        this.windowService.trimMemory()
+      }
+    })
+
     // Ordered lifecycle array: window is created early for instant UI presentation
     this.services = [
       this.settingService,
