@@ -132,18 +132,36 @@ export const resourceFields: SettingsField[] = [
   field('rule-providers', 'Rule providers (YAML)', 'Провайдеры правил (YAML)', 'map')
 ]
 export const generalFields: SettingsField[] = [
-  field('autoStart', 'Start with Windows', 'Запускать вместе с Windows', 'boolean'),
-  field('silentStart', 'Start in tray', 'Запускать в трее', 'boolean'),
-  field('liteDashboard', 'Lightweight dashboard (hide 3D globe)', 'Лёгкий режим главной (скрыть 3D глобус)', 'boolean'),
-  field('disableGpu', 'Disable GPU acceleration (restart required)', 'Отключить ускорение GPU (нужен перезапуск)', 'boolean'),
-  field('autoCloseConnection', 'Close connections when switching nodes', 'Закрывать соединения при смене узла', 'boolean'),
+  field('autoStart', 'Start with Windows', 'Запускать вместе с Windows', 'boolean', desc(
+    'Launch the application automatically when logging into Windows.',
+    'Автоматически запускать приложение при входе в Windows.'
+  )),
+  field('silentStart', 'Start in tray', 'Запускать в трее', 'boolean', desc(
+    'Start the application minimized to the system tray.',
+    'Запускать приложение свёрнутым в системный трей.'
+  )),
+  field('liteDashboard', 'Lightweight dashboard', 'Лёгкий режим главной', 'boolean', desc(
+    'Hide 3D globe to reduce GPU and memory usage.',
+    'Скрыть 3D-глобус для экономии ресурсов видеокарты и памяти.'
+  )),
+  field('disableGpu', 'Disable GPU acceleration', 'Отключить ускорение GPU', 'boolean', desc(
+    'Disable hardware graphics acceleration (restart required).',
+    'Отключить аппаратное ускорение графики (нужен перезапуск).'
+  )),
+  field('autoCloseConnection', 'Close connections on node switch', 'Закрывать соединения при смене узла', 'boolean', desc(
+    'Close active connections immediately when selecting another proxy.',
+    'Принудительно закрывать активные соединения при смене прокси-узла.'
+  )),
   field('connectionInterval', 'Connections refresh interval (ms)', 'Интервал обновления соединений (мс)', 'number', { min: 500, max: 60000 }),
   field('maxLogs', 'Log entries kept in memory', 'Количество записей журнала в памяти', 'number', { min: 100, max: 10000 }),
   field('delayTestUrl', 'Latency test URL', 'URL проверки задержки', 'text'),
   field('delayTestTimeout', 'Latency test timeout (ms)', 'Тайм-аут проверки задержки (мс)', 'number', { min: 100, max: 60000 }),
   field('delayTestConcurrency', 'Concurrent latency tests', 'Параллельные проверки задержки', 'number', { min: 1, max: 32 }),
   field('userAgent', 'Subscription User-Agent', 'User-Agent для подписок', 'text'),
-  field('autoUpdateProfiles', 'Update subscriptions automatically', 'Автоматически обновлять подписки', 'boolean'),
+  field('autoUpdateProfiles', 'Update subscriptions automatically', 'Автоматически обновлять подписки', 'boolean', desc(
+    'Periodically update subscription profiles in background.',
+    'Периодически обновлять подписки в фоновом режиме.'
+  )),
   field('profileUpdateInterval', 'Subscription update interval (min)', 'Интервал обновления подписок (мин)', 'number', { min: 5, max: 10080 }),
   field('shortcuts', 'Global shortcuts (YAML)', 'Глобальные горячие клавиши (YAML)', 'map', { placeholder: 'showWindow: Ctrl+Shift+Q\nsysProxy: Ctrl+Shift+P\ntun: Ctrl+Shift+T\nruleMode: Ctrl+Shift+R\nglobalMode: Ctrl+Shift+G\ndirectMode: Ctrl+Shift+D' })
 ]
