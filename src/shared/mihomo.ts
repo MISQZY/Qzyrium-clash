@@ -11,11 +11,15 @@ export interface ProxyNode {
   tfo?: boolean
   history: ProxyNodeHistory[]
   now?: string
+  hidden?: boolean
+  icon?: string
 }
 
 export interface ProxyGroup extends ProxyNode {
   all: string[]
   now: string
+  hidden?: boolean
+  icon?: string
 }
 
 export interface MihomoRule {
@@ -26,6 +30,7 @@ export interface MihomoRule {
 }
 
 export interface ConnectionMetadata {
+  remoteDestination?: string
   network: string
   type: string
   sourceIP: string
@@ -35,6 +40,18 @@ export interface ConnectionMetadata {
   host: string
   dnsMode: string
   processPath: string
+  process?: string
+  sniffHost?: string
+  destinationIPASN?: string
+  destinationGeoIP?: string[]
+  sourceIPASN?: string
+  sourceGeoIP?: string[]
+  inboundIP?: string
+  inboundPort?: string
+  inboundName?: string
+  inboundUser?: string
+  uid?: number
+  dscp?: number
 }
 
 export interface ConnectionItem {
@@ -46,6 +63,8 @@ export interface ConnectionItem {
   chains: string[]
   rule: string
   rulePayload: string
+  uploadSpeed?: number
+  downloadSpeed?: number
 }
 
 export interface ConnectionsSnapshot {

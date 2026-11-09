@@ -1,0 +1,18 @@
+{
+  "open": "Open home",
+  "proxy": "System proxy",
+  "on": "ON",
+  "off": "OFF",
+  "restart": "Restart core",
+  "quit": "Quit",
+  "stopped": "Stopped",
+  "starting": "Starting",
+  "running": "Running",
+  "error": "Error",
+  "vpnOn": "VPN on",
+  "vpnOff": "VPN off",
+  "connect": "Connect",
+  "disconnect": "Disconnect",
+  "tunRequiresAdmin": "TUN mode requires Administrator privileges. Restart as Administrator.",
+  "jsonConfig": "JSON configuration"
+}
