@@ -1,0 +1,193 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+const vm = require('node:vm')
+const { EventEmitter } = require('node:events')
+const { execFileSync } = require('node:child_process')
+const ts = require('typescript')
+const yaml = require('yaml')
+
+function load(file, dependencies = {}, overrides = {}) {
+  const exports = {}
+  const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
+  const requireModule = name => {
+    if (dependencies[name]) return dependencies[name]
+    if (name.endsWith('.json') && name.startsWith('.')) return require(path.resolve(path.dirname(file), name))
+    const target = name.startsWith('@shared/') ? path.resolve('src/shared', name.slice(8) + '.ts') : name.startsWith('.') ? path.resolve(path.dirname(file), name + '.ts') : null
+    return target && fs.existsSync(target) ? load(target) : require(name)
+  }
+  vm.runInThisContext(`(function(exports, require, setTimeout, clearTimeout, process, Date) {\n${code}\n})`, { filename: file })(exports, requireModule, overrides.setTimeout ?? setTimeout, overrides.clearTimeout ?? clearTimeout, overrides.process ?? process, overrides.Date ?? Date)
+  return exports
+}
+const logger = { info() {}, warn() {}, error() {}, debug() {} }
+const { DEFAULT_APP_CONFIG } = load('src/shared/app-config.ts')
+const { validateAppConfig } = load('src/shared/settings-validation.ts')
+const { MihomoConfigFactory } = load('src/main/core/MihomoConfigFactory.ts', { '../utils/logger': { logger } })
+const fresh = () => structuredClone(DEFAULT_APP_CONFIG)
+const flush = () => new Promise(resolve => setImmediate(resolve))
+
+function verifyConfiguration() {
+  const config = fresh()
+  config.kernel.options = { ipv6: false, 'tcp-concurrent': true, 'unified-delay': true, 'socks-port': 0, 'find-process-mode': 'strict' }
+  config.kernel.dns = { enable: true, nameserver: ['1.1.1.1'], 'enhanced-mode': 'fake-ip', 'nameserver-policy': { '+.example.com': '8.8.8.8' } }
+  config.kernel.sniffer = { enable: true, sniff: { HTTP: { ports: [80] }, TLS: { ports: [443] } } }
+  config.kernel.resources = { profile: { 'store-selected': true }, 'geo-auto-update': false, hosts: { 'test.example': '127.0.0.1' } }
+  config.kernel.tun.options = { mtu: 1400, 'auto-detect-interface': true, 'route-exclude-address': ['192.168.0.0/16'] }
+  validateAppConfig(config)
+  const profile = 'dns:\n  ipv6: true\n  nameserver: [8.8.8.8]\nsniffer:\n  force-domain: [example.com]\nprofile:\n  store-fake-ip: true\nproxies: []\nproxy-groups: []\nrules:\n  - MATCH,DIRECT\n'
+  const rendered = yaml.parse(MihomoConfigFactory.synthesize(profile, config))
+  assert.equal(rendered.ipv6, false)
+  assert.equal(rendered['tcp-concurrent'], true)
+  assert.deepEqual(rendered.dns.nameserver, ['1.1.1.1'])
+  assert.equal(rendered.dns.ipv6, true, 'unspecified DNS keys inherit subscription values')
+  assert.deepEqual(rendered.sniffer['force-domain'], ['example.com'])
+  assert.equal(rendered.profile['store-selected'], true)
+  assert.equal(rendered.profile['store-fake-ip'], true)
+  const logicalPayload = '((DOMAIN,example.com),(NETWORK,tcp))'
+  const logical = yaml.parse(MihomoConfigFactory.synthesize(`rules:\n  - AND,${logicalPayload},DIRECT\n  - MATCH,DIRECT\n`, config, [{ type: 'AND', payload: logicalPayload, proxy: 'DIRECT', isDeleted: true }]))
+  assert.deepEqual(logical.rules, ['MATCH,DIRECT'], 'logical rule deletion preserves nested comma boundaries')
+  config.kernel.dns = null
+  assert.deepEqual(yaml.parse(MihomoConfigFactory.synthesize(profile, config)).dns.nameserver, ['8.8.8.8'], 'disabling override restores subscription')
+  config.kernel.tun.enable = true
+  assert.equal(yaml.parse(MihomoConfigFactory.synthesize(profile, config)).tun.mtu, 1400)
+  const invalid = fresh()
+  invalid.kernel.options = { 'socks-port': 70000 }
+  assert.throws(() => validateAppConfig(invalid), /invalid value/)
+  invalid.kernel.options = { 'external-controller': '0.0.0.0:8080' }
+  assert.throws(() => validateAppConfig(invalid), /unsupported setting/)
+  invalid.kernel.options = { port: invalid.kernel.mixedPort }
+  assert.throws(() => validateAppConfig(invalid), /unique/)
+  invalid.kernel.options = {}
+  invalid.general.shortcuts = { showWindow: 'Ctrl+Q', tun: 'ctrl+q' }
+  assert.throws(() => validateAppConfig(invalid), /unique/)
+  const dir = path.resolve('artifacts/settings-check')
+  fs.mkdirSync(dir, { recursive: true })
+  const filename = path.join(dir, 'config.yaml')
+  config.kernel.tun.enable = false
+  fs.writeFileSync(filename, MihomoConfigFactory.synthesize(profile, config))
+  execFileSync(path.resolve('extra/sidecar/mihomo.exe'), ['-t', '-d', dir, '-f', filename], { windowsHide: true, timeout: 15000, stdio: 'pipe' })
+}
+
+async function verifyPac() {
+  const config = fresh(), commands = []
+  config.sysProxy.mode = 'pac'
+  const { SysProxyService } = load('src/main/services/SysProxyService.ts', {
+    child_process: { execFile(_name, args, _options, callback) { commands.push(args); callback(null, '', '') } },
+    '../utils/logger': { logger }
+  }, { process: { platform: 'win32' } })
+  const service = new SysProxyService({ getSettings: () => config, updateSettings: async patch => Object.assign(config, patch) })
+  try {
+    await service.setSysProxy(true)
+    const url = commands.find(args => args[3] === 'AutoConfigURL')[7]
+    assert.match(url, /^http:\/\/127\.0\.0\.1:\d+\/proxy\.pac$/)
+    const response = await fetch(url)
+    assert.equal(response.status, 200)
+    const script = await response.text()
+    const context = { isPlainHostName: host => !host.includes('.'), shExpMatch: (host, pattern) => pattern === '127.*' && host.startsWith('127.') }
+    vm.runInNewContext(script + ';this.find = FindProxyForURL', context)
+    assert.equal(context.find('http://printer', 'printer'), 'DIRECT')
+    assert.equal(context.find('http://127.0.0.1', '127.0.0.1'), 'DIRECT')
+    assert.match(context.find('https://example.com', 'example.com'), /PROXY 127.0.0.1:7895/)
+    config.sysProxy.pacScript = 'invalid {'
+    const count = commands.length
+    await assert.rejects(service.setSysProxy(true))
+    assert.equal(commands.length, count, 'bad PAC scripts cannot change OS settings')
+    config.sysProxy.pacScript = ''
+    await service.dispose()
+    assert.equal(config.sysProxy.enable, true, 'shutdown restores OS state without erasing the user preference')
+    assert.equal(service.getStatus().enabled, false)
+  } finally { await service.dispose() }
+}
+
+async function verifyDesktop() {
+  const config = fresh(), bindings = new Map(), timers = new Set(), login = [], calls = []
+  config.general.autoStart = true
+  config.general.autoUpdateProfiles = true
+  config.general.shortcuts = { showWindow: 'Ctrl+Alt+Q', globalMode: 'Ctrl+Alt+G' }
+  const { DesktopService } = load('src/main/services/DesktopService.ts', {
+    electron: { app: { isPackaged: true, setLoginItemSettings: options => login.push(options.openAtLogin) }, globalShortcut: { register: (key, fn) => { if (key === 'Taken') return false; bindings.set(key, fn); return true }, unregister: key => bindings.delete(key) } },
+    '../utils/logger': { logger }
+  }, { process: { platform: 'win32' }, setTimeout: (fn, ms) => { const timer = { fn, ms, unref() {} }; timers.add(timer); return timer }, clearTimeout: timer => timers.delete(timer) })
+  const desktop = new DesktopService(
+    { getSettings: () => config, updateSettings: async patch => { Object.assign(config, patch); calls.push('save') } },
+    { getProfiles: () => [{ id: 'active', type: 'remote' }, { id: 'other', type: 'remote' }, { id: 'local', type: 'local' }, { id: 'disabled', type: 'remote', autoUpdate: false }, { id: 'recent', type: 'remote', interval: 15, updatedAt: Date.now() }], getActiveProfile: () => ({ id: 'active' }), updateProfile: async id => { calls.push('update:' + id); return true } },
+    { getStatus: () => 'running', restart: async () => calls.push('restart'), patchConfigs: async patch => calls.push('mode:' + patch.mode) },
+    {}, { show: () => calls.push('show') }, () => calls.push('notify'))
+  await desktop.initialize()
+  assert.deepEqual(login, [true])
+  bindings.get('Ctrl+Alt+Q')()
+  assert.equal(calls.at(-1), 'show')
+  bindings.get('Ctrl+Alt+G')()
+  await flush()
+  assert.deepEqual(calls.slice(-3), ['mode:global', 'save', 'notify'])
+  const invalid = fresh()
+  invalid.general.shortcuts = { showWindow: 'Taken' }
+  assert.throws(() => desktop.applySettings(invalid), /unavailable/)
+  assert.equal(bindings.has('Ctrl+Alt+Q'), true, 'failed registration restores existing shortcuts')
+  const scheduled = [...timers][0]
+  assert.equal(scheduled.ms, 15 * 60_000, 'scheduler wakes for the shortest per-profile interval')
+  scheduled.fn()
+  await flush()
+  assert.equal(calls.filter(call => call === 'restart').length, 1, 'all background profile updates apply through one restart')
+  assert.ok(!calls.includes('update:local'))
+  assert.ok(!calls.includes('update:disabled'), 'disabled subscriptions are skipped')
+  assert.ok(!calls.includes('update:recent'), 'subscriptions are not fetched before their interval elapses')
+  await desktop.dispose()
+  assert.equal(bindings.size, 0)
+  assert.equal(timers.size, 0)
+}
+
+function verifySession() {
+  let time = 10000
+  const manager = new EventEmitter()
+  const api = new EventEmitter()
+  Object.assign(api, { startTrafficStream() {}, startLogStream() {}, stopAllStreams() {} })
+  const { KernelService } = load('src/main/services/KernelService.ts', {
+    '../core/MihomoConfigFactory': { MihomoConfigFactory },
+    '../core/MihomoProcessManager': { MihomoProcessManager: class { constructor() { return manager } } },
+    '../core/MihomoApiClient': { MihomoApiClient: class { constructor() { return api } } },
+    './GeoIpService': { GeoIpService: class {} }, '../utils/local-geoip': { LocalGeoIp: class {} }, '../utils/logger': { logger }
+  }, { Date: class extends Date { static now() { return time } } })
+  const kernel = new KernelService({ getSettings: fresh }, {})
+  const messages = []
+  kernel.setBroadcaster((channel, data) => messages.push({ channel, data }))
+  const entry = { type: 'info', payload: 'Ready', time: '12:00:00' }
+  manager.emit('log', entry)
+  api.emit('log', entry)
+  assert.deepEqual(messages.map(message => message.channel), ['event:log', 'event:log'], 'process and API logs use the preload log channel')
+  assert.equal(kernel.getSessionStartedAt(), null)
+  manager.emit('state-change', 'running')
+  assert.equal(kernel.getSessionStartedAt(), 10000)
+  manager.emit('state-change', 'stopped')
+  assert.equal(kernel.getSessionStartedAt(), null)
+  time = 20000
+  manager.emit('state-change', 'running')
+  assert.equal(kernel.getSessionStartedAt(), 20000)
+  const { formatDuration } = load('src/renderer/src/lib/format.ts')
+  assert.equal(formatDuration(3661000), '01:01:01')
+  assert.equal(formatDuration(25 * 3600000), '25:00:00')
+  assert.equal(formatDuration(-100), '00:00:00')
+}
+
+async function verifyMigration() {
+  const { SettingService } = load('src/main/services/SettingService.ts', {
+    fs: { promises: { readFile: async () => JSON.stringify({ general: { language: 'en' }, kernel: { tun: { enable: true, stack: 'mixed' } } }), writeFile: async () => {} } },
+    '../utils/paths': { getAppPaths: () => ({ settingsFilePath: 'fixture-settings.json' }) }, '../utils/logger': { logger }
+  })
+  const settings = new SettingService()
+  await settings.initialize()
+  assert.equal(settings.getSettings().general.language, 'en')
+  assert.equal(settings.getSettings().general.connectionInterval, 2000)
+  assert.equal(settings.getSettings().kernel.tun.enable, true)
+  assert.deepEqual(settings.getSettings().kernel.tun.dnsHijack, ['any:53'])
+  await settings.updateSettings({ kernel: { tun: { options: { mtu: 1450 } } } })
+  assert.equal(settings.getSettings().kernel.tun.stack, 'mixed', 'partial TUN updates preserve existing fields')
+  assert.equal(settings.getSettings().kernel.tun.options.mtu, 1450)
+  await assert.rejects(settings.updateSettings({ kernel: { options: { port: 99999 } } }))
+  assert.equal(settings.getSettings().kernel.tun.options.mtu, 1450, 'rejected settings do not replace the valid config')
+  const snapshot = settings.getSettings()
+  snapshot.kernel.tun.stack = 'system'
+  assert.equal(settings.getSettings().kernel.tun.stack, 'mixed', 'callers cannot mutate saved settings through a returned snapshot')
+}
+
+Promise.resolve().then(verifyConfiguration).then(verifyPac).then(verifyDesktop).then(verifySession).then(verifyMigration).then(() => console.log('PASS: settings validation/migration/inheritance, real Mihomo config, PAC server, startup/shortcuts/update scheduling, session clock')).catch(err => { console.error(err); process.exitCode = 1 })
