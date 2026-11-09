@@ -125,6 +125,13 @@ const api: IElectronApi = {
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.EVENT_IMPORT_PROFILE, listener)
       }
+    },
+    onWindowVisibility: (callback: (visible: boolean) => void) => {
+      const listener = (_: IpcRendererEvent, visible: boolean): void => callback(visible)
+      ipcRenderer.on(IPC_CHANNELS.EVENT_WINDOW_VISIBILITY, listener)
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.EVENT_WINDOW_VISIBILITY, listener)
+      }
     }
   }
 }

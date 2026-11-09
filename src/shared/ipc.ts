@@ -80,7 +80,8 @@ export const IPC_CHANNELS = {
   EVENT_CORE_STATUS: 'event:core-status',
   EVENT_SETTINGS_CHANGED: 'event:settings-changed',
   EVENT_TUN_ERROR: 'event:tun-error',
-  EVENT_IMPORT_PROFILE: 'event:import-profile'
+  EVENT_IMPORT_PROFILE: 'event:import-profile',
+  EVENT_WINDOW_VISIBILITY: 'event:window-visibility'
 } as const
 
 export interface SysProxyStatus {
@@ -172,5 +173,6 @@ export interface IElectronApi {
     onCoreStatus: (callback: (status: CoreState) => void) => () => void
     onTunError: (callback: (errorText: string) => void) => () => void
     onImportProfile: (callback: (data: { url: string; name?: string }) => void) => () => void
+    onWindowVisibility: (callback: (visible: boolean) => void) => () => void
   }
 }
