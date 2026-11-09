@@ -3,10 +3,23 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerIpcHandlers } from './ipc/registerHandlers'
 import { ServiceManager } from './services/ServiceManager'
 import { logger } from './utils/logger'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { IPC_CHANNELS } from '@shared/ipc'
 import { parseSubscriptionImportUrl } from '@shared/clash-url'
+
+app.setName('Qzyrium-clash')
+electronApp.setAppUserModelId('com.qzyrium.vpn')
+
+// Ensure seamless userData directory compatibility with legacy qzyrium-vpn path
+try {
+  const appData = app.getPath('appData')
+  const legacyDir = path.join(appData, 'qzyrium-vpn')
+  const currentDir = app.getPath('userData')
+  if (!existsSync(currentDir) && existsSync(legacyDir)) {
+    app.setPath('userData', legacyDir)
+  }
+} catch { /* Use default path */ }
 
 function extractProtocolUrl(args: string[]): string | undefined {
   return args.find((arg) => /^(clash|qzyrium|mihomo):\/\//i.test(arg.trim()))
@@ -41,9 +54,9 @@ let shuttingDown = false
 const gotTheLock = app.requestSingleInstanceLock()
 
 if (!gotTheLock) {
-  logger.warn('Another instance of QzyriumVPN is already running. Exiting.')
-  console.warn('\n[QzyriumVPN] Another instance is already running.')
-  console.warn('[QzyriumVPN] If no window is visible, please check the system tray or close existing electron processes in Task Manager.\n')
+  logger.warn('Another instance of Qzyrium-clash is already running. Exiting.')
+  console.warn('\n[Qzyrium-clash] Another instance is already running.')
+  console.warn('[Qzyrium-clash] If no window is visible, please check the system tray or close existing electron processes in Task Manager.\n')
   app.quit()
 } else {
   app.on('second-instance', (_, commandLine) => {
@@ -81,7 +94,7 @@ if (!gotTheLock) {
       optimizer.watchWindowShortcuts(window)
     })
 
-    logger.info('Starting Qzyrium - clash application...')
+    logger.info('Starting Qzyrium-clash application...')
 
     services = new ServiceManager()
     registerIpcHandlers(services)

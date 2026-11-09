@@ -96,7 +96,7 @@
   "sysProxyDisabledDueToTun": "Unavailable: TUN mode is currently enabled. Only one capture mode can be active at a time.",
   "tunDisabledDueToSysProxy": "Unavailable: System proxy is currently enabled. Only one capture mode can be active at a time.",
   "tunRequiresAdmin": "TUN mode requires Administrator privileges. Please restart as Administrator.",
-  "appVersionTitle": "Qzyrium - clash version",
+  "appVersionTitle": "Qzyrium-clash version",
   "checkForUpdates": "Check for updates",
   "checkingForUpdates": "Checking...",
   "updateAvailable": "v{version} available",

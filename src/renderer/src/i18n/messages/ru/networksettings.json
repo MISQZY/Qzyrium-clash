@@ -96,7 +96,7 @@
   "sysProxyDisabledDueToTun": "Недоступно: включен режим TUN. Одновременно может работать только один режим.",
   "tunDisabledDueToSysProxy": "Недоступно: включен системный прокси. Одновременно может работать только один режим.",
   "tunRequiresAdmin": "Для работы режима TUN требуются права администратора. Пожалуйста, перезапустите от администратора.",
-  "appVersionTitle": "Версия Qzyrium - clash",
+  "appVersionTitle": "Версия Qzyrium-clash",
   "checkForUpdates": "Проверить наличие обновлений",
   "checkingForUpdates": "Проверка...",
   "updateAvailable": "Доступна v{version}",
