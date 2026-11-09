@@ -75,9 +75,9 @@ function verifyClashUrls() {
 async function verifySettings() {
   const defaults = structuredClone(load('src/shared/app-config.ts', {}).DEFAULT_APP_CONFIG)
   const { subscriptionUserAgent } = load('src/shared/app-config.ts', {})
-  assert.equal(defaults.general.userAgent, 'Qzyrium-clash')
-  for (const value of [undefined, '', 'qzyriumvpn', 'clash.meta / QzyriumVPN', 'clash.meta / Qzyrium - clash']) {
-    assert.equal(subscriptionUserAgent(value), 'Qzyrium-clash', 'legacy/default subscription agents migrate')
+  assert.equal(defaults.general.userAgent, 'clash.meta/qzyrium')
+  for (const value of [undefined, '', 'qzyriumvpn', 'clash.meta', 'clash.meta / QzyriumVPN', 'clash.meta / Qzyrium - clash']) {
+    assert.equal(subscriptionUserAgent(value), 'clash.meta/qzyrium', 'legacy/default subscription agents migrate')
   }
   assert.equal(subscriptionUserAgent('My custom client'), 'My custom client')
   const writes = []
@@ -106,7 +106,7 @@ async function verifySettings() {
   })
   const settings = new SettingService()
   await settings.initialize()
-  assert.equal(settings.getSettings().general.userAgent, 'Qzyrium-clash', 'saved legacy settings migrate on load')
+  assert.equal(settings.getSettings().general.userAgent, 'clash.meta/qzyrium', 'saved legacy settings migrate on load')
   const first = settings.updateSettings({ general: { theme: 'light' } })
   await Promise.resolve()
   const second = settings.updateSettings({ kernel: { mode: 'global' } })
@@ -231,7 +231,7 @@ async function verifyProfiles() {
   assert.equal(manual.name, 'My name', 'provider cannot replace a manual name')
   await profiles.updateProfile('a')
   assert.equal(profiles.getProfiles().find(item => item.id === 'a').name, 'Active', 'legacy names remain unchanged')
-  assert.ok(requestAgents.length > 0 && requestAgents.every(agent => agent === 'Qzyrium-clash'), 'subscription imports and updates send the new User-Agent')
+  assert.ok(requestAgents.length > 0 && requestAgents.every(agent => agent === 'clash.meta/qzyrium'), 'subscription imports and updates send the new User-Agent')
   profiles.getProfiles().find(item => item.id === 'a').customUA = 'Custom profile client'
   await profiles.updateProfile('a')
   assert.equal(requestAgents.at(-1), 'Custom profile client', 'explicit per-profile User-Agent is preserved')
