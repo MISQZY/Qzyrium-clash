@@ -180,14 +180,6 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
           </div>
         </DialogHeader>
 
-        {/* Format Guidance Hint */}
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono bg-muted/30 px-3 py-1.5 rounded-md border border-border/50 shrink-0">
-          <span className="truncate">{t('yamlProfileHint')}</span>
-          <span className="text-[10px] text-muted-foreground/60 shrink-0 ml-2 hidden sm:inline">
-            Monaco Editor (VS Code)
-          </span>
-        </div>
-
         {/* Error notification */}
         {error && (
           <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 border border-destructive/20 px-3 py-1.5 rounded-md shrink-0">

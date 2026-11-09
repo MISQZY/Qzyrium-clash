@@ -1,8 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo, startTransition } from 'react'
-import Editor, { loader } from '@monaco-editor/react'
-import * as monaco from 'monaco-editor/editor/editor.api'
-import 'monaco-editor/languages/definitions/yaml/register.js'
-import editorWorker from 'monaco-editor/editor/editor.worker?worker'
+import React, { lazy, Suspense, useEffect, useState, useCallback, useRef, useMemo, startTransition } from 'react'
 import yaml from 'yaml'
 import {
   CodeXml,
@@ -40,15 +36,7 @@ import { Textarea } from './ui/textarea'
 import { Switch } from './ui/switch'
 import { cn } from '../lib/utils'
 
-// Setup Monaco Editor offline loader without external CDN
-if (typeof window !== 'undefined') {
-  self.MonacoEnvironment = {
-    getWorker() {
-      return new editorWorker()
-    }
-  }
-}
-loader.config({ monaco })
+const YamlEditor = lazy(() => import('./YamlEditor'))
 
 interface ProfileEditorDialogProps {
   open: boolean
@@ -390,37 +378,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-
   const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-
-  useEffect(() => {
-    return () => {
-      if (editorRef.current) {
-        editorRef.current.getModel()?.dispose()
-        editorRef.current.dispose()
-        editorRef.current = null
-      }
-    }
-  }, [])
-
-  // Auto-resize editor on container resize
-  useEffect(() => {
-    if (!open || !containerRef.current) return
-    let animId: number
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(animId)
-      animId = requestAnimationFrame(() => {
-        editorRef.current?.layout()
-      })
-    })
-    ro.observe(containerRef.current)
-    return () => {
-      cancelAnimationFrame(animId)
-      ro.disconnect()
-    }
-  }, [open, activeMode])
 
   // Serialize current rules state into YAML overrides
   const yamlMessages = useRef(t)
@@ -650,9 +608,6 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
     }
 
     setActiveMode(newMode)
-    setTimeout(() => {
-      editorRef.current?.layout()
-    }, 50)
   }
 
   // Validate payload
@@ -945,7 +900,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
         )}
 
         {/* Main Content Area */}
-        <div ref={containerRef} className="relative flex-1 min-h-0 w-full overflow-hidden flex flex-col">
+        <div className="relative flex-1 min-h-0 w-full overflow-hidden flex flex-col">
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-20">
               <LoaderCircle className="size-7 animate-spin text-primary" />
@@ -1457,40 +1412,21 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
             </div>
           </div>
 
-          {/* Monaco Editor Container (Rules YAML mode) */}
-          <div
-            className={cn(
-              "relative flex-1 min-h-0 w-full rounded-lg border border-border/70 overflow-hidden bg-[#1e1e1e] flex flex-col",
-              activeMode === 'visual' && "hidden"
-            )}
-          >
-            <Editor
-              height="100%"
-              width="100%"
-              language="yaml"
-              theme={isDark ? 'vs-dark' : 'light'}
-              value={rulesYamlContent}
-              className="h-full w-full flex-1 min-h-0"
-              onMount={(editor) => {
-                editorRef.current = editor
-                editor.layout()
-              }}
-              onChange={(value) => {
-                setRulesYamlContent(value || '')
-                setError(null)
-              }}
-              options={{
-                minimap: { enabled: true, maxColumn: 45 },
-                lineNumbers: 'on',
-                wordWrap: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                fontSize: 13,
-                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace",
-                tabSize: 2
-              }}
-            />
-          </div>
+          {/* Import and mount Monaco only after the YAML mode is selected. */}
+          {activeMode === 'yaml' && (
+            <div className="relative flex-1 min-h-0 w-full rounded-lg border border-border/70 overflow-hidden bg-[#1e1e1e] flex flex-col">
+              <Suspense fallback={<div role="status" className="flex h-full items-center justify-center"><LoaderCircle className="size-6 animate-spin text-primary" /></div>}>
+                <YamlEditor
+                  theme={isDark ? 'vs-dark' : 'light'}
+                  value={rulesYamlContent}
+                  onChange={(value) => {
+                    setRulesYamlContent(value || '')
+                    setError(null)
+                  }}
+                />
+              </Suspense>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
