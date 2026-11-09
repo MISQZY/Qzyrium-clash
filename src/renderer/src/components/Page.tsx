@@ -10,6 +10,6 @@ export function Page({ title, actions, children }: { title: string; actions?: Re
   </section>
 }
 
-export function SettingRow({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
-  return <div className="setting-row"><div className="min-w-0"><p className="text-sm font-medium">{title}</p>{description && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>}</div><div className="shrink-0">{children}</div></div>
+export function SettingRow({ title, description, id, children }: { title: string; description?: string; id?: string; children: ReactNode }) {
+  return <div className="setting-row"><div className="min-w-0">{id ? <label htmlFor={id} className="text-sm font-medium cursor-pointer">{title}</label> : <p className="text-sm font-medium">{title}</p>}{description && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>}</div><div className="shrink-0">{children}</div></div>
 }

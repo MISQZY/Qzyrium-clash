@@ -55,6 +55,30 @@ export function SettingsFields({ fields, value, onChange, prefix, inherit = true
     const id = `${prefix}-${field.key}`
     const label = field.label[locale]
     const current = value[field.key]
+
+    if (field.type === 'boolean' && !inherit) {
+      return (
+        <div key={field.key} className="setting-row">
+          <div className="min-w-0">
+            <label htmlFor={id} className="text-sm font-medium cursor-pointer">{label}</label>
+            {field.description && (
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {field.description[locale]}
+              </p>
+            )}
+          </div>
+          <div className="shrink-0">
+            <Switch
+              id={id}
+              aria-label={label}
+              checked={!!current}
+              onCheckedChange={(next) => update(field.key, next)}
+            />
+          </div>
+        </div>
+      )
+    }
+
     return <div key={field.key} className="flex min-w-0 flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
@@ -71,9 +95,7 @@ export function SettingsFields({ fields, value, onChange, prefix, inherit = true
         </div>
         {inherit && current !== undefined && <Button type="button" size="icon-sm" variant="ghost" aria-label={t('resetField', { name: label })} onClick={() => update(field.key, undefined)}><RotateCcw className="size-3" /></Button>}
       </div>
-      {field.type === 'boolean' && (inherit
-        ? <select id={id} aria-label={label} value={current === undefined ? '' : String(current)} onChange={(event) => update(field.key, event.target.value === '' ? undefined : event.target.value === 'true')}><option value="">{t('inheritProfile')}</option><option value="true">{t('enabledValue')}</option><option value="false">{t('disabledValue')}</option></select>
-        : <Switch id={id} aria-label={label} checked={!!current} onCheckedChange={(next) => update(field.key, next)} />)}
+      {field.type === 'boolean' && <select id={id} aria-label={label} value={current === undefined ? '' : String(current)} onChange={(event) => update(field.key, event.target.value === '' ? undefined : event.target.value === 'true')}><option value="">{t('inheritProfile')}</option><option value="true">{t('enabledValue')}</option><option value="false">{t('disabledValue')}</option></select>}
       {field.type === 'select' && <select id={id} aria-label={label} value={current === undefined ? '' : String(current)} onChange={(event) => update(field.key, event.target.value || undefined)}><option value="">{t('inheritProfile')}</option>{field.options?.map((option) => <option key={option} value={option}>{optionLabels[option] ?? option}</option>)}</select>}
       {(field.type === 'text' || field.type === 'number') && <Input id={id} aria-label={label} type={field.type === 'number' ? 'number' : 'text'} min={field.min} max={field.max} step={field.type === 'number' ? 1 : undefined} value={typeof current === 'number' || typeof current === 'string' ? current : ''} placeholder={inherit ? t('inheritProfile') : undefined} onChange={(event) => update(field.key, event.target.value === '' ? undefined : field.type === 'number' ? Number(event.target.value) : event.target.value)} />}
       {field.type === 'list' && <Textarea id={id} aria-label={label} rows={3} className="font-mono text-xs" placeholder={t('onePerLine')} value={Array.isArray(current) ? current.join('\n') : ''} onChange={(event) => update(field.key, event.target.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean))} />}

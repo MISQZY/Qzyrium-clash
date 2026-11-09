@@ -413,8 +413,12 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
         </>}
         {section === 'settings' && <>
           <SettingRow title={t('language')} description={t('languageHint')}><select aria-label={t('language')} value={form.general.language} onChange={(event) => updateGeneral({ language: event.target.value as AppConfig['general']['language'] })}><option value="ru">{common('languageRussian')}</option><option value="en">{common('languageEnglish')}</option></select></SettingRow>
-          <SettingRow title={t('startCoreOnLaunch')} description={t('automaticallyStartMihomoWhenQzyriumOpens')}><Switch aria-label={t('startCoreOnLaunch')} checked={form.general.autoConnect} onCheckedChange={(autoConnect) => updateGeneral({ autoConnect })} /></SettingRow>
-          <SettingRow title={t('minimizeToTray')} description={t('keepTheApplicationRunningWhenTheWindowIsClosed')}><Switch aria-label={t('minimizeToTray')} checked={form.general.minimizeToTray} onCheckedChange={(minimizeToTray) => updateGeneral({ minimizeToTray })} /></SettingRow>
+          <SettingRow title={t('startCoreOnLaunch')} description={t('automaticallyStartMihomoWhenQzyriumOpens')} id="general-autoConnect"><Switch id="general-autoConnect" aria-label={t('startCoreOnLaunch')} checked={form.general.autoConnect} onCheckedChange={(autoConnect) => updateGeneral({ autoConnect })} /></SettingRow>
+          <div className="pt-3 pb-1 border-b border-border/60">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('systemTrayGroup')}</h3>
+          </div>
+          <SettingRow title={t('minimizeToTray')} description={t('keepTheApplicationRunningWhenTheWindowIsClosed')} id="general-minimizeToTray"><Switch id="general-minimizeToTray" aria-label={t('minimizeToTray')} checked={form.general.minimizeToTray} onCheckedChange={(minimizeToTray) => updateGeneral({ minimizeToTray })} /></SettingRow>
+          <SettingRow title={t('silentStart')} description={t('silentStartDescription')} id="general-silentStart"><Switch id="general-silentStart" aria-label={t('silentStart')} checked={form.general.silentStart} onCheckedChange={(silentStart) => updateGeneral({ silentStart })} /></SettingRow>
           <div className="setting-row">
             <div className="min-w-0">
               <p className="text-sm font-medium">{t('appearance')}</p>
@@ -496,7 +500,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
               </ScrollArea>
             </div>
           )}
-          <div className="mt-5"><SettingsFields prefix="general" inherit={false} fields={generalFields} value={{ ...DEFAULT_APP_CONFIG.general, ...form.general }} onChange={(values) => updateGeneral(values as Partial<AppConfig['general']>)} /></div>
+          <div className="mt-5"><SettingsFields prefix="general" inherit={false} fields={generalFields.filter((f) => f.key !== 'silentStart')} value={{ ...DEFAULT_APP_CONFIG.general, ...form.general }} onChange={(values) => updateGeneral(values as Partial<AppConfig['general']>)} /></div>
         </>}
       </CardContent></Card>
       {message && <p role="status" className="text-xs text-muted-foreground">{t(message)}</p>}
