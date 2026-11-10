@@ -1,7 +1,7 @@
 {
   "name": "qzyrium-clash",
   "productName": "Qzyrium-clash",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Qzyrium-clash",
   "main": "./out/main/index.js",
   "author": "MISQZY",
