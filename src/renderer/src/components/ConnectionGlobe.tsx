@@ -13,6 +13,20 @@ function getCssColorRgb(cssVar: string, fallback: [number, number, number]): [nu
   try {
     const val = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
     if (!val) return fallback
+    const probe = document.createElement('span')
+    probe.style.color = `var(${cssVar})`
+    probe.style.display = 'none'
+    document.documentElement.append(probe)
+    const resolved = getComputedStyle(probe).color
+    probe.remove()
+    const match = /^rgba?\((\d+),\s*(\d+),\s*(\d+)/i.exec(resolved)
+    if (match) {
+      return [
+        Number((parseInt(match[1], 10) / 255).toFixed(3)),
+        Number((parseInt(match[2], 10) / 255).toFixed(3)),
+        Number((parseInt(match[3], 10) / 255).toFixed(3))
+      ]
+    }
     if (!cachedCanvas) {
       cachedCanvas = document.createElement('canvas')
       cachedCanvas.width = 1
@@ -20,12 +34,6 @@ function getCssColorRgb(cssVar: string, fallback: [number, number, number]): [nu
       cachedCtx = cachedCanvas.getContext('2d', { willReadFrequently: true })
     }
     if (!cachedCtx) return fallback
-    const probe = document.createElement('span')
-    probe.style.color = `var(${cssVar})`
-    probe.style.display = 'none'
-    document.documentElement.append(probe)
-    const resolved = getComputedStyle(probe).color
-    probe.remove()
     cachedCtx.clearRect(0, 0, 1, 1)
     cachedCtx.fillStyle = '#000000'
     cachedCtx.fillStyle = resolved
