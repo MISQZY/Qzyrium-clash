@@ -18,7 +18,9 @@ export function cleanLogMessage(message: string): string {
   // eslint-disable-next-line no-control-regex
   return message.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '').replace(/\r\n?/g, '\n')
     // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').trimEnd()
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
+    .replace(/([?&](?:token|password|secret|key|auth)=)[^&\s]+/gi, '$1[REDACTED]')
+    .trimEnd()
 }
 
 export function parseMihomoLog(line: string, fallback = 'info'): LogEntry | null {

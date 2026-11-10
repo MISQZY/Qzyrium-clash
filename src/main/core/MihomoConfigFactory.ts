@@ -60,6 +60,9 @@ export class MihomoConfigFactory {
 
     // TUN mode configuration
     if (appConfig.kernel.tun.enable) {
+      if (parsed['ipv6'] === undefined) {
+        parsed['ipv6'] = true
+      }
       parsed['tun'] = {
         ...(parsed.tun as Record<string, unknown> ?? {}),
         ...appConfig.kernel.tun.options,
@@ -67,10 +70,10 @@ export class MihomoConfigFactory {
         stack: appConfig.kernel.tun.stack || 'gvisor',
         'auto-route': appConfig.kernel.tun.autoRoute ?? true,
         'auto-detect-interface': true,
-        'strict-route': appConfig.kernel.tun.strictRoute ?? false,
+        'strict-route': appConfig.kernel.tun.strictRoute ?? true,
         'dns-hijack': appConfig.kernel.tun.dnsHijack && appConfig.kernel.tun.dnsHijack.length > 0
           ? appConfig.kernel.tun.dnsHijack
-          : ['any:53']
+          : ['any:53', 'tcp://any:53']
       }
 
       // Ensure DNS module is active and properly configured for TUN packet resolution
@@ -81,10 +84,30 @@ export class MihomoConfigFactory {
         parsed['dns'] = {
           'enhanced-mode': 'fake-ip',
           'fake-ip-range': '198.18.0.1/16',
-          nameserver: [
+          'fake-ip-filter': [
+            '*.lan',
+            'localhost.ptlogin2.qq.com',
+            'dns.msftncsi.com',
+            'www.msftncsi.com',
+            'msftncsi.com',
+            '*.msftconnecttest.com',
+            '*.msftncsi.com'
+          ],
+          'default-nameserver': [
             '77.88.8.8',
             '1.1.1.1',
             '8.8.8.8'
+          ],
+          nameserver: [
+            'https://dns.cloudflare.com/dns-query',
+            'https://dns.google/dns-query',
+            '77.88.8.8',
+            '1.1.1.1'
+          ],
+          'proxy-server-nameserver': [
+            'https://dns.cloudflare.com/dns-query',
+            '77.88.8.8',
+            '1.1.1.1'
           ],
           ...currentDns,
           enable: true

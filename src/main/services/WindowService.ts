@@ -1,6 +1,7 @@
 import { app, BrowserWindow, nativeTheme, shell } from 'electron'
 import { execFile } from 'child_process'
 import path from 'path'
+import { fileURLToPath } from 'url'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 import { BaseService } from './BaseService'
@@ -176,10 +177,24 @@ export class WindowService implements BaseService {
 
     // Navigation security guards: block navigating the top frame or subframes away from app
     this.mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
-      const allowedOrigin = process.env.ELECTRON_RENDERER_URL || 'file://'
-      if (!navigationUrl.startsWith(allowedOrigin)) {
-        event.preventDefault()
-        logger.warn(`Blocked unauthorized navigation attempt to: ${navigationUrl}`)
+      const devUrl = process.env.ELECTRON_RENDERER_URL
+      if (devUrl) {
+        if (!navigationUrl.startsWith(devUrl)) {
+          event.preventDefault()
+          logger.warn(`Blocked unauthorized navigation attempt to: ${navigationUrl}`)
+        }
+      } else {
+        try {
+          const parsed = new URL(navigationUrl)
+          const allowedFilePath = path.resolve(__dirname, '../renderer/index.html')
+          if (parsed.protocol !== 'file:' || path.resolve(fileURLToPath(parsed)) !== allowedFilePath) {
+            event.preventDefault()
+            logger.warn(`Blocked unauthorized navigation attempt to: ${navigationUrl}`)
+          }
+        } catch {
+          event.preventDefault()
+          logger.warn(`Blocked malformed navigation attempt: ${navigationUrl}`)
+        }
       }
     })
     this.mainWindow.webContents.on('will-frame-navigate', (event) => {

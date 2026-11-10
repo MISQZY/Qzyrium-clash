@@ -119,6 +119,18 @@ function sanitizeUrl(rawUrl?: string): string {
   }
 }
 
+function isValidRemoteSubscriptionUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+    const hostname = parsed.hostname.toLowerCase()
+    if (hostname === '169.254.169.254') return false
+    return true
+  } catch {
+    return false
+  }
+}
+
 export class ProfileService implements BaseService {
   private profiles: ProfileItem[] = []
   private activeProfileId: string | null = null
@@ -302,6 +314,9 @@ export class ProfileService implements BaseService {
     }
 
     if (dto.type === 'remote' && targetUrl) {
+      if (!isValidRemoteSubscriptionUrl(targetUrl)) {
+        throw new Error('Invalid remote subscription URL scheme')
+      }
       logger.info(`Fetching remote subscription from: ${sanitizeUrl(targetUrl)}`)
       const res = await axios.get(targetUrl, {
         timeout: 15000,
@@ -358,6 +373,9 @@ export class ProfileService implements BaseService {
     if (!item) throw new Error(`Profile not found: ${id}`)
 
     if (item.type === 'remote' && item.url) {
+      if (!isValidRemoteSubscriptionUrl(item.url)) {
+        throw new Error('Invalid remote subscription URL scheme')
+      }
       logger.info(`Updating remote profile ${item.name} from ${sanitizeUrl(item.url)}`)
       const res = await axios.get(item.url, {
         timeout: 15000,

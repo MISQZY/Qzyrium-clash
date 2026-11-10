@@ -42,20 +42,6 @@ export class MihomoProcessManager extends EventEmitter {
       return this.binaryPath
     }
 
-    // Check system PATH
-    try {
-      const { stdout } = await runFile(process.platform === 'win32' ? 'where.exe' : 'which',
-        [process.platform === 'win32' ? 'mihomo.exe' : 'mihomo'], { encoding: 'utf-8', windowsHide: true, timeout: 3000 })
-      const firstLine = stdout.trim().split(/\r?\n/)[0]
-      if (firstLine && existsSync(firstLine)) {
-        this.binaryPath = firstLine
-        logger.info(`Discovered Mihomo core in system PATH: ${this.binaryPath}`)
-        return this.binaryPath
-      }
-    } catch {
-      // not in system PATH
-    }
-
     logger.warn(`Mihomo binary not found at ${paths.coreBinaryPath}. Core will be simulated until installed.`)
     this.binaryPath = null
     return null

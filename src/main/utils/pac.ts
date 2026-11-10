@@ -15,7 +15,7 @@ export function pacScript(settings: AppConfig): string {
     if (bypass[i] === "<local>" || !bypass[i]) continue;
     if (shExpMatch(host, bypass[i])) return "DIRECT";
   }
-  return ${JSON.stringify(`PROXY ${host}:${port}; SOCKS5 ${host}:${port}; DIRECT`)};
+  return ${JSON.stringify(`PROXY ${host}:${port}; SOCKS5 ${host}:${port}`)};
 }`
   new Script(script)
   if (!/\bFindProxyForURL\s*(?:\(|=)/.test(script)) throw new Error('PAC script must define FindProxyForURL')
