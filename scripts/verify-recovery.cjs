@@ -192,7 +192,8 @@ async function verifyElevationRecovery() {
     const { registerIpcHandlers } = load('src/main/ipc/registerHandlers.ts', {
       electron: { ipcMain: { handle: (channel, fn) => handlers.set(channel, fn) } },
       '@shared/ipc': { IPC_CHANNELS: new Proxy({}, { get: (_, key) => key }) },
-      '../utils/elevation': { restartAsAdmin: async () => false }
+      '../utils/elevation': { restartAsAdmin: async () => false },
+      '../utils/restart-state': { saveRestartState: state => { assert.equal(state.running, running); assert.equal(state.visible, true) }, clearRestartState() {} }
     })
     registerIpcHandlers({
       sysProxyService: { setCoreRunning: async value => calls.push('proxy:' + value) },

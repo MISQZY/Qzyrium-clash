@@ -64,7 +64,7 @@ $ErrorActionPreference = 'Stop'
 $filePath = '${escapedExecPath}'
 $workingDir = '${escapedWorkingDir}'
 $argList = @(${escapedArgs})
-Start-Process -FilePath $filePath -WorkingDirectory $workingDir -ArgumentList $argList -Verb RunAs -WindowStyle Hidden -ErrorAction Stop
+Start-Process -FilePath $filePath -WorkingDirectory $workingDir -ArgumentList $argList -Verb RunAs -WindowStyle Normal -ErrorAction Stop
 `
       const encoded = Buffer.from(script, 'utf16le').toString('base64')
 

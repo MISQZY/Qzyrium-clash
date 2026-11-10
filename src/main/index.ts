@@ -8,6 +8,8 @@ import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { IPC_CHANNELS } from '@shared/ipc'
 import { parseSubscriptionImportUrl } from '@shared/clash-url'
+import { clearRestartState, readRestartState } from './utils/restart-state'
+import { isProcessElevated, restartAsAdmin } from './utils/elevation'
 
 app.setName('Qzyrium-clash')
 electronApp.setAppUserModelId('com.qzyrium.vpn')
@@ -140,7 +142,17 @@ if (!gotTheLock) {
 
     logger.info('Starting Qzyrium-clash application...')
 
+    const restartState = readRestartState()
+    if (restartState?.elevated && !isProcessElevated()) {
+      if (await restartAsAdmin()) return
+      logger.warn('Administrator restart declined; continuing without elevation')
+    }
+    clearRestartState()
     services = new ServiceManager()
+    if (restartState) {
+      services.windowService.setStartupVisibility(restartState.visible)
+      services.kernelService.setStartupRunning(restartState.running)
+    }
     registerIpcHandlers(services)
     await services.initialize()
 

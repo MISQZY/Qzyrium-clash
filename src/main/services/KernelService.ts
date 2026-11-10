@@ -43,6 +43,9 @@ export class KernelService implements BaseService {
   private broadcaster: ((channel: string, data: unknown) => void) | null = null
   private sessionStartedAt: number | null = null
   private streamsPaused = false
+  private startupRunning?: boolean
+
+  setStartupRunning(running: boolean): void { this.startupRunning = running }
 
   constructor(settingService: SettingService, profileService: ProfileService) {
     this.settingService = settingService
@@ -105,7 +108,7 @@ export class KernelService implements BaseService {
 
   async initialize(): Promise<void> {
     const settings = this.settingService.getSettings()
-    if (settings.general.autoConnect) {
+    if (this.startupRunning ?? settings.general.autoConnect) {
       await this.start()
     }
   }

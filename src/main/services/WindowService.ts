@@ -47,6 +47,7 @@ export class WindowService implements BaseService {
   private isQuitting = false
   private startHidden = false
   private ready = false
+  private startupVisible?: boolean
   private visibilityHandler?: (visible: boolean) => void
 
   constructor(settingService: SettingService, private themeStore?: ThemeStore) {
@@ -57,8 +58,10 @@ export class WindowService implements BaseService {
     this.visibilityHandler = handler
   }
 
+  setStartupVisibility(visible: boolean): void { this.startupVisible = visible }
+
   async initialize(): Promise<void> {
-    this.startHidden = !!this.settingService.getSettings().general.silentStart
+    this.startHidden = this.startupVisible === undefined ? !!this.settingService.getSettings().general.silentStart : !this.startupVisible
     await this.createWindow()
     if (this.startHidden) {
       this.visibilityHandler?.(false)
