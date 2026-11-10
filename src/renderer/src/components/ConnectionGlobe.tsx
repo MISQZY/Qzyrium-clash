@@ -20,8 +20,15 @@ function getCssColorRgb(cssVar: string, fallback: [number, number, number]): [nu
       cachedCtx = cachedCanvas.getContext('2d', { willReadFrequently: true })
     }
     if (!cachedCtx) return fallback
+    const probe = document.createElement('span')
+    probe.style.color = `var(${cssVar})`
+    probe.style.display = 'none'
+    document.documentElement.append(probe)
+    const resolved = getComputedStyle(probe).color
+    probe.remove()
+    cachedCtx.clearRect(0, 0, 1, 1)
     cachedCtx.fillStyle = '#000000'
-    cachedCtx.fillStyle = val
+    cachedCtx.fillStyle = resolved
     cachedCtx.fillRect(0, 0, 1, 1)
     const data = cachedCtx.getImageData(0, 0, 1, 1).data
     return [Number((data[0] / 255).toFixed(3)), Number((data[1] / 255).toFixed(3)), Number((data[2] / 255).toFixed(3))]
@@ -31,7 +38,7 @@ function getCssColorRgb(cssVar: string, fallback: [number, number, number]): [nu
 }
 
 const DORMANT_COLOR_DARK: [number, number, number] = [0.72, 0.74, 0.78]
-const DORMANT_COLOR_LIGHT: [number, number, number] = [0.62, 0.65, 0.68]
+const DORMANT_COLOR_LIGHT: [number, number, number] = [0.30, 0.34, 0.37]
 const IGNITION_DURATION = 950
 
 export function ConnectionGlobe({
@@ -96,6 +103,7 @@ export function ConnectionGlobe({
     let lastColor: [number, number, number] | null = null
     let lastBrightness = -1
     let cachedActiveColor: [number, number, number] | null = null
+    let cachedDormantColor: [number, number, number] | null = null
 
     const draw = () => {
       rAfId = null
@@ -104,16 +112,17 @@ export function ConnectionGlobe({
       if (view.width < 2 || view.height < 2) return
       const layout = globeLayout(camera.current, view)
       const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-      const palette = `${theme}:${document.documentElement.dataset.theme}:${document.documentElement.style.getPropertyValue('--primary')}`
+      const palette = `${theme}:${document.documentElement.dataset.theme}:${document.documentElement.style.cssText}`
       const resized = sizedWidth !== view.width || sizedHeight !== view.height || lastDpr !== window.devicePixelRatio
       const cameraChanged = Math.abs(lastPhi - camera.current.phi) > 0.0001 || Math.abs(lastTheta - camera.current.theta) > 0.0001 || Math.abs(lastScale - layout.scale) > 0.0001
       const themeChanged = lastTheme !== palette
 
       // Determine colors and brightness based on running state and smooth ignition transition
-      const dormantColor: [number, number, number] = theme === 'dark' ? DORMANT_COLOR_DARK : DORMANT_COLOR_LIGHT
       if (themeChanged || !cachedActiveColor) {
         cachedActiveColor = getCssColorRgb('--primary', theme === 'dark' ? [0.42, 0.65, 0.5] : [0.78, 0.88, 0.8])
+        cachedDormantColor = getCssColorRgb('--muted-foreground', theme === 'dark' ? DORMANT_COLOR_DARK : DORMANT_COLOR_LIGHT)
       }
+      const dormantColor = cachedDormantColor!
       const activeColor = cachedActiveColor
 
       let targetColor: [number, number, number]
@@ -121,9 +130,9 @@ export function ConnectionGlobe({
 
       const isCurrentRunning = runningRef.current
       if (!isCurrentRunning) {
-        // Disconnected: clean neutral white-gray (standard dark theme)
+        // Neutral land remains visible against the surface in every theme.
         targetColor = dormantColor
-        targetBrightness = theme === 'dark' ? 1.7 : 0.75
+        targetBrightness = 1.8
       } else {
         const elapsed = performance.now() - ignitionStart.current
         if (ignitionStart.current > 0 && elapsed < IGNITION_DURATION) {
@@ -136,11 +145,11 @@ export function ConnectionGlobe({
             Number((dormantColor[2] + (activeColor[2] - dormantColor[2]) * ease).toFixed(3))
           ]
           const flare = Math.sin(p * Math.PI) * 1.4
-          targetBrightness = (theme === 'dark' ? 2.6 : 0.85) + flare
+          targetBrightness = (theme === 'dark' ? 2.6 : 2.2) + flare
           schedule()
         } else {
           targetColor = activeColor
-          targetBrightness = theme === 'dark' ? 2.6 : 0.85
+          targetBrightness = theme === 'dark' ? 2.6 : 2.2
         }
       }
 
@@ -198,10 +207,10 @@ export function ConnectionGlobe({
 
     try {
       const initialTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-      const initialDormant: [number, number, number] = initialTheme === 'dark' ? DORMANT_COLOR_DARK : DORMANT_COLOR_LIGHT
+      const initialDormant = getCssColorRgb('--muted-foreground', initialTheme === 'dark' ? DORMANT_COLOR_DARK : DORMANT_COLOR_LIGHT)
       const initialActive = getCssColorRgb('--primary', initialTheme === 'dark' ? [0.48, 0.74, 0.57] : [0.78, 0.88, 0.8])
       const initialColor = running ? initialActive : initialDormant
-      const initialBrightness = running ? (initialTheme === 'dark' ? 2.6 : 0.85) : (initialTheme === 'dark' ? 1.7 : 0.75)
+      const initialBrightness = running ? (initialTheme === 'dark' ? 2.6 : 2.2) : 1.8
 
       globe = createGlobe(canvas, {
         width: 1, height: 1, offset: [0, 0],
@@ -413,7 +422,7 @@ export function ConnectionGlobe({
               <title>{routes.filter((route) => endpoint.routeIds.includes(route.id)).map((route) => route.node).join('\n')}</title>
               <text x={x + 3} y={y + height / 2} dominantBaseline="central"
                 className={`globe-endpoint-text ${containsActive(endpoint.routeIds) ? 'is-active' : ''}`}
-                style={{ fill: endpoint.color }}>{text}</text>
+                >{text}</text>
             </g>
           ))}
         </svg>

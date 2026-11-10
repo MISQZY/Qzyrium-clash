@@ -89,7 +89,7 @@ export function CopyableCodeLine({
             className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-background/80 transition-all focus:outline-none focus:ring-1 focus:ring-primary/40"
           >
             {copied ? (
-              <Check className="size-3.5 text-emerald-500 animate-in zoom-in-75 duration-150" />
+              <Check className="size-3.5 text-success animate-in zoom-in-75 duration-150" />
             ) : (
               <Copy className="size-3.5 opacity-60 group-hover/codeline:opacity-100 transition-opacity" />
             )}

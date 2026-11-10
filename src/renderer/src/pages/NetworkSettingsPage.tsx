@@ -362,7 +362,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
           </div>
 
           {isElevated === false && (form.kernel.tun.enable || tunAdminPrompt) && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
               <span className="min-w-0 flex-1 leading-relaxed">
                 {t('tunAdminExplanation')}
               </span>
@@ -385,7 +385,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Icon className="size-4 text-primary" />{title}</h2>
         {section === 'tun' && <>
           {isElevated === false && (
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-600 dark:text-amber-400">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3.5 text-xs text-warning">
               <span className="min-w-0 flex-1 leading-relaxed">
                 {t('tunAdminExplanation')}
               </span>
@@ -588,7 +588,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-muted-foreground font-mono truncate">v{appVersion}</span>
                       {updateStatus && (
-                        <span className={`text-[11px] font-medium ${updateStatus.type === 'latest' ? 'text-emerald-500' : updateStatus.type === 'available' ? 'text-primary font-semibold' : 'text-destructive'}`}>
+                        <span className={`text-[11px] font-medium ${updateStatus.type === 'latest' ? 'text-success' : updateStatus.type === 'available' ? 'text-primary font-semibold' : 'text-destructive'}`}>
                           • {updateStatus.type === 'available' ? t('updateAvailable', { version: updateStatus.version ?? '' }) : updateStatus.type === 'latest' ? t('latestVersionInstalled') : updateStatus.type === 'unsupported' ? t('updateUnsupported') : updateStatus.type === 'downloading' ? t('updateDownloading') : updateStatus.type === 'downloaded' ? t('updateInstalling') : t('updateCheckFailed')}
                         </span>
                       )}
