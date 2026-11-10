@@ -39,16 +39,6 @@ export default defineConfig({
     },
     plugins: [
       {
-        name: 'monaco-patched-dompurify',
-        enforce: 'pre',
-        async resolveId(source, importer) {
-          // Monaco vendors a copy; updating only its npm dependency leaves that copy in the renderer.
-          if (source === './dompurify/dompurify.js' && importer?.replaceAll('\\', '/').endsWith('/monaco-editor/esm/vs/base/browser/domSanitize.js')) {
-            return this.resolve('dompurify', importer, { skipSelf: true })
-          }
-        }
-      },
-      {
         name: 'renderer-dev-csp',
         apply: 'serve',
         config: () => ({ html: { cspNonce: devNonce } }),
