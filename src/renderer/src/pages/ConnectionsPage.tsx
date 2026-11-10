@@ -712,13 +712,13 @@ export function ConnectionsPage({
                   </div>
 
                   {/* Right: Traffic totals & Chevron */}
-                  <div className="flex items-center gap-4 shrink-0">
+                  <div className="flex items-center gap-3 shrink-0 pl-2 pr-1">
                     <div className="flex flex-col items-end text-right font-mono text-[11px] leading-tight">
                       <TrafficValue value={group.totalDownload} direction="download" />
                       <TrafficValue value={group.totalUpload} direction="upload" className="mt-0.5" />
                     </div>
 
-                    <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
                   </div>
                 </div>
               </Card>
