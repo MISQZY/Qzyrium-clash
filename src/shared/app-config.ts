@@ -12,6 +12,7 @@ export interface AppConfig {
     liteDashboard?: boolean
     silentStart?: boolean
     disableGpu?: boolean
+    lowMemoryMode?: boolean
     autoCloseConnection?: boolean
     connectionInterval?: number
     maxLogs?: number
@@ -73,6 +74,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     liteDashboard: false,
     silentStart: false,
     disableGpu: false,
+    lowMemoryMode: true,
     autoCloseConnection: false,
     connectionInterval: 2000,
     maxLogs: 300,

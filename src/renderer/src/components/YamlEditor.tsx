@@ -15,7 +15,7 @@ export default function YamlEditor(props: Pick<EditorProps, 'value' | 'onChange'
     language="yaml"
     className="h-full w-full flex-1 min-h-0"
     options={{
-      minimap: { enabled: true, maxColumn: 45 },
+      minimap: { enabled: false },
       lineNumbers: 'on',
       wordWrap: 'on',
       scrollBeyondLastLine: false,
