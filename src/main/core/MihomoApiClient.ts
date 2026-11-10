@@ -39,6 +39,7 @@ export class MihomoApiClient extends EventEmitter {
     this.axiosInstance = axios.create({
       baseURL: `http://${host}:${port}`,
       timeout: 10000,
+      proxy: false,
       headers: {
         Authorization: secret ? `Bearer ${secret}` : undefined,
         'Content-Type': 'application/json'
@@ -131,10 +132,12 @@ export class MihomoApiClient extends EventEmitter {
     this.shouldStreamTraffic = true
     if (this.trafficWs) return
 
-    const wsUrl = `ws://${this.host}:${this.port}/traffic${this.secret ? `?token=${this.secret}` : ''}`
-    this.trafficWs = new WebSocket(wsUrl)
+    const wsUrl = `ws://${this.host}:${this.port}/traffic${this.secret ? `?${new URLSearchParams({ token: this.secret })}` : ''}`
+    const socket = new WebSocket(wsUrl)
+    this.trafficWs = socket
 
     this.trafficWs.on('message', (data: WebSocket.RawData) => {
+      if (this.trafficWs !== socket || !this.shouldStreamTraffic) return
       try {
         const stats: TrafficStats = JSON.parse(data.toString())
         this.emit('traffic', stats)
@@ -148,6 +151,7 @@ export class MihomoApiClient extends EventEmitter {
     })
 
     this.trafficWs.on('close', () => {
+      if (this.trafficWs !== socket) return
       this.trafficWs = null
       if (this.shouldStreamTraffic) {
         if (this.trafficTimer) clearTimeout(this.trafficTimer)
@@ -176,10 +180,13 @@ export class MihomoApiClient extends EventEmitter {
     this.currentLogLevel = level
     if (this.logsWs) return
 
-    const wsUrl = `ws://${this.host}:${this.port}/logs?level=${level}${this.secret ? `&token=${this.secret}` : ''}`
-    this.logsWs = new WebSocket(wsUrl)
+    const params = new URLSearchParams({ level })
+    if (this.secret) params.set('token', this.secret)
+    const socket = new WebSocket(`ws://${this.host}:${this.port}/logs?${params}`)
+    this.logsWs = socket
 
     this.logsWs.on('message', (data: WebSocket.RawData) => {
+      if (this.logsWs !== socket || !this.shouldStreamLogs) return
       try {
         const parsed = JSON.parse(data.toString())
         const entry: LogEntry = {
@@ -198,6 +205,7 @@ export class MihomoApiClient extends EventEmitter {
     })
 
     this.logsWs.on('close', () => {
+      if (this.logsWs !== socket) return
       this.logsWs = null
       if (this.shouldStreamLogs) {
         if (this.logsTimer) clearTimeout(this.logsTimer)

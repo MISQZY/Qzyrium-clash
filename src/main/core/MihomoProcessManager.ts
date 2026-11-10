@@ -87,7 +87,7 @@ export class MihomoProcessManager extends EventEmitter {
         payload: 'Mihomo core binary missing. Run "pnpm prepare:resources" to download core.',
         time: new Date().toLocaleTimeString()
       } as LogEntry)
-      return
+      throw new Error('Mihomo core binary is missing. Run pnpm prepare:resources before connecting.')
     }
 
     const args = [
@@ -182,7 +182,13 @@ export class MihomoProcessManager extends EventEmitter {
       await this.waitForReady(spawned, controllerPort, secret, sequence, () => exitedPrematurely, () => exitCode)
     } catch (err) {
       logger.error('Error starting Mihomo process', err)
-      if (sequence === this.startSequence && !this.explicitStop) this.setState('error')
+      if (sequence === this.startSequence && !this.explicitStop) {
+        const cleanup = this.stop()
+        const cleanupSequence = this.startSequence
+        try { await cleanup }
+        catch (stopError) { logger.error('Failed to clean up unsuccessful Mihomo startup', stopError) }
+        if (this.startSequence === cleanupSequence) this.setState('error')
+      }
       throw err
     }
   }
