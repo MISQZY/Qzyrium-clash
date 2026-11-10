@@ -188,7 +188,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
       throw new Error(nativeMessage(candidate.general.language, 'tunRequiresAdmin'))
     }
     if (patch.kernel?.tun?.enable) {
-      if (services.sysProxyService.getStatus().enabled) {
+      if (previous.sysProxy.enable || services.sysProxyService.getStatus().enabled) {
         await services.sysProxyService.setSysProxy(false)
       }
     }
@@ -202,7 +202,14 @@ export function registerIpcHandlers(services: ServiceManager): void {
     if (patch.general) services.desktopService?.applySettings(candidate)
     let updated: AppConfig
     try { updated = await services.settingService.updateSettings(patch) }
-    catch (err) { if (patch.general) services.desktopService?.applySettings(previous); throw err }
+    catch (err) {
+      if (modeOnly && services.kernelService.getStatus() === 'running') {
+        await services.kernelService.patchConfigs({ mode: previous.kernel.mode }).catch((error) => logger.error('Failed to restore routing mode', error))
+      }
+      if (patch.kernel?.tun?.enable && previous.sysProxy.enable) await services.sysProxyService.setSysProxy(true)
+      if (patch.general) services.desktopService?.applySettings(previous)
+      throw err
+    }
     if (kernelChanged && !modeOnly && ['running', 'starting'].includes(services.kernelService.getStatus())) {
       await services.kernelService.restart()
     }

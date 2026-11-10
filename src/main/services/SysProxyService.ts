@@ -11,6 +11,7 @@ const execFileAsync = promisify(execFile)
 
 export class SysProxyService implements BaseService {
   private enabled = false
+  private coreRunning = false
   private settingService: SettingService
   private proxyUpdate: Promise<void> = Promise.resolve()
   private pacServer: Server | null = null
@@ -21,16 +22,15 @@ export class SysProxyService implements BaseService {
   }
 
   async initialize(): Promise<void> {
-    const settings = this.settingService.getSettings()
-    if (settings.sysProxy.enable) {
-      await this.setSysProxy(true)
-    }
+    // The saved preference is applied only after the controller becomes ready.
+    if (this.settingService.getSettings().sysProxy.enable) await this.applySysProxy(false)
   }
 
   async dispose(): Promise<void> {
+    this.coreRunning = false
     await this.proxyUpdate
     if (this.enabled) {
-      await this.applySysProxy(false, false)
+      await this.applySysProxy(false)
     }
     this.closePacServer()
   }
@@ -50,12 +50,33 @@ export class SysProxyService implements BaseService {
   }
 
   setSysProxy(enable: boolean): Promise<void> {
-    const update = this.proxyUpdate.then(() => this.applySysProxy(enable))
+    return this.enqueue(async () => {
+      const previous = this.settingService.getSettings().sysProxy.enable
+      await this.applySysProxy(enable && this.coreRunning)
+      try {
+        await this.settingService.updateSettings({ sysProxy: { ...this.settingService.getSettings().sysProxy, enable } })
+      } catch (error) {
+        await this.applySysProxy(previous && this.coreRunning)
+        throw error
+      }
+    })
+  }
+
+  setCoreRunning(running: boolean): Promise<void> {
+    this.coreRunning = running
+    return this.enqueue(async () => {
+      const enable = this.coreRunning && this.settingService.getSettings().sysProxy.enable
+      if (enable || this.enabled) await this.applySysProxy(enable)
+    })
+  }
+
+  private enqueue(action: () => Promise<void>): Promise<void> {
+    const update = this.proxyUpdate.then(action)
     this.proxyUpdate = update.catch(() => {})
     return update
   }
 
-  private async applySysProxy(enable: boolean, persist = true): Promise<void> {
+  private async applySysProxy(enable: boolean): Promise<void> {
     const settings = this.settingService.getSettings()
     const port = settings.kernel.mixedPort
     const bypassList = settings.sysProxy.bypass.join(';')
@@ -102,12 +123,6 @@ export class SysProxyService implements BaseService {
     }
 
     if (!enable || mode !== 'pac') this.closePacServer()
-    if (persist) await this.settingService.updateSettings({
-      sysProxy: {
-        ...settings.sysProxy,
-        enable: this.enabled
-      }
-    })
   }
 
   private async ensurePacServer(): Promise<string> {

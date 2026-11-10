@@ -44,7 +44,7 @@ export class ServiceManager {
     this.updateService = new UpdateService((channel, payload) => this.windowService.broadcast(channel, payload), async () => {
       await this.desktopService.dispose()
       await this.kernelService.stop()
-      await this.sysProxyService.setSysProxy(false)
+      await this.sysProxyService.setCoreRunning(false)
     })
 
     // Route kernel broadcasts to renderer via WindowService
@@ -59,14 +59,11 @@ export class ServiceManager {
           this.trayService.clearProxies()
         }
         this.trayService.updateContextMenu()
-        // If core crashed or stopped, ensure OS system proxy is disabled so internet is not blocked
-        if (data === 'error' || data === 'stopped') {
-          if (this.sysProxyService.getStatus().enabled) {
-            void this.sysProxyService.setSysProxy(false).then(() => {
-              this.windowService.broadcast('event:settings-changed', null)
-              this.trayService.updateContextMenu()
-            }).catch((error) => logger.error('Failed to disable system proxy after the core stopped', error))
-          }
+        if (data === 'running' || data === 'error' || data === 'stopped') {
+          void this.sysProxyService.setCoreRunning(data === 'running').then(() => {
+            this.windowService.broadcast('event:settings-changed', null)
+            this.trayService.updateContextMenu()
+          }).catch((error) => logger.error('Failed to synchronize system proxy with the core', error))
         }
       }
     })

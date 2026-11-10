@@ -67,7 +67,7 @@ export class DesktopService implements BaseService {
           logger.warn('Shortcut cannot enable TUN: Administrator privileges required')
           return
         }
-        if (this.proxy.getStatus().enabled) {
+        if (settings.sysProxy.enable || this.proxy.getStatus().enabled) {
           await this.proxy.setSysProxy(false)
         }
       }

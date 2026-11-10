@@ -13,6 +13,8 @@ function load(file, dependencies, runtime = process) {
   vm.runInThisContext(`(function(exports, require, process) {\n${output}\n})`, { filename: file })(
     exports, name => {
       if (dependencies[name]) return dependencies[name]
+      if (name === '../utils/atomicWrite' && dependencies.fs) return { writeFileAtomicAsync: (...args) => dependencies.fs.promises.writeFile(...args) }
+      if (name === '../utils/profile-validator') return { validateProfileContent: async () => {} }
     if (name.endsWith('.json') && name.startsWith('.')) return require(path.resolve(path.dirname(file), name))
       const target = name.startsWith('@shared/') ? path.resolve('src/shared', name.slice(8) + '.ts') : name.startsWith('.') ? path.resolve(path.dirname(file), name + '.ts') : null
       return target && fs.existsSync(target) ? load(target, {}) : require(name)
@@ -121,6 +123,7 @@ async function verifySettings() {
   const recovery = settings.updateSettings({ kernel: { mode: 'direct' } })
   await assert.rejects(failed, /disk unavailable/, 'disk failures must reach the caller')
   await recovery
+  assert.equal(saved.general.theme, 'light', 'a failed write must not publish or leak its settings into the next update')
   assert.equal(saved.kernel.mode, 'direct', 'a failed settings write must not poison later queued saves')
   assert.equal(maxActiveWrites, 1, 'settings disk writes must never overlap')
   await settings.dispose()
@@ -132,7 +135,7 @@ async function verifyProfiles() {
       { id: 'a', name: 'Active', type: 'remote', url: 'https://fixture/a', updatedAt: 1 },
       { id: 'b', name: 'Other', type: 'remote', url: 'https://fixture/b', updatedAt: 1 }
     ])],
-    [path.join('profiles', 'a.yaml'), 'old'], [path.join('profiles', 'b.yaml'), 'old']
+    [path.resolve('profiles', 'a.yaml'), 'old'], [path.resolve('profiles', 'b.yaml'), 'old']
   ])
   let metadataWrites = 0, maxMetadataWrites = 0, fetches = 0, content = 'new', failFetch = false, responseHeaders = {}
   const requestAgents = []
@@ -259,6 +262,7 @@ async function verifySystemProxy() {
     '../utils/logger': { logger }
   })
   registerIpcHandlers({ sysProxyService: proxy })
+  await proxy.setCoreRunning(true)
   const enabling = proxy.setSysProxy(true)
   let statusRead = false
   const initialRead = handlers.get('SYSPROXY_GET_STATUS')().then(status => { statusRead = true; return status })
