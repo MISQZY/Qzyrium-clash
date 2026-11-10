@@ -171,6 +171,11 @@ function getSubDomains(domain: string): string[] {
   return parts.map((_, i) => parts.slice(i).join('.')).slice(0, -1)
 }
 
+// Mihomo reports the selected leaf first; show routing from group to leaf.
+function formatChain(chains: string[]): string {
+  return [...chains].reverse().join(' \u2192 ') || 'DIRECT'
+}
+
 function isIPv6(ip: string): boolean {
   return ip.includes(':')
 }
@@ -444,7 +449,7 @@ export function ConnectionsPage({
 
                 <span className="text-border text-xs hidden sm:inline">•</span>
                 <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                  <EmojiText text={item.chains.join(' → ') || 'DIRECT'} />
+                  <EmojiText text={formatChain(item.chains)} />
                 </span>
               </div>
             </div>
@@ -1083,20 +1088,20 @@ export function ConnectionsPage({
                       <div
                         className="group/chainline relative flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-border/70 bg-muted/30 text-xs text-foreground transition-all hover:border-primary/40 hover:bg-muted/50 cursor-pointer"
                         onClick={() => {
-                          const chainVal = activeDetail.chains.length > 0 ? activeDetail.chains.join(' → ') : 'DIRECT'
+                          const chainVal = formatChain(activeDetail.chains)
                           handleCopy(chainVal, `chain-${activeDetail.id}`)
                         }}
-                        title={activeDetail.chains.length > 0 ? activeDetail.chains.join(' → ') : 'DIRECT'}
+                        title={formatChain(activeDetail.chains)}
                       >
                         <span className="select-all text-xs leading-relaxed text-foreground min-w-0 flex-1 break-words">
-                          <EmojiText text={activeDetail.chains.length > 0 ? activeDetail.chains.join(' → ') : 'DIRECT'} />
+                          <EmojiText text={formatChain(activeDetail.chains)} />
                         </span>
 
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
-                            const chainVal = activeDetail.chains.length > 0 ? activeDetail.chains.join(' → ') : 'DIRECT'
+                            const chainVal = formatChain(activeDetail.chains)
                             handleCopy(chainVal, `chain-${activeDetail.id}`)
                           }}
                           title={copiedKey === `chain-${activeDetail.id}` ? t('copied') : t('copy')}

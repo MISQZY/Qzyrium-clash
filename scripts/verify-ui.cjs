@@ -21,7 +21,7 @@ if (process.type === 'renderer') {
   const nodes = Object.fromEntries(Array.from({ length: 18 }, (_, i) => [`Node ${i + 1} · ${i % 2 ? 'Frankfurt' : 'Amsterdam'}${i === 0 ? ' 🇳🇱 🚀' : ''}`, { name: `Node ${i + 1}`, type: 'VLESS', udp: true, history: [] }]))
   const proxies = { ...nodes, PROXY: { name: 'PROXY', type: 'Selector', udp: true, history: [], all: Object.keys(nodes), now: Object.keys(nodes)[0] } }
   const rules = Array.from({ length: 210 }, (_, i) => ({ type: i % 2 ? 'DomainSuffix' : 'IPCIDR', payload: i % 2 ? `service-${i}.example.com` : `10.${i}.0.0/16`, proxy: 'PROXY' }))
-  let connections = Array.from({ length: 8 }, (_, i) => ({ id: String(i), metadata: { network: 'tcp', type: 'HTTP', sourceIP: '127.0.0.1', destinationIP: '203.0.113.1', sourcePort: '51234', destinationPort: '443', host: i ? `service-${i}.example.com` : 'a-very-long-hostname-'.repeat(12) + '.example.com', processPath: 'C:\\Program Files\\Example\\browser.exe', dnsMode: 'normal' }, upload: 12345, download: 12345678, start: new Date().toISOString(), chains: ['PROXY', Object.keys(nodes)[0]], rule: 'DomainSuffix', rulePayload: 'example.com' }))
+  let connections = Array.from({ length: 8 }, (_, i) => ({ id: String(i), metadata: { network: 'tcp', type: 'HTTP', sourceIP: '127.0.0.1', destinationIP: '203.0.113.1', sourcePort: '51234', destinationPort: '443', host: i ? `service-${i}.example.com` : 'a-very-long-hostname-'.repeat(12) + '.example.com', processPath: 'C:\\Program Files\\Example\\browser.exe', dnsMode: 'normal' }, upload: 12345, download: 12345678, start: new Date().toISOString(), chains: [Object.keys(nodes)[0], 'PROXY'], rule: 'DomainSuffix', rulePayload: 'example.com' }))
   const noop = async () => {}
   contextBridge.exposeInMainWorld('api', {
     uiTest: { emitLogs: (count) => { for (let i = 0; i < count; i++) logCallback?.({ type: 'info', payload: `Journal regression ${Date.now()} ${i} ` + 'payload '.repeat(40), time: new Date().toISOString() }) }, increaseTraffic: () => { connections = connections.map(c => ({ ...c, download: c.download + 4096 })) } },
@@ -197,7 +197,15 @@ if (process.type === 'renderer') {
       assert.equal(await evaluate(`document.querySelector('[data-traffic="upload"]').getAnimations().length`), 0, 'unchanged upload stays dim')
       await delay(2400)
       assert.equal(await evaluate(`document.querySelector('[data-traffic="download"]').getAnimations().length`), 0, 'traffic fades after activity')
-      result.checks.push('Traffic highlights only increasing counters and fades after activity')
+      await evaluate(`document.querySelector('[data-traffic="download"]').closest('.group').click()`)
+      await waitFor(`!!document.querySelector('[class*="group/codechip"]')`)
+      await evaluate(`document.querySelector('[class*="group/codechip"]').closest('.group').click()`)
+      await waitFor(`!!document.querySelector('[role="dialog"]')`)
+      const chain = await evaluate(`document.querySelector('[class*="group/chainline"]').title`)
+      assert.ok(chain.startsWith('PROXY \u2192 Node 1'), 'chain goes from routing group to selected node')
+      assert.equal(await evaluate(`document.querySelector('[class*="group/chainline"] span').textContent`), chain)
+      await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(el => el.textContent.trim() === 'Close').click()`)
+      result.checks.push('Traffic highlights only increasing counters and fades; connection details show group-to-node chain')
       const pages = ['Home', 'Proxy groups', 'Profiles', 'Connections', 'Rules', 'Logs', 'System proxy', 'TUN interface', 'DNS', 'Sniffer', 'Resources', 'Mihomo core', 'Settings']
       for (const [width, height] of [[840, 560], [1040, 720], [1440, 900], [900, 600], [840, 560]]) {
         win.setSize(width, height)
