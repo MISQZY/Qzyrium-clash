@@ -42,8 +42,10 @@ function notifyImportProfile(services: ServiceManager, rawUrl: string): void {
 // Memory optimization and acceleration switches must be applied before app.ready.
 try {
   const boot = JSON.parse(readFileSync(path.join(app.getPath('userData'), 'settings.json'), 'utf8'))
-  if (boot.general?.lowMemoryMode !== false) app.disableHardwareAcceleration()
-} catch { app.disableHardwareAcceleration() }
+  // Software compositing stalls live Windows resize. Keep GPU acceleration on
+  // unless explicitly disabled, independently of memory-saving preferences.
+  if (boot.general?.disableGpu === true) app.disableHardwareAcceleration()
+} catch { /* First launch uses Electron's normal acceleration settings. */ }
 
 app.commandLine.appendSwitch('gpu-rasterization-msaa-sample-count', '0')
 app.commandLine.appendSwitch('disable-features', 'SpareRendererForSitePerProcess,BackForwardCache,WinUseBrowserSpellChecker')

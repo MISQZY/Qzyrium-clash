@@ -27,6 +27,27 @@ const { MihomoConfigFactory } = load('src/main/core/MihomoConfigFactory.ts', { '
 const fresh = () => structuredClone(DEFAULT_APP_CONFIG)
 const flush = () => new Promise(resolve => setImmediate(resolve))
 
+// Exercise the real pre-ready startup block without starting desktop services.
+const startup = fs.readFileSync('src/main/index.ts', 'utf8')
+const startupAst = ts.createSourceFile('index.ts', startup, ts.ScriptTarget.Latest, true)
+const graphicsBoot = startupAst.statements.find(statement =>
+  ts.isTryStatement(statement) && statement.getText(startupAst).includes('app.disableHardwareAcceleration()'))
+assert.ok(graphicsBoot, 'startup configures graphics before app.ready')
+for (const [saved, expected] of [
+  [null, false], ['{invalid', false], ['{}', false],
+  [JSON.stringify({ general: { lowMemoryMode: true } }), false],
+  [JSON.stringify({ general: { lowMemoryMode: false } }), false],
+  [JSON.stringify({ general: { lowMemoryMode: true, disableGpu: false } }), false],
+  [JSON.stringify({ general: { lowMemoryMode: false, disableGpu: true } }), true]
+]) {
+  let disabled = false
+  vm.runInNewContext(graphicsBoot.getText(startupAst), {
+    app: { getPath: () => 'test', disableHardwareAcceleration: () => { disabled = true } },
+    path, readFileSync: () => { if (saved === null) throw new Error('ENOENT'); return saved }
+  })
+  assert.equal(disabled, expected, `GPU startup policy for ${saved}`)
+}
+
 function verifyConfiguration() {
   const config = fresh()
   config.kernel.options = { ipv6: false, 'tcp-concurrent': true, 'unified-delay': true, 'socks-port': 0, 'find-process-mode': 'strict' }

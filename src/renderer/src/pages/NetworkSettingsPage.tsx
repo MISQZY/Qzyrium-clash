@@ -557,7 +557,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
 
         </SettingsGroup>
         <SettingsGroup title={t('performanceGroup')} description={t('performanceDescription')} icon={<Gauge />}>
-          {renderGeneralFields(['lowMemoryMode', 'liteDashboard', 'connectionInterval', 'maxLogs'])}
+          {renderGeneralFields(['disableGpu', 'liteDashboard', 'connectionInterval', 'maxLogs'])}
 
         </SettingsGroup>
         <SettingsGroup title={t('subscriptionsGroup')} description={t('subscriptionsDescription')} icon={<FileText />}>
