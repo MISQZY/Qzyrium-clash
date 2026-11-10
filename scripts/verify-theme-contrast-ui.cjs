@@ -7,6 +7,7 @@ const output = path.resolve(__dirname, '../artifacts/theme-contrast-ui-check')
 fs.mkdirSync(output, { recursive: true })
 app.setPath('userData', path.join(output, 'user-data'))
 app.commandLine.appendSwitch('force-device-scale-factor', process.env.UI_DISPLAY_SCALE || '1')
+app.commandLine.appendSwitch('force-prefers-reduced-motion', 'reduce')
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 app.whenReady().then(async () => {
@@ -53,6 +54,9 @@ app.whenReady().then(async () => {
       await delay(250)
       const ratios = await evaluate(`(() => {
         const probe = document.createElement('span'); document.body.append(probe);
+        // The reduced-motion rule gives every element a short transition.
+        // Read each color immediately, without interpolating from the previous one.
+        probe.style.setProperty('transition', 'none', 'important');
         const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
         const samples = {};
         const read = key => { probe.style.color = 'var(' + key + ')'; ctx.clearRect(0,0,1,1); ctx.fillStyle = getComputedStyle(probe).color; ctx.fillRect(0,0,1,1); const rgb = [...ctx.getImageData(0,0,1,1).data].slice(0,3); samples[key] = { css: getComputedStyle(probe).color, rgb }; return rgb; };
