@@ -18,17 +18,25 @@ interface SidebarProps {
   captureEnabled: boolean
   busy: boolean
   onUpdateMode: (mode: TunnelMode) => void
+  tunEnabled?: boolean
 }
 
 function SidebarHint({ label, open, children }: { label: string; open: boolean; children: ReactElement }) {
   return <Tooltip.Root><Tooltip.Trigger asChild>{children}</Tooltip.Trigger>{!open && <Tooltip.Portal><Tooltip.Content side="right" sideOffset={12} className="sidebar-tooltip">{label}<Tooltip.Arrow className="fill-popover" /></Tooltip.Content></Tooltip.Portal>}</Tooltip.Root>
 }
 
-export const Sidebar = memo(function Sidebar({ activeTab, onSelectTab, coreStatus, open, onToggle, mode, busy, onUpdateMode }: SidebarProps) {
+export const Sidebar = memo(function Sidebar({ activeTab, onSelectTab, coreStatus, open, onToggle, mode, busy, onUpdateMode, tunEnabled }: SidebarProps) {
   const t = useTranslations('common')
   const vpnStatus = getVpnStatus(coreStatus)
   const vpnEnabled = vpnStatus === 'on'
-  const statusKey = coreStatus === 'starting' ? 'vpnStarting' : coreStatus === 'error' ? 'vpnError' : vpnEnabled ? 'vpnOn' : 'vpnOff'
+  const connectionMode = tunEnabled ? 'tun' : 'sysproxy'
+  const statusText = coreStatus === 'starting'
+    ? t('vpnStarting')
+    : coreStatus === 'error'
+      ? t('vpnError')
+      : vpnEnabled
+        ? (tunEnabled ? t('tunMode') : t('systemProxy'))
+        : t('disconnected')
   return <Tooltip.Provider delayDuration={200}><aside id="app-sidebar" className="app-sidebar" data-state={open ? 'expanded' : 'collapsed'}>
     <div className="sidebar-header">
       <SidebarHint label={t(open ? 'collapse' : 'expand')} open={open}>
@@ -54,8 +62,8 @@ export const Sidebar = memo(function Sidebar({ activeTab, onSelectTab, coreStatu
       </div>)}
     </nav>
     <div className="sidebar-footer">
-      <SidebarHint label={t(statusKey)} open={open}><span role="status" className="sidebar-vpn-badge" data-state={vpnEnabled ? 'on' : coreStatus === 'starting' ? 'starting' : coreStatus === 'error' ? 'error' : 'off'} aria-label={t(statusKey)}>
-        <span className="sidebar-vpn-dot-wrapper"><span className="sidebar-vpn-dot" /></span><span className="sidebar-label truncate">{t(statusKey)}</span>
+      <SidebarHint label={statusText} open={open}><span role="status" className="sidebar-vpn-badge" data-state={vpnEnabled ? 'on' : coreStatus === 'starting' ? 'starting' : coreStatus === 'error' ? 'error' : 'off'} data-mode={connectionMode} aria-label={statusText}>
+        <span className="sidebar-vpn-dot-wrapper"><span className="sidebar-vpn-dot" /></span><span className="sidebar-label sidebar-vpn-label">{statusText}</span>
       </span></SidebarHint>
       <div className="sidebar-routing" role="group" aria-label={t('routingMode')}>
         {([{ id: 'rule', label: 'rulesMode', icon: RulesIcon }, { id: 'global', label: 'globalMode', icon: GlobalModeIcon }] as const).map(({ id, label, icon: Icon }) => <SidebarHint key={id} label={t(label)} open={false}><button type="button" className="sidebar-mode" aria-label={t(label)} aria-pressed={mode === id} disabled={busy || coreStatus === 'starting'} onClick={() => onUpdateMode(id)}><Icon className="size-4 shrink-0" /></button></SidebarHint>)}

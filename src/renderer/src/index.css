@@ -201,6 +201,7 @@ h6 {
   --destructive-foreground: oklch(0.99 0.005 27);
   --success: oklch(0.58 0.11 178);
   --warning: oklch(0.68 0.15 62);
+  --info: oklch(0.60 0.18 250);
   --border: oklch(0.91 0.003 160);
   --input: oklch(0.91 0.003 160);
   --ring: oklch(0.6 0.19 149);
@@ -238,6 +239,7 @@ h6 {
   --destructive-foreground: oklch(0.12 0.02 22);
   --success: oklch(0.76 0.11 178);
   --warning: oklch(0.8 0.15 75);
+  --info: oklch(0.70 0.18 250);
   --border: oklch(1 0 0 / 8%);
   --input: oklch(1 0 0 / 12%);
   --ring: oklch(0.76 0.19 149);
@@ -298,12 +300,49 @@ html, body, #root { width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .sidebar-mode:hover { color: var(--foreground); background: var(--muted); }
 .sidebar-mode[aria-pressed=true] { color: var(--primary); background: var(--sidebar-accent); }
 .sidebar-mode:disabled { opacity: 0.5; cursor: wait; }
-.sidebar-vpn-badge { display: inline-flex; align-items: center; justify-content: flex-start; gap: 10px; min-width: 0; min-height: 34px; max-width: 100%; padding: 0 10px; border-top-width: 0; color: var(--muted-foreground); font-size: 11px; line-height: 1; white-space: nowrap; }
+.sidebar-vpn-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 34px;
+  max-width: 100%;
+  padding: 0 8px;
+  border-top-width: 0;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.25;
+}
+.sidebar-vpn-label {
+  white-space: normal;
+  line-height: 1.2;
+  word-break: normal;
+  overflow-wrap: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: visible;
+  max-width: 100%;
+}
 .sidebar-vpn-dot-wrapper { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex-shrink: 0; }
 .sidebar-vpn-dot { width: 10px; height: 10px; flex-shrink: 0; border-radius: 50%; background: var(--muted-foreground); }
-.sidebar-vpn-badge[data-state=on] .sidebar-vpn-dot { background: var(--success); animation: sidebar-vpn-pulse 2.8s ease-in-out infinite; }
-@keyframes sidebar-vpn-pulse { 0%, 100% { opacity: 0.6; transform: scale(0.92); box-shadow: 0 0 0 0 transparent; } 50% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 4px color-mix(in oklch, var(--success) 10%, transparent); } }
-@media (prefers-reduced-motion: reduce) { .sidebar-vpn-badge[data-state=on] .sidebar-vpn-dot { animation: none; } }
+.sidebar-vpn-badge[data-state=on] .sidebar-vpn-dot {
+  --pulse-glow: color-mix(in oklch, var(--success) 10%, transparent);
+  background: var(--success);
+  animation: sidebar-vpn-pulse 2.8s ease-in-out infinite;
+}
+.sidebar-vpn-badge[data-state=on][data-mode=sysproxy] .sidebar-vpn-dot {
+  --pulse-glow: color-mix(in oklch, var(--info) 20%, transparent);
+  background: var(--info);
+}
+@keyframes sidebar-vpn-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(0.92); box-shadow: 0 0 0 0 transparent; }
+  50% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 4px var(--pulse-glow, color-mix(in oklch, var(--success) 10%, transparent)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-vpn-badge[data-state=on] .sidebar-vpn-dot { animation: none; }
+}
 .sidebar-vpn-badge[data-state=starting] .sidebar-vpn-dot { background: var(--warning); }
 .sidebar-vpn-badge[data-state=error] .sidebar-vpn-dot { background: var(--destructive); }
 .app-sidebar[data-state=collapsed] .sidebar-footer { flex-direction: column; }
@@ -703,7 +742,6 @@ input, textarea, pre { user-select: text; }
   .overview-power svg { width: 36px; height: 36px; }
   .overview-duration-slot { min-height: 24px; }
   .overview-session-duration { font-size: 20px; }
-  .overview-mode-badge { margin-top: 4px; }
   .overview-panel-section { padding: 10px 14px; }
   .overview-eyebrow { margin-bottom: 6px; }
   .overview-traffic { gap: 8px; }
@@ -718,7 +756,6 @@ input, textarea, pre { user-select: text; }
   .overview-power svg { width: 28px; height: 28px; }
   .overview-duration-slot { min-height: 20px; }
   .overview-session-duration { font-size: 16px; }
-  .overview-mode-badge { margin-top: 2px; }
   .overview-panel-section { padding: 6px 10px; }
   .overview-eyebrow { margin-bottom: 4px; }
   .overview-traffic { gap: 6px; }

@@ -219,16 +219,6 @@ export function DashboardPage({
             <div className="overview-duration-slot">
               {running && <SessionDuration startedAt={sessionStartedAt} running={running} ariaLabel={t('sessionDuration')} />}
             </div>
-            {running && (
-              <div className="overview-mode-badge mt-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>
-                  {settings.kernel.tun.enable
-                    ? t('tunMode')
-                    : t('systemProxy')}
-                </span>
-              </div>
-            )}
           </div>
 
           <div className="overview-panel-section text-center">
