@@ -79,6 +79,19 @@ app.whenReady().then(async () => {
       await navigate(locale, 'settings')
       if (locale === 'en') await changeLanguage('en', 'ru')
     }
+    await changeLanguage('ru', 'en')
+    win.setSize(840, 560)
+    await delay(100)
+    const disclosure = title => `Array.from(document.querySelectorAll('details')).find(el => el.querySelector('summary')?.textContent.trim() === ${JSON.stringify(title)})`
+    const themes = disclosure('Custom themes')
+    assert.equal(await evaluate(`${themes}.open`), false)
+    assert.ok(await evaluate(`(() => {
+      const trigger = document.querySelector('[role="combobox"][aria-label="Appearance"]');
+      const row = trigger.closest('.setting-row'), text = row.firstElementChild.getBoundingClientRect(), control = trigger.getBoundingClientRect();
+      return Math.abs(control.top + control.height / 2 - text.top - text.height / 2) < 2 && !row.querySelector('button:has(svg.lucide-download)');
+    })()`), 'theme selector stays in the main row at the minimum window width')
+    await evaluate(`${themes}.querySelector('summary').click()`)
+    assert.ok(await evaluate(`${themes}.querySelectorAll('button').length >= 2`), 'theme file actions are inside the disclosure')
     assert.deepEqual(errors, [], 'renderer errors')
     console.log('PASS: 13 pages and subscription dialog in RU/EN; live language changes, update status and placeholders; no renderer errors')
     win.destroy()

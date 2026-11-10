@@ -16,6 +16,7 @@ import { Switch } from '../components/ui/switch'
 import { SettingsFields } from '../components/SettingsFields'
 import { ShortcutSettings } from '../components/ShortcutSettings'
 import { ThemeSelect } from '../components/ThemeSelect'
+import { SettingsDisclosure } from '../components/SettingsDisclosure'
 import { useCustomThemes } from '../providers/CustomThemesProvider'
 import { ScrollArea } from '../components/ui/scroll-area'
 import {
@@ -466,16 +467,11 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
       {section === 'settings' && <>
         <SettingsGroup title={t('interfaceGroup')} description={t('interfaceDescription')} icon={<Palette />}>
           <SettingRow title={t('language')} description={t('languageHint')}><select aria-label={t('language')} value={form.general.language} onChange={(event) => updateGeneral({ language: event.target.value as AppConfig['general']['language'] })}><option value="ru">{common('languageRussian')}</option><option value="en">{common('languageEnglish')}</option></select></SettingRow>
-          <div className="flex flex-col items-start gap-3 py-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">{t('appearance')}</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('followYourSystemThemeOrChooseOneExplicitly')}</p>
-            </div>
-            <div className="flex max-w-full flex-wrap items-center gap-2">
-              <ThemeSelect
-                value={form.general.theme}
-                onValueChange={(theme) => updateGeneral({ theme })}
-              />
+          <SettingRow title={t('appearance')} description={t('followYourSystemThemeOrChooseOneExplicitly')}>
+            <ThemeSelect value={form.general.theme} onValueChange={(theme) => updateGeneral({ theme })} />
+          </SettingRow>
+          <SettingsDisclosure title={t('customThemesTitle')}>
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -496,11 +492,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
                 {uploadingTheme ? t('uploading') : t('upload')}
               </Button>
             </div>
-          </div>
-
-          {customThemes.length > 0 && (
-            <div className="mt-3 flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 p-3">
-              <p className="text-xs font-medium text-muted-foreground">{t('customThemesTitle')}</p>
+            {customThemes.length > 0 && (
               <ScrollArea className="max-h-48">
                 <ul className="flex flex-col gap-1.5 pr-2">
                   {customThemes.map((theme) => (
@@ -545,8 +537,8 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
                   ))}
                 </ul>
               </ScrollArea>
-            </div>
-          )}
+            )}
+          </SettingsDisclosure>
 
         </SettingsGroup>
         <SettingsGroup title={t('startupGroup')} description={t('startupDescription')} icon={<Power />}>
