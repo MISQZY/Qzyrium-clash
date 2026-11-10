@@ -17,7 +17,8 @@ function load(file, dependencies, overrides = {}) {
   }, overrides.setTimeout ?? setTimeout, overrides.clearTimeout ?? clearTimeout, process, overrides.Date ?? Date)
   return exports
 }
-const logger = { info() {}, warn() {}, error() {}, debug() {} }
+const recordedLogs = []
+const logger = { info() {}, warn() {}, error() {}, debug() {}, writeEntry(entry) { recordedLogs.push(entry) } }
 
 async function verifyRestart() {
   const children = [], timers = [], probes = []
@@ -36,6 +37,9 @@ async function verifyRestart() {
     fs: { existsSync: () => true }, '../utils/paths': { getAppPaths: () => ({ coreBinaryPath: 'fixture-mihomo' }) }, '../utils/logger': { logger }
   }, { setTimeout: (callback, delay) => { const timer = { callback, delay }; timers.push(timer); return timer }, clearTimeout: (timer) => { timer.cancelled = true }, Date: class extends Date { static now() { return now } } })
   const manager = new MihomoProcessManager()
+  const journal = [], tunErrors = []
+  manager.on('log', entry => journal.push(entry))
+  manager.on('tun-error', message => tunErrors.push(message))
   const start = () => manager.start('fixture', 'fixture.yaml', 9999, 'test-secret')
   const firstStart = start()
   await flush()
@@ -43,6 +47,15 @@ async function verifyRestart() {
   assert.equal(probes[0].url, 'http://127.0.0.1:9999/version')
   assert.equal(probes[0].options.headers.Authorization, 'Bearer test-secret')
   assert.equal(probes[0].options.proxy, false)
+  children[0].stdout.emit('data', Buffer.from('level=info msg="first"\nlevel=warning msg="par'))
+  assert.equal(journal.length, 1, 'partial lines wait for the rest of the pipe data')
+  children[0].stdout.emit('data', Buffer.from('tial"\n'))
+  children[0].stderr.emit('data', Buffer.from('level=error msg="Start TUN listening error"\nlast line'))
+  children[0].stderr.emit('end')
+  assert.deepEqual(journal.map(entry => entry.payload), ['first', 'partial', 'Start TUN listening error', 'last line'])
+  assert.deepEqual(journal.map(entry => entry.type), ['info', 'warning', 'error', 'warning'])
+  assert.equal(tunErrors.length, 1, 'TUN errors on stderr must trigger recovery')
+  assert.deepEqual(recordedLogs, journal, 'disk and journal receive the same entries exactly once')
   const restarting = manager.restart('fixture', 'fixture.yaml', 9999, '')
   assert.equal(children.length, 1, 'replacement must wait for old process exit')
   children[0].emit('exit', 1, null)

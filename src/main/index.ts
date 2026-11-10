@@ -75,7 +75,7 @@ function sleepSync(ms: number): void {
 
 const adminRestartPid = extractAdminRestartPid()
 if (adminRestartPid) {
-  logger.info(`Detected admin relaunch from process ${adminRestartPid}. Waiting for old instance to exit...`)
+  console.info(`Detected admin relaunch from process ${adminRestartPid}. Waiting for old instance to exit...`)
   const startTime = Date.now()
   while (Date.now() - startTime < 4000) {
     try {
@@ -98,11 +98,11 @@ if (!gotTheLock && adminRestartPid) {
 }
 
 if (!gotTheLock) {
-  logger.warn('Another instance of Qzyrium-clash is already running. Exiting.')
   console.warn('\n[Qzyrium-clash] Another instance is already running.')
   console.warn('[Qzyrium-clash] If no window is visible, please check the system tray or close existing electron processes in Task Manager.\n')
   app.quit()
 } else {
+  logger.initialize()
   app.on('second-instance', (_, commandLine) => {
     if (services) {
       services.windowService.show()

@@ -79,7 +79,6 @@ export class KernelService implements BaseService {
       this.broadcaster?.('event:core-status', state)
       if (state === 'running' && !this.streamsPaused) {
         this.apiClient.startTrafficStream()
-        this.apiClient.startLogStream(this.settingService.getSettings().kernel.logLevel)
       } else if (state === 'stopped' || state === 'error') {
         this.apiClient.stopAllStreams()
       }
@@ -90,7 +89,6 @@ export class KernelService implements BaseService {
     })
 
     this.processManager.on('tun-error', (errText: string) => {
-      logger.error(`TUN initialization error detected: ${errText}`)
       this.broadcaster?.('event:tun-error', errText)
       if (this.settingService.getSettings().kernel.tun.enable) {
         void this.stop()
@@ -101,9 +99,8 @@ export class KernelService implements BaseService {
       this.broadcaster?.('event:traffic', stats)
     })
 
-    this.apiClient.on('log', (entry: LogEntry) => {
-      this.broadcaster?.(IPC_CHANNELS.EVENT_LOG, entry)
-    })
+    // The process pipes are the single source of core logs, including startup
+    // and background operation. A parallel WebSocket stream duplicates entries.
   }
 
   async initialize(): Promise<void> {
@@ -235,7 +232,6 @@ export class KernelService implements BaseService {
     this.streamsPaused = false
     if (this.getStatus() === 'running') {
       this.apiClient.startTrafficStream()
-      this.apiClient.startLogStream(this.settingService.getSettings().kernel.logLevel)
     }
   }
 
