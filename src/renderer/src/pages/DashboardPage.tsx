@@ -240,7 +240,7 @@ export function DashboardPage({
               ].map(({ label, value, rate, icon: Icon }) => (
                 <div key={label} className="flex flex-col items-center text-center min-w-0">
                   <span className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-                    <Icon className="size-3 text-primary" />
+                    <Icon className="size-3 text-primary shrink-0" />
                     {label}
                   </span>
                   <AutoFitTrafficText text={formatBytes(value, locale)} />
