@@ -48,7 +48,7 @@ const config = { general: { language: 'en' }, kernel: { mode: 'rule' } }
 let connectionsCalls = 0, proxyCalls = 0, baseCalls = 0
 let backendState = 'running'
 let backendSessionStartedAt = 12345
-const connections = deferred(), rules = deferred()
+const connections = deferred(), rules = deferred(), systemProxy = deferred()
 const api = {
   kernel: {
     getStatus: async () => { baseCalls++; return backendState },
@@ -56,7 +56,7 @@ const api = {
     stop: async () => { backendState = 'stopped'; events.status(backendState) },
     start: async () => { events.status('starting'); backendSessionStartedAt = 20000; backendState = 'running'; events.status(backendState) }
   },
-  sysproxy: { getStatus: async () => ({ enabled: false }) },
+  sysproxy: { getStatus: () => systemProxy.promise },
   profiles: { getList: async () => [], getActive: async () => null },
   settings: { get: async () => config },
   mihomo: {
@@ -98,6 +98,9 @@ function render() {
 async function run() {
   render()
   events.status('running')
+  await flush()
+  assert.equal(view.loading, false, 'slow Windows proxy synchronization does not block the workspace')
+  systemProxy.resolve({ enabled: false })
   await flush()
   await flush()
   assert.equal(view.loading, false, 'base data unlocks workspace while rules/connections are pending')

@@ -2,8 +2,36 @@ import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 import { AddProfileDto, IElectronApi, IPC_CHANNELS } from '@shared/ipc'
 import { AppConfig } from '@shared/app-config'
 import { CoreState, LogEntry, TrafficStats } from '@shared/types'
+import type { BootAppearance } from '@shared/appearance'
+
+// No IPC round trip: paint the saved palette before stylesheets or React load.
+let appearance: BootAppearance | undefined
+try {
+  const argument = process.argv.find(value => value.startsWith('--qzyrium-appearance='))
+  if (argument) appearance = JSON.parse(decodeURIComponent(argument.slice('--qzyrium-appearance='.length))) as BootAppearance
+} catch { /* Use the HTML fallback when no boot palette was supplied. */ }
+if (appearance) {
+  const palette = appearance
+  const apply = () => {
+    const root = document.documentElement
+    if (!root) return false
+    root.classList.toggle('dark', palette.theme.mode === 'dark')
+    root.dataset.theme = palette.theme.id
+    root.lang = palette.language
+    root.style.colorScheme = palette.theme.mode
+    for (const [key, value] of Object.entries(palette.theme.colors)) root.style.setProperty(key, value)
+    root.style.backgroundColor = 'var(--background)'
+    root.style.color = 'var(--foreground)'
+    return true
+  }
+  if (!apply()) {
+    const observer = new MutationObserver(() => { if (apply()) observer.disconnect() })
+    observer.observe(document, { childList: true })
+  }
+}
 
 const api: IElectronApi = {
+  bootAppearance: appearance,
   kernel: {
     getSessionStartedAt: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_SESSION_STARTED_AT),
     getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_STATUS),
@@ -49,6 +77,7 @@ const api: IElectronApi = {
     set: (enable: boolean) => ipcRenderer.invoke(IPC_CHANNELS.SYSPROXY_SET, enable)
   },
   settings: {
+    setShortcutRecording: (recording) => ipcRenderer.invoke(IPC_CHANNELS.APP_SET_SHORTCUT_RECORDING, recording),
     get: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_SETTINGS),
     update: (patch: Partial<AppConfig>) =>
       ipcRenderer.invoke(IPC_CHANNELS.APP_UPDATE_SETTINGS, patch)
@@ -77,7 +106,6 @@ const api: IElectronApi = {
     checkUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.APP_CHECK_UPDATES),
     getUpdaterStatus: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_UPDATER_STATUS),
     downloadUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.APP_DOWNLOAD_UPDATE),
-    setShortcutRecording: (recording) => ipcRenderer.invoke(IPC_CHANNELS.APP_SET_SHORTCUT_RECORDING, recording),
     getWhatsNew: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_WHATS_NEW),
     openUrl: (url: string) => ipcRenderer.invoke(IPC_CHANNELS.APP_OPEN_URL, url)
   },

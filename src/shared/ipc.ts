@@ -5,6 +5,7 @@ import { CoreState, LogEntry, MihomoVersion, TrafficStats } from './types'
 import type { GlobeLocations } from './geo'
 import type { CustomThemePack } from './theme'
 import type { AppUpdaterStatus, WhatsNewPayload } from './updater'
+import type { BootAppearance } from './appearance'
 
 export const IPC_CHANNELS = {
   // Kernel
@@ -47,8 +48,8 @@ export const IPC_CHANNELS = {
   // Settings & App
   APP_GET_SETTINGS: 'app:get-settings',
   APP_UPDATE_SETTINGS: 'app:update-settings',
-  APP_MINIMIZE: 'app:minimize',
   APP_SET_SHORTCUT_RECORDING: 'app:set-shortcut-recording',
+  APP_MINIMIZE: 'app:minimize',
   APP_MAXIMIZE: 'app:maximize',
   APP_CLOSE: 'app:close',
   APP_OPEN_FOLDER: 'app:open-folder',
@@ -100,6 +101,7 @@ export interface AddProfileDto {
 }
 
 export interface IElectronApi {
+  bootAppearance?: BootAppearance
   kernel: {
     getStatus: () => Promise<CoreState>
     getSessionStartedAt: () => Promise<number | null>
@@ -138,9 +140,9 @@ export interface IElectronApi {
     set: (enable: boolean) => Promise<void>
   }
   settings: {
+    setShortcutRecording: (recording: boolean) => Promise<void>
     get: () => Promise<AppConfig>
     update: (patch: Partial<AppConfig>) => Promise<AppConfig>
-    setShortcutRecording: (recording: boolean) => Promise<void>
   }
   window: {
     minimize: () => Promise<void>
