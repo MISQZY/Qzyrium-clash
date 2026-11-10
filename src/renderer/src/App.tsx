@@ -7,11 +7,6 @@ import { UpdaterProvider } from './providers/UpdaterProvider'
 import { Sidebar } from './components/Sidebar'
 import { useAppStore } from './stores/useAppStore'
 import { DashboardPage } from './pages/DashboardPage'
-import { ProxiesPage } from './pages/ProxiesPage'
-import { ProfilesPage } from './pages/ProfilesPage'
-import { ConnectionsPage } from './pages/ConnectionsPage'
-import { LogsPage } from './pages/LogsPage'
-import { RulesPage } from './pages/RulesPage'
 import { getNavigationGroup, getNavigationItem } from './lib/navigation'
 import { EmojiText } from './components/EmojiText'
 import { profileName } from './lib/profile-name'
@@ -22,6 +17,11 @@ import { BUILTIN_THEMES, applyThemeToDocument, resolveTheme, type ThemeDefinitio
 const NetworkSettingsPage = lazy(() => import('./pages/NetworkSettingsPage').then((module) => ({ default: module.NetworkSettingsPage })))
 const ProfileConfigPage = lazy(() => import('./pages/ProfileConfigPage').then((module) => ({ default: module.ProfileConfigPage })))
 
+const ProxiesPage = lazy(() => import('./pages/ProxiesPage').then((module) => ({ default: module.ProxiesPage })))
+const ProfilesPage = lazy(() => import('./pages/ProfilesPage').then((module) => ({ default: module.ProfilesPage })))
+const ConnectionsPage = lazy(() => import('./pages/ConnectionsPage').then((module) => ({ default: module.ConnectionsPage })))
+const LogsPage = lazy(() => import('./pages/LogsPage').then((module) => ({ default: module.LogsPage })))
+const RulesPage = lazy(() => import('./pages/RulesPage').then((module) => ({ default: module.RulesPage })))
 export default function App() {
   const store = useAppStore()
   useEffect(() => {
@@ -140,8 +140,8 @@ function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
         {!window.api && <div className="shrink-0 border-b border-border bg-muted/40 px-5 py-2 text-xs text-muted-foreground">{t('interfacePreviewOpenQzyriumInElectronToConnectToMihomo')}</div>}
         <div className="page-viewport" key={activeTab}>
           {loading ? <div className="empty-state h-full"><LoaderCircle className="size-5 animate-spin" /><p>{t('loadingWorkspace')}</p></div> : <Suspense fallback={<div className="empty-state h-full"><LoaderCircle className="size-5 animate-spin" /><p>{t('loadingWorkspace')}</p></div>}>
-            {activeTab === 'dashboard' && <DashboardPage coreStatus={coreStatus} sessionStartedAt={store.sessionStartedAt} traffic={traffic} activeProfile={activeProfile} profiles={profiles} proxies={proxies} delays={delays} onSwitchProfile={store.switchActiveProfile} onUpdateDelays={updateDelays} settings={settings} connections={connections} sysProxy={sysProxy} busy={busy} rules={rules} onRestart={store.restartKernel} onToggleKernel={store.toggleKernel} onToggleSysProxy={store.toggleSysProxy} onToggleTun={toggleTun} onUpdateMode={(mode) => { void store.saveSettings({ kernel: { ...settings.kernel, mode } }).catch(() => {}) }} onNavigate={setActiveTab} />}
-            {activeTab === 'proxies' && <ProxiesPage proxies={proxies} rules={rules} mode={settings.kernel.mode} delays={delays} onUpdateDelays={updateDelays} onSelectNode={store.selectProxyNode} testConcurrency={settings.general.delayTestConcurrency ?? 6} />}
+            {activeTab === 'dashboard' && <DashboardPage visible={store.visible} coreStatus={coreStatus} sessionStartedAt={store.sessionStartedAt} traffic={traffic} activeProfile={activeProfile} profiles={profiles} proxies={proxies} delays={delays} onSwitchProfile={store.switchActiveProfile} onUpdateDelays={updateDelays} settings={settings} connections={connections} sysProxy={sysProxy} busy={busy} rules={rules} onRestart={store.restartKernel} onToggleKernel={store.toggleKernel} onToggleSysProxy={store.toggleSysProxy} onToggleTun={toggleTun} onUpdateMode={(mode) => { void store.saveSettings({ kernel: { ...settings.kernel, mode } }).catch(() => {}) }} onNavigate={setActiveTab} />}
+            {activeTab === 'proxies' && <ProxiesPage running={coreStatus === 'running'} proxies={proxies} rules={rules} mode={settings.kernel.mode} delays={delays} onUpdateDelays={updateDelays} onSelectNode={store.selectProxyNode} testConcurrency={settings.general.delayTestConcurrency ?? 6} />}
             {activeTab === 'profiles' && <ProfilesPage profiles={profiles} activeProfile={activeProfile} onSwitchProfile={store.switchActiveProfile} onRefreshAll={store.refreshAll} importRequest={pendingImport} onClearImportRequest={() => setPendingImport(null)} />}
             {activeTab === 'connections' && <ConnectionsPage connections={connections} onRefresh={store.refreshAll} />}
             {activeTab === 'rules' && <RulesPage rules={rules} running={coreStatus === 'running'} busy={busy} onRefresh={store.refreshAll} />}
