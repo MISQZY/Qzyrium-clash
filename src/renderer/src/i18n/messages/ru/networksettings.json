@@ -134,5 +134,15 @@
   "optionWhitelist": "Белый список",
   "optionRule": "Правила",
   "optionStandard": "Стандартный",
-  "optionMemoryConservative": "Экономия памяти"
+  "optionMemoryConservative": "Экономия памяти",
+  "interfaceGroup": "Интерфейс",
+  "interfaceDescription": "Язык, оформление и собственные темы приложения.",
+  "startupGroup": "Запуск и поведение окна",
+  "startupDescription": "Автозапуск, подключение и работа в системном трее.",
+  "performanceGroup": "Производительность",
+  "performanceDescription": "Графика, частота обновления данных и хранение журнала.",
+  "subscriptionsGroup": "Подписки и проверка задержки",
+  "subscriptionsDescription": "Обновление подписок, переключение узлов и параметры тестирования.",
+  "shortcutsGroup": "Горячие клавиши",
+  "shortcutsDescription": "Глобальные сочетания для управления приложением."
 }
