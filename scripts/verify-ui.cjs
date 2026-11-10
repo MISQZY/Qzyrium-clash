@@ -38,6 +38,7 @@ if (process.type === 'renderer') {
   const output = path.resolve(__dirname, '../artifacts/ui-check')
   fs.mkdirSync(output, { recursive: true })
   app.setPath('userData', path.join(output, 'user-data'))
+  if (process.env.UI_SOFTWARE === '1') app.disableHardwareAcceleration()
   process.chdir(output)
   app.commandLine.appendSwitch('disable-features', 'WinUseBrowserSpellChecker')
   app.commandLine.appendSwitch('disable-spellcheck')
