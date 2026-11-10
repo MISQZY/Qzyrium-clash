@@ -12,15 +12,19 @@ function loadShared(file) {
   return exports
 }
 const { bootAppearance } = loadShared(path.resolve('src/shared/appearance.ts'))
+const windowScale = loadShared(path.resolve('src/main/utils/window-scale.ts'))
 
 class FixtureWindow extends EventEmitter {
   constructor(options) { super(); this.visible = options.show ?? true; this.options = options }
   minimized = false
   webContents = Object.assign(new EventEmitter(), {
     session: { setPermissionRequestHandler() {}, setPermissionCheckHandler() {} },
+    getZoomFactor: () => this.zoomFactor ?? 1,
+    setZoomFactor: factor => { this.zoomFactor = factor },
     send() {}, setWindowOpenHandler() {}
   })
   isDestroyed() { return false }
+  getContentSize() { return [this.options.width, this.options.height] }
   isVisible() { return this.visible }
   isMinimized() { return this.minimized }
   loadFile() {}
@@ -40,7 +44,8 @@ const dependencies = {
   '../utils/paths': {},
   '../utils/logger': { logger: { info() {}, warn() {}, error() {} } },
   '@shared/ipc': { IPC_CHANNELS: { EVENT_WINDOW_VISIBILITY: 'visibility' } },
-  '@shared/appearance': { bootAppearance }
+  '@shared/appearance': { bootAppearance },
+  '../utils/window-scale': windowScale
 }
 const code = ts.transpileModule(fs.readFileSync('src/main/services/WindowService.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
@@ -60,6 +65,16 @@ vm.runInNewContext(code, {
       const visibility = []
       service.setVisibilityHandler(value => visibility.push(value))
       const win = await service.createWindow()
+      assert.equal(win.webContents.getZoomFactor(), 1)
+      for (const [width, height, expected] of [
+        [2560, 1440, 1.33], [3840, 2160, 2], [5120, 2160, 2],
+        [3840, 720, 1], [1920, 1080, 1], [1040, 720, 1]
+      ]) {
+        win.options.width = width
+        win.options.height = height
+        win.emit('resize')
+        assert.equal(win.webContents.getZoomFactor(), expected, `responsive zoom at ${width}x${height}`)
+      }
       assert.equal(win.isVisible(), false, 'window stays hidden before its first paint')
       win.webContents.emit('did-finish-load')
       assert.equal(win.isVisible(), false, 'document loading alone does not reveal an unpainted window')

@@ -8,6 +8,7 @@ import { SettingService } from './SettingService'
 import { IPC_CHANNELS } from '@shared/ipc'
 import type { ThemeStore } from './ThemeStore'
 import { bootAppearance } from '@shared/appearance'
+import { watchWindowScale } from '../utils/window-scale'
 
 const DWMWA_TRANSITIONS_FORCEDISABLED = 3
 
@@ -138,6 +139,8 @@ export class WindowService implements BaseService {
         contextIsolation: true
       }
     })
+
+    watchWindowScale(this.mainWindow)
 
     // Deny all unsolicited web API permissions
     this.mainWindow.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => {
