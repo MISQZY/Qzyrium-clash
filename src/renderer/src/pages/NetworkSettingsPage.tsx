@@ -43,7 +43,7 @@ interface Props {
 
 function SettingsGroup({ title, description, icon, children }: { title: string; description: string; icon: ReactNode; children: ReactNode }) {
   return <Card><CardContent className="p-5 flex flex-col gap-3">
-    <div className="pb-3">
+    <div className="border-b border-border/60 pb-3">
       <h2 className="flex items-center gap-2 text-sm font-semibold"><span className="text-primary [&>svg]:size-4">{icon}</span>{title}</h2>
       <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
     </div>
@@ -650,7 +650,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
         {/* Network Section Card */}
         <Card>
           <CardContent className="p-5 flex flex-col gap-3">
-            <div className="flex items-center justify-between pb-2 ">
+            <div className="flex items-center justify-between pb-2 border-b border-border/60">
               <div>
                 <h2 className="text-sm font-semibold flex items-center gap-2">
                   <SystemProxyIcon className="size-4 text-primary" />
@@ -662,7 +662,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
               </div>
             </div>
 
-            <div className="flex flex-col">
+            <div className="divide-y divide-border/50 flex flex-col">
               {/* System Proxy */}
               <div className="py-3 flex items-center justify-between gap-3 first:pt-1 last:pb-1">
                 <div className="flex items-center gap-3 min-w-0">

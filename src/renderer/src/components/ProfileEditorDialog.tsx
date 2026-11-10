@@ -839,7 +839,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[96vw] max-w-6xl h-[92vh] max-h-[94vh] flex flex-col p-4 sm:p-5 gap-3 overflow-hidden">
         {/* Header */}
-        <DialogHeader className="pb-2 shrink-0">
+        <DialogHeader className="pb-2 border-b border-border/60 shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-3 pr-8">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="size-8 rounded-md bg-primary/15 text-primary flex items-center justify-center shrink-0">
@@ -1009,7 +1009,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
 
                 {/* Additional Options (Switches) */}
                 {(isRuleSupportsNoResolve(newRule.type) || isRuleSupportsSrc(newRule.type)) && (
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 ">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 border-t border-border/50">
                     {isRuleSupportsNoResolve(newRule.type) && (
                       <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
                         <Switch
@@ -1090,7 +1090,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                   />
                 </button>
                 {instructionsOpen && (
-                  <div className="mt-2 text-[11px] text-muted-foreground space-y-1.5 leading-relaxed pt-2 ">
+                  <div className="mt-2 text-[11px] text-muted-foreground space-y-1.5 leading-relaxed pt-2 border-t border-border/40">
                     <p>• {t('instructions1')}</p>
                     <p>• {t('instructions2')}</p>
                     <p>• {t('instructions3')}</p>
@@ -1100,7 +1100,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
             </div>
 
             {/* Right Panel: Current Rules List */}
-            <div className="flex-1 min-w-0 md:pl-4 pt-3 md:pt-0 flex flex-col min-h-0">
+            <div className="flex-1 min-w-0 border-t md:border-t-0 md:border-l border-border/60 md:pl-4 pt-3 md:pt-0 flex flex-col min-h-0">
               {/* Search & Statistics Bar */}
               <div className="flex items-center justify-between gap-2.5 pb-2.5 shrink-0">
                 <div className="flex items-center gap-2">
@@ -1225,7 +1225,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                           </div>
 
                           {/* Options & Action buttons */}
-                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 ">
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40">
                             <div className="flex items-center gap-3">
                               {isRuleSupportsNoResolve(editingDraft.type) && (
                                 <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
@@ -1431,7 +1431,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
         </div>
 
         {/* Footer */}
-        <DialogFooter className="gap-2 sm:gap-2 pt-1 shrink-0 flex items-center justify-between sm:justify-between">
+        <DialogFooter className="gap-2 sm:gap-2 pt-1 border-t border-border/40 shrink-0 flex items-center justify-between sm:justify-between">
           <div className="text-[11px] text-muted-foreground font-mono hidden sm:inline">
             {activeMode === 'visual' ? (
               <span>
