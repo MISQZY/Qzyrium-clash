@@ -1413,7 +1413,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
             </div>
           </div>
 
-          {/* Import and mount Monaco only after the YAML mode is selected. */}
+          {/* Import and mount CodeMirror only after the YAML mode is selected. */}
           {activeMode === 'yaml' && (
             <div className="relative flex-1 min-h-0 w-full rounded-lg border border-border/70 overflow-hidden bg-background flex flex-col">
               <Suspense fallback={<div role="status" className="flex h-full items-center justify-center"><LoaderCircle className="size-6 animate-spin text-primary" /></div>}>

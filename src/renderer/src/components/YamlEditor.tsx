@@ -1,28 +1,47 @@
-import Editor, { loader, type EditorProps } from '@monaco-editor/react'
-import * as monaco from 'monaco-editor/editor/editor.api'
-import 'monaco-editor/languages/definitions/yaml/register.js'
-import EditorWorker from 'monaco-editor/editor/editor.worker?worker'
+import { useMemo } from 'react'
+import CodeMirror, { EditorView } from '@uiw/react-codemirror'
+import { yaml } from '@codemirror/lang-yaml'
+import { createEditorTheme } from '../lib/codemirror-theme'
 
-// This module is imported only when a YAML editor is requested.
-self.MonacoEnvironment = { getWorker: () => new EditorWorker() }
-loader.config({ monaco })
+export interface YamlEditorProps {
+  value?: string
+  onChange?: (value: string) => void
+  theme?: string
+  className?: string
+}
 
-export default function YamlEditor(props: Pick<EditorProps, 'value' | 'onChange' | 'theme'>) {
-  return <Editor
-    {...props}
-    height="100%"
-    width="100%"
-    language="yaml"
-    className="h-full w-full flex-1 min-h-0"
-    options={{
-      minimap: { enabled: false },
-      lineNumbers: 'on',
-      wordWrap: 'on',
-      scrollBeyondLastLine: false,
-      automaticLayout: true,
-      fontSize: 13,
-      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace",
-      tabSize: 2
-    }}
-  />
+export default function YamlEditor({
+  value = '',
+  onChange,
+  theme,
+  className
+}: YamlEditorProps) {
+  const isDark = theme ? theme.includes('dark') : (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'))
+
+  const extensions = useMemo(() => [
+    yaml(),
+    EditorView.lineWrapping,
+    ...createEditorTheme(isDark)
+  ], [isDark])
+
+  return (
+    <div className={`monaco-editor cm-editor-wrapper h-full w-full flex-1 min-h-0 overflow-hidden ${className || ''}`}>
+      <CodeMirror
+        value={value}
+        height="100%"
+        className="h-full w-full flex-1 min-h-0"
+        extensions={extensions}
+        onChange={(val) => onChange?.(val)}
+        basicSetup={{
+          lineNumbers: true,
+          highlightActiveLineGutter: true,
+          foldGutter: true,
+          indentOnInput: true,
+          bracketMatching: true,
+          closeBrackets: true,
+          highlightActiveLine: true
+        }}
+      />
+    </div>
+  )
 }

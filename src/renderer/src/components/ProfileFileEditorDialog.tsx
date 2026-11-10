@@ -1,9 +1,9 @@
-import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react'
-import Editor, { DiffEditor, loader } from '@monaco-editor/react'
-import * as monaco from 'monaco-editor/editor/editor.api'
-import 'monaco-editor/languages/definitions/yaml/register.js'
-import editorWorker from 'monaco-editor/editor/editor.worker?worker'
-import yaml from 'yaml'
+import React, { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react'
+import CodeMirror, { ReactCodeMirrorRef, EditorView } from '@uiw/react-codemirror'
+import { yaml } from '@codemirror/lang-yaml'
+import { createEditorTheme } from '../lib/codemirror-theme'
+import { CodeMirrorDiffEditor } from './CodeMirrorDiffEditor'
+import yamlParser from 'yaml'
 import { FileCode, Check, AlertCircle, LoaderCircle } from 'lucide-react'
 import type { ProfileItem } from '@shared/profile'
 import { useLocale, useTranslations, useCustomLocalization } from '../i18n'
@@ -20,14 +20,12 @@ import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Switch } from './ui/switch'
 
-if (typeof window !== 'undefined') {
-  self.MonacoEnvironment = {
-    getWorker() {
-      return new editorWorker()
-    }
-  }
+interface EditorHandle {
+  getValue: () => string
+  setValue: (val: string) => void
+  getDomNode?: () => HTMLElement | null
+  layout?: () => void
 }
-loader.config({ monaco })
 
 interface ProfileFileEditorDialogProps {
   open: boolean
@@ -54,42 +52,50 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
-  const diffEditorRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef(content)
-  const layoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const cmRef = useRef<ReactCodeMirrorRef>(null)
+  const activeViewRef = useRef<EditorView | null>(null)
+
+  const editorRef = useRef<EditorHandle>({
+    getValue: () => activeViewRef.current ? activeViewRef.current.state.doc.toString() : contentRef.current,
+    setValue: (val: string) => {
+      contentRef.current = val
+      if (activeViewRef.current) {
+        activeViewRef.current.dispatch({
+          changes: { from: 0, to: activeViewRef.current.state.doc.length, insert: val }
+        })
+      }
+    },
+    getDomNode: () => activeViewRef.current?.dom || containerRef.current
+  })
 
   const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
 
-  useEffect(() => {
-    return () => {
-      if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current)
-    }
-  }, [])
+  const extensions = useMemo(() => [
+    yaml(),
+    EditorView.lineWrapping,
+    ...createEditorTheme(isDark)
+  ], [isDark])
 
-  // Detach diff models before the React Monaco wrapper disposes them in its passive cleanup.
   useLayoutEffect(() => () => {
-    diffEditorRef.current?.setModel(null)
-    diffEditorRef.current = null
-    editorRef.current = null
+    activeViewRef.current = null
   }, [isDiff])
 
-  useEffect(() => {
-    if (!open || !containerRef.current) return
-    let animId: number
-    const ro = new ResizeObserver(() => {
-      cancelAnimationFrame(animId)
-      animId = requestAnimationFrame(() => {
-        editorRef.current?.layout()
-      })
-    })
-    ro.observe(containerRef.current)
-    return () => {
-      cancelAnimationFrame(animId)
-      ro.disconnect()
+  const handleCreateEditor = useCallback((view: EditorView) => {
+    activeViewRef.current = view
+    editorRef.current = {
+      getValue: () => view.state.doc.toString(),
+      setValue: (val: string) => {
+        contentRef.current = val
+        view.dispatch({
+          changes: { from: 0, to: view.state.doc.length, insert: val }
+        })
+      },
+      getDomNode: () => view.dom,
+      layout: () => view.requestMeasure()
     }
-  }, [open, isDiff])
+  }, [])
 
   useEffect(() => {
     if (!open || !profile || !window.api) return
@@ -107,10 +113,6 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
         setContent(val)
         contentRef.current = val
         setLoading(false)
-        if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current)
-        layoutTimerRef.current = setTimeout(() => {
-          editorRef.current?.layout()
-        }, 50)
       })
       .catch((err) => {
         if (cancelled) return
@@ -131,7 +133,7 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
 
     try {
       try {
-        yaml.parse(textToSave)
+        yamlParser.parse(textToSave)
       } catch (yamlErr) {
         setError(
           t('invalidYaml', {
@@ -199,59 +201,44 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
               <LoaderCircle className="size-7 animate-spin text-primary" />
             </div>
           ) : isDiff ? (
-            <DiffEditor
-              height="100%"
-              width="100%"
-              language="yaml"
-              theme={isDark ? 'vs-dark' : 'light'}
+            <CodeMirrorDiffEditor
               original={originalContent}
               modified={contentRef.current}
-              onMount={(editor) => {
-                diffEditorRef.current = editor
-                const modifiedEditor = editor.getModifiedEditor()
-                editorRef.current = modifiedEditor
-                modifiedEditor.onDidChangeModelContent(() => {
-                  contentRef.current = modifiedEditor.getValue()
-                })
+              sideBySide={sideBySide}
+              isDark={isDark}
+              onChange={(val) => {
+                contentRef.current = val
+                if (error) setError(null)
               }}
-              className="h-full w-full flex-1 min-h-0"
-              options={{
-                renderSideBySide: sideBySide,
-                readOnly: false,
-                fontSize: 13,
-                fontFamily:
-                  "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace",
-                automaticLayout: true
+              onMount={(handle) => {
+                editorRef.current = handle
               }}
             />
           ) : (
-            <Editor
-              height="100%"
-              width="100%"
-              language="yaml"
-              theme={isDark ? 'vs-dark' : 'light'}
-              defaultValue={contentRef.current}
-              className="h-full w-full flex-1 min-h-0"
-              onMount={(editor) => {
-                editorRef.current = editor
-                editor.layout()
-              }}
-              onChange={(value) => {
-                contentRef.current = value || ''
-                if (error) setError(null)
-              }}
-              options={{
-                minimap: { enabled: false },
-                lineNumbers: 'on',
-                wordWrap: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                fontSize: 13,
-                fontFamily:
-                  "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace",
-                tabSize: 2
-              }}
-            />
+            <div className="monaco-editor cm-editor-wrapper h-full w-full flex-1 min-h-0 relative">
+              <textarea tabIndex={-1} aria-hidden="true" className="sr-only opacity-0 pointer-events-none absolute size-0" readOnly />
+              <CodeMirror
+                ref={cmRef}
+                value={contentRef.current}
+                height="100%"
+                className="h-full w-full flex-1 min-h-0"
+                extensions={extensions}
+                onCreateEditor={handleCreateEditor}
+                onChange={(value) => {
+                  contentRef.current = value || ''
+                  if (error) setError(null)
+                }}
+                basicSetup={{
+                  lineNumbers: true,
+                  highlightActiveLineGutter: true,
+                  foldGutter: true,
+                  indentOnInput: true,
+                  bracketMatching: true,
+                  closeBrackets: true,
+                  highlightActiveLine: true
+                }}
+              />
+            </div>
           )}
         </div>
 

@@ -7,7 +7,6 @@ assert.ok(!/require\(["']\.\.\/utils\/elevation["']\)/.test(main), 'bundled elev
 assert.ok(!/require\(["']\.\/logger["']\)/.test(main), 'admin restart logger must be included in the bundle')
 const assets = path.resolve('out/renderer/assets')
 const javascript = fs.readdirSync(assets).filter(file => file.endsWith('.js')).map(file => fs.readFileSync(path.join(assets, file), 'utf8')).join('\n')
-const purifyVersion = require('dompurify').version
-assert.ok(javascript.includes(purifyVersion), 'the patched DOMPurify implementation must be included in renderer assets')
-assert.ok(!javascript.includes('3.4.15'), 'Monaco must not ship its vulnerable vendored DOMPurify copy')
-console.log(`PASS: bundled elevation guard and patched DOMPurify ${purifyVersion}`)
+assert.ok(!javascript.includes('3.4.15'), 'Vulnerable DOMPurify copy must not be present in renderer bundle')
+assert.ok(!javascript.includes('MonacoEnvironment'), 'Monaco editor must be replaced by CodeMirror 6')
+console.log('PASS: bundled elevation guard and verified lightweight CodeMirror 6 renderer bundle')
