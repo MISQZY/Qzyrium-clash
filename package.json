@@ -1,8 +1,8 @@
 {
-  "name": "qzyrium-vpn",
+  "name": "qzyrium-clash",
   "productName": "Qzyrium-clash",
   "version": "0.1.1",
-  "description": "Extensible Electron VPN and proxy client powered by Mihomo core",
+  "description": "Qzyrium-clash",
   "main": "./out/main/index.js",
   "author": "MISQZY",
   "license": "GPL-3.0-only",
