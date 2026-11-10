@@ -10,6 +10,7 @@
   "applyingChanges": "Применение изменений…",
   "noActiveProfile": "Нет активного профиля",
   "dismissError": "Закрыть сообщение об ошибке",
+  "adminRestartFailed": "Перезапуск не выполнен. Подтвердите запрос Windows на права администратора. Если запрос не появился, проверьте журнал приложения.",
   "interfacePreviewOpenQzyriumInElectronToConnectToMihomo": "Предпросмотр интерфейса. Откройте Qzyrium в Electron для подключения к Mihomo.",
   "loadingWorkspace": "Загрузка рабочей области…",
   "coreUnexpectedError": "Ядро VPN неожиданно остановилось или возникла ошибка. Проверьте журнал.",

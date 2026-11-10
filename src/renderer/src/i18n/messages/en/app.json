@@ -10,6 +10,7 @@
   "applyingChanges": "Applying changes…",
   "noActiveProfile": "No active profile",
   "dismissError": "Dismiss error",
+  "adminRestartFailed": "Restart did not complete. Approve the Windows administrator prompt. If no prompt appeared, check the application logs.",
   "interfacePreviewOpenQzyriumInElectronToConnectToMihomo": "Interface preview. Open Qzyrium in Electron to connect to Mihomo.",
   "loadingWorkspace": "Loading workspace…",
   "coreUnexpectedError": "The VPN core stopped unexpectedly or encountered an error. Check the logs.",
