@@ -220,7 +220,7 @@ export function DashboardPage({
               {running && <SessionDuration startedAt={sessionStartedAt} running={running} ariaLabel={t('sessionDuration')} />}
             </div>
             {running && (
-              <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <div className="overview-mode-badge mt-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span>
                   {settings.kernel.tun.enable
@@ -232,7 +232,7 @@ export function DashboardPage({
           </div>
 
           <div className="overview-panel-section text-center">
-            <h3 className="overview-eyebrow mb-4 text-center">{t('sessionTraffic')}</h3>
+            <h3 className="overview-eyebrow text-center">{t('sessionTraffic')}</h3>
             <div className="overview-traffic text-center">
               {[
                 { label: t('download'), value: connections.downloadTotal, rate: traffic.down, icon: ArrowDown },
@@ -252,7 +252,7 @@ export function DashboardPage({
             </div>
           </div>
           {activeProfile?.supportUrl?.startsWith('https://') && (
-            <div className="overview-panel-section p-3">
+            <div className="overview-panel-section overview-support-section p-3">
               <Button
                 variant="secondary"
                 className="w-full gap-2.5 text-xs font-semibold h-10 rounded-xl bg-secondary/80 hover:bg-secondary text-secondary-foreground border border-border/80 shadow-xs hover:shadow transition-all active:scale-[0.98] cursor-pointer"
