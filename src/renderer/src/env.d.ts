@@ -9,3 +9,7 @@ declare module '*?worker' {
   }
   export default workerConstructor
 }
+declare module '*.png' {
+  const url: string
+  export default url
+}

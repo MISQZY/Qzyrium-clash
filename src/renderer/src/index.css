@@ -448,15 +448,17 @@ input, textarea, pre { user-select: text; }
   background: radial-gradient(ellipse at 40% 35%, var(--globe-surface), var(--background) 78%);
   pointer-events: none;
 }
-/* Spread light into the scene instead of outlining the sphere with a halo. */
+/* Keep atmosphere outside the opaque sphere, including with software compositing. */
 .globe-solid-surface::before {
   content: '';
   position: absolute;
-  inset: -20% -24%;
-  background:
-    radial-gradient(ellipse 48% 46% at 48% 48%, color-mix(in oklch, var(--primary) 30%, transparent) 35%, transparent 100%),
-    radial-gradient(ellipse 40% 34% at 58% 64%, color-mix(in oklch, var(--primary) 18%, transparent) 20%, transparent 100%);
-  mask-image: radial-gradient(ellipse 50% 50% at center, #000 65%, transparent 100%);
+  inset: -24%;
+  background: radial-gradient(closest-side,
+    transparent 68%,
+    color-mix(in srgb, var(--primary) 10%, transparent) 74%,
+    color-mix(in srgb, var(--primary) 5%, transparent) 82%,
+    color-mix(in srgb, var(--primary) 2%, transparent) 91%,
+    transparent 100%);
   opacity: 0;
   transition: opacity 900ms cubic-bezier(0.16, 1, 0.3, 1);
 }
