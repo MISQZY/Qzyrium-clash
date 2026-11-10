@@ -68,9 +68,17 @@ app.whenReady().then(async () => {
     await screenshot('disconnected')
     await evaluate(`document.querySelector('.sidebar-link[aria-label="Settings"]').click()`)
     await waitFor(`document.querySelector('h1')?.textContent === 'Settings'`)
-    assert.ok(await evaluate(`Array.from(document.querySelectorAll('.setting-row')).every(el => getComputedStyle(el).borderBottomWidth === '0px')`), 'settings have no loose row dividers')
-    assert.ok(await evaluate(`['.workspace-header', '.sidebar-header', '.sidebar-footer'].every(selector => { const style = getComputedStyle(document.querySelector(selector)); return style.borderTopWidth === '0px' && style.borderBottomWidth === '0px'; })`), 'shell has no loose decorative dividers')
+    assert.ok(await evaluate(`(() => {
+      const rows = Array.from(document.querySelectorAll('.setting-row'));
+      return rows.length > 1 && rows.every(el => getComputedStyle(el).borderBottomWidth === (el.matches(':last-child') ? '0px' : '1px'));
+    })()`), 'settings rows have dividers except at the end of each group')
+    assert.ok(await evaluate(`[
+      ['.app-titlebar', 'borderBottomWidth'],
+      ['.workspace-header', 'borderBottomWidth'],
+      ['.sidebar-header', 'borderBottomWidth'],
+      ['.sidebar-footer', 'borderTopWidth']
+    ].every(([selector, border]) => getComputedStyle(document.querySelector(selector))[border] === '1px')`), 'titlebar, page header and sidebar dividers are visible')
     await screenshot('settings')
-    console.log('PASS: markers match painted surface dots, source tooltip, disconnected globe, decorative dividers; screenshots in artifacts/globe-ui-check')
+    console.log('PASS: markers match painted surface dots, source tooltip, disconnected globe, restored dividers; screenshots in artifacts/globe-ui-check')
   } finally { win.destroy(); app.quit() }
 }).catch(error => { console.error(error); app.exit(1) })
