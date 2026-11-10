@@ -576,7 +576,7 @@ input, textarea, pre { user-select: text; }
 .globe-footer {
   position: absolute;
   z-index: 10;
-  inset: auto calc(var(--overview-reserved) + 12px) 24px 12px;
+  inset: auto calc(var(--overview-reserved) + 12px) -14px 12px;
   padding: 4px;
   text-align: center;
   font-size: 11px;
@@ -598,7 +598,7 @@ input, textarea, pre { user-select: text; }
   display: flex;
   flex-direction: column;
   width: min(100%, 340px);
-  max-height: 104px;
+  max-height: 114px;
   overflow-y: auto;
   gap: 6px;
   pointer-events: auto;
