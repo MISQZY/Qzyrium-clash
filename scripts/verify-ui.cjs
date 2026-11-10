@@ -46,6 +46,9 @@ if (process.type === 'renderer') {
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   app.whenReady().then(async () => {
     const win = new BrowserWindow({ width: 1040, height: 720, show: false, titleBarStyle: 'hidden', titleBarOverlay: { height: 36, color: '#00000000', symbolColor: '#9ca3af' }, webPreferences: { spellcheck: false, preload: __filename, sandbox: false, contextIsolation: true, backgroundThrottling: false } })
+    // Windows CI can retain the previous media-query layout in a hidden window
+    // after resizing. Exercise responsive layout in a composited window.
+    if (process.env.GITHUB_ACTIONS === 'true') win.showInactive()
     // Deterministic emoji asset fixture: UI checks must not depend on a CDN.
     const emojiFixture = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 18"><path fill="#ae1c28" d="M0 0h24v6H0z"/><path fill="#fff" d="M0 6h24v6H0z"/><path fill="#21468b" d="M0 12h24v6H0z"/></svg>'
     win.webContents.session.protocol.handle('https', request => request.url.startsWith('https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/')
@@ -166,6 +169,7 @@ if (process.type === 'renderer') {
       for (const [width, height] of [[840, 560], [1040, 720], [1440, 900], [900, 600], [840, 560]]) {
         win.setSize(width, height)
         await delay(100)
+        await waitFor(`matchMedia('(max-width: 1000px)').matches === (innerWidth <= 1000) && matchMedia('(max-height: 700px)').matches === (innerHeight <= 700)`)
         for (const label of pages) {
           await navigate(label)
           const layout = await evaluate(`(() => { const root = document.documentElement; const main = document.querySelector('.app-main'); const sidebar = document.querySelector('.app-sidebar'); const viewport = document.querySelector('.page-viewport'); const page = document.querySelector('.page-scroll'); return { width: innerWidth, height: innerHeight, rootWidth: root.scrollWidth, rootHeight: root.scrollHeight, clientWidth: root.clientWidth, clientHeight: root.clientHeight, bodyOverflow: root.scrollWidth > root.clientWidth + 1 || root.scrollHeight > root.clientHeight + 1, mainOverflow: main.scrollWidth > main.clientWidth + 1, pageOverflow: page ? page.scrollWidth > page.clientWidth + 1 : false, aligned: Math.abs(main.getBoundingClientRect().top - sidebar.getBoundingClientRect().top) < 1, bottom: Math.abs(viewport.getBoundingClientRect().bottom - innerHeight) < 1 } })()`)
