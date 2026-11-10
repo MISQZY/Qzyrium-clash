@@ -6,6 +6,7 @@ export interface AppConfig {
   general: {
     autoStart: boolean
     autoStartAsAdmin?: boolean
+    autoCheckUpdates?: boolean
     autoConnect: boolean
     minimizeToTray: boolean
     theme: ThemePreference
@@ -69,6 +70,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   general: {
     autoStart: false,
     autoStartAsAdmin: false,
+    autoCheckUpdates: true,
     autoConnect: false,
     minimizeToTray: true,
     theme: 'dark',

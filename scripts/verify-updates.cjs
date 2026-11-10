@@ -17,7 +17,7 @@ function load(file, dependencies) {
   return exports
 }
 
-function fixture({ packaged = true, portable = false, lastVersion, version = '0.3.0', fetch } = {}) {
+function fixture({ packaged = true, portable = false, lastVersion, version = '0.3.0', fetch, autoCheck = true } = {}) {
   const updater = new EventEmitter()
   let checks = 0, downloads = 0, installs = 0, recoveries = 0, prepared = false, saved = lastVersion
   const requests = [], statuses = []
@@ -39,7 +39,7 @@ function fixture({ packaged = true, portable = false, lastVersion, version = '0.
   const previousPortable = process.env.PORTABLE_EXECUTABLE_DIR
   if (portable) process.env.PORTABLE_EXECUTABLE_DIR = 'mock-portable'
   const { UpdateService } = load('src/main/services/UpdateService.ts', dependencies)
-  const service = new UpdateService((_, status) => statuses.push(status), async () => { await Promise.resolve(); prepared = true }, async () => { recoveries++ })
+  const service = new UpdateService((_, status) => statuses.push(status), async () => { await Promise.resolve(); prepared = true }, () => autoCheck, async () => { recoveries++ })
   return { service, updater, requests, statuses, initialize: async () => {
     try { await service.initialize() } finally {
       if (previousPortable === undefined) delete process.env.PORTABLE_EXECUTABLE_DIR
@@ -49,6 +49,12 @@ function fixture({ packaged = true, portable = false, lastVersion, version = '0.
 }
 
 async function verify() {
+  const disabled = fixture({ autoCheck: false })
+  await disabled.initialize()
+  assert.equal(disabled.counts().checks, 0, 'disabled automatic checks do not contact the update feed')
+  await disabled.service.checkUpdates()
+  assert.equal(disabled.counts().checks, 1, 'manual checks work with automatic checks disabled')
+  await disabled.service.dispose()
   const sample = fixture()
   await sample.initialize()
   await Promise.all([sample.service.checkUpdates(), sample.service.checkUpdates()])

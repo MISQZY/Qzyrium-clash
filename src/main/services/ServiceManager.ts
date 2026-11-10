@@ -49,7 +49,7 @@ export class ServiceManager {
       await this.desktopService.dispose()
       await this.kernelService.stop()
       await this.sysProxyService.setCoreRunning(false)
-    }, async () => {
+    }, () => this.settingService.getSettings().general.autoCheckUpdates !== false, async () => {
       const state = readRestartState()
       clearRestartState()
       await this.desktopService.initialize()
