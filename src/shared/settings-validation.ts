@@ -1,4 +1,5 @@
 import type { AppConfig } from './app-config'
+import { SHORTCUT_ACTIONS, shortcutIdentity } from './shortcuts'
 import { coreFields, dnsFields, generalFields, resourceFields, snifferFields, tunFields, validateFields } from './settings-fields'
 
 export function validateAppConfig(config: AppConfig): void {
@@ -20,9 +21,9 @@ export function validateAppConfig(config: AppConfig): void {
   validateFields(extra, generalFields, 'general')
   if (config.general.delayTestUrl && !/^https?:\/\//i.test(config.general.delayTestUrl)) throw new Error('Latency test URL must use HTTP or HTTPS')
   const shortcuts = config.general.shortcuts ?? {}
-  const actions = ['showWindow', 'sysProxy', 'tun', 'ruleMode', 'globalMode', 'directMode']
+  const actions: readonly string[] = SHORTCUT_ACTIONS
   if (Object.keys(shortcuts).some((key) => !actions.includes(key)) || Object.values(shortcuts).some((value) => typeof value !== 'string')) throw new Error('Invalid shortcut action')
-  const accelerators = Object.values(shortcuts).filter(Boolean).map((value) => value.toLowerCase().replace(/\s/g, ''))
+  const accelerators = Object.values(shortcuts).filter((value) => value.trim()).map(shortcutIdentity)
   if (new Set(accelerators).size !== accelerators.length) throw new Error('Shortcuts must be unique')
   if (config.sysProxy.mode && !['manual', 'pac'].includes(config.sysProxy.mode)) throw new Error('Invalid system proxy mode')
   if (config.sysProxy.host && !/^[\w.:-]+$/.test(config.sysProxy.host)) throw new Error('Invalid system proxy host')

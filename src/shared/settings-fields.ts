@@ -167,7 +167,7 @@ export const generalFields: SettingsField[] = [
     'Периодически обновлять подписки в фоновом режиме.'
   )),
   field('profileUpdateInterval', 'Subscription update interval (min)', 'Интервал обновления подписок (мин)', 'number', { min: 5, max: 10080 }),
-  field('shortcuts', 'Global shortcuts (YAML)', 'Глобальные горячие клавиши (YAML)', 'map', { placeholder: 'showWindow: Ctrl+Shift+Q\nsysProxy: Ctrl+Shift+P\ntun: Ctrl+Shift+T\nruleMode: Ctrl+Shift+R\nglobalMode: Ctrl+Shift+G\ndirectMode: Ctrl+Shift+D' })
+  field('shortcuts', 'Global shortcuts', 'Глобальные горячие клавиши', 'map')
 ]
 
 export function validateFields(values: ConfigValues | null | undefined, fields: readonly SettingsField[], name: string): void {

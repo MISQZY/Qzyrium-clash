@@ -77,6 +77,7 @@ const api: IElectronApi = {
     checkUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.APP_CHECK_UPDATES),
     getUpdaterStatus: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_UPDATER_STATUS),
     downloadUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.APP_DOWNLOAD_UPDATE),
+    setShortcutRecording: (recording) => ipcRenderer.invoke(IPC_CHANNELS.APP_SET_SHORTCUT_RECORDING, recording),
     getWhatsNew: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_WHATS_NEW),
     openUrl: (url: string) => ipcRenderer.invoke(IPC_CHANNELS.APP_OPEN_URL, url)
   },
