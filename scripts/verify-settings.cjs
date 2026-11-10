@@ -212,7 +212,7 @@ function verifySession() {
   const entry = { type: 'info', payload: 'Ready', time: '12:00:00' }
   manager.emit('log', entry)
   api.emit('log', entry)
-  assert.deepEqual(messages.map(message => message.channel), ['event:log', 'event:log'], 'process and API logs use the preload log channel')
+  assert.deepEqual(messages.map(message => message.channel), ['event:log'], 'process logs use the preload channel without duplicating API logs')
   assert.equal(kernel.getSessionStartedAt(), null)
   manager.emit('state-change', 'running')
   assert.equal(kernel.getSessionStartedAt(), 10000)

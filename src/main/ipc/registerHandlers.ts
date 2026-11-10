@@ -13,6 +13,7 @@ import { isDeepStrictEqual } from 'node:util'
 import { validateAppConfig } from '@shared/settings-validation'
 import { pacScript } from '../utils/pac'
 import { isProcessElevated, restartAsAdmin } from '../utils/elevation'
+import { saveRestartState, clearRestartState } from '../utils/restart-state'
 
 export function registerIpcHandlers(services: ServiceManager): void {
   logger.info('Registering type-safe IPC handlers...')
@@ -272,6 +273,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
 
   ipcMain.handle(IPC_CHANNELS.APP_RESTART_AS_ADMIN, async () => {
     const wasRunning = ['running', 'starting'].includes(services.kernelService.getStatus())
+    saveRestartState({ running: wasRunning, visible: true, elevated: true })
     try {
       await services.sysProxyService.setCoreRunning(false)
     } catch (err) {
@@ -291,6 +293,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
     try { restarted = await restartAsAdmin() }
     finally {
       if (!restarted) {
+        clearRestartState()
         await services.desktopService.initialize()
         if (wasRunning) await services.kernelService.start()
         await services.sysProxyService.setCoreRunning(services.kernelService.getStatus() === 'running')

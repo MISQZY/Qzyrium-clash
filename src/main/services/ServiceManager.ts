@@ -10,6 +10,8 @@ import { ThemeStore } from './ThemeStore'
 import { UpdateService } from './UpdateService'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
+import { isProcessElevated } from '../utils/elevation'
+import { saveRestartState, readRestartState, clearRestartState } from '../utils/restart-state'
 
 export class ServiceManager {
   public settingService: SettingService
@@ -42,9 +44,17 @@ export class ServiceManager {
       this.trayService.updateContextMenu()
     })
     this.updateService = new UpdateService((channel, payload) => this.windowService.broadcast(channel, payload), async () => {
+      const window = this.windowService.getMainWindow()
+      saveRestartState({ running: ['running', 'starting'].includes(this.kernelService.getStatus()), visible: !!window?.isVisible() && !window.isMinimized(), elevated: isProcessElevated() })
       await this.desktopService.dispose()
       await this.kernelService.stop()
       await this.sysProxyService.setCoreRunning(false)
+    }, async () => {
+      const state = readRestartState()
+      clearRestartState()
+      await this.desktopService.initialize()
+      if (state?.running) await this.kernelService.start()
+      await this.sysProxyService.setCoreRunning(this.kernelService.getStatus() === 'running')
     })
 
     // Route kernel broadcasts to renderer via WindowService

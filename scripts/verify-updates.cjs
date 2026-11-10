@@ -19,7 +19,7 @@ function load(file, dependencies) {
 
 function fixture({ packaged = true, portable = false, lastVersion, version = '0.3.0', fetch } = {}) {
   const updater = new EventEmitter()
-  let checks = 0, downloads = 0, installs = 0, prepared = false, saved = lastVersion
+  let checks = 0, downloads = 0, installs = 0, recoveries = 0, prepared = false, saved = lastVersion
   const requests = [], statuses = []
   updater.setFeedURL = (feed) => assert.equal(feed.repo, 'Qzyrium-clash')
   updater.checkForUpdates = async () => { checks++; updater.emit('checking-for-update'); await Promise.resolve(); updater.emit('update-available', { version: '0.4.0' }) }
@@ -39,13 +39,13 @@ function fixture({ packaged = true, portable = false, lastVersion, version = '0.
   const previousPortable = process.env.PORTABLE_EXECUTABLE_DIR
   if (portable) process.env.PORTABLE_EXECUTABLE_DIR = 'mock-portable'
   const { UpdateService } = load('src/main/services/UpdateService.ts', dependencies)
-  const service = new UpdateService((_, status) => statuses.push(status), async () => { await Promise.resolve(); prepared = true })
+  const service = new UpdateService((_, status) => statuses.push(status), async () => { await Promise.resolve(); prepared = true }, async () => { recoveries++ })
   return { service, updater, requests, statuses, initialize: async () => {
     try { await service.initialize() } finally {
       if (previousPortable === undefined) delete process.env.PORTABLE_EXECUTABLE_DIR
       else process.env.PORTABLE_EXECUTABLE_DIR = previousPortable
     }
-  }, counts: () => ({ checks, downloads, installs }), saved: () => saved }
+  }, counts: () => ({ checks, downloads, installs }), recoveries: () => recoveries, saved: () => saved }
 }
 
 async function verify() {
@@ -59,9 +59,11 @@ async function verify() {
   sample.updater.emit('download-progress', { percent: 49.6 })
   assert.deepEqual(sample.service.getStatus(), { state: 'downloading', percent: 50 })
   sample.updater.emit('update-downloaded', { version: '0.4.0' })
+  sample.updater.emit('update-downloaded', { version: '0.4.0' })
   await new Promise(setImmediate)
   assert.equal(sample.counts().installs, 1)
   sample.updater.emit('error', new Error('offline'))
+  assert.equal(sample.recoveries(), 1, 'installer failure restores the session stopped during cleanup')
   assert.equal(sample.service.getStatus().state, 'error')
   await sample.service.checkUpdates()
   assert.equal(sample.service.getStatus().state, 'available', 'retry recovers from a network error')

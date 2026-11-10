@@ -19,8 +19,9 @@ export class UpdateService implements BaseService {
   private downloading: Promise<void> | null = null
   private whatsNew: Promise<WhatsNewPayload | null> = Promise.resolve(null)
   private listeners: Array<() => void> = []
+  private installing = false
 
-  constructor(private broadcast: (channel: string, payload: unknown) => void, private prepareInstall: () => Promise<void>) {}
+  constructor(private broadcast: (channel: string, payload: unknown) => void, private prepareInstall: () => Promise<void>, private recoverInstall: () => Promise<void> = async () => {}) {}
 
   async initialize(): Promise<void> {
     this.whatsNew = this.loadWhatsNew()
@@ -39,6 +40,8 @@ export class UpdateService implements BaseService {
     this.listen('update-available', (info: { version: string }) => this.setStatus({ state: 'available', version: info.version }))
     this.listen('download-progress', (progress: { percent: number }) => this.setStatus({ state: 'downloading', percent: Math.min(100, Math.max(0, Math.round(progress.percent))) }))
     this.listen('update-downloaded', (info: { version: string }) => {
+      if (this.installing) return
+      this.installing = true
       this.setStatus({ state: 'downloaded', version: info.version })
       // Cleanup finishes before the installer starts replacing files or relaunching the app.
       void this.prepareInstall().then(() => autoUpdater.quitAndInstall(true, true)).catch((error) => this.fail(error))
@@ -60,6 +63,10 @@ export class UpdateService implements BaseService {
   private fail(error: unknown): void {
     logger.error('Application update failed', error)
     this.setStatus({ state: 'error', message: error instanceof Error ? error.message : String(error) })
+    if (this.installing) {
+      this.installing = false
+      void this.recoverInstall().catch((recoveryError) => logger.error('Unable to restore session after failed installation', recoveryError))
+    }
   }
 
   getStatus(): AppUpdaterStatus { return this.status }
