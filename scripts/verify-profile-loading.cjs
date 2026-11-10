@@ -173,6 +173,7 @@ async function verifyProfiles() {
   const handlers = new Map()
   let restarts = 0, status = 'running'
   const { registerIpcHandlers } = load('src/main/ipc/registerHandlers.ts', {
+    '../utils/elevation': { isProcessElevated: () => false, restartAsAdmin: async () => false },
     electron: {
       ipcMain: { handle: (channel, callback) => handlers.set(channel, callback) },
       app: { getVersion: () => '1.0.0', getFileIcon: async () => null },
@@ -257,6 +258,7 @@ async function verifySystemProxy() {
   const proxy = new SysProxyService({ getSettings: () => settings, async updateSettings(patch) { Object.assign(settings, patch) } })
   const handlers = new Map()
   const { registerIpcHandlers } = load('src/main/ipc/registerHandlers.ts', {
+    '../utils/elevation': { isProcessElevated: () => false, restartAsAdmin: async () => false },
     electron: { ipcMain: { handle: (channel, callback) => handlers.set(channel, callback) } },
     '@shared/ipc': { IPC_CHANNELS: new Proxy({}, { get: (_, key) => key }) },
     '../utils/logger': { logger }

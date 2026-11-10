@@ -62,6 +62,7 @@ async function main() {
 
   const helpers = load('src/main/utils/globe-routes.ts', {})
   const profileHelpers = load('src/main/utils/globe-profile.ts', {})
+  const offlineHelpers = load('src/main/utils/offline-proxies.ts', {})
   const compact = profileHelpers.globeProfile({
     proxies: [{ name: 'node', server: 'vpn.example.com', password: 'secret', certificate: 'x'.repeat(100000) }],
     'proxy-groups': [{ name: 'GROUP', proxies: ['node'] }],
@@ -114,6 +115,7 @@ async function main() {
 
   const empty = class {}
   const { KernelService } = load('src/main/services/KernelService.ts', {
+    '../utils/offline-proxies': offlineHelpers,
     '../utils/globe-profile': profileHelpers,
     '../utils/elevation': { isProcessElevated: () => false },
     '../core/MihomoApiClient': { MihomoApiClient: empty }, '../core/MihomoConfigFactory': {}, '../core/MihomoProcessManager': { MihomoProcessManager: empty }, '../utils/logger': {}, '../utils/paths': {}, '@shared/ipc': {}, './GeoIpService': { GeoIpService }, '../utils/globe-routes': helpers, '../utils/local-geoip': { LocalGeoIp }
@@ -181,6 +183,7 @@ async function main() {
   let profileRead = new Promise(resolve => { releaseProfile = resolve })
   let originRead = new Promise(resolve => { releaseOrigin = () => { originFinished = true; resolve() } })
   const { KernelService: LifecycleKernel } = load('src/main/services/KernelService.ts', {
+    '../utils/offline-proxies': offlineHelpers,
     '../utils/globe-profile': profileHelpers,
     '../utils/elevation': { isProcessElevated: () => true },
     fs: { constants: { COPYFILE_EXCL: 1 }, promises: { copyFile: async () => {}, writeFile: async () => {} } },
