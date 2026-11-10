@@ -1,11 +1,10 @@
 import { useLocale, useTranslations } from '../i18n'
 import React, { lazy, Suspense, useRef, useState } from 'react'
-import { Plus, RefreshCw, Trash2, Check, Globe, FileCode, EllipsisVertical, Pencil } from 'lucide-react'
+import { Plus, RefreshCw, Trash2, Globe, FileCode, EllipsisVertical, Pencil } from 'lucide-react'
 import { RulesIcon } from '../lib/icons'
 import { ProfileItem } from '@shared/profile'
 import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import { Button } from '../components/ui/button'
-import { Badge } from '../components/ui/badge'
 import { Card, CardContent } from '../components/ui/card'
 import {
   Dialog,
@@ -37,7 +36,7 @@ import {
   AlertDialogTitle
 } from '../components/ui/alert-dialog'
 import { profileName as displayName } from '../lib/profile-name'
-import { formatBytes } from '../lib/format'
+import { SubscriptionInfo } from '../components/SubscriptionInfo'
 
 const ProfileEditorDialog = lazy(() => import('../components/ProfileEditorDialog').then((module) => ({ default: module.ProfileEditorDialog })))
 const ProfileFileEditorDialog = lazy(() => import('../components/ProfileFileEditorDialog').then((module) => ({ default: module.ProfileFileEditorDialog })))
@@ -180,120 +179,112 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
             return (
               <Card
                 key={p.id}
-                className={`transition-colors ${
-                  isActive
-                    ? 'border-primary/30 bg-muted/50'
-                    : 'bg-card'
-                }`}
+                aria-current={isActive ? 'true' : undefined}
+                className={`bg-card ${isActive ? 'border-primary' : 'border-border'}`}
               >
-                <CardContent className="p-4 flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex flex-1 min-w-0 items-center gap-3.5">
-                    <div
-                      className={`size-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden ${
-                        p.type === 'remote'
-                          ? 'bg-primary/15 text-primary border border-primary/30'
-                          : 'bg-warning/15 text-warning border border-warning/30'
-                      }`}
-                    >
-                      <ProfileLogo
-                        url={p.profileLogo}
-                        className="size-7 object-contain rounded-xs"
-                        fallback={
-                          p.type === 'remote' ? (
-                            <Globe className="size-5" />
-                          ) : (
-                            <FileCode className="size-5" />
-                          )
-                        }
-                      />
+                <CardContent className="space-y-4 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-1 min-w-0 items-center gap-3.5">
+                      <div
+                        className={`size-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden ${
+                          p.type === 'remote'
+                            ? 'bg-primary/15 text-primary border border-primary/30'
+                            : 'bg-warning/15 text-warning border border-warning/30'
+                        }`}
+                      >
+                        <ProfileLogo
+                          url={p.profileLogo}
+                          className="size-7 object-contain rounded-xs"
+                          fallback={
+                            p.type === 'remote' ? (
+                              <Globe className="size-5" />
+                            ) : (
+                              <FileCode className="size-5" />
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="truncate text-sm font-semibold text-foreground" title={displayName(p, locale)}><EmojiText text={displayName(p, locale)} /></span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="truncate text-sm font-semibold text-foreground" title={displayName(p, locale)}><EmojiText text={displayName(p, locale)} /></span>
-                        {isActive && (
-                          <Badge variant="glow" className="gap-1 py-0 px-2 text-[10px]">
-                            <Check className="size-2.5" /> {t('active')}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground/80 mt-0.5">
-                        <span>{t('updated', { date: dateStr })}</span>
-                        {p.userInfo?.total ? (
-                          <span className="text-primary font-mono">
-                            • {formatBytes((p.userInfo.upload || 0) + (p.userInfo.download || 0), locale)} / {formatBytes(p.userInfo.total, locale)}
-                          </span>
-                        ) : null}
-                      </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button variant="outline" size="icon-sm" title={t('editInfo')} aria-label={t('editInfo')} onClick={() => setEditingInfoProfile(p)}>
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      {p.type === 'remote' && (
+                        <Button
+                          onClick={() => handleUpdate(p.id)}
+                          variant="outline"
+                          size="icon-sm"
+                          title={t('updateSubscription')}
+                          aria-label={t('updateSubscription')}
+                          aria-busy={updating.has(p.id)}
+                          disabled={updating.has(p.id)}
+                        >
+                          <RefreshCw className={`size-3.5${updating.has(p.id) ? ' animate-spin' : ''}`} />
+                        </Button>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className="cursor-pointer"
+                            title={t('moreActions')}
+                            aria-label={t('moreActions')}
+                          >
+                            <EllipsisVertical className="size-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem
+                            onClick={() => setEditingFileProfile(p)}
+                            className="gap-2 cursor-pointer"
+                          >
+                            <FileCode className="size-3.5 text-muted-foreground" />
+                            <span>{t('editFile')}</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => setProfileToDelete(p)}
+                            className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                          >
+                            <Trash2 className="size-3.5" />
+                            <span>{t('deleteProfile')}</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-2">
-                    {!isActive && (
+                  {p.type === 'remote' && <SubscriptionInfo info={p.userInfo} />}
+
+                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border/60 pt-3">
+                    <p className="text-[10px] text-muted-foreground">{t('updated', { date: dateStr })}</p>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {!isActive && (
+                        <Button
+                          onClick={() => onSwitchProfile(p.id)}
+                          variant="outline"
+                          size="sm"
+                          className="h-7"
+                        >
+                          {t('select')}
+                        </Button>
+                      )}
                       <Button
-                        onClick={() => onSwitchProfile(p.id)}
-                        variant="secondary"
-                        size="sm"
-                      >
-                        {t('select')}
-                      </Button>
-                    )}
-                    <Button
-                      onClick={() => setEditingProfile(p)}
-                      variant="outline"
-                      size="icon-sm"
-                      title={t('editRules')}
-                      aria-label={t('editRules')}
-                    >
-                      <RulesIcon className="size-3.5" />
-                    </Button>
-                    {p.type === 'remote' && (
-                      <Button
-                        onClick={() => handleUpdate(p.id)}
+                        onClick={() => setEditingProfile(p)}
                         variant="outline"
                         size="icon-sm"
-                        title={t('updateSubscription')}
-                        disabled={updating.has(p.id)}
+                        title={t('editRules')}
+                        aria-label={t('editRules')}
                       >
-                        <RefreshCw className={`size-3.5${updating.has(p.id) ? ' animate-spin' : ''}`} />
+                        <RulesIcon className="size-3.5" />
                       </Button>
-                    )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="cursor-pointer"
-                          title={t('moreActions')}
-                          aria-label={t('moreActions')}
-                        >
-                          <EllipsisVertical className="size-3.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem
-                          onClick={() => setEditingInfoProfile(p)}
-                          className="gap-2 cursor-pointer"
-                        >
-                          <Pencil className="size-3.5 text-muted-foreground" />
-                          <span>{t('editInfo')}</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setEditingFileProfile(p)}
-                          className="gap-2 cursor-pointer"
-                        >
-                          <FileCode className="size-3.5 text-muted-foreground" />
-                          <span>{t('editFile')}</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => setProfileToDelete(p)}
-                          className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
-                        >
-                          <Trash2 className="size-3.5" />
-                          <span>{t('deleteProfile')}</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
