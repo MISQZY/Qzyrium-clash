@@ -1,5 +1,5 @@
 import { useTranslations, useLocale } from '../i18n'
-import React, { useState, useRef, useEffect, useMemo } from 'react'
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import { Trash2 } from 'lucide-react'
 import { AutoscrollIcon } from '../lib/icons'
 import { LogEntry } from '@shared/types'
@@ -12,15 +12,32 @@ interface LogsPageProps {
   onClear: () => void
 }
 
+const logLevels = ['all', 'debug', 'info', 'warning', 'error'] as const
+
+function readPreference(key: string): string | null {
+  try { return localStorage.getItem(key) } catch { return null }
+}
+
 export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
   const t = useTranslations('logs')
   const common = useTranslations('common')
   const locale = useLocale()
 
-  const [levelFilter, setLevelFilter] = useState<string>('all')
-  const [autoScroll, setAutoScroll] = useState(true)
+  const [levelFilter, setLevelFilter] = useState<string>(() => {
+    const saved = readPreference('logs_level_filter')
+    return logLevels.find((level) => level === saved) ?? 'all'
+  })
+  const [autoScroll, setAutoScroll] = useState(() => readPreference('logs_auto_scroll') !== 'false')
   const [search, setSearch] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
+  const scrollPosition = useRef(0)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('logs_level_filter', levelFilter)
+      localStorage.setItem('logs_auto_scroll', String(autoScroll))
+    } catch { /* Keep the controls usable when storage is unavailable. */ }
+  }, [levelFilter, autoScroll])
   const timeFormatter = useMemo(() => new Intl.DateTimeFormat(locale, {
     hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false
   }), [locale])
@@ -36,9 +53,10 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
     })
   }, [logs, levelFilter, search])
 
-  useEffect(() => {
-    if (autoScroll && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  useLayoutEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = autoScroll ? scrollRef.current.scrollHeight : scrollPosition.current
+      scrollPosition.current = scrollRef.current.scrollTop
     }
   }, [filteredLogs, autoScroll])
 
@@ -67,7 +85,7 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
         <div className="flex flex-wrap items-center gap-2">
           {/* Level Filter Buttons */}
           <div className="flex items-center rounded-lg bg-muted/60 border border-border p-0.5 text-xs">
-            {(['all', 'debug', 'info', 'warning', 'error'] as const).map((lvl) => (
+            {logLevels.map((lvl) => (
               <button
                 key={lvl}
                 onClick={() => setLevelFilter(lvl)}
@@ -84,7 +102,7 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
           </div>
 
           <Button
-            onClick={() => setAutoScroll(!autoScroll)}
+            onClick={() => setAutoScroll((value) => !value)}
             aria-pressed={autoScroll}
             variant={autoScroll ? 'default' : 'outline'}
             size="sm"
@@ -113,7 +131,7 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
       </div>
 
       {/* Terminal View Container */}
-      <div ref={scrollRef} className="flex-1 min-w-0 min-h-0 rounded-xl bg-card border border-border p-4 font-mono text-xs overflow-y-auto select-text shadow-inner">
+      <div ref={scrollRef} onScroll={(event) => { scrollPosition.current = event.currentTarget.scrollTop }} className="flex-1 min-w-0 min-h-0 rounded-xl bg-card border border-border p-4 font-mono text-xs overflow-y-auto [overflow-anchor:none] select-text shadow-inner">
         {filteredLogs.length > 0 ? (
           filteredLogs.map((item, idx) => (
             <div key={`${item.time}-${idx}-${item.type}`} className="grid grid-cols-[auto_6rem_minmax(0,1fr)] items-start gap-3 py-1 leading-relaxed border-b border-border/40 last:border-0 hover:bg-muted/20">
