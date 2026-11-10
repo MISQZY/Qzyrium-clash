@@ -522,6 +522,21 @@ input, textarea, pre { user-select: text; }
 .globe-route-track.is-connecting {
   animation: globe-connecting-stream 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
+.globe-route-track.is-active {
+  stroke-width: 2.8;
+  opacity: 0.95;
+  animation: globe-route-active-draw 1.0s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes globe-route-active-draw {
+  0% {
+    stroke-dashoffset: 100;
+    opacity: 0.2;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.95;
+  }
+}
 @keyframes globe-route-draw-in {
   0% {
     stroke-dashoffset: 100;
@@ -562,6 +577,9 @@ input, textarea, pre { user-select: text; }
   stroke-dasharray: 12 8;
   filter: drop-shadow(0 0 5px currentColor);
 }
+.globe-route-dash.is-group-active {
+  filter: drop-shadow(0 0 6px var(--warning));
+}
 .globe-route-dash.is-connecting {
   stroke-dasharray: 10 10;
   opacity: 0.75;
@@ -600,6 +618,7 @@ input, textarea, pre { user-select: text; }
   user-select: none;
 }
 .globe-endpoint-text.is-active { font-weight: 700; stroke-width: 3.5px; }
+.globe-endpoint-text.is-group-active { fill: var(--warning) !important; }
 .globe-endpoint-label .globe-endpoint-text { pointer-events: auto; cursor: pointer; }
 .globe-label-leader { fill: none; stroke-width: 1; opacity: 0.45; pointer-events: none; }
 .globe-route-endpoint {
@@ -641,6 +660,11 @@ input, textarea, pre { user-select: text; }
   overflow-y: auto;
   gap: 6px;
   pointer-events: auto;
+  padding-right: 0;
+  transition: padding-right 150ms ease;
+}
+.globe-routes.has-scroll {
+  padding-right: 6px;
 }
 .globe-route-summary {
   display: flex;
@@ -662,6 +686,20 @@ input, textarea, pre { user-select: text; }
   border-color: color-mix(in oklch, var(--primary) 55%, var(--border));
   background: color-mix(in oklch, var(--primary) 6%, var(--card));
   color: var(--foreground);
+}
+.globe-route-summary.is-group-active {
+  border-color: color-mix(in oklch, var(--warning) 65%, var(--border));
+  background: color-mix(in oklch, var(--warning) 12%, var(--card));
+  color: var(--foreground);
+  box-shadow: 0 0 8px color-mix(in oklch, var(--warning) 20%, transparent);
+}
+.globe-route-summary.is-group-active:hover {
+  border-color: color-mix(in oklch, var(--warning) 80%, var(--border));
+  background: color-mix(in oklch, var(--warning) 18%, var(--card));
+}
+.globe-route-summary.is-group-active .globe-route-dot {
+  background-color: var(--warning) !important;
+  box-shadow: 0 0 6px var(--warning);
 }
 .globe-route-dot { width: 5px; height: 5px; flex-shrink: 0; border-radius: 50%; }
 .globe-route-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -762,6 +800,9 @@ input, textarea, pre { user-select: text; }
   .overview-support-section { padding: 6px 10px; }
   .overview-support-section button { height: 28px; }
   .overview-map-notes { padding: 2px 2px 0; font-size: 8px; line-height: 1.2; }
+}
+@media (max-height: 520px) {
+  .overview-panel-column { overflow-y: auto; }
 }
 @media (max-width: 760px) {
   .overview-layout { --overview-reserved: 0px; grid-template-columns: minmax(0, 1fr); overflow-y: auto; align-content: start; }

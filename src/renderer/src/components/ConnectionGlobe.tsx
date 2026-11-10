@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import createGlobe, { landPoints, type Globe } from '../lib/canvas-globe'
 import { useTranslations } from '../i18n'
 import { EmojiText } from './EmojiText'
@@ -48,6 +48,19 @@ function getCssColorRgb(cssVar: string, fallback: [number, number, number]): [nu
 const DORMANT_COLOR_DARK: [number, number, number] = [0.72, 0.74, 0.78]
 const DORMANT_COLOR_LIGHT: [number, number, number] = [0.30, 0.34, 0.37]
 const IGNITION_DURATION = 950
+
+function getLinkedRouteIds(
+  activeId: string | null,
+  projected: ProjectedRoute[]
+): string[] {
+  if (!activeId) return []
+  for (const p of projected) {
+    if (p.routeIds.includes(activeId)) {
+      return p.routeIds
+    }
+  }
+  return [activeId]
+}
 
 export function ConnectionGlobe({
   running,
@@ -286,13 +299,38 @@ export function ConnectionGlobe({
     }
   }, [routes])
 
-  const containsActive = (ids: string[]) => activeId !== null && ids.includes(activeId)
-  const orderedRoutes = [...projected].sort((a, b) =>
-    Number(containsActive(a.routeIds)) - Number(containsActive(b.routeIds)) ||
-    (a.endpoint?.depth ?? 0) - (b.endpoint?.depth ?? 0) || a.id.localeCompare(b.id))
-  const endpoints = groupProjectedEndpoints(projected).sort((a, b) =>
-    Number(containsActive(a.routeIds)) - Number(containsActive(b.routeIds)) ||
-    a.point.depth - b.point.depth || a.id.localeCompare(b.id))
+  const routesContainerRef = useRef<HTMLDivElement>(null)
+  const [hasScroll, setHasScroll] = useState(false)
+
+  useLayoutEffect(() => {
+    const el = routesContainerRef.current
+    if (!el) return
+    const checkScroll = () => {
+      const scrollable = el.scrollHeight > el.clientHeight + 1
+      setHasScroll((prev) => prev !== scrollable ? scrollable : prev)
+    }
+    checkScroll()
+    const ro = new ResizeObserver(checkScroll)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [routes.length, pendingNodes.length])
+
+  const linkedIds = useMemo(
+    () => getLinkedRouteIds(activeId, projected),
+    [activeId, projected]
+  )
+  const isGroupActive = linkedIds.length >= 2
+  const containsActive = (ids: string[]) => linkedIds.some((id) => ids.includes(id))
+
+  // Sort is stable: based on endpoint depth and id, never on active state to prevent DOM re-parenting
+  const orderedRoutes = useMemo(
+    () => [...projected].sort((a, b) => (a.endpoint?.depth ?? 0) - (b.endpoint?.depth ?? 0) || a.id.localeCompare(b.id)),
+    [projected]
+  )
+  const endpoints = useMemo(
+    () => groupProjectedEndpoints(projected).sort((a, b) => a.point.depth - b.point.depth || a.id.localeCompare(b.id)),
+    [projected]
+  )
   const family = sceneRef.current ? getComputedStyle(sceneRef.current).fontFamily : 'sans-serif'
   const labels = layoutEndpointLabels(endpoints, viewport.current, activeId, (text) => {
     if (!cachedCtx) return text.length * 9
@@ -338,9 +376,8 @@ export function ConnectionGlobe({
         <div className={`globe-solid-surface ${running ? 'is-running' : ''}`} aria-hidden="true" />
         <div className="globe-canvas-layer" ref={hostRef} />
         <svg className="globe-route-layer" width="100%" height="100%" aria-label={t('networkMap')}>
-          {/* Route lines with graceful, progressive 1.6s draw animation */}
+          {/* Base route lines with stable ordering (never re-ordered on hover to keep other animations flowing) */}
           {orderedRoutes.map((route) => {
-            const isRouteActive = containsActive(route.routeIds)
             return (
               <g key={route.id} className="globe-route-group cursor-pointer">
                 {/* Solid curve drawing gracefully from origin to endpoint */}
@@ -354,7 +391,7 @@ export function ConnectionGlobe({
                 <path
                   d={route.path}
                   pathLength={100}
-                  className={`globe-route-dash ${isRouteActive ? 'is-active' : ''} ${route.connecting ? 'is-connecting' : ''}`}
+                  className={`globe-route-dash ${route.connecting ? 'is-connecting' : ''}`}
                   style={{ stroke: route.color }}
                 />
                 {/* Broad hit line for hovering and click-to-pin */}
@@ -373,6 +410,29 @@ export function ConnectionGlobe({
               </g>
             )
           })}
+
+          {/* Active / hovered route overlay: drawn on top with fresh animation only for hovered route */}
+          {orderedRoutes
+            .filter((route) => containsActive(route.routeIds))
+            .map((route) => {
+              const strokeColor = isGroupActive ? 'var(--warning)' : route.color
+              return (
+                <g key={`active-top-${route.id}`} className="globe-route-group pointer-events-none">
+                  <path
+                    d={route.path}
+                    pathLength={100}
+                    className="globe-route-track is-active"
+                    style={{ stroke: strokeColor }}
+                  />
+                  <path
+                    d={route.path}
+                    pathLength={100}
+                    className={`globe-route-dash is-active ${isGroupActive ? 'is-group-active' : ''}`}
+                    style={{ stroke: strokeColor }}
+                  />
+                </g>
+              )
+            })}
 
           {/* Shared origins are painted once. */}
           {projected.filter((route, index, all) => route.originPoint?.visible &&
@@ -396,6 +456,7 @@ export function ConnectionGlobe({
           {endpoints.map((endpoint) => {
             const isActive = containsActive(endpoint.routeIds)
             const isPinned = expandedId !== null && endpoint.routeIds.includes(expandedId)
+            const markerColor = isActive && isGroupActive ? 'var(--warning)' : endpoint.color
             return (
               <g key={endpoint.id} className="globe-endpoint-group cursor-pointer"
                 onPointerDown={(event) => event.stopPropagation()}
@@ -404,60 +465,78 @@ export function ConnectionGlobe({
                 onClick={(event) => { event.stopPropagation(); toggleEndpoint(endpoint.routeIds) }}>
                 <title>{routes.filter((route) => endpoint.routeIds.includes(route.id)).map((route) => route.node).join('\n')}</title>
                 {isActive && <circle cx={endpoint.point.x} cy={endpoint.point.y} r={isPinned ? 10 : 8}
-                  className="globe-route-pulse" style={{ stroke: endpoint.color }} />}
+                  className="globe-route-pulse" style={{ stroke: markerColor }} />}
                 <circle cx={endpoint.point.x} cy={endpoint.point.y}
                   r={isActive ? 5 : endpoint.routeIds.length > 1 ? 4.5 : 3.5}
-                  className="globe-route-endpoint" style={{ fill: endpoint.color }} />
+                  className="globe-route-endpoint" style={{ fill: markerColor }} />
               </g>
             )
           })}
 
           {/* Labels are the final SVG layer; near and selected locations paint last. */}
-          {labels.map(({ endpoint, text, x, y, height }) => (
-            <g key={`label-${endpoint.id}`} className="globe-endpoint-label"
-              role="button" tabIndex={0} aria-label={text}
-              onFocus={() => setHovered(endpoint.routeIds[0])}
-              onBlur={() => setHovered(null)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault(); event.stopPropagation(); toggleEndpoint(endpoint.routeIds)
-                }
-              }}
-              onPointerDown={(event) => event.stopPropagation()}
-              onPointerEnter={() => setHovered(endpoint.routeIds[0])}
-              onPointerLeave={() => setHovered(null)}
-              onClick={(event) => { event.stopPropagation(); toggleEndpoint(endpoint.routeIds) }}>
-              <title>{routes.filter((route) => endpoint.routeIds.includes(route.id)).map((route) => route.node).join('\n')}</title>
-              <text x={x + 3} y={y + height / 2} dominantBaseline="central"
-                className={`globe-endpoint-text ${containsActive(endpoint.routeIds) ? 'is-active' : ''}`}
-                >{text}</text>
-            </g>
-          ))}
+          {labels.map(({ endpoint, text, x, y, height }) => {
+            const isActive = containsActive(endpoint.routeIds)
+            return (
+              <g key={`label-${endpoint.id}`} className="globe-endpoint-label"
+                role="button" tabIndex={0} aria-label={text}
+                onFocus={() => setHovered(endpoint.routeIds[0])}
+                onBlur={() => setHovered(null)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault(); event.stopPropagation(); toggleEndpoint(endpoint.routeIds)
+                  }
+                }}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerEnter={() => setHovered(endpoint.routeIds[0])}
+                onPointerLeave={() => setHovered(null)}
+                onClick={(event) => { event.stopPropagation(); toggleEndpoint(endpoint.routeIds) }}>
+                <title>{routes.filter((route) => endpoint.routeIds.includes(route.id)).map((route) => route.node).join('\n')}</title>
+                <text x={x + 3} y={y + height / 2} dominantBaseline="central"
+                  className={`globe-endpoint-text ${isActive ? 'is-active' : ''} ${isActive && isGroupActive ? 'is-group-active' : ''}`}
+                  >{text}</text>
+              </g>
+            )
+          })}
         </svg>
         {unavailable && <p className="globe-unavailable" role="status">{t('globeUnavailable')}</p>}
       </div>
 
       <div className="globe-footer">
         {(routes.length > 0 || (running && pendingNodes.length > 0)) && (
-          <div className="globe-routes">
-            {routes.map((route) => (
-              <button
-                type="button"
-                key={route.id}
-                onClick={() => setExpandedId((current) => current === route.id ? null : route.id)}
-                onMouseEnter={() => setHovered(route.id)}
-                onMouseLeave={() => setHovered(null)}
-                className={`globe-route-summary ${activeId === route.id ? 'is-active' : ''}`}
-                aria-pressed={expandedId === route.id}
-                title={`${route.fromLabel} → ${route.toLabel}\n${route.node}`}
-              >
-                <span className="globe-route-dot" style={{ backgroundColor: projected.find((group) => group.routeIds.includes(route.id))?.color ?? route.color }} aria-hidden="true" />
-                <span className="globe-route-name"><EmojiText text={route.node} /></span>
-                {route.delay !== undefined && route.delay > 0 && (
-                  <span className="globe-route-latency">{t('latency', { value: route.delay })}</span>
-                )}
-              </button>
-            ))}
+          <div
+            ref={routesContainerRef}
+            className={`globe-routes ${hasScroll ? 'has-scroll' : ''}`}
+          >
+            {routes.map((route) => {
+              const isSelected = linkedIds.includes(route.id)
+              const isYellowGroup = isSelected && isGroupActive
+              const isSingleActive = isSelected && !isGroupActive
+              const dotColor = isYellowGroup
+                ? 'var(--warning)'
+                : (projected.find((group) => group.routeIds.includes(route.id))?.color ?? route.color)
+              return (
+                <button
+                  type="button"
+                  key={route.id}
+                  onClick={() => setExpandedId((current) => current === route.id ? null : route.id)}
+                  onMouseEnter={() => setHovered(route.id)}
+                  onMouseLeave={() => setHovered(null)}
+                  className={`globe-route-summary ${isYellowGroup ? 'is-group-active' : isSingleActive ? 'is-active' : ''}`}
+                  aria-pressed={expandedId === route.id}
+                  title={`${route.fromLabel} → ${route.toLabel}\n${route.node}`}
+                >
+                  <span
+                    className="globe-route-dot"
+                    style={{ backgroundColor: dotColor }}
+                    aria-hidden="true"
+                  />
+                  <span className="globe-route-name"><EmojiText text={route.node} /></span>
+                  {route.delay !== undefined && route.delay > 0 && (
+                    <span className="globe-route-latency">{t('latency', { value: route.delay })}</span>
+                  )}
+                </button>
+              )
+            })}
             {running && pendingNodes.map((node) => (
               <span className="globe-pending-node" key={node}>
                 <EmojiText text={node} />
