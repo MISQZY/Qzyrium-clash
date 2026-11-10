@@ -1,18 +1,21 @@
-import React, { useState } from 'react'
-import { Pencil, Check, LoaderCircle, AlertCircle } from 'lucide-react'
+import React, { useId, useState } from 'react'
+import { Check, LoaderCircle, Globe, FileCode, RefreshCw, ChevronDown } from 'lucide-react'
 import type { ProfileItem } from '@shared/profile'
 import { useLocale, useTranslations } from '../i18n'
 import { EmojiText } from './EmojiText'
 import { profileName } from '../lib/profile-name'
+import { profileSource } from '../lib/profile-source'
+import { ProfileLogo } from './ProfileLogo'
+import { Alert } from './ui/alert'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter
 } from './ui/dialog'
 import { Button } from './ui/button'
-import { Badge } from './ui/badge'
 import { Input } from './ui/input'
 import { Switch } from './ui/switch'
 
@@ -31,6 +34,9 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
 }) => {
   const t = useTranslations('profiles')
   const locale = useLocale()
+  const id = useId()
+  const presets = [60, 360, 720, 1440]
+  const [customInterval, setCustomInterval] = useState(!presets.includes(profile?.interval ?? 1440))
 
   const [name, setName] = useState(profile?.name || '')
   const [url, setUrl] = useState(profile?.url || '')
@@ -47,6 +53,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
       setUrl(profile.url || '')
       setAutoUpdate(profile.autoUpdate ?? true)
       setInterval(profile.interval ?? 1440)
+      setCustomInterval(![60, 360, 720, 1440].includes(profile.interval ?? 1440))
       setCustomUA(profile.customUA || '')
       setError(null)
     }
@@ -87,150 +94,98 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
   const isRemote = profile.type === 'remote'
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[94vw] max-w-lg p-5 gap-4">
-        <form onSubmit={handleSave} className="flex flex-col gap-4">
-          {/* Header */}
-          <DialogHeader className="pb-2 border-b border-border/60">
-            <div className="flex items-center gap-2.5">
-              <div className="size-8 rounded-md bg-primary/15 text-primary flex items-center justify-center shrink-0">
-                <Pencil className="size-4" />
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!saving) onOpenChange(nextOpen) }}>
+      <DialogContent className="flex w-[calc(100%-32px)] max-w-xl flex-col gap-0 overflow-hidden p-0">
+        <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col">
+          <DialogHeader className="shrink-0 border-b border-border/60 px-5 py-4 pr-12 text-left">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/50 text-primary">
+                <ProfileLogo url={profile.profileLogo} className="size-7 rounded-xs object-contain" fallback={isRemote ? <Globe className="size-5" /> : <FileCode className="size-5" />} />
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <DialogTitle className="text-sm font-semibold truncate">
-                    <EmojiText text={profileName(profile, locale)} />
-                  </DialogTitle>
-                  <Badge variant="outline" className="text-[10px] uppercase font-mono px-1.5 py-0">
-                    {profile.type}
-                  </Badge>
-                </div>
-                <p className="text-[11px] text-muted-foreground">{t('editInfoTitle')}</p>
+              <div className="min-w-0 space-y-1">
+                <DialogTitle className="text-base">{t('profileSettings')}</DialogTitle>
+                <DialogDescription className="truncate">
+                  <EmojiText text={profileName(profile, locale)} />
+                  <span className="mx-1.5" aria-hidden="true">·</span>
+                  {profileSource(profile.url) ?? t(isRemote ? 'remoteSubscription' : 'localYAML')}
+                </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          {/* Form fields */}
-          <div className="flex flex-col gap-3.5">
-            {/* Name */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-foreground">{t('profileName')}</label>
-              <Input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t('automaticName')}
-                className="h-8.5 text-xs"
-              />
-            </div>
+          <div className="min-h-0 overflow-y-auto px-5 py-5">
+            <fieldset disabled={saving} className="min-w-0 space-y-5">
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <label htmlFor={`${id}-name`} className="text-xs font-medium">{t('displayName')}</label>
+                  <span className="text-[11px] text-muted-foreground">{t('optional')}</span>
+                </div>
+                <Input id={`${id}-name`} type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder={t('automaticName')} aria-describedby={`${id}-name-hint`} />
+                <p id={`${id}-name-hint`} className="text-[11px] leading-relaxed text-muted-foreground">{t('displayNameHint')}</p>
+              </div>
 
-            {/* Remote specific fields */}
-            {isRemote && (
-              <>
-                {/* Subscription URL */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-foreground">{t('subscriptionURL')}</label>
-                  <Input
-                    type="url"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://..."
-                    required
-                    className="h-8.5 text-xs font-mono"
-                  />
+              {isRemote && <>
+                <div className="space-y-2">
+                  <label htmlFor={`${id}-url`} className="text-xs font-medium">{t('subscriptionURL')}</label>
+                  <Input id={`${id}-url`} type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://..." required spellCheck={false} autoCapitalize="none" className="font-mono text-[11px]" aria-describedby={`${id}-url-hint`} />
+                  <p id={`${id}-url-hint`} className="text-[11px] leading-relaxed text-muted-foreground">{t('subscriptionLinkHint')}</p>
                 </div>
 
-                {/* Auto update toggle */}
-                <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-2.5">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-xs font-medium text-foreground">{t('autoUpdate')}</span>
-                    <span className="text-[11px] text-muted-foreground">{t('updateSubscription')}</span>
-                  </div>
-                  <Switch checked={autoUpdate} onCheckedChange={setAutoUpdate} />
-                </div>
-
-                {/* Update interval */}
-                {autoUpdate && (
-                  <div className="flex flex-col gap-1.5 pl-1">
-                    <label className="text-xs font-medium text-foreground">{t('updateIntervalMinutes')}</label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={15}
-                        max={43200}
-                        value={interval}
-                        onChange={(e) => setInterval(Number(e.target.value))}
-                        className="h-8.5 w-32 text-xs font-mono"
-                      />
-                      <div className="flex items-center gap-1">
-                        {[
-                          { label: '1h', val: 60 },
-                          { label: '6h', val: 360 },
-                          { label: '12h', val: 720 },
-                          { label: '24h', val: 1440 }
-                        ].map((preset) => (
-                          <Button
-                            key={preset.val}
-                            type="button"
-                            variant={interval === preset.val ? 'default' : 'outline'}
-                            size="sm"
-                            className="h-7 px-2 text-[10px]"
-                            onClick={() => setInterval(preset.val)}
-                          >
-                            {preset.label}
-                          </Button>
-                        ))}
+                <section className="overflow-hidden rounded-xl border border-border/70" aria-labelledby={`${id}-auto-label`}>
+                  <div className="flex items-center justify-between gap-4 bg-muted/20 p-3.5">
+                    <div className="flex min-w-0 items-start gap-2.5">
+                      <RefreshCw className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                      <div>
+                        <label id={`${id}-auto-label`} htmlFor={`${id}-auto`} className="cursor-pointer text-xs font-medium">{t('autoUpdate')}</label>
+                        <p id={`${id}-auto-hint`} className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{t('autoUpdateHint')}</p>
                       </div>
                     </div>
+                    <Switch id={`${id}-auto`} checked={autoUpdate} onCheckedChange={setAutoUpdate} aria-describedby={`${id}-auto-hint`} />
                   </div>
-                )}
+                  {autoUpdate && <div className="space-y-3 border-t border-border/60 p-3.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2.5">
+                      <label htmlFor={`${id}-schedule`} className="text-xs font-medium">{t('updateFrequency')}</label>
+                      <select id={`${id}-schedule`} className="w-full sm:w-auto sm:min-w-40" value={customInterval ? 'custom' : interval} onChange={(event) => {
+                        const custom = event.target.value === 'custom'
+                        setCustomInterval(custom)
+                        if (!custom) setInterval(Number(event.target.value))
+                      }}>
+                        <option value={60}>{t('everyHour')}</option>
+                        <option value={360}>{t('every6Hours')}</option>
+                        <option value={720}>{t('every12Hours')}</option>
+                        <option value={1440}>{t('everyDay')}</option>
+                        <option value="custom">{t('customInterval')}</option>
+                      </select>
+                    </div>
+                    {customInterval && <div className="space-y-2">
+                      <label htmlFor={`${id}-interval`} className="text-[11px] text-muted-foreground">{t('updateIntervalMinutes')}</label>
+                      <Input id={`${id}-interval`} type="number" min={15} max={43200} step={1} required value={interval || ''} onChange={(event) => setInterval(Number(event.target.value))} aria-describedby={`${id}-interval-hint`} />
+                      <p id={`${id}-interval-hint`} className="text-[11px] text-muted-foreground">{t('intervalHint')}</p>
+                    </div>}
+                  </div>}
+                </section>
 
-                {/* Custom User-Agent */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-foreground">{t('customUA')}</label>
-                  <Input
-                    type="text"
-                    value={customUA}
-                    onChange={(e) => setCustomUA(e.target.value)}
-                    placeholder={t('customUAPlaceholder')}
-                    className="h-8.5 text-xs font-mono"
-                  />
-                </div>
-              </>
-            )}
+                <details className="group rounded-xl border border-border/60">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 text-xs font-medium [&::-webkit-details-marker]:hidden">
+                    {t('advanced')}
+                    <ChevronDown className="size-3.5 text-muted-foreground transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="space-y-2 border-t border-border/60 p-3.5">
+                    <label htmlFor={`${id}-ua`} className="text-xs font-medium">{t('customUA')}</label>
+                    <Input id={`${id}-ua`} type="text" value={customUA} onChange={(event) => setCustomUA(event.target.value)} placeholder={t('defaultUserAgent')} className="font-mono text-[11px]" aria-describedby={`${id}-ua-hint`} />
+                    <p id={`${id}-ua-hint`} className="text-[11px] leading-relaxed text-muted-foreground">{t('userAgentHint')}</p>
+                  </div>
+                </details>
+              </>}
+            </fieldset>
+            {error && <Alert variant="destructive" className="mt-4 text-xs [overflow-wrap:anywhere]">{error}</Alert>}
           </div>
 
-          {/* Error notification */}
-          {error && (
-            <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 border border-destructive/20 px-3 py-1.5 rounded-md">
-              <AlertCircle className="size-4 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Footer */}
-          <DialogFooter className="pt-2 border-t border-border/40 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              disabled={saving}
-            >
-              {t('cancel')}
-            </Button>
-            <Button type="submit" variant="glow" size="sm" disabled={saving} className="gap-1.5">
-              {saving ? (
-                <>
-                  <LoaderCircle className="size-3.5 animate-spin" />
-                  <span>{t('saving')}</span>
-                </>
-              ) : (
-                <>
-                  <Check className="size-3.5" />
-                  <span>{t('saveSubscription')}</span>
-                </>
-              )}
+          <DialogFooter className="shrink-0 gap-2 border-t border-border/60 bg-muted/15 px-5 py-3.5">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>{t('cancel')}</Button>
+            <Button type="submit" disabled={saving} aria-busy={saving}>
+              {saving ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+              {saving ? t('saving') : t('saveChanges')}
             </Button>
           </DialogFooter>
         </form>
