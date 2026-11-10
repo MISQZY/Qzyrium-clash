@@ -73,6 +73,7 @@ if (process.type === 'renderer') {
       await setValue('[role="dialog"] input[type="number"]', '90')
       await evaluate(`document.querySelector('[role="dialog"] summary').click()`)
       await setValue('[role="dialog"] input[id$="-ua"]', 'ClashMeta')
+      await evaluate(`document.querySelector('[role="dialog"] .overflow-y-auto').scrollTop = 9999`)
       if (process.env.PROFILE_UI_CAPTURE === '1') { win.show(); win.focus() }
       await delay(750)
       fs.writeFileSync(path.join(output, 'settings.png'), (await win.webContents.capturePage()).toPNG())

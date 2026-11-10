@@ -1,5 +1,5 @@
 import React, { useId, useState } from 'react'
-import { Check, LoaderCircle, Globe, FileCode, RefreshCw, ChevronDown, ShieldCheck } from 'lucide-react'
+import { Check, LoaderCircle, Globe, FileCode, RefreshCw, ChevronDown } from 'lucide-react'
 import type { ProfileItem } from '@shared/profile'
 import { useLocale, useTranslations, useCustomLocalization } from '../i18n'
 import { EmojiText } from './EmojiText'
@@ -104,7 +104,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
           <DialogHeader className="shrink-0 border-b border-border/60 px-5 py-4 pr-12 text-left">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/50 text-primary">
-                <ProfileLogo url={profile.profileLogo} className="size-7 rounded-xs object-contain" fallback={isRemote ? <Globe className="size-5" /> : <FileCode className="size-5" />} />
+                <ProfileLogo url={profile.profileLogo} className="size-7 rounded-xs object-contain" fallback={isRemote ? <Globe className="size-5 shrink-0" /> : <FileCode className="size-5 shrink-0" />} />
               </div>
               <div className="min-w-0 space-y-1">
                 <DialogTitle className="text-base">{t('profileSettings')}</DialogTitle>
@@ -137,12 +137,12 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
 
                 <section className="overflow-hidden rounded-xl border border-border/70" aria-labelledby={`${id}-auto-label`}>
                   <div className="flex items-center justify-between gap-4 bg-muted/20 p-3.5">
-                    <div className="flex min-w-0 items-start gap-2.5">
-                      <RefreshCw className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                      <div>
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <RefreshCw className="size-3.5 shrink-0 text-muted-foreground" />
                         <label id={`${id}-auto-label`} htmlFor={`${id}-auto`} className="cursor-pointer text-xs font-medium">{t('autoUpdate')}</label>
-                        <p id={`${id}-auto-hint`} className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{t('autoUpdateHint')}</p>
                       </div>
+                      <p id={`${id}-auto-hint`} className="text-[11px] leading-relaxed text-muted-foreground pl-5.5">{t('autoUpdateHint')}</p>
                     </div>
                     <Switch id={`${id}-auto`} checked={autoUpdate} onCheckedChange={setAutoUpdate} aria-describedby={`${id}-auto-hint`} />
                   </div>
@@ -169,28 +169,25 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
                   </div>}
                 </section>
 
-                <section className="overflow-hidden rounded-xl border border-border/70" aria-labelledby={`${id}-proxy-label`}>
-                  <div className="flex items-center justify-between gap-4 bg-muted/20 p-3.5">
-                    <div className="flex min-w-0 items-start gap-2.5">
-                      <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                      <div>
-                        <label id={`${id}-proxy-label`} htmlFor={`${id}-proxy`} className="cursor-pointer text-xs font-medium">{t('updateViaProxy')}</label>
-                        <p id={`${id}-proxy-hint`} className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{t('updateViaProxyHint')}</p>
-                      </div>
-                    </div>
-                    <Switch id={`${id}-proxy`} checked={updateViaProxy} onCheckedChange={setUpdateViaProxy} aria-describedby={`${id}-proxy-hint`} />
-                  </div>
-                </section>
-
                 <details className="group rounded-xl border border-border/60">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 text-xs font-medium [&::-webkit-details-marker]:hidden">
                     {t('advanced')}
-                    <ChevronDown className="size-3.5 text-muted-foreground transition-transform group-open:rotate-180" />
+                    <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                   </summary>
-                  <div className="space-y-2 border-t border-border/60 p-3.5">
-                    <label htmlFor={`${id}-ua`} className="text-xs font-medium">{t('customUA')}</label>
-                    <Input id={`${id}-ua`} type="text" value={customUA} onChange={(event) => setCustomUA(event.target.value)} placeholder={t('defaultUserAgent')} className="font-mono text-[11px]" aria-describedby={`${id}-ua-hint`} />
-                    <p id={`${id}-ua-hint`} className="text-[11px] leading-relaxed text-muted-foreground">{t('userAgentHint')}</p>
+                  <div className="space-y-4 border-t border-border/60 p-3.5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-0.5">
+                        <label htmlFor={`${id}-proxy`} className="cursor-pointer text-xs font-medium">{t('updateViaProxy')}</label>
+                        <p id={`${id}-proxy-hint`} className="text-[11px] leading-relaxed text-muted-foreground">{t('updateViaProxyHint')}</p>
+                      </div>
+                      <Switch id={`${id}-proxy`} checked={updateViaProxy} onCheckedChange={setUpdateViaProxy} aria-describedby={`${id}-proxy-hint`} />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor={`${id}-ua`} className="text-xs font-medium">{t('customUA')}</label>
+                      <Input id={`${id}-ua`} type="text" value={customUA} onChange={(event) => setCustomUA(event.target.value)} placeholder={t('defaultUserAgent')} className="font-mono text-[11px]" aria-describedby={`${id}-ua-hint`} />
+                      <p id={`${id}-ua-hint`} className="text-[11px] leading-relaxed text-muted-foreground">{t('userAgentHint')}</p>
+                    </div>
                   </div>
                 </details>
               </>}
@@ -201,7 +198,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
           <DialogFooter className="shrink-0 gap-2 border-t border-border/60 bg-muted/15 px-5 py-3.5">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>{t('cancel')}</Button>
             <Button type="submit" disabled={saving} aria-busy={saving}>
-              {saving ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+              {saving ? <LoaderCircle className="size-3.5 shrink-0 animate-spin" /> : <Check className="size-3.5 shrink-0" />}
               {saving ? t('saving') : t('saveChanges')}
             </Button>
           </DialogFooter>

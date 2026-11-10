@@ -203,9 +203,9 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
                           className="size-7 object-contain rounded-xs"
                           fallback={
                             p.type === 'remote' ? (
-                              <Globe className="size-5" />
+                              <Globe className="size-5 shrink-0" />
                             ) : (
-                              <FileCode className="size-5" />
+                              <FileCode className="size-5 shrink-0" />
                             )
                           }
                         />
@@ -218,7 +218,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <Button variant="outline" size="icon-sm" title={t('editInfo')} aria-label={t('editInfo')} onClick={() => setEditingInfoProfile(p)}>
-                        <Pencil className="size-3.5" />
+                        <Pencil className="size-3.5 shrink-0" />
                       </Button>
                       {p.type === 'remote' && (
                         <Button
@@ -230,7 +230,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
                           aria-busy={updating.has(p.id)}
                           disabled={updating.has(p.id)}
                         >
-                          <RefreshCw className={`size-3.5${updating.has(p.id) ? ' animate-spin' : ''}`} />
+                          <RefreshCw className={`size-3.5 shrink-0${updating.has(p.id) ? ' animate-spin' : ''}`} />
                         </Button>
                       )}
                       <DropdownMenu>
@@ -242,7 +242,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
                             title={t('moreActions')}
                             aria-label={t('moreActions')}
                           >
-                            <EllipsisVertical className="size-3.5" />
+                            <EllipsisVertical className="size-3.5 shrink-0" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
@@ -288,7 +288,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
                         title={t('editRules')}
                         aria-label={t('editRules')}
                       >
-                        <RulesIcon className="size-3.5" />
+                        <RulesIcon className="size-3.5 shrink-0" />
                       </Button>
                     </div>
                   </div>
