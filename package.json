@@ -38,10 +38,10 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@monaco-editor/react": "^4.7.0",
     "@tabler/icons-react": "^3.49.0",
-    "adm-zip": "^0.5.16",
+    "adm-zip": "^0.6.1",
     "axios": "^1.8.1",
     "class-variance-authority": "^0.7.1",
-    "cobe": "2.0.1",
+    "dompurify": "3.4.17",
     "electron-updater": "^6.8.11",
     "monaco-editor": "^0.57.0",
     "radix-ui": "^1.8.1",
@@ -58,7 +58,7 @@
     "@types/ws": "^8.5.14",
     "@vitejs/plugin-react": "^4.3.4",
     "clsx": "^2.1.1",
-    "electron": "^39.8.10",
+    "electron": "^44.9.1",
     "electron-builder": "^25.1.8",
     "electron-vite": "^3.1.0",
     "eslint": "^10.14.0",
@@ -78,3 +78,6 @@
     ]
   }
 }
+    "overrides": {
+      "dompurify": "^3.4.17"
+    },
