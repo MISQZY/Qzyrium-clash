@@ -8,6 +8,7 @@ import type { SysProxyService } from './SysProxyService'
 import type { WindowService } from './WindowService'
 import { logger } from '../utils/logger'
 import { isProcessElevated } from '../utils/elevation'
+import { applyWindowsStartup } from '../utils/windows-startup'
 
 export class DesktopService implements BaseService {
   private shortcuts = new Map<string, string>()
@@ -17,15 +18,16 @@ export class DesktopService implements BaseService {
   private disposed = false
   private actionPending: Promise<void> | null = null
   private profileUpdateTimes = new Map<string, number>()
+  private startupApplied: string | null = null
 
   constructor(private settings: SettingService, private profiles: ProfileService, private kernel: KernelService, private proxy: SysProxyService, private window: WindowService, private changed: () => void) {}
 
   async initialize(): Promise<void> {
     this.disposed = false
-    this.applySettings(this.settings.getSettings())
+    await this.applySettings(this.settings.getSettings())
   }
 
-  applySettings(config: AppConfig): void {
+  async applySettings(config: AppConfig): Promise<void> {
     const previous = this.shortcuts
     for (const accelerator of previous.values()) globalShortcut.unregister(accelerator)
     const registered = new Map<string, string>()
@@ -36,7 +38,12 @@ export class DesktopService implements BaseService {
         registered.set(action, accelerator)
       }
       // Electron development binaries are not valid installed login targets.
-      if (app.isPackaged && process.platform !== 'linux') app.setLoginItemSettings({ openAtLogin: config.general.autoStart })
+      const startup = JSON.stringify([config.general.autoStart, !!config.general.autoStartAsAdmin])
+      if (this.startupApplied !== startup) {
+        if (app.isPackaged && process.platform === 'win32') await applyWindowsStartup(config.general)
+        else if (app.isPackaged && process.platform !== 'linux') app.setLoginItemSettings({ openAtLogin: config.general.autoStart })
+        this.startupApplied = startup
+      }
       this.shortcuts = registered
       this.schedule(config)
     } catch (err) {

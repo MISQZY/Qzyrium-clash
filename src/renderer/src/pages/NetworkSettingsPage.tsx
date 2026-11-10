@@ -550,7 +550,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
 
         </SettingsGroup>
         <SettingsGroup title={t('startupGroup')} description={t('startupDescription')} icon={<Power />}>
-          {renderGeneralFields(['autoStart'])}
+          {renderGeneralFields(['autoStart', 'autoStartAsAdmin'])}
           <SettingRow title={t('startCoreOnLaunch')} description={t('automaticallyStartMihomoWhenQzyriumOpens')} id="general-autoConnect"><Switch id="general-autoConnect" aria-label={t('startCoreOnLaunch')} checked={form.general.autoConnect} onCheckedChange={(autoConnect) => updateGeneral({ autoConnect })} /></SettingRow>
           <SettingRow title={t('minimizeToTray')} description={t('keepTheApplicationRunningWhenTheWindowIsClosed')} id="general-minimizeToTray"><Switch id="general-minimizeToTray" aria-label={t('minimizeToTray')} checked={form.general.minimizeToTray} onCheckedChange={(minimizeToTray) => updateGeneral({ minimizeToTray })} /></SettingRow>
           <SettingRow title={t('silentStart')} description={t('silentStartDescription')} id="general-silentStart"><Switch id="general-silentStart" aria-label={t('silentStart')} checked={form.general.silentStart} onCheckedChange={(silentStart) => updateGeneral({ silentStart })} /></SettingRow>

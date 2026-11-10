@@ -134,7 +134,8 @@ async function verifyDesktop() {
   const { DesktopService } = load('src/main/services/DesktopService.ts', {
     electron: { app: { isPackaged: true, setLoginItemSettings: options => login.push(options.openAtLogin) }, globalShortcut: { register: (key, fn) => { if (key === 'Taken') return false; bindings.set(key, fn); return true }, unregister: key => bindings.delete(key) } },
     '../utils/logger': { logger },
-    '../utils/elevation': { isProcessElevated: () => true }
+    '../utils/elevation': { isProcessElevated: () => true },
+    '../utils/windows-startup': { applyWindowsStartup: async general => login.push(general.autoStart) }
   }, { process: { platform: 'win32' }, setTimeout: (fn, ms) => { const timer = { fn, ms, unref() {} }; timers.add(timer); return timer }, clearTimeout: timer => timers.delete(timer) })
   const desktop = new DesktopService(
     { getSettings: () => config, updateSettings: async patch => { Object.assign(config, patch); calls.push('save') } },
@@ -159,7 +160,7 @@ async function verifyDesktop() {
   assert.deepEqual(calls.slice(-3), ['mode:global', 'save', 'notify'])
   const invalid = fresh()
   invalid.general.shortcuts = { showWindow: 'Taken' }
-  assert.throws(() => desktop.applySettings(invalid), /unavailable/)
+  await assert.rejects(() => desktop.applySettings(invalid), /unavailable/)
   assert.equal(bindings.has('Ctrl+Alt+Q'), true, 'failed registration restores existing shortcuts')
   const scheduled = [...timers][0]
   assert.equal(scheduled.ms, 15 * 60_000, 'scheduler wakes for the shortest per-profile interval')
@@ -176,7 +177,7 @@ async function verifyDesktop() {
   assert.equal(bindings.size, 2, 'resuming after cancelled elevation restores shortcuts')
   assert.equal(timers.size, 1, 'resuming after cancelled elevation restores profile updates')
   config.general.shortcuts = { showWindow: 'Ctrl+Alt+Q', sysProxy: 'Ctrl+Alt+P', tun: 'Ctrl+Alt+T', ruleMode: 'Ctrl+Alt+R', globalMode: 'Ctrl+Alt+G', directMode: 'Ctrl+Alt+D' }
-  desktop.applySettings(config)
+  await desktop.applySettings(config)
   assert.equal(bindings.size, 6, 'every recorder action has a global registration')
   for (const [key, mode] of [['Ctrl+Alt+R', 'rule'], ['Ctrl+Alt+D', 'direct']]) {
     bindings.get(key)()
