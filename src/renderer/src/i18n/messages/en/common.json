@@ -50,6 +50,7 @@
   "captureEnabled": "Traffic capture is enabled",
   "vpnStatusDetail": "Core: {core}. {detail}",
   "restartAsAdministrator": "Restart as Administrator",
+  "restarting": "Restarting...",
   "languageRussian": "Русский",
   "languageEnglish": "English"
 }

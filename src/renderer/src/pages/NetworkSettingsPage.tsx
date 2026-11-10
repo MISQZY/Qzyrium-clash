@@ -1,6 +1,6 @@
 import { useTranslations } from '../i18n'
-import { useState, useEffect, type FormEvent } from 'react'
-import { Save, Folder, ArrowLeft, ChevronRight, Download, Upload, Trash2, RefreshCw } from 'lucide-react'
+import { useState, useEffect, type FormEvent, type ReactNode } from 'react'
+import { Save, Folder, ArrowLeft, ChevronRight, Download, Upload, Trash2, RefreshCw, Palette, Power, Gauge, Keyboard, FileText } from 'lucide-react'
 import druseSvg from '../assets/brand/druse.svg'
 import { SystemProxyIcon, TunIcon, CoreIcon, SettingsIcon, DnsIcon, SnifferIcon, ResourcesIcon } from '../lib/icons'
 import type { AppConfig } from '@shared/app-config'
@@ -14,6 +14,7 @@ import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
 import { Switch } from '../components/ui/switch'
 import { SettingsFields } from '../components/SettingsFields'
+import { ShortcutSettings } from '../components/ShortcutSettings'
 import { ThemeSelect } from '../components/ThemeSelect'
 import { useCustomThemes } from '../providers/CustomThemesProvider'
 import { ScrollArea } from '../components/ui/scroll-area'
@@ -38,6 +39,16 @@ interface Props {
   onNavigate?: (tab: NavTab) => void
 }
 
+function SettingsGroup({ title, description, icon, children }: { title: string; description: string; icon: ReactNode; children: ReactNode }) {
+  return <Card><CardContent className="p-5 flex flex-col gap-3">
+    <div className="border-b border-border/60 pb-3">
+      <h2 className="flex items-center gap-2 text-sm font-semibold"><span className="text-primary [&>svg]:size-4">{icon}</span>{title}</h2>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
+    </div>
+    <div className="min-w-0 [&_.setting-row]:py-3">{children}</div>
+  </CardContent></Card>
+}
+
 export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveSettings, onToggleSysProxy, onNavigate }: Props) {
   const t = useTranslations('networksettings')
   const common = useTranslations('common')
@@ -58,9 +69,24 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
   const [checkingUpdates, setCheckingUpdates] = useState(false)
   const [updateStatus, setUpdateStatus] = useState<{ type: 'latest' | 'available' | 'error' | 'unsupported' | 'downloading' | 'downloaded'; version?: string } | null>(null)
   const [isElevated, setIsElevated] = useState<boolean | null>(null)
+  const [tunAdminPrompt, setTunAdminPrompt] = useState(false)
+  const [restartingAdmin, setRestartingAdmin] = useState(false)
   const { customThemes, uploadTheme, deleteCustomTheme, downloadExampleTheme } = useCustomThemes()
   const [uploadingTheme, setUploadingTheme] = useState(false)
   const [invalidFileNotice, setInvalidFileNotice] = useState<'theme' | null>(null)
+
+  const handleRestartAsAdmin = async (): Promise<void> => {
+    if (restartingAdmin) return
+    setRestartingAdmin(true)
+    try {
+      const result = await window.api?.app?.restartAsAdmin?.()
+      if (!result) {
+        setRestartingAdmin(false)
+      }
+    } catch {
+      setRestartingAdmin(false)
+    }
+  }
 
   const handleUploadTheme = async (): Promise<void> => {
     setUploadingTheme(true)
@@ -86,7 +112,9 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
       }).catch(() => {})
     }
     if (window.api?.app?.isElevated) {
-      window.api.app.isElevated().then(setIsElevated).catch(() => {})
+      window.api.app.isElevated().then(setIsElevated).catch(() => setIsElevated(false))
+    } else {
+      setIsElevated(false)
     }
     if (window.api?.app?.getVersion) {
       window.api.app.getVersion().then((v) => {
@@ -169,6 +197,13 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
   }
 
 
+  const renderGeneralFields = (keys: string[]) => <SettingsFields
+    prefix="general" inherit={false}
+    fields={keys.flatMap((key) => generalFields.filter((field) => field.key === key))}
+    value={{ ...DEFAULT_APP_CONFIG.general, ...form.general }}
+    onChange={(values) => updateGeneral(values as Partial<AppConfig['general']>)}
+  />
+
   const activeCaptureMode: 'off' | 'tun' | 'sysproxy' = form.kernel.tun.enable
     ? 'tun'
     : sysProxy.enabled
@@ -179,10 +214,14 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
     if (busy) return
     setMessage('')
     if (mode === 'tun') {
-      if (isElevated === false) {
+      const elevated = isElevated ?? (await window.api?.app?.isElevated?.().catch(() => false))
+      if (!elevated) {
+        setIsElevated(false)
+        setTunAdminPrompt(true)
         setMessage('tunRequiresAdmin')
         return
       }
+      setTunAdminPrompt(false)
       if (sysProxy.enabled) {
         await onToggleSysProxy()
       }
@@ -213,6 +252,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
           setMessage('changesCouldNotBeAppliedCheckTheErrorAbove')
         }
       }
+      setTunAdminPrompt(false)
       if (sysProxy.enabled) {
         onToggleSysProxy()
       }
@@ -321,17 +361,18 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
             </div>
           </div>
 
-          {isElevated === false && form.kernel.tun.enable && (
+          {isElevated === false && (form.kernel.tun.enable || tunAdminPrompt) && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400">
               <span className="min-w-0 flex-1 leading-relaxed">
                 {t('tunAdminExplanation')}
               </span>
               <button
                 type="button"
-                onClick={() => void window.api?.app?.restartAsAdmin?.()}
+                disabled={restartingAdmin}
+                onClick={() => void handleRestartAsAdmin()}
                 className="shrink-0 rounded bg-amber-500 px-2.5 py-1 text-[11px] font-medium text-black transition-transform hover:opacity-90 active:scale-95 cursor-pointer"
               >
-                {common('restartAsAdministrator')}
+                {restartingAdmin ? common('restarting') || 'Restarting...' : common('restartAsAdministrator')}
               </button>
             </div>
           )}
@@ -340,7 +381,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
       </Card>
     )}
     <form id={`settings-${section}`} onSubmit={save} className="relative flex flex-col gap-4">
-      <Card><CardContent className="p-5">
+      {section !== 'settings' && <Card><CardContent className="p-5">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Icon className="size-4 text-primary" />{title}</h2>
         {section === 'tun' && <>
           {isElevated === false && (
@@ -350,17 +391,20 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
               </span>
               <button
                 type="button"
-                onClick={() => void window.api?.app?.restartAsAdmin?.()}
+                disabled={restartingAdmin}
+                onClick={() => void handleRestartAsAdmin()}
                 className="shrink-0 rounded bg-amber-500 px-2.5 py-1 text-[11px] font-medium text-black transition-transform hover:opacity-90 active:scale-95"
               >
-                {common('restartAsAdministrator')}
+                {restartingAdmin ? common('restarting') || 'Restarting...' : common('restartAsAdministrator')}
               </button>
             </div>
           )}
           <SettingRow
             title={t('enableTUN')}
             description={
-              sysProxy.enabled
+              isElevated === false
+                ? t('tunAdminExplanation')
+                : sysProxy.enabled
                 ? t('tunDisabledDueToSysProxy')
                 : t('capturesTrafficFromApplicationsThatDoNotUseTheSystemProxy')
             }
@@ -369,7 +413,14 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
               aria-label={t('enableTUN')}
               checked={form.kernel.tun.enable}
               disabled={busy || sysProxy.enabled}
-              onCheckedChange={(enable) => updateTun({ enable })}
+              onCheckedChange={(enable) => {
+                if (enable && isElevated === false) {
+                  setTunAdminPrompt(true)
+                  setMessage('tunRequiresAdmin')
+                  return
+                }
+                updateTun({ enable })
+              }}
             />
           </SettingRow>
           <SettingRow title={t('networkStack')} description={t('chooseHowTheVirtualInterfaceHandlesPackets')}><select aria-label={t('networkStack')} value={form.kernel.tun.stack} onChange={(event) => updateTun({ stack: event.target.value as AppConfig['kernel']['tun']['stack'] })}><option value="system">{t('system')}</option><option value="gvisor">gVisor</option><option value="mixed">{t('mixed')}</option></select></SettingRow>
@@ -411,20 +462,16 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
           <p className="mt-4 text-xs text-muted-foreground">{t('savingCoreSettingsRestartsMihomoExistingSessionsWillReconnect')}</p>
           <div className="mt-5"><SettingsFields prefix="core-options" fields={coreFields} value={form.kernel.options ?? {}} onChange={(options) => updateKernel({ options })} /></div>
         </>}
-        {section === 'settings' && <>
+      </CardContent></Card>}
+      {section === 'settings' && <>
+        <SettingsGroup title={t('interfaceGroup')} description={t('interfaceDescription')} icon={<Palette />}>
           <SettingRow title={t('language')} description={t('languageHint')}><select aria-label={t('language')} value={form.general.language} onChange={(event) => updateGeneral({ language: event.target.value as AppConfig['general']['language'] })}><option value="ru">{common('languageRussian')}</option><option value="en">{common('languageEnglish')}</option></select></SettingRow>
-          <SettingRow title={t('startCoreOnLaunch')} description={t('automaticallyStartMihomoWhenQzyriumOpens')} id="general-autoConnect"><Switch id="general-autoConnect" aria-label={t('startCoreOnLaunch')} checked={form.general.autoConnect} onCheckedChange={(autoConnect) => updateGeneral({ autoConnect })} /></SettingRow>
-          <div className="pt-3 pb-1 border-b border-border/60">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('systemTrayGroup')}</h3>
-          </div>
-          <SettingRow title={t('minimizeToTray')} description={t('keepTheApplicationRunningWhenTheWindowIsClosed')} id="general-minimizeToTray"><Switch id="general-minimizeToTray" aria-label={t('minimizeToTray')} checked={form.general.minimizeToTray} onCheckedChange={(minimizeToTray) => updateGeneral({ minimizeToTray })} /></SettingRow>
-          <SettingRow title={t('silentStart')} description={t('silentStartDescription')} id="general-silentStart"><Switch id="general-silentStart" aria-label={t('silentStart')} checked={form.general.silentStart} onCheckedChange={(silentStart) => updateGeneral({ silentStart })} /></SettingRow>
-          <div className="setting-row">
+          <div className="flex flex-col items-start gap-3 py-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-medium">{t('appearance')}</p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('followYourSystemThemeOrChooseOneExplicitly')}</p>
             </div>
-            <div className="shrink-0 flex flex-wrap items-center gap-2">
+            <div className="flex max-w-full flex-wrap items-center gap-2">
               <ThemeSelect
                 value={form.general.theme}
                 onValueChange={(theme) => updateGeneral({ theme })}
@@ -461,48 +508,67 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
                       key={theme.id}
                       className="flex items-center justify-between gap-2 rounded-md border border-border/80 bg-card px-3 py-2 text-xs"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-medium truncate">{theme.name ?? theme.id}</span>
+                      <span className="min-w-0 flex-1 truncate font-medium">{theme.name ?? theme.id}</span>
+                      <div className="flex shrink-0 items-center gap-2">
                         <span className="text-[10px] text-muted-foreground uppercase px-1.5 py-0.5 rounded bg-muted/80">
                           {theme.mode}
                         </span>
-                      </div>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={t('deleteCustom')}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogTitle>
-                            {t('deleteConfirm', { name: theme.name ?? theme.id })}
-                          </AlertDialogTitle>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-                            <AlertDialogAction
-                              variant="destructive"
-                              onClick={() => void handleDeleteTheme(theme.id)}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={t('deleteCustom')}
+                              className="text-muted-foreground hover:text-destructive"
                             >
-                              {t('deleteCustom')}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogTitle>
+                              {t('deleteConfirm', { name: theme.name ?? theme.id })}
+                            </AlertDialogTitle>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+                              <AlertDialogAction
+                                variant="destructive"
+                                onClick={() => void handleDeleteTheme(theme.id)}
+                              >
+                                {t('deleteCustom')}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </li>
                   ))}
                 </ul>
               </ScrollArea>
             </div>
           )}
-          <div className="mt-5"><SettingsFields prefix="general" inherit={false} fields={generalFields.filter((f) => f.key !== 'silentStart')} value={{ ...DEFAULT_APP_CONFIG.general, ...form.general }} onChange={(values) => updateGeneral(values as Partial<AppConfig['general']>)} /></div>
-        </>}
-      </CardContent></Card>
+
+        </SettingsGroup>
+        <SettingsGroup title={t('startupGroup')} description={t('startupDescription')} icon={<Power />}>
+          {renderGeneralFields(['autoStart'])}
+          <SettingRow title={t('startCoreOnLaunch')} description={t('automaticallyStartMihomoWhenQzyriumOpens')} id="general-autoConnect"><Switch id="general-autoConnect" aria-label={t('startCoreOnLaunch')} checked={form.general.autoConnect} onCheckedChange={(autoConnect) => updateGeneral({ autoConnect })} /></SettingRow>
+          <SettingRow title={t('minimizeToTray')} description={t('keepTheApplicationRunningWhenTheWindowIsClosed')} id="general-minimizeToTray"><Switch id="general-minimizeToTray" aria-label={t('minimizeToTray')} checked={form.general.minimizeToTray} onCheckedChange={(minimizeToTray) => updateGeneral({ minimizeToTray })} /></SettingRow>
+          <SettingRow title={t('silentStart')} description={t('silentStartDescription')} id="general-silentStart"><Switch id="general-silentStart" aria-label={t('silentStart')} checked={form.general.silentStart} onCheckedChange={(silentStart) => updateGeneral({ silentStart })} /></SettingRow>
+
+        </SettingsGroup>
+        <SettingsGroup title={t('performanceGroup')} description={t('performanceDescription')} icon={<Gauge />}>
+          {renderGeneralFields(['lowMemoryMode', 'liteDashboard', 'connectionInterval', 'maxLogs'])}
+
+        </SettingsGroup>
+        <SettingsGroup title={t('subscriptionsGroup')} description={t('subscriptionsDescription')} icon={<FileText />}>
+          {renderGeneralFields(['autoUpdateProfiles', 'profileUpdateInterval', 'userAgent', 'autoCloseConnection', 'delayTestUrl', 'delayTestTimeout', 'delayTestConcurrency'])}
+
+        </SettingsGroup>
+        <SettingsGroup title={t('shortcutsGroup')} description={t('shortcutsDescription')} icon={<Keyboard />}>
+          <ShortcutSettings value={form.general.shortcuts ?? {}} disabled={busy} onChange={(shortcuts) => updateGeneral({ shortcuts })} />
+
+        </SettingsGroup>
+      </>}
       {message && <p role="status" className="text-xs text-muted-foreground">{t(message)}</p>}
     </form>
     {section === 'settings' && (

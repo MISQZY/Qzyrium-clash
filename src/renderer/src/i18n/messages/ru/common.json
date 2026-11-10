@@ -50,6 +50,7 @@
   "captureEnabled": "Перехват трафика включён",
   "vpnStatusDetail": "Ядро: {core}. {detail}",
   "restartAsAdministrator": "Перезапустить от администратора",
+  "restarting": "Перезапуск...",
   "languageRussian": "Русский",
   "languageEnglish": "English"
 }

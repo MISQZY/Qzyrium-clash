@@ -134,5 +134,15 @@
   "optionWhitelist": "Allowlist",
   "optionRule": "Rules",
   "optionStandard": "Standard",
-  "optionMemoryConservative": "Memory saving"
+  "optionMemoryConservative": "Memory saving",
+  "interfaceGroup": "Interface",
+  "interfaceDescription": "Language, appearance and custom themes.",
+  "startupGroup": "Startup and window behavior",
+  "startupDescription": "Automatic startup, connection and system tray behavior.",
+  "performanceGroup": "Performance",
+  "performanceDescription": "Graphics, data refresh rate and log retention.",
+  "subscriptionsGroup": "Subscriptions and latency tests",
+  "subscriptionsDescription": "Subscription updates, node switching and latency test options.",
+  "shortcutsGroup": "Keyboard shortcuts",
+  "shortcutsDescription": "Global shortcuts for controlling the application."
 }
