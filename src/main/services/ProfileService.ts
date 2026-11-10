@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import axios from 'axios'
+import axios, { type AxiosResponse } from 'axios'
 import { isDeepStrictEqual } from 'node:util'
 import { AddProfileDto } from '@shared/ipc'
 import { ProfileItem, CustomRuleItem, ProfileUserInfo } from '@shared/profile'
@@ -138,11 +138,38 @@ export class ProfileService implements BaseService {
   private profilesDir: string
   private metadataSave: Promise<void> = Promise.resolve()
   private updates = new Map<string, Promise<boolean>>()
+  private isCoreRunning?: () => boolean
 
   constructor(private settingService?: SettingService) {
     const paths = getAppPaths()
     this.profilesFilePath = paths.profilesFilePath
     this.profilesDir = paths.profilesDir
+  }
+
+  setCoreStatusProvider(provider: () => boolean): void {
+    this.isCoreRunning = provider
+  }
+
+  private async downloadSubscription(url: string, userAgent?: string): Promise<AxiosResponse<unknown>> {
+    const ua = userAgent || subscriptionUserAgent(this.settingService?.getSettings().general.userAgent)
+    const requestOptions = {
+      timeout: 15000,
+      headers: {
+        'User-Agent': ua
+      }
+    }
+    const mixedPort = this.settingService?.getSettings().kernel.mixedPort || 7895
+    if (this.isCoreRunning?.()) {
+      try {
+        return await axios.get(url, {
+          ...requestOptions,
+          proxy: { host: '127.0.0.1', port: mixedPort, protocol: 'http' }
+        })
+      } catch (err) {
+        logger.warn(`Failed to fetch subscription through proxy: ${String(err)}. Falling back to direct connection.`)
+      }
+    }
+    return axios.get(url, requestOptions)
   }
 
   private validateProfileId(id: string): string {
@@ -318,12 +345,7 @@ export class ProfileService implements BaseService {
         throw new Error('Invalid remote subscription URL scheme')
       }
       logger.info(`Fetching remote subscription from: ${sanitizeUrl(targetUrl)}`)
-      const res = await axios.get(targetUrl, {
-        timeout: 15000,
-        headers: {
-          'User-Agent': subscriptionUserAgent(this.settingService?.getSettings().general.userAgent)
-        }
-      })
+      const res = await this.downloadSubscription(targetUrl)
       content = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
       providerName = subscriptionName(res.headers, content)
       userInfo = parseUserInfo(res.headers?.['subscription-userinfo'])
@@ -377,12 +399,7 @@ export class ProfileService implements BaseService {
         throw new Error('Invalid remote subscription URL scheme')
       }
       logger.info(`Updating remote profile ${item.name} from ${sanitizeUrl(item.url)}`)
-      const res = await axios.get(item.url, {
-        timeout: 15000,
-        headers: {
-          'User-Agent': item.customUA || subscriptionUserAgent(this.settingService?.getSettings().general.userAgent)
-        }
-      })
+      const res = await this.downloadSubscription(item.url, item.customUA)
       const content = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
       // A subscription can be removed while its download is in flight.
       if (!this.profiles.includes(item)) return false

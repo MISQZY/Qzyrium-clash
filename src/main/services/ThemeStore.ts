@@ -3,6 +3,12 @@ import { join, resolve, sep } from 'node:path'
 import { writeFileAtomic } from '../utils/atomicWrite'
 import type { CustomThemePack } from '@shared/theme'
 
+const RESERVED_DEVICE_NAMES = new Set([
+  'con', 'prn', 'aux', 'nul',
+  'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8', 'com9',
+  'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9'
+])
+
 export class ThemeStore {
   private readonly dir: string
 
@@ -12,6 +18,12 @@ export class ThemeStore {
   }
 
   private pathFor(id: string): string {
+    if (!id || typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(id)) {
+      throw new Error(`Invalid theme id: ${id}`)
+    }
+    if (RESERVED_DEVICE_NAMES.has(id.toLowerCase())) {
+      throw new Error(`Reserved device name: ${id}`)
+    }
     const boundary = this.dir.endsWith(sep) ? this.dir : this.dir + sep
     const filePath = resolve(join(this.dir, `${id}.json`))
     if (!filePath.startsWith(boundary)) {
