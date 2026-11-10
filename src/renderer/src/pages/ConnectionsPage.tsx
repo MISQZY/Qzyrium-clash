@@ -472,7 +472,7 @@ export function ConnectionsPage({
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label={t('closeConnection', { host: item.metadata.host || item.metadata.destinationIP })}
+              aria-label={t('closeConnection')}
               disabled={closing}
               onClick={(e) => {
                 e.stopPropagation()
@@ -816,17 +816,17 @@ export function ConnectionsPage({
                   <div className="flex flex-col gap-0.5 p-3 rounded-xl bg-muted/20 border border-border/50">
                     <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                       <ArrowDown className="size-3 text-muted-foreground" />
-                      {t('transfer')} (↓)
+                      {t('transfer')}
                     </span>
-                    <TrafficValue key={`${activeDetail.id}-download`} value={activeDetail.download} direction="download" className="font-mono text-base font-bold" />
+                    <TrafficValue key={`${activeDetail.id}-download`} value={activeDetail.download} direction="download" showIcon={false} className="font-mono text-base font-bold" />
                   </div>
 
                   <div className="flex flex-col gap-0.5 p-3 rounded-xl bg-muted/20 border border-border/50">
                     <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                       <ArrowUp className="size-3 text-muted-foreground" />
-                      {t('transfer')} (↑)
+                      {t('transfer')}
                     </span>
-                    <TrafficValue key={`${activeDetail.id}-upload`} value={activeDetail.upload} direction="upload" className="font-mono text-base font-bold" />
+                    <TrafficValue key={`${activeDetail.id}-upload`} value={activeDetail.upload} direction="upload" showIcon={false} className="font-mono text-base font-bold" />
                   </div>
                 </div>
 
@@ -1181,7 +1181,7 @@ export function ConnectionsPage({
                 className="gap-1.5 text-xs"
               >
                 <DisconnectIcon className="size-3.5" />
-                <span>{t('closeConnection', { host: '' })}</span>
+                <span>{t('closeConnection')}</span>
               </Button>
               <Button
                 variant="outline"
