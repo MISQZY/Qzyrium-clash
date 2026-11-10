@@ -21,7 +21,7 @@ export class UpdateService implements BaseService {
   private listeners: Array<() => void> = []
   private installing = false
 
-  constructor(private broadcast: (channel: string, payload: unknown) => void, private prepareInstall: () => Promise<void>, private recoverInstall: () => Promise<void> = async () => {}) {}
+  constructor(private broadcast: (channel: string, payload: unknown) => void, private prepareInstall: () => Promise<void>, private autoCheckEnabled: () => boolean = () => true, private recoverInstall: () => Promise<void> = async () => {}) {}
 
   async initialize(): Promise<void> {
     this.whatsNew = this.loadWhatsNew()
@@ -47,7 +47,7 @@ export class UpdateService implements BaseService {
       void this.prepareInstall().then(() => autoUpdater.quitAndInstall(true, true)).catch((error) => this.fail(error))
     })
     this.listen('error', (error: Error) => this.fail(error))
-    void this.checkUpdates()
+    if (this.autoCheckEnabled()) void this.checkUpdates()
   }
 
   private listen(event: Parameters<typeof autoUpdater.on>[0], listener: (...args: any[]) => void): void {

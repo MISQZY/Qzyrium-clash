@@ -136,6 +136,10 @@ export const generalFields: SettingsField[] = [
     'When Windows startup is enabled, use Task Scheduler to start with administrator privileges. Windows may request confirmation when saving.',
     'При запуске вместе с Windows использовать планировщик задач для запуска с правами администратора. При сохранении Windows может запросить подтверждение.'
   )),
+  field('autoCheckUpdates', 'Check for application updates automatically', 'Автоматически проверять обновления приложения', 'boolean', desc(
+    'Check for updates when the application starts. Manual checks remain available.',
+    'Проверять обновления при запуске приложения. Ручная проверка остаётся доступной.'
+  )),
   field('lowMemoryMode', 'Reduce memory usage', 'Экономия памяти', 'boolean', desc(
     'Use lightweight interface rendering. Restart the application to apply.',
     'Облегчённая отрисовка интерфейса. Для применения нужен перезапуск приложения.'
