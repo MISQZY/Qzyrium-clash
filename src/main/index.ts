@@ -52,8 +52,48 @@ app.commandLine.appendSwitch('disable-spellcheck')
 let services: ServiceManager | null = null
 let shuttingDown = false
 
-// Enforce single instance lock
-const gotTheLock = app.requestSingleInstanceLock()
+function extractAdminRestartPid(): number | null {
+  for (const arg of process.argv) {
+    if (arg.startsWith('--admin-restart=')) {
+      const val = parseInt(arg.slice('--admin-restart='.length), 10)
+      if (!isNaN(val) && val > 0) return val
+    }
+  }
+  return null
+}
+
+function sleepSync(ms: number): void {
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+  } catch {
+    const start = Date.now()
+    while (Date.now() - start < ms) { /* busy wait fallback */ }
+  }
+}
+
+const adminRestartPid = extractAdminRestartPid()
+if (adminRestartPid) {
+  logger.info(`Detected admin relaunch from process ${adminRestartPid}. Waiting for old instance to exit...`)
+  const startTime = Date.now()
+  while (Date.now() - startTime < 4000) {
+    try {
+      process.kill(adminRestartPid, 0)
+      sleepSync(100)
+    } catch {
+      break
+    }
+  }
+}
+
+// Enforce single instance lock with retry support for admin restarts
+let gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock && adminRestartPid) {
+  const retryStart = Date.now()
+  while (!gotTheLock && Date.now() - retryStart < 3000) {
+    sleepSync(200)
+    gotTheLock = app.requestSingleInstanceLock()
+  }
+}
 
 if (!gotTheLock) {
   logger.warn('Another instance of Qzyrium-clash is already running. Exiting.')

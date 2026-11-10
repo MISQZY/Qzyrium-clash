@@ -19,7 +19,10 @@ export class DesktopService implements BaseService {
 
   constructor(private settings: SettingService, private profiles: ProfileService, private kernel: KernelService, private proxy: SysProxyService, private window: WindowService, private changed: () => void) {}
 
-  async initialize(): Promise<void> { this.applySettings(this.settings.getSettings()) }
+  async initialize(): Promise<void> {
+    this.disposed = false
+    this.applySettings(this.settings.getSettings())
+  }
 
   applySettings(config: AppConfig): void {
     const previous = this.shortcuts
