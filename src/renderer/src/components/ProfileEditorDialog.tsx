@@ -35,6 +35,7 @@ import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Switch } from './ui/switch'
 import { cn } from '../lib/utils'
+import { useIsDarkTheme } from '../lib/theme'
 
 const YamlEditor = lazy(() => import('./YamlEditor'))
 
@@ -379,7 +380,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  const isDark = useIsDarkTheme()
 
   // Serialize current rules state into YAML overrides
   const yamlMessages = useRef(t)

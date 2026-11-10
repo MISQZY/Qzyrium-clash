@@ -4,6 +4,7 @@ import { EditorState } from '@codemirror/state'
 import { EditorView, lineNumbers, highlightActiveLineGutter } from '@codemirror/view'
 import { yaml } from '@codemirror/lang-yaml'
 import { createEditorTheme } from '../lib/codemirror-theme'
+import { useIsDarkTheme } from '../lib/theme'
 
 export interface CodeMirrorDiffEditorProps {
   original: string
@@ -22,10 +23,12 @@ export function CodeMirrorDiffEditor({
   original,
   modified,
   sideBySide = true,
-  isDark = true,
+  isDark: propIsDark,
   onChange,
   onMount
 }: CodeMirrorDiffEditorProps) {
+  const systemIsDark = useIsDarkTheme()
+  const isDark = propIsDark !== undefined ? propIsDark : systemIsDark
   const containerRef = useRef<HTMLDivElement>(null)
   const modifiedContainerRef = useRef<HTMLDivElement>(null)
   const onChangeRef = useRef(onChange)
