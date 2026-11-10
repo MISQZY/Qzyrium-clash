@@ -123,8 +123,19 @@ function isValidRemoteSubscriptionUrl(rawUrl: string): boolean {
   try {
     const parsed = new URL(rawUrl)
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
-    const hostname = parsed.hostname.toLowerCase()
-    if (hostname === '169.254.169.254') return false
+    const hostname = parsed.hostname.toLowerCase().trim()
+    if (
+      hostname === '169.254.169.254' ||
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname === '::1' ||
+      hostname === '[::1]' ||
+      hostname.endsWith('.localhost') ||
+      hostname.endsWith('.local')
+    ) {
+      return false
+    }
     return true
   } catch {
     return false
@@ -154,6 +165,9 @@ export class ProfileService implements BaseService {
     const ua = userAgent || subscriptionUserAgent(this.settingService?.getSettings().general.userAgent)
     const requestOptions = {
       timeout: 15000,
+      maxContentLength: 15 * 1024 * 1024,
+      maxBodyLength: 15 * 1024 * 1024,
+      maxRedirects: 5,
       headers: {
         'User-Agent': ua
       }

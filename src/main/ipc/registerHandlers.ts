@@ -358,8 +358,17 @@ export function registerIpcHandlers(services: ServiceManager): void {
   ipcMain.handle(IPC_CHANNELS.APP_GET_WHATS_NEW, () => services.updateService.getWhatsNew())
 
   ipcMain.handle(IPC_CHANNELS.APP_OPEN_URL, async (_, url: string) => {
-    if (typeof url === 'string' && url.startsWith('https://')) {
-      await shell.openExternal(url)
+    if (typeof url === 'string') {
+      try {
+        const parsed = new URL(url)
+        if (parsed.protocol === 'https:') {
+          await shell.openExternal(parsed.href)
+        } else {
+          logger.warn(`Rejected opening unsafe URL protocol: ${parsed.protocol}`)
+        }
+      } catch {
+        logger.warn(`Rejected malformed URL: ${url}`)
+      }
     }
   })
 
