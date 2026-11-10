@@ -15,7 +15,13 @@ app.disableHardwareAcceleration()
 function load(file, dependencies = {}) {
   const exports = {}
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
-  vm.runInThisContext(`(function(exports, require) {\n${code}\n})`, { filename: file })(exports, name => dependencies[name] ?? require(name))
+  vm.runInThisContext(`(function(exports, require) {\n${code}\n})`, { filename: file })(exports, name => {
+    if (dependencies[name]) return dependencies[name]
+    const target = name.startsWith('@shared/') ? path.resolve('src/shared', name.slice(8))
+      : name.startsWith('.') ? path.resolve(path.dirname(file), name) : null
+    if (target?.endsWith('.json')) return require(target)
+    return target && fs.existsSync(target + '.ts') ? load(target + '.ts') : require(name)
+  })
   return exports
 }
 

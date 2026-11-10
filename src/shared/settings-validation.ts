@@ -1,8 +1,14 @@
 import type { AppConfig } from './app-config'
+import { validateLocalizationPack } from './custom-localization'
 import { SHORTCUT_ACTIONS, shortcutIdentity } from './shortcuts'
 import { coreFields, dnsFields, generalFields, resourceFields, snifferFields, tunFields, validateFields } from './settings-fields'
 
 export function validateAppConfig(config: AppConfig): void {
+  const packs = config.general.customLocalizations ?? []
+  if (!Array.isArray(packs)) throw new Error('Invalid custom localizations')
+  packs.forEach(validateLocalizationPack)
+  if (new Set(packs.map(pack => pack.id)).size !== packs.length) throw new Error('Duplicate localization id')
+  if (config.general.customLocalization != null && !packs.some(pack => pack.id === config.general.customLocalization)) throw new Error('Unknown custom localization')
   for (const port of [config.kernel.mixedPort, config.kernel.controllerPort]) {
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Ports must be between 1 and 65535')
   }

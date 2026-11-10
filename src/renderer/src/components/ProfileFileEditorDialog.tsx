@@ -6,7 +6,7 @@ import editorWorker from 'monaco-editor/editor/editor.worker?worker'
 import yaml from 'yaml'
 import { FileCode, Check, AlertCircle, LoaderCircle } from 'lucide-react'
 import type { ProfileItem } from '@shared/profile'
-import { useLocale, useTranslations } from '../i18n'
+import { useLocale, useTranslations, useCustomLocalization } from '../i18n'
 import { EmojiText } from './EmojiText'
 import { profileName } from '../lib/profile-name'
 import {
@@ -44,6 +44,7 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
 }) => {
   const t = useTranslations('profiles')
   const locale = useLocale()
+  const customLocalization = useCustomLocalization()
 
   const [originalContent, setOriginalContent] = useState('')
   const [content, setContent] = useState('')
@@ -168,7 +169,7 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <DialogTitle className="text-sm font-semibold truncate">
-                    <EmojiText text={profileName(profile, locale)} />
+                    <EmojiText text={profileName(profile, locale, customLocalization)} />
                   </DialogTitle>
                   <Badge variant="outline" className="text-[10px] uppercase font-mono px-1.5 py-0">
                     {profile.type}

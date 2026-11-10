@@ -13,6 +13,8 @@ if (process.type === 'renderer') {
   let state = 'running'
   let sessionStartedAt = Date.now() - 3600000
   let trafficCallback, statusCallback, logCallback
+  let configFile = null, savedConfig = null
+  let customThemes = []
   const profiles = [
     { id: 'remote', name: 'Europe · Primary subscription', type: 'remote', url: 'https://example.com/subscription/' + 'long-path-'.repeat(60), updatedAt: Date.now() },
     { id: 'long', name: 'A very long profile name '.repeat(20), type: 'local', updatedAt: Date.now() }
@@ -24,7 +26,14 @@ if (process.type === 'renderer') {
   let connections = Array.from({ length: 8 }, (_, i) => ({ id: String(i), metadata: { network: 'tcp', type: 'HTTP', sourceIP: '127.0.0.1', destinationIP: '203.0.113.1', sourcePort: '51234', destinationPort: '443', host: i ? `service-${i}.example.com` : 'a-very-long-hostname-'.repeat(12) + '.example.com', processPath: 'C:\\Program Files\\Example\\browser.exe', dnsMode: 'normal' }, upload: 12345, download: 12345678, start: new Date().toISOString(), chains: [Object.keys(nodes)[0], 'PROXY'], rule: 'DomainSuffix', rulePayload: 'example.com' }))
   const noop = async () => {}
   contextBridge.exposeInMainWorld('api', {
-    uiTest: { emitLogs: (count) => { for (let i = 0; i < count; i++) logCallback?.({ type: 'info', payload: `Journal regression ${Date.now()} ${i} ` + 'payload '.repeat(40), time: new Date().toISOString() }) }, increaseTraffic: () => { connections = connections.map(c => ({ ...c, download: c.download + 4096 })) } },
+    uiTest: { setConfigFile: (content) => { configFile = content === null ? null : { name: 'fixture.json', content } }, getSavedConfig: () => savedConfig, emitLogs: (count) => { for (let i = 0; i < count; i++) logCallback?.({ type: 'info', payload: `Journal regression ${Date.now()} ${i} ` + 'payload '.repeat(40), time: new Date().toISOString() }) }, increaseTraffic: () => { connections = connections.map(c => ({ ...c, download: c.download + 4096 })) } },
+    theme: {
+      getCustomThemes: async () => customThemes,
+      saveCustomTheme: async (pack) => { customThemes = [...customThemes.filter(theme => theme.id !== pack.id), pack]; return customThemes },
+      deleteCustomTheme: async (id) => { customThemes = customThemes.filter(theme => theme.id !== id); return customThemes },
+      openConfigFile: async () => { const file = configFile; configFile = null; return file },
+      saveConfigFile: async (name, content) => { savedConfig = { name, content }; return true }
+    },
     kernel: { getStatus: async () => state, getSessionStartedAt: async () => state === 'running' ? sessionStartedAt : null, start: async () => { sessionStartedAt = Date.now(); state = 'running'; statusCallback?.(state) }, stop: async () => { state = 'stopped'; statusCallback?.(state); trafficCallback?.({ up: 0, down: 0 }) }, restart: async () => { sessionStartedAt = Date.now(); state = 'running'; statusCallback?.(state) }, getVersion: async () => ({ version: 'test', meta: true }) },
     settings: { get: async () => settings, update: async (patch) => { settings = { ...settings, ...patch }; return settings } },
     sysproxy: { getStatus: async () => ({ enabled: settings.sysProxy.enable, mode: 'manual', port: settings.kernel.mixedPort }), set: async (enable) => { settings.sysProxy.enable = enable } },

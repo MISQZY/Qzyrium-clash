@@ -17,6 +17,7 @@ import { SettingsFields } from '../components/SettingsFields'
 import { ShortcutSettings } from '../components/ShortcutSettings'
 import { ThemeSelect } from '../components/ThemeSelect'
 import { SettingsDisclosure } from '../components/SettingsDisclosure'
+import { CustomLocalizationSettings } from '../components/CustomLocalizationSettings'
 import { useCustomThemes } from '../providers/CustomThemesProvider'
 import { ScrollArea } from '../components/ui/scroll-area'
 import {
@@ -158,8 +159,8 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
   }
 
   useEffect(() => {
-    setForm((prev) => ({ ...prev, general: { ...prev.general, language: settings.general.language, theme: settings.general.theme } }))
-  }, [settings.general.language, settings.general.theme])
+    setForm((prev) => ({ ...prev, general: { ...prev.general, language: settings.general.language, theme: settings.general.theme, customLocalization: settings.general.customLocalization } }))
+  }, [settings.general.language, settings.general.theme, settings.general.customLocalization])
   useEffect(() => { if (!dirty) setForm(settings) }, [settings, dirty])
   const { title, icon: Icon } = meta[section]
   const updateKernel = (patch: Partial<AppConfig['kernel']>) => { setDirty(true); setMessage(''); setForm((prev) => ({ ...prev, kernel: { ...prev.kernel, ...patch } })) }
@@ -184,7 +185,8 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
 
   const resetToDefaults = () => {
     if (section === 'settings') {
-      setForm((prev) => ({ ...prev, general: { ...DEFAULT_APP_CONFIG.general, language: settings.general.language, theme: settings.general.theme } }))
+      setForm((prev) => ({ ...prev, general: { ...DEFAULT_APP_CONFIG.general, language: prev.general.language, theme: settings.general.theme,
+        customLocalizations: prev.general.customLocalizations, customLocalization: prev.general.customLocalization } }))
     } else if (section === 'sysproxy') {
       setForm((prev) => ({ ...prev, sysProxy: { ...DEFAULT_APP_CONFIG.sysProxy } }))
       setBypass(DEFAULT_APP_CONFIG.sysProxy.bypass.join('\n'))
@@ -466,7 +468,17 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
       </CardContent></Card>}
       {section === 'settings' && <>
         <SettingsGroup title={t('interfaceGroup')} description={t('interfaceDescription')} icon={<Palette />}>
-          <SettingRow title={t('language')} description={t('languageHint')}><select aria-label={t('language')} value={form.general.language} onChange={(event) => updateGeneral({ language: event.target.value as AppConfig['general']['language'] })}><option value="ru">{common('languageRussian')}</option><option value="en">{common('languageEnglish')}</option></select></SettingRow>
+          <SettingRow title={t('language')} description={t('languageHint')}>
+            <select aria-label={t('language')} value={form.general.customLocalization ? `custom:${form.general.customLocalization}` : form.general.language} onChange={(event) => {
+              const pack = form.general.customLocalizations?.find(item => `custom:${item.id}` === event.target.value)
+              updateGeneral(pack ? { language: pack.baseLanguage, customLocalization: pack.id } : { language: event.target.value as AppConfig['general']['language'], customLocalization: null })
+            }}>
+              <option value="ru">{common('languageRussian')}</option>
+              <option value="en">{common('languageEnglish')}</option>
+              {(form.general.customLocalizations ?? []).map(pack => <option key={pack.id} value={`custom:${pack.id}`}>{pack.name}</option>)}
+            </select>
+          </SettingRow>
+          <CustomLocalizationSettings general={form.general} onChange={updateGeneral} />
           <SettingRow title={t('appearance')} description={t('followYourSystemThemeOrChooseOneExplicitly')}>
             <ThemeSelect value={form.general.theme} onValueChange={(theme) => updateGeneral({ theme })} />
           </SettingRow>

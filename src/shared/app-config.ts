@@ -1,6 +1,7 @@
 import { LogLevel, TunnelMode } from './types'
 import type { ConfigValues } from './settings-fields'
 import type { ThemePreference } from './theme'
+import type { CustomLocalizationPack } from './custom-localization'
 
 export interface AppConfig {
   general: {
@@ -11,6 +12,8 @@ export interface AppConfig {
     minimizeToTray: boolean
     theme: ThemePreference
     language: 'en' | 'ru'
+    customLocalizations?: CustomLocalizationPack[]
+    customLocalization?: string | null
     liteDashboard?: boolean
     silentStart?: boolean
     disableGpu?: boolean

@@ -1,4 +1,5 @@
 import { I18nProvider, useTranslations } from './i18n'
+import { selectedLocalization } from '@shared/custom-localization'
 import { useEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { ChevronRight, FileText, LoaderCircle, RefreshCw, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
@@ -37,7 +38,7 @@ export default function App() {
     return () => window.removeEventListener('error', onError)
   }, [])
   return (
-    <I18nProvider locale={store.settings.general.language}>
+    <I18nProvider locale={store.settings.general.language} custom={selectedLocalization(store.settings.general)}>
       <CustomThemesProvider>
         <UpdaterProvider><Workspace store={store} /></UpdaterProvider>
       </CustomThemesProvider>
@@ -145,7 +146,7 @@ function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
       <main className="app-main relative">
         <header className="workspace-header">
           <nav aria-label={common('breadcrumb')} className="min-w-0"><ol className="flex min-w-0 items-center gap-2 text-xs"><li className="min-w-0 text-muted-foreground"><span className="truncate">{common(group.id)}</span></li><li aria-hidden="true"><ChevronRight className="size-3 shrink-0 text-muted-foreground/60" /></li><li aria-current="page" className="flex min-w-0 items-center gap-2 font-medium"><Icon className="size-3.5 shrink-0" /><span className="truncate">{common(activeTab)}</span></li></ol></nav>
-          <div className="flex min-w-0 max-w-[45%] items-center gap-2 text-[11px] text-muted-foreground">{busy ? <LoaderCircle className="size-3.5 shrink-0 animate-spin" /> : <ProfileLogo url={activeProfile?.profileLogo} className="size-3.5 shrink-0 rounded-xs object-contain" fallback={<FileText className="size-3.5 shrink-0" />} />}<span className="truncate"><EmojiText text={busy ? t('applyingChanges') : activeProfile ? profileName(activeProfile, settings.general.language) : t('noActiveProfile')} /></span><Button type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label={profileT('updateSubscription')} title={profileT('updateSubscription')} disabled={!activeProfile?.url || busy || updatingProfile || !window.api} aria-busy={updatingProfile} onClick={() => void updateActiveProfile()}><RefreshCw className={`size-3.5 ${updatingProfile ? 'animate-spin' : ''}`} /></Button></div>
+          <div className="flex min-w-0 max-w-[45%] items-center gap-2 text-[11px] text-muted-foreground">{busy ? <LoaderCircle className="size-3.5 shrink-0 animate-spin" /> : <ProfileLogo url={activeProfile?.profileLogo} className="size-3.5 shrink-0 rounded-xs object-contain" fallback={<FileText className="size-3.5 shrink-0" />} />}<span className="truncate"><EmojiText text={busy ? t('applyingChanges') : activeProfile ? profileName(activeProfile, settings.general.language, selectedLocalization(settings.general)) : t('noActiveProfile')} /></span><Button type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label={profileT('updateSubscription')} title={profileT('updateSubscription')} disabled={!activeProfile?.url || busy || updatingProfile || !window.api} aria-busy={updatingProfile} onClick={() => void updateActiveProfile()}><RefreshCw className={`size-3.5 ${updatingProfile ? 'animate-spin' : ''}`} /></Button></div>
         </header>
         {error && createPortal(
           <Alert

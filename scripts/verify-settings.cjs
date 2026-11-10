@@ -247,6 +247,16 @@ async function verifyMigration() {
   const snapshot = settings.getSettings()
   snapshot.kernel.tun.stack = 'system'
   assert.equal(settings.getSettings().kernel.tun.stack, 'mixed', 'callers cannot mutate saved settings through a returned snapshot')
+  const pack = { id: 'custom', name: 'Custom', locale: 'de', baseLanguage: 'en', messages: { native: { quit: 'Beenden' } } }
+  await settings.updateSettings({ general: { customLocalizations: [pack], customLocalization: pack.id } })
+  assert.deepEqual(settings.getSettings().general.customLocalizations, [pack])
+  assert.equal(settings.getSettings().general.customLocalization, pack.id)
+  const { nativeMessages } = load('src/shared/localization.ts')
+  assert.equal(nativeMessages(settings.getSettings().general).quit, 'Beenden')
+  assert.equal(nativeMessages(settings.getSettings().general).open, 'Open home')
+  await assert.rejects(settings.updateSettings({ general: { customLocalizations: [pack, pack] } }))
+  await assert.rejects(settings.updateSettings({ general: { customLocalization: 'missing' } }))
+  await assert.rejects(settings.updateSettings({ general: { customLocalizations: [{ ...pack, locale: '!bad' }] } }))
 }
 
 function verifyWindowKeys() {

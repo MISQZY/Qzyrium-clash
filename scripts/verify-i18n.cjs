@@ -33,8 +33,41 @@ const compiled = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compile
 const loaded = new Module(filename, module)
 loaded.filename = filename
 loaded.paths = Module._nodeModulePaths(root)
+const originalRequire = loaded.require.bind(loaded)
+loaded.require = (request) => {
+  if (!request.startsWith('@shared/')) return originalRequire(request)
+  const file = path.resolve('src/shared', request.slice(8))
+  if (file.endsWith('.json')) return require(file)
+  const shared = new Module(file + '.ts', module)
+  shared.filename = file + '.ts'
+  shared.paths = loaded.paths
+  shared._compile(ts.transpileModule(fs.readFileSync(shared.filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, shared.filename)
+  return shared.exports
+}
 loaded._compile(compiled, filename)
-const { translate, catalogs } = loaded.exports
+const { translate, catalogs, localizationExample, parseLocalizationPack } = loaded.exports
+for (const locale of ['en', 'ru']) {
+  const example = localizationExample(locale)
+  assert.deepEqual(parseLocalizationPack(JSON.stringify(example)), example)
+  for (const [namespace, messages] of Object.entries(catalogs[locale])) {
+    assert.deepEqual(Object.keys(example.messages[namespace]).sort(), Object.keys(messages).sort(), `complete template: ${namespace}`)
+  }
+  assert.ok(example.messages.native.quit && example.messages.settingsfields['general.autoStart.label'])
+}
+const custom = { id: 'test', name: 'Test', locale: 'de', baseLanguage: 'en', messages: {
+  common: { settings: 'Einstellungen' }, connections: { sessions: { one: '{count} Verbindung', other: '{count} Verbindungen' } }
+} }
+assert.deepEqual(parseLocalizationPack(JSON.stringify(custom)), custom)
+assert.equal(translate('en', 'common', 'settings', {}, custom), 'Einstellungen')
+assert.equal(translate('en', 'connections', 'sessions', { count: 2 }, custom), '2 Verbindungen')
+assert.equal(translate('en', 'common', 'close', {}, custom), catalogs.en.common.close, 'partial packs use the base catalog')
+assert.equal(translate('ru', 'connections', 'sessions', { count: 2 }, { ...custom, messages: {} }), translate('ru', 'connections', 'sessions', { count: 2 }), 'missing custom plural uses base-language plural rules')
+for (const invalid of [
+  '{invalid', JSON.stringify({ ...custom, locale: '!bad' }), JSON.stringify({ ...custom, name: '' }),
+  JSON.stringify({ ...custom, messages: { connections: { sessions: { one: '{count} thing' } } } }),
+  JSON.stringify({ ...custom, messages: { connections: { sessions: { other: '{wrong} things' } } } }),
+  JSON.stringify({ ...custom, messages: { invented: { unknown: 'text' } } })
+]) assert.throws(() => parseLocalizationPack(invalid))
 for (const locale of ['en', 'ru']) {
   for (const [namespace, messages] of Object.entries(catalogs[locale])) {
     for (const [key, message] of Object.entries(messages)) {

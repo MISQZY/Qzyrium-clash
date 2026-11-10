@@ -19,7 +19,7 @@ import {
   X
 } from 'lucide-react'
 import type { ProfileItem, CustomRuleItem } from '@shared/profile'
-import { useLocale, useTranslations } from '../i18n'
+import { useLocale, useTranslations, useCustomLocalization } from '../i18n'
 import { EmojiText } from './EmojiText'
 import { profileName } from '../lib/profile-name'
 import {
@@ -338,6 +338,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
 }) => {
   const t = useTranslations('profiles')
   const locale = useLocale()
+  const customLocalization = useCustomLocalization()
 
   // Navigation mode: 'visual' (Visual Rules) | 'yaml' (Rules YAML) | 'file' (Profile Raw Config YAML)
   const [activeMode, setActiveMode] = useState<'visual' | 'yaml'>('visual')
@@ -847,7 +848,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <DialogTitle className="text-sm font-semibold truncate">
-                    <EmojiText text={profileName(profile, locale)} />
+                    <EmojiText text={profileName(profile, locale, customLocalization)} />
                   </DialogTitle>
                   <Badge variant="outline" className="text-[10px] uppercase font-mono px-1.5 py-0">
                     {profile.type}

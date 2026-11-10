@@ -218,7 +218,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
     if (candidate.sysProxy.mode === 'pac') pacScript(candidate)
 
     if (patch.kernel?.tun?.enable && !isProcessElevated()) {
-      throw new Error(nativeMessage(candidate.general.language, 'tunRequiresAdmin'))
+      throw new Error(nativeMessage(candidate.general.language, 'tunRequiresAdmin', candidate.general))
     }
     if (patch.kernel?.tun?.enable) {
       if (previous.sysProxy.enable || services.sysProxyService.getStatus().enabled) {
@@ -385,7 +385,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
     if (!win) return null
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
-      filters: [{ name: nativeMessage(services.settingService.getSettings().general.language, 'jsonConfig'), extensions: ['json'] }]
+      filters: [{ name: nativeMessage(services.settingService.getSettings().general.language, 'jsonConfig', services.settingService.getSettings().general), extensions: ['json'] }]
     })
     if (result.canceled || result.filePaths.length === 0) return null
     const filePath = result.filePaths[0]
@@ -398,7 +398,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
     if (!win) return false
     const result = await dialog.showSaveDialog(win, {
       defaultPath: defaultFileName,
-      filters: [{ name: nativeMessage(services.settingService.getSettings().general.language, 'jsonConfig'), extensions: ['json'] }]
+      filters: [{ name: nativeMessage(services.settingService.getSettings().general.language, 'jsonConfig', services.settingService.getSettings().general), extensions: ['json'] }]
     })
     if (result.canceled || !result.filePath) return false
     await writeFile(result.filePath, content, 'utf-8')

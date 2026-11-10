@@ -1,3 +1,4 @@
+import { selectedLocalization } from '@shared/custom-localization'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { AppConfig, DEFAULT_APP_CONFIG } from '@shared/app-config'
 import { ConnectionsSnapshot, MihomoRule, ProxyNode } from '@shared/mihomo'
@@ -116,7 +117,7 @@ export function useAppStore() {
       statusRevision.current++
       setCoreStatus(status)
       if (status === 'error') {
-        reportError(translate(preferences.current.language, 'app', 'coreUnexpectedError'))
+        reportError(translate(preferences.current.language, 'app', 'coreUnexpectedError', {}, selectedLocalization(preferences.current)))
       }
       if (status !== 'running') setSessionStartedAt(null)
       else {
@@ -129,7 +130,7 @@ export function useAppStore() {
     })
     const unsubSettings = window.api.events.onSettingsChanged?.(() => { void refreshAll().catch(reportError) })
     const unsubTunError = window.api.events.onTunError?.(() => {
-      reportError(translate(preferences.current.language, 'app', 'tunStartRequiresAdmin'))
+      reportError(translate(preferences.current.language, 'app', 'tunStartRequiresAdmin', {}, selectedLocalization(preferences.current)))
     })
     const unsubVisibility = window.api.events.onWindowVisibility?.((isWinVisible) => {
       setVisible(isWinVisible)
@@ -256,7 +257,7 @@ export function useAppStore() {
       const updated = await window.api.settings.update(patch)
       setSettings(updated)
     })
-    if (!success) throw new Error(translate(settings.general.language, 'common', 'saveError'))
+    if (!success) throw new Error(translate(settings.general.language, 'common', 'saveError', {}, selectedLocalization(settings.general)))
   }
 
   const updateDelays = useCallback((updates: Record<string, number>) => {

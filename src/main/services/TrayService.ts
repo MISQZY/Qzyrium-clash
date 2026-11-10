@@ -6,8 +6,7 @@ import { KernelService } from './KernelService'
 import { SysProxyService } from './SysProxyService'
 import { WindowService } from './WindowService'
 import { SettingService } from './SettingService'
-import en from '@shared/locales/en.json'
-import ru from '@shared/locales/ru.json'
+import { nativeMessages } from '@shared/localization'
 import { getVpnStatus, type VpnStatus } from '@shared/vpn-status'
 import { createTrayIcon } from '../utils/tray-icon'
 import type { ProxyNode, ProxyGroup } from '@shared/mihomo'
@@ -251,7 +250,7 @@ export class TrayService implements BaseService {
     const coreStatus = this.kernelService.getStatus()
     const sysProxyStatus = this.sysProxyService.getStatus()
     const settings = this.settingService.getSettings()
-    const messages = settings.general.language === 'ru' ? ru : en
+    const messages = nativeMessages(settings.general)
     const status = getVpnStatus(coreStatus)
     const statusMessage = messages[status === 'on' ? 'vpnOn' : status === 'off' ? 'vpnOff' : status]
     this.tray.setImage(this.statusIcons[status]!)
