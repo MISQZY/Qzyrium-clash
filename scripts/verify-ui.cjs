@@ -12,7 +12,7 @@ if (process.type === 'renderer') {
   }
   let state = 'running'
   let sessionStartedAt = Date.now() - 3600000
-  let trafficCallback, statusCallback
+  let trafficCallback, statusCallback, logCallback
   const profiles = [
     { id: 'remote', name: 'Europe · Primary subscription', type: 'remote', url: 'https://example.com/subscription/' + 'long-path-'.repeat(60), updatedAt: Date.now() },
     { id: 'long', name: 'A very long profile name '.repeat(20), type: 'local', updatedAt: Date.now() }
@@ -24,6 +24,7 @@ if (process.type === 'renderer') {
   let connections = Array.from({ length: 8 }, (_, i) => ({ id: String(i), metadata: { network: 'tcp', type: 'HTTP', sourceIP: '127.0.0.1', destinationIP: '203.0.113.1', sourcePort: '51234', destinationPort: '443', host: i ? `service-${i}.example.com` : 'a-very-long-hostname-'.repeat(12) + '.example.com', processPath: 'C:\\Program Files\\Example\\browser.exe', dnsMode: 'normal' }, upload: 12345, download: 12345678, start: new Date().toISOString(), chains: ['PROXY', Object.keys(nodes)[0]], rule: 'DomainSuffix', rulePayload: 'example.com' }))
   const noop = async () => {}
   contextBridge.exposeInMainWorld('api', {
+    uiTest: { emitLogs: (count) => { for (let i = 0; i < count; i++) logCallback?.({ type: 'info', payload: `Journal regression ${Date.now()} ${i} ` + 'payload '.repeat(40), time: new Date().toISOString() }) } },
     kernel: { getStatus: async () => state, getSessionStartedAt: async () => state === 'running' ? sessionStartedAt : null, start: async () => { sessionStartedAt = Date.now(); state = 'running'; statusCallback?.(state) }, stop: async () => { state = 'stopped'; statusCallback?.(state); trafficCallback?.({ up: 0, down: 0 }) }, restart: async () => { sessionStartedAt = Date.now(); state = 'running'; statusCallback?.(state) }, getVersion: async () => ({ version: 'test', meta: true }) },
     settings: { get: async () => settings, update: async (patch) => { settings = { ...settings, ...patch }; return settings } },
     sysproxy: { getStatus: async () => ({ enabled: settings.sysProxy.enable, mode: 'manual', port: settings.kernel.mixedPort }), set: async (enable) => { settings.sysProxy.enable = enable } },
@@ -31,7 +32,7 @@ if (process.type === 'renderer') {
     mihomo: { getGlobeLocations: async () => active.id === 'long' ? { origin: null, routes: [], status: 'origin-unavailable', pendingNodes: [Object.keys(nodes)[0]] } : ({ origin: { ip: '8.8.8.8', longitude: 37.62, latitude: 55.75, city: 'Moscow', country: 'Russia' }, routes: state === 'running' ? [{ node: Object.keys(nodes)[0], location: { ip: '1.1.1.1', longitude: 4.9, latitude: 52.37, city: 'Amsterdam', country: 'Netherlands' } }] : [] }), getConfigs: async () => ({ mode: settings.kernel.mode }), patchConfigs: noop, getProxies: async () => proxies, selectProxy: async (group, node) => { proxies[group].now = node }, testDelay: async () => 42, getRules: async () => rules, getConnections: async () => ({ uploadTotal: 123456789, downloadTotal: 2345678910, connections }), closeConnection: async (id) => { connections = connections.filter((item) => item.id !== id) }, closeAllConnections: async () => { connections = [] } },
     window: { minimize: noop, maximize: noop, close: noop, openFolder: noop },
     app: { getVersion: async () => '0.1.0', isElevated: async () => false, checkUpdates: async () => ({ state: 'not-available' }) },
-    events: { onTraffic: (cb) => { trafficCallback = cb; const timer = setInterval(() => cb(state === 'running' ? { up: 12345, down: 4567890 } : { up: 0, down: 0 }), 100); return () => { clearInterval(timer); trafficCallback = undefined } }, onCoreStatus: (cb) => { statusCallback = cb; return () => { statusCallback = undefined } }, onLog: (cb) => { const timer = setTimeout(() => { for (let i = 0; i < 30; i++) cb({ type: i % 3 ? 'info' : 'warn', payload: `Connection ${i} to service.example.com ` + 'long-payload-'.repeat(30), time: '12:34:56' }) }, 300); return () => clearTimeout(timer) } }
+    events: { onTraffic: (cb) => { trafficCallback = cb; const timer = setInterval(() => cb(state === 'running' ? { up: 12345, down: 4567890 } : { up: 0, down: 0 }), 100); return () => { clearInterval(timer); trafficCallback = undefined } }, onCoreStatus: (cb) => { statusCallback = cb; return () => { statusCallback = undefined } }, onLog: (cb) => { logCallback = cb; const timer = setTimeout(() => { for (let i = 0; i < 30; i++) cb({ type: i % 3 ? 'info' : 'warn', payload: `Connection ${i} to service.example.com ` + 'long-payload-'.repeat(30), time: '12:34:56' }) }, 300); return () => clearTimeout(timer) } }
   })
 } else {
   const assert = require('node:assert/strict')
@@ -166,6 +167,28 @@ if (process.type === 'renderer') {
       await waitFor(`document.querySelector('.app-titlebar img')?.complete && document.querySelector('.app-titlebar img').naturalWidth > 0`)
       assert.equal(await evaluate(`document.querySelector('.app-sidebar .sidebar-brand')`), null)
       result.checks.push('RemnaWEB druse loads in titlebar; sidebar has no duplicate branding')
+      await navigate('Logs')
+      await evaluate(`Array.from(document.querySelectorAll('button[aria-pressed]')).find(el => el.textContent.trim() === 'Warning').click()`)
+      await evaluate(`Array.from(document.querySelectorAll('button')).find(el => el.textContent.trim() === 'Autoscroll').click()`)
+      await navigate('Connections')
+      await navigate('Logs')
+      assert.equal(await evaluate(`Array.from(document.querySelectorAll('button[aria-pressed]')).find(el => el.textContent.trim() === 'Warning').getAttribute('aria-pressed')`), 'true')
+      assert.equal(await evaluate(`Array.from(document.querySelectorAll('button')).find(el => el.textContent.trim() === 'Autoscroll').getAttribute('aria-pressed')`), 'false')
+      await evaluate(`Array.from(document.querySelectorAll('button[aria-pressed]')).find(el => el.textContent.trim() === 'All').click(); window.api.uiTest.emitLogs(350)`)
+      await delay(400)
+      const journal = `document.querySelector('[class*="overflow-anchor:none"]')`
+      await evaluate(`${journal}.scrollTop = 120`)
+      await delay(50)
+      const scrollBefore = await evaluate(`${journal}.scrollTop`)
+      assert.ok(scrollBefore > 0, 'journal fixture must overflow')
+      await evaluate(`window.api.uiTest.emitLogs(50)`)
+      await delay(400)
+      assert.equal(await evaluate(`${journal}.scrollTop`), scrollBefore, 'disabled autoscroll keeps its offset when the buffer rolls over')
+      await evaluate(`Array.from(document.querySelectorAll('button')).find(el => el.textContent.trim() === 'Autoscroll').click(); window.api.uiTest.emitLogs(5)`)
+      await delay(400)
+      assert.ok(await evaluate(`${journal}.scrollHeight - ${journal}.clientHeight - ${journal}.scrollTop < 2`), 'enabled autoscroll follows new entries')
+      result.checks.push('Journal filter and autoscroll persist across navigation; scrolling stays off through buffer rollover')
+
       const pages = ['Home', 'Proxy groups', 'Profiles', 'Connections', 'Rules', 'Logs', 'System proxy', 'TUN interface', 'DNS', 'Sniffer', 'Resources', 'Mihomo core', 'Settings']
       for (const [width, height] of [[840, 560], [1040, 720], [1440, 900], [900, 600], [840, 560]]) {
         win.setSize(width, height)
