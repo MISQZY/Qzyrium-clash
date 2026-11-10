@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useState, useCallback, useRef, useMe
 import CodeMirror, { ReactCodeMirrorRef, EditorView } from '@uiw/react-codemirror'
 import { yaml } from '@codemirror/lang-yaml'
 import { createEditorTheme } from '../lib/codemirror-theme'
+import { useIsDarkTheme } from '../lib/theme'
 import { CodeMirrorDiffEditor } from './CodeMirrorDiffEditor'
 import yamlParser from 'yaml'
 import { FileCode, Check, AlertCircle, LoaderCircle } from 'lucide-react'
@@ -70,7 +71,7 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
     getDomNode: () => activeViewRef.current?.dom || containerRef.current
   })
 
-  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  const isDark = useIsDarkTheme()
 
   const extensions = useMemo(() => [
     yaml(),
@@ -221,6 +222,7 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
                 ref={cmRef}
                 value={contentRef.current}
                 height="100%"
+                theme="none"
                 className="h-full w-full flex-1 min-h-0"
                 extensions={extensions}
                 onCreateEditor={handleCreateEditor}

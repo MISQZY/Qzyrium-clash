@@ -2,21 +2,25 @@ import { useMemo } from 'react'
 import CodeMirror, { EditorView } from '@uiw/react-codemirror'
 import { yaml } from '@codemirror/lang-yaml'
 import { createEditorTheme } from '../lib/codemirror-theme'
+import { useIsDarkTheme } from '../lib/theme'
 
 export interface YamlEditorProps {
   value?: string
   onChange?: (value: string) => void
   theme?: string
   className?: string
+  readOnly?: boolean
 }
 
 export default function YamlEditor({
   value = '',
   onChange,
   theme,
-  className
+  className,
+  readOnly = false
 }: YamlEditorProps) {
-  const isDark = theme ? theme.includes('dark') : (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'))
+  const activeIsDark = useIsDarkTheme()
+  const isDark = theme ? theme.includes('dark') : activeIsDark
 
   const extensions = useMemo(() => [
     yaml(),
@@ -29,6 +33,8 @@ export default function YamlEditor({
       <CodeMirror
         value={value}
         height="100%"
+        theme="none"
+        readOnly={readOnly}
         className="h-full w-full flex-1 min-h-0"
         extensions={extensions}
         onChange={(val) => onChange?.(val)}

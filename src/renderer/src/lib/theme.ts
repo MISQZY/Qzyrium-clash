@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react'
 import {
   BUILTIN_THEMES,
   DEFAULT_DARK_THEME_ID,
@@ -105,4 +106,45 @@ export function applyThemeToDocument(theme: ThemeDefinition): void {
   if (window.api?.window?.setTitleBarOverlay) {
     void window.api.window.setTitleBarOverlay(theme.titleBarOverlay).catch(() => {})
   }
+}
+
+function subscribeToTheme(callback: () => void): () => void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return () => {}
+  }
+
+  const observer = new MutationObserver(() => {
+    callback()
+  })
+
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class', 'data-theme']
+  })
+
+  const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null
+  const onMediaChange = () => callback()
+  media?.addEventListener('change', onMediaChange)
+
+  return () => {
+    observer.disconnect()
+    media?.removeEventListener('change', onMediaChange)
+  }
+}
+
+function getThemeSnapshot(): boolean {
+  if (typeof document === 'undefined') return true
+  return document.documentElement.classList.contains('dark')
+}
+
+function getServerThemeSnapshot(): boolean {
+  return true
+}
+
+/**
+ * Reactively returns true if the current active document theme is dark,
+ * automatically updating whenever the application theme or system preference changes.
+ */
+export function useIsDarkTheme(): boolean {
+  return useSyncExternalStore(subscribeToTheme, getThemeSnapshot, getServerThemeSnapshot)
 }
