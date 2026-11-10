@@ -179,7 +179,7 @@ function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
             </button>
           </Alert>, document.body
         )}
-        {!window.api && <div className="shrink-0 bg-muted/40 px-5 py-2 text-xs text-muted-foreground">{t('interfacePreviewOpenQzyriumInElectronToConnectToMihomo')}</div>}
+        {!window.api && <div className="shrink-0 border-b border-border bg-muted/40 px-5 py-2 text-xs text-muted-foreground">{t('interfacePreviewOpenQzyriumInElectronToConnectToMihomo')}</div>}
         <div className="page-viewport" key={activeTab}>
           {loading ? <div className="empty-state h-full"><LoaderCircle className="size-5 animate-spin" /><p>{t('loadingWorkspace')}</p></div> : <Suspense fallback={<div className="empty-state h-full"><LoaderCircle className="size-5 animate-spin" /><p>{t('loadingWorkspace')}</p></div>}>
             {activeTab === 'dashboard' && <DashboardPage visible={store.visible} coreStatus={coreStatus} sessionStartedAt={store.sessionStartedAt} traffic={traffic} activeProfile={activeProfile} profiles={profiles} proxies={proxies} delays={delays} onSwitchProfile={store.switchActiveProfile} onUpdateDelays={updateDelays} settings={settings} connections={connections} sysProxy={sysProxy} busy={busy} rules={rules} onRestart={store.restartKernel} onToggleKernel={store.toggleKernel} onToggleSysProxy={store.toggleSysProxy} onToggleTun={toggleTun} onUpdateMode={(mode) => { void store.saveSettings({ kernel: { ...settings.kernel, mode } }).catch(() => {}) }} onNavigate={setActiveTab} />}

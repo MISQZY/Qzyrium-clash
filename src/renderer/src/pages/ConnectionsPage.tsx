@@ -771,7 +771,7 @@ export function ConnectionsPage({
       <Dialog open={Boolean(activeDetail)} onOpenChange={(open) => !open && setSelectedConnection(null)}>
         {activeDetail && (
           <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl">
-            <DialogHeader className="p-5 pb-4 bg-muted/20">
+            <DialogHeader className="p-5 pb-4 border-b border-border/60 bg-muted/20">
               <div className="flex items-center justify-between gap-3 pr-6">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="size-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0 border border-primary/25 overflow-hidden p-1">
@@ -1172,7 +1172,7 @@ export function ConnectionsPage({
               </div>
             </ScrollArea>
 
-            <DialogFooter className="p-4 bg-muted/20 flex flex-row items-center justify-between">
+            <DialogFooter className="p-4 border-t border-border/60 bg-muted/20 flex flex-row items-center justify-between">
               <Button
                 variant="destructive"
                 size="sm"
