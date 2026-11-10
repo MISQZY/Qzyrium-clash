@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, ChevronDown, Copy } from 'lucide-react'
 import { useTranslations } from '../i18n'
+import { copyToClipboard } from '../lib/clipboard'
 import { Badge } from './ui/badge'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu'
 
@@ -25,12 +26,14 @@ export function CopyableCodeLine({
   const [copied, setCopied] = useState(false)
   const textToCopy = copyValue ?? value
 
-  const handleCopy = (text: string, e?: React.MouseEvent) => {
+  const handleCopy = async (text: string, e?: React.MouseEvent) => {
     e?.stopPropagation()
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    onCopy?.(text)
-    setTimeout(() => setCopied(false), 1600)
+    const ok = await copyToClipboard(text)
+    if (ok) {
+      setCopied(true)
+      onCopy?.(text)
+      setTimeout(() => setCopied(false), 1600)
+    }
   }
 
   return (

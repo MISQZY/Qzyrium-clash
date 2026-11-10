@@ -1,5 +1,5 @@
 import { nativeMessage } from '@shared/localization'
-import { app, dialog, ipcMain, shell } from 'electron'
+import { app, clipboard, dialog, ipcMain, shell } from 'electron'
 import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
@@ -361,6 +361,14 @@ export function registerIpcHandlers(services: ServiceManager): void {
     if (typeof url === 'string' && url.startsWith('https://')) {
       await shell.openExternal(url)
     }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.APP_COPY_TO_CLIPBOARD, async (_, text: string) => {
+    if (typeof text === 'string') {
+      clipboard.writeText(text)
+      return true
+    }
+    return false
   })
 
   // --- Custom Themes & Config Files ---

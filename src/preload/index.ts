@@ -108,7 +108,8 @@ const api: IElectronApi = {
     getUpdaterStatus: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_UPDATER_STATUS),
     downloadUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.APP_DOWNLOAD_UPDATE),
     getWhatsNew: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_WHATS_NEW),
-    openUrl: (url: string) => ipcRenderer.invoke(IPC_CHANNELS.APP_OPEN_URL, url)
+    openUrl: (url: string) => ipcRenderer.invoke(IPC_CHANNELS.APP_OPEN_URL, url),
+    copyToClipboard: (text: string) => ipcRenderer.invoke(IPC_CHANNELS.APP_COPY_TO_CLIPBOARD, text)
   },
   events: {
     onUpdaterStatus: (callback) => {

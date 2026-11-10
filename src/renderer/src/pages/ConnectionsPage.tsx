@@ -34,6 +34,7 @@ import {
   DialogFooter
 } from '../components/ui/dialog'
 import { CopyableCodeLine } from '../components/CopyableCodeLine'
+import { copyToClipboard } from '../lib/clipboard'
 import { ScrollArea } from '../components/ui/scroll-area'
 import { formatDuration } from '../lib/format'
 import { EmojiText } from '../components/EmojiText'
@@ -215,12 +216,14 @@ export function ConnectionsPage({
   const [closing, setClosing] = useState(false)
   const [error, setError] = useState('')
 
-  const handleCopy = useCallback((text: string, key: string) => {
-    navigator.clipboard.writeText(text)
-    setCopiedKey(key)
-    setTimeout(() => {
-      setCopiedKey((prev) => (prev === key ? null : prev))
-    }, 1800)
+  const handleCopy = useCallback(async (text: string, key: string) => {
+    const ok = await copyToClipboard(text)
+    if (ok) {
+      setCopiedKey(key)
+      setTimeout(() => {
+        setCopiedKey((prev) => (prev === key ? null : prev))
+      }, 1800)
+    }
   }, [])
 
   const close = async (id?: string) => {
