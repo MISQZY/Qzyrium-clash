@@ -75,6 +75,7 @@ export const IPC_CHANNELS = {
   APP_DOWNLOAD_UPDATE: 'app:download-update',
   APP_GET_WHATS_NEW: 'app:get-whats-new',
   APP_OPEN_URL: 'app:open-url',
+  APP_COPY_TO_CLIPBOARD: 'app:copy-to-clipboard',
 
   // Streaming events
   EVENT_TRAFFIC: 'event:traffic',
@@ -171,6 +172,7 @@ export interface IElectronApi {
     downloadUpdate: () => Promise<void>
     getWhatsNew: () => Promise<WhatsNewPayload | null>
     openUrl: (url: string) => Promise<void>
+    copyToClipboard: (text: string) => Promise<boolean>
   }
   events: {
     onUpdaterStatus: (callback: (status: AppUpdaterStatus) => void) => () => void
