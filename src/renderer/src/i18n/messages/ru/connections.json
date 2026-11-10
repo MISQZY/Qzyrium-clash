@@ -15,7 +15,7 @@
   "noConnectionsMatchYourSearch": "По вашему запросу соединений не найдено.",
   "noActiveConnections": "Нет активных соединений.",
   "port": "Порт {port}",
-  "closeConnection": "Закрыть соединение с {host}",
+  "closeConnection": "Закрыть соединение",
   "connectionDetails": "Детали соединения",
   "processName": "Приложение",
   "processPath": "Путь к исполняемому файлу",

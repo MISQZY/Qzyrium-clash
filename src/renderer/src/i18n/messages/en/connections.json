@@ -15,7 +15,7 @@
   "noConnectionsMatchYourSearch": "No connections match your search.",
   "noActiveConnections": "No active connections.",
   "port": "Port {port}",
-  "closeConnection": "Close connection to {host}",
+  "closeConnection": "Close connection",
   "connectionDetails": "Connection details",
   "processName": "Application",
   "processPath": "Executable path",
