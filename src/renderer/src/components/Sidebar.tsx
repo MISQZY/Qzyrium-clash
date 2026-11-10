@@ -1,7 +1,7 @@
 import { GlobalModeIcon, RulesIcon } from '../lib/icons'
 import { PanelLeft } from 'lucide-react'
 import { Tooltip } from 'radix-ui'
-import { type ReactElement } from 'react'
+import { memo, type ReactElement } from 'react'
 import type { CoreState, TunnelMode } from '@shared/types'
 import { sidebarNavigation, type NavTab } from '../lib/navigation'
 import { useTranslations } from '../i18n'
@@ -24,7 +24,7 @@ function SidebarHint({ label, open, children }: { label: string; open: boolean; 
   return <Tooltip.Root><Tooltip.Trigger asChild>{children}</Tooltip.Trigger>{!open && <Tooltip.Portal><Tooltip.Content side="right" sideOffset={12} className="sidebar-tooltip">{label}<Tooltip.Arrow className="fill-popover" /></Tooltip.Content></Tooltip.Portal>}</Tooltip.Root>
 }
 
-export function Sidebar({ activeTab, onSelectTab, coreStatus, open, onToggle, mode, busy, onUpdateMode }: SidebarProps) {
+export const Sidebar = memo(function Sidebar({ activeTab, onSelectTab, coreStatus, open, onToggle, mode, busy, onUpdateMode }: SidebarProps) {
   const t = useTranslations('common')
   const vpnStatus = getVpnStatus(coreStatus)
   const vpnEnabled = vpnStatus === 'on'
@@ -63,4 +63,4 @@ export function Sidebar({ activeTab, onSelectTab, coreStatus, open, onToggle, mo
     </div>
     <button type="button" className="sidebar-rail" onClick={onToggle} aria-label={t(open ? 'collapse' : 'expand')} tabIndex={-1} />
   </aside></Tooltip.Provider>
-}
+})
