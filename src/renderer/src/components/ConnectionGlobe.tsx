@@ -218,8 +218,12 @@ export function ConnectionGlobe({
     }
     const resize = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height))
     resize.observe(scene)
-    const bounds = scene.getBoundingClientRect()
-    measure(bounds.width, bounds.height)
+    const measureScene = () => {
+      const bounds = scene.getBoundingClientRect()
+      measure(bounds.width, bounds.height)
+    }
+    window.addEventListener('resize', measureScene)
+    measureScene()
 
     void document.fonts.ready.then(schedule)
     const t1 = setTimeout(schedule, 40)
@@ -238,6 +242,7 @@ export function ConnectionGlobe({
       if (rAfId !== null) cancelAnimationFrame(rAfId)
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3)
       resize.disconnect(); theme.disconnect()
+      window.removeEventListener('resize', measureScene)
       document.removeEventListener('visibilitychange', onVisibilityChange)
       globe?.destroy()
       host.replaceChildren()
