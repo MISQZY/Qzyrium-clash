@@ -132,6 +132,10 @@ export const resourceFields: SettingsField[] = [
   field('rule-providers', 'Rule providers (YAML)', 'Провайдеры правил (YAML)', 'map')
 ]
 export const generalFields: SettingsField[] = [
+  field('autoStartAsAdmin', 'Start with administrator privileges', 'Запускать от имени администратора', 'boolean', desc(
+    'When Windows startup is enabled, use Task Scheduler to start with administrator privileges. Windows may request confirmation when saving.',
+    'При запуске вместе с Windows использовать планировщик задач для запуска с правами администратора. При сохранении Windows может запросить подтверждение.'
+  )),
   field('lowMemoryMode', 'Reduce memory usage', 'Экономия памяти', 'boolean', desc(
     'Use lightweight interface rendering. Restart the application to apply.',
     'Облегчённая отрисовка интерфейса. Для применения нужен перезапуск приложения.'

@@ -5,6 +5,7 @@ import type { ThemePreference } from './theme'
 export interface AppConfig {
   general: {
     autoStart: boolean
+    autoStartAsAdmin?: boolean
     autoConnect: boolean
     minimizeToTray: boolean
     theme: ThemePreference
@@ -67,6 +68,7 @@ export function subscriptionUserAgent(value?: string): string {
 export const DEFAULT_APP_CONFIG: AppConfig = {
   general: {
     autoStart: false,
+    autoStartAsAdmin: false,
     autoConnect: false,
     minimizeToTray: true,
     theme: 'dark',

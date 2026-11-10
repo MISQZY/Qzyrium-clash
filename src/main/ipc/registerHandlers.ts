@@ -228,7 +228,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
     if (modeOnly && services.kernelService.getStatus() === 'running') {
       await services.kernelService.patchConfigs({ mode: nextKernel.mode })
     }
-    if (patch.general) services.desktopService?.applySettings(candidate)
+    if (patch.general) await services.desktopService?.applySettings(candidate)
     let updated: AppConfig
     try { updated = await services.settingService.updateSettings(patch) }
     catch (err) {
@@ -236,7 +236,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
         await services.kernelService.patchConfigs({ mode: previous.kernel.mode }).catch((error) => logger.error('Failed to restore routing mode', error))
       }
       if (patch.kernel?.tun?.enable && previous.sysProxy.enable) await services.sysProxyService.setSysProxy(true)
-      if (patch.general) services.desktopService?.applySettings(previous)
+      if (patch.general) await services.desktopService?.applySettings(previous)
       throw err
     }
     if (kernelChanged && !modeOnly && ['running', 'starting'].includes(services.kernelService.getStatus())) {
