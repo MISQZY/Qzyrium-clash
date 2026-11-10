@@ -1,9 +1,11 @@
 import fs from 'fs'
+import { randomBytes } from 'node:crypto'
 import { AppConfig, DEFAULT_APP_CONFIG, subscriptionUserAgent } from '@shared/app-config'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 import { BaseService } from './BaseService'
 import { validateAppConfig } from '@shared/settings-validation'
+import { writeFileAtomicAsync } from '../utils/atomicWrite'
 
 export class SettingService implements BaseService {
   private config: AppConfig = structuredClone(DEFAULT_APP_CONFIG)
@@ -30,15 +32,6 @@ export class SettingService implements BaseService {
       validateAppConfig(this.config)
       logger.info('Loaded application settings from disk')
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-        if (!this.config.kernel.controllerSecret || this.config.kernel.controllerSecret === 'qzyrium_secret_token') {
-          const rand = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
-          this.config.kernel.controllerSecret = `qz_${Date.now().toString(36)}_${rand}`
-        }
-        await this.save()
-        logger.info('Created initial application settings')
-        return
-      }
       try {
         const bak = await fs.promises.readFile(`${this.settingsPath}.bak`, 'utf-8')
         const parsedBak = JSON.parse(bak)
@@ -51,10 +44,17 @@ export class SettingService implements BaseService {
         }
         this.config.general.userAgent = subscriptionUserAgent(this.config.general.userAgent)
         validateAppConfig(this.config)
+        await writeFileAtomicAsync(this.settingsPath, JSON.stringify(this.config, null, 2)).catch((error) => logger.error('Failed to restore primary settings file', error))
         logger.warn('Recovered application settings from backup file (.bak)')
       } catch {
-        logger.error('Failed to load settings file, using defaults', err)
         this.config = structuredClone(DEFAULT_APP_CONFIG)
+        this.config.kernel.controllerSecret = `qz_${randomBytes(32).toString('hex')}`
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+          await this.save()
+          logger.info('Created initial application settings')
+        } else {
+          logger.error('Failed to load settings file, using defaults', err)
+        }
       }
     }
   }
@@ -67,7 +67,14 @@ export class SettingService implements BaseService {
     return structuredClone(this.config)
   }
 
-  async updateSettings(patch: Partial<AppConfig>): Promise<AppConfig> {
+  updateSettings(patch: Partial<AppConfig>): Promise<AppConfig> {
+    const snapshot = structuredClone(patch)
+    const update = this.pendingSave.then(() => this.applyUpdate(snapshot))
+    this.pendingSave = update.then(() => {}, (err) => logger.error('Failed to save settings file', err))
+    return update
+  }
+
+  private async applyUpdate(patch: Partial<AppConfig>): Promise<AppConfig> {
     const next = {
       ...this.config,
       ...patch,
@@ -77,14 +84,13 @@ export class SettingService implements BaseService {
     }
     next.general = { ...next.general, userAgent: subscriptionUserAgent(next.general.userAgent) }
     validateAppConfig(next)
+    await writeFileAtomicAsync(this.settingsPath, JSON.stringify(next, null, 2), 'utf-8', true)
     this.config = next
-    await this.save()
     return this.getSettings()
   }
 
   private save(): Promise<void> {
-    const content = JSON.stringify(this.config, null, 2)
-    const save = this.pendingSave.then(() => fs.promises.writeFile(this.settingsPath, content, 'utf-8'))
+    const save = this.pendingSave.then(() => writeFileAtomicAsync(this.settingsPath, JSON.stringify(this.config, null, 2), 'utf-8', true))
     this.pendingSave = save.catch((err) => logger.error('Failed to save settings file', err))
     return save
   }

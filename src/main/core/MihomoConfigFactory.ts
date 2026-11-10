@@ -2,7 +2,7 @@ import yaml from 'yaml'
 import { AppConfig } from '@shared/app-config'
 import { CustomRuleItem } from '@shared/profile'
 import { splitRuleFields } from '@shared/rules'
-import { logger } from '../utils/logger'
+import { parseProfileConfig } from '../utils/profile-config'
 
 export class MihomoConfigFactory {
   static createDefaultConfig(appConfig: AppConfig): Record<string, unknown> {
@@ -32,19 +32,8 @@ export class MihomoConfigFactory {
   ): string {
     let parsed: Record<string, unknown>
 
-    if (rawProfileYaml && rawProfileYaml.trim().length > 0) {
-      try {
-        const doc = yaml.parse(rawProfileYaml)
-        if (doc && typeof doc === 'object' && !Array.isArray(doc)) {
-          parsed = doc as Record<string, unknown>
-        } else {
-          logger.error('Profile content is not a valid YAML object, falling back to default skeleton')
-          parsed = this.createDefaultConfig(appConfig)
-        }
-      } catch (err) {
-        logger.error('Failed to parse profile YAML, falling back to default skeleton', err)
-        parsed = this.createDefaultConfig(appConfig)
-      }
+    if (rawProfileYaml !== null) {
+      parsed = parseProfileConfig(rawProfileYaml)
     } else {
       parsed = this.createDefaultConfig(appConfig)
     }
