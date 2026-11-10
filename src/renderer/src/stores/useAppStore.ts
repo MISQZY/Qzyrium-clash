@@ -273,6 +273,9 @@ export function useAppStore() {
     toggleKernel: () => perform(() => coreStatus === 'running' ? window.api.kernel.stop() : window.api.kernel.start()),
     selectProxyNode: (group: string, node: string) => perform(() => window.api.mihomo.selectProxy(group, node)),
     switchActiveProfile: (id: string) => perform(() => window.api.profiles.setActive(id)),
+    updateActiveProfile: () => perform(async () => {
+      if (activeProfile?.url) await window.api.profiles.update(activeProfile.id)
+    }),
     saveCustomRules: (rules: CustomRuleItem[]) =>
       perform(async () => {
         if (!activeProfile) return

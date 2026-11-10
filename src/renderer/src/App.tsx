@@ -1,6 +1,9 @@
 import { I18nProvider, useTranslations } from './i18n'
 import { useEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
-import { ChevronRight, FileText, LoaderCircle, X } from 'lucide-react'
+import { ChevronRight, FileText, LoaderCircle, RefreshCw, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { Alert } from './components/ui/alert'
+import { Button } from './components/ui/button'
 import { TitleBar } from './components/TitleBar'
 import { WhatsNewDialog } from './components/WhatsNewDialog'
 import { UpdaterProvider } from './providers/UpdaterProvider'
@@ -14,14 +17,14 @@ import { ProfileLogo } from './components/ProfileLogo'
 import { CustomThemesProvider, useCustomThemes } from './providers/CustomThemesProvider'
 import { BUILTIN_THEMES, applyThemeToDocument, resolveTheme, type ThemeDefinition } from './lib/theme'
 
-const NetworkSettingsPage = lazy(() => import('./pages/NetworkSettingsPage').then((module) => ({ default: module.NetworkSettingsPage })))
-const ProfileConfigPage = lazy(() => import('./pages/ProfileConfigPage').then((module) => ({ default: module.ProfileConfigPage })))
-
 const ProxiesPage = lazy(() => import('./pages/ProxiesPage').then((module) => ({ default: module.ProxiesPage })))
 const ProfilesPage = lazy(() => import('./pages/ProfilesPage').then((module) => ({ default: module.ProfilesPage })))
 const ConnectionsPage = lazy(() => import('./pages/ConnectionsPage').then((module) => ({ default: module.ConnectionsPage })))
 const LogsPage = lazy(() => import('./pages/LogsPage').then((module) => ({ default: module.LogsPage })))
 const RulesPage = lazy(() => import('./pages/RulesPage').then((module) => ({ default: module.RulesPage })))
+const NetworkSettingsPage = lazy(() => import('./pages/NetworkSettingsPage').then((module) => ({ default: module.NetworkSettingsPage })))
+const ProfileConfigPage = lazy(() => import('./pages/ProfileConfigPage').then((module) => ({ default: module.ProfileConfigPage })))
+
 export default function App() {
   const store = useAppStore()
   useEffect(() => {
@@ -45,6 +48,7 @@ export default function App() {
 function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
   const t = useTranslations('app')
   const common = useTranslations('common')
+  const profileT = useTranslations('profiles')
   const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem('sidebar_state') !== 'collapsed')
   const toggleSidebar = useCallback(() => setSidebarOpen((open) => !open), [])
   useEffect(() => { localStorage.setItem('sidebar_state', sidebarOpen ? 'expanded' : 'collapsed') }, [sidebarOpen])
@@ -60,7 +64,40 @@ function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [toggleSidebar])
   const { activeTab, setActiveTab, coreStatus, traffic, sysProxy, activeProfile, profiles, settings, proxies, delays, updateDelays, connections, logs, rules, busy, loading, error } = store
+  const [updatingProfile, setUpdatingProfile] = useState(false)
+  const profileUpdatePending = useRef(false)
+  const updateActiveProfile = async () => {
+    if (profileUpdatePending.current || busy || !activeProfile?.url || !window.api) return
+    profileUpdatePending.current = true
+    setUpdatingProfile(true)
+    try { await store.updateActiveProfile() } finally {
+      profileUpdatePending.current = false
+      setUpdatingProfile(false)
+    }
+  }
   const [pendingImport, setPendingImport] = useState<{ url: string; name?: string } | null>(null)
+  const [restartingAdmin, setRestartingAdmin] = useState(false)
+  const [adminRestartFailed, setAdminRestartFailed] = useState(false)
+  const adminRestartPending = useRef(false)
+  const errorMessage = error?.replace(/^Error invoking remote method '[^']+':\s*/i, '').replace(/^Error:\s*/i, '')
+  const requiresAdmin = !!errorMessage && /администратор|admin|tunrequiresadmin/i.test(errorMessage)
+
+  useEffect(() => { setAdminRestartFailed(false) }, [error])
+
+  const handleRestartAsAdmin = async () => {
+    if (adminRestartPending.current) return
+    adminRestartPending.current = true
+    setRestartingAdmin(true)
+    setAdminRestartFailed(false)
+    try {
+      if (!await window.api?.app?.restartAsAdmin?.()) setAdminRestartFailed(true)
+    } catch {
+      setAdminRestartFailed(true)
+    } finally {
+      adminRestartPending.current = false
+      setRestartingAdmin(false)
+    }
+  }
 
   useEffect(() => {
     if (!window.api?.events?.onImportProfile) return
@@ -107,25 +144,29 @@ function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
       <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} coreStatus={coreStatus} open={sidebarOpen} onToggle={toggleSidebar} mode={settings.kernel.mode} captureEnabled={sysProxy.enabled || settings.kernel.tun.enable} busy={busy} onUpdateMode={(mode) => { void store.saveSettings({ kernel: { ...settings.kernel, mode } }).catch(() => {}) }} />
       <main className="app-main relative">
         <header className="workspace-header">
-          <nav aria-label={common('breadcrumb')} className="min-w-0"><ol className="flex min-w-0 items-center gap-2 text-xs"><li className="flex min-w-0 items-center gap-2 text-muted-foreground"><Icon className="size-3.5 shrink-0" /><span className="truncate">{common(group.id)}</span></li><li aria-hidden="true"><ChevronRight className="size-3 shrink-0 text-muted-foreground/60" /></li><li aria-current="page" className="truncate font-medium">{common(activeTab)}</li></ol></nav>
-          <div className="flex min-w-0 max-w-[45%] items-center gap-2 text-[11px] text-muted-foreground">{busy ? <LoaderCircle className="size-3.5 shrink-0 animate-spin" /> : <ProfileLogo url={activeProfile?.profileLogo} className="size-3.5 shrink-0 rounded-xs object-contain" fallback={<FileText className="size-3.5 shrink-0" />} />}<span className="truncate"><EmojiText text={busy ? t('applyingChanges') : activeProfile ? profileName(activeProfile, settings.general.language) : t('noActiveProfile')} /></span></div>
+          <nav aria-label={common('breadcrumb')} className="min-w-0"><ol className="flex min-w-0 items-center gap-2 text-xs"><li className="min-w-0 text-muted-foreground"><span className="truncate">{common(group.id)}</span></li><li aria-hidden="true"><ChevronRight className="size-3 shrink-0 text-muted-foreground/60" /></li><li aria-current="page" className="flex min-w-0 items-center gap-2 font-medium"><Icon className="size-3.5 shrink-0" /><span className="truncate">{common(activeTab)}</span></li></ol></nav>
+          <div className="flex min-w-0 max-w-[45%] items-center gap-2 text-[11px] text-muted-foreground">{busy ? <LoaderCircle className="size-3.5 shrink-0 animate-spin" /> : <ProfileLogo url={activeProfile?.profileLogo} className="size-3.5 shrink-0 rounded-xs object-contain" fallback={<FileText className="size-3.5 shrink-0" />} />}<span className="truncate"><EmojiText text={busy ? t('applyingChanges') : activeProfile ? profileName(activeProfile, settings.general.language) : t('noActiveProfile')} /></span><Button type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label={profileT('updateSubscription')} title={profileT('updateSubscription')} disabled={!activeProfile?.url || busy || updatingProfile || !window.api} aria-busy={updatingProfile} onClick={() => void updateActiveProfile()}><RefreshCw className={`size-3.5 ${updatingProfile ? 'animate-spin' : ''}`} /></Button></div>
         </header>
-        {error && (
-          <div
-            role="alert"
-            className="absolute top-13 left-1/2 -translate-x-1/2 w-[calc(100%-48px)] max-w-2xl z-50 flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-card/95 backdrop-blur-xl px-4 py-2.5 text-xs shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150"
+        {error && createPortal(
+          <Alert
+            variant="destructive"
+            className="fixed right-4 bottom-4 z-[100] flex max-h-[calc(100dvh-96px)] w-[calc(100%-32px)] max-w-md items-start gap-3 overflow-y-auto text-xs shadow-xl"
           >
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
-              <p className="min-w-0 break-words font-medium text-foreground">{error}</p>
-              {(error.toLowerCase().includes('администратор') || error.toLowerCase().includes('admin')) && (
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
+              <p className="w-full whitespace-pre-wrap [overflow-wrap:anywhere] leading-relaxed font-medium text-foreground">{errorMessage}</p>
+              {requiresAdmin && (
                 <button
                   type="button"
-                  onClick={() => void window.api?.app?.restartAsAdmin?.()}
-                  className="shrink-0 rounded-md bg-destructive px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition-transform hover:opacity-90 active:scale-95 cursor-pointer"
+                  onClick={() => void handleRestartAsAdmin()}
+                  disabled={restartingAdmin}
+                  aria-busy={restartingAdmin}
+                  className="flex max-w-full items-center gap-2 rounded-md bg-destructive px-3 py-1.5 text-left text-[11px] font-semibold text-white shadow-sm transition-transform hover:opacity-90 active:scale-95 cursor-pointer disabled:cursor-wait disabled:opacity-60"
                 >
-                  {common('restartAsAdministrator')}
+                  {restartingAdmin && <LoaderCircle className="size-3.5 shrink-0 animate-spin" />}
+                  {restartingAdmin ? common('restarting') : common('restartAsAdministrator')}
                 </button>
               )}
+              {adminRestartFailed && <p className="w-full [overflow-wrap:anywhere] leading-relaxed text-destructive">{t('adminRestartFailed')}</p>}
             </div>
             <button
               type="button"
@@ -135,7 +176,7 @@ function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
             >
               <X className="size-4" />
             </button>
-          </div>
+          </Alert>, document.body
         )}
         {!window.api && <div className="shrink-0 border-b border-border bg-muted/40 px-5 py-2 text-xs text-muted-foreground">{t('interfacePreviewOpenQzyriumInElectronToConnectToMihomo')}</div>}
         <div className="page-viewport" key={activeTab}>
