@@ -37,6 +37,7 @@ import { CopyableCodeLine } from '../components/CopyableCodeLine'
 import { ScrollArea } from '../components/ui/scroll-area'
 import { formatBytes, formatDuration } from '../lib/format'
 import { EmojiText } from '../components/EmojiText'
+import druseSvg from '../assets/brand/druse.svg'
 
 function extractProcessName(processPath?: string): string {
   if (!processPath) return ''
@@ -98,6 +99,25 @@ function ProcessIcon({
   className?: string
   fallbackClassName?: string
 }) {
+  const name = processName || extractProcessName(processPath) || ''
+  const lowerName = name.toLowerCase()
+  const lowerPath = (processPath || '').toLowerCase()
+  const isQzyrium =
+    lowerName.includes('qzyrium') ||
+    lowerName === 'qzyrium-clash' ||
+    lowerName === 'qzyrium-clash.exe' ||
+    lowerPath.includes('qzyrium')
+
+  if (isQzyrium) {
+    return (
+      <img
+        src={druseSvg}
+        alt={name || 'Qzyrium-clash'}
+        className={`${className} object-contain rounded-xs select-none`}
+      />
+    )
+  }
+
   const [iconUrl, setIconUrl] = useState<string | null>(() => {
     if (!processPath) return null
     return clientIconCache.get(processPath) || null
@@ -125,7 +145,6 @@ function ProcessIcon({
     }
   }, [processPath])
 
-  const name = processName || extractProcessName(processPath) || ''
   const FallbackIcon = getAppCategoryIcon(name)
 
   if (iconUrl) {
