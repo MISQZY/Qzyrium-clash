@@ -62,7 +62,7 @@
   "manualProxy": "Manual proxy",
   "mihomoCore": "Mihomo core",
   "mihomoCoreVersion": "Mihomo core version",
-  "minimizeToTray": "Minimize to tray",
+  "minimizeToTray": "Close to tray",
   "mixed": "Mixed",
   "mixedAndControllerPortsMustBeDifferent": "Mixed and controller ports must be different.",
   "mixedPortHTTPSOCKS5": "Mixed port (HTTP + SOCKS5)",

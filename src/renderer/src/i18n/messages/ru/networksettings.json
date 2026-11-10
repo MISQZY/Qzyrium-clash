@@ -62,7 +62,7 @@
   "manualProxy": "Ручной прокси",
   "mihomoCore": "Ядро Mihomo",
   "mihomoCoreVersion": "Версия Mihomo ядра",
-  "minimizeToTray": "Сворачивать в трей",
+  "minimizeToTray": "Закрывать в трей",
   "mixed": "Смешанный",
   "mixedAndControllerPortsMustBeDifferent": "Порты прокси и контроллера должны отличаться.",
   "mixedPortHTTPSOCKS5": "Порт прокси (HTTP + SOCKS5)",

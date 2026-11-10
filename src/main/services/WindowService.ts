@@ -208,13 +208,8 @@ export class WindowService implements BaseService {
     })
 
     this.mainWindow.on('minimize', () => {
-      const settings = this.settingService.getSettings()
-      if (settings.general.minimizeToTray) {
-        this.mainWindow?.hide()
-      } else {
-        this.broadcast(IPC_CHANNELS.EVENT_WINDOW_VISIBILITY, false)
-        this.visibilityHandler?.(false)
-      }
+      this.broadcast(IPC_CHANNELS.EVENT_WINDOW_VISIBILITY, false)
+      this.visibilityHandler?.(false)
     })
 
     this.mainWindow.on('restore', () => {
