@@ -1,6 +1,6 @@
 import { translate, type Locale } from '../i18n/catalogs'
 import type { ProxyNode, ConnectionsSnapshot, MihomoRule } from '@shared/mihomo'
-import type { GlobeLocations, GeoLocation } from '@shared/geo'
+import type { GlobeLocations } from '@shared/geo'
 
 export type Coordinate = [longitude: number, latitude: number]
 
@@ -36,15 +36,6 @@ export const ROUTE_COLORS = [
   '#d946ef', // Fuchsia
   '#fb923c'  // Coral
 ]
-
-export const DEFAULT_ORIGIN: GeoLocation = {
-  ip: '',
-  city: '',
-  country: '',
-  longitude: 37.618423,
-  latitude: 55.751244,
-  precision: 'country'
-}
 
 const COUNTRY_NAME_TO_CODE: Record<string, string> = {
   germany: 'DE',
@@ -113,14 +104,14 @@ export function connectionRoutes(
   locale: Locale = 'ru',
   connecting?: boolean
 ): GlobeRoute[] {
-  const origin = locations.origin || DEFAULT_ORIGIN
-  if (!locations.routes || locations.routes.length === 0) return []
+  const origin = locations.origin
+  if (connecting || !origin || !locations.routes || locations.routes.length === 0) return []
 
   const activeConnections = connections?.connections || []
 
   return locations.routes.map(({ node, location }, index) => {
     const delay = delays[node] ?? proxies[node]?.history.at(-1)?.delay
-    const color = connecting ? '#71717a' : ROUTE_COLORS[index % ROUTE_COLORS.length]
+    const color = ROUTE_COLORS[index % ROUTE_COLORS.length]
 
     const country = localizeCountry(location.country, location.countryCode, locale)
     const originCountry = localizeCountry(origin.country, origin.countryCode, locale)
@@ -131,82 +122,76 @@ export function connectionRoutes(
       (c) => c.chains.includes(node) || c.chains.at(-1) === node
     ).length
 
-    if (connecting) {
-      selector = translate(locale, 'dashboard', 'routeConnecting')
-      rule = translate(locale, 'dashboard', 'routeEstablishing')
-    } else {
-      // 1. Find live connections routed through this node
-      const matching = activeConnections.filter(
-        (c) => c.chains.includes(node) || c.chains.at(-1) === node
-      )
+    // 1. Find live connections routed through this node
+    const matching = activeConnections.filter(
+      (c) => c.chains.includes(node) || c.chains.at(-1) === node
+    )
 
-      if (matching.length > 0) {
-        const primary = matching[0]
-        const nodeIndex = primary.chains.indexOf(node)
-        const upstream = nodeIndex > 0 ? primary.chains.slice(0, nodeIndex) : []
-        if (upstream.length > 0) {
-          selector = upstream.join(' → ')
-        } else {
-          const parentGroups = Object.entries(proxies).filter(
-            ([name, p]) => name !== 'GLOBAL' && (p.now === node || (Array.isArray((p as { all?: string[] }).all) && (p as { all?: string[] }).all?.includes(node)))
-          )
-          if (parentGroups.length > 0) {
-            selector = parentGroups[0][0]
-          } else if (mode === 'global') {
-            selector = 'GLOBAL'
-          }
-        }
-        if (selector === node) selector = undefined
-
-        if (primary.rulePayload) {
-          rule = `${primary.rule} (${primary.rulePayload})`
-        } else {
-          rule = primary.rule || 'Match'
-        }
-
-        if (matching.length > 1) {
-          const distinctRules = Array.from(
-            new Set(
-              matching.map((c) => (c.rulePayload ? `${c.rule} (${c.rulePayload})` : c.rule || 'Match'))
-            )
-          )
-          if (distinctRules.length > 1) {
-            const firstTwo = distinctRules.slice(0, 2).join(', ')
-            rule = distinctRules.length > 2 ? `${firstTwo} (+${distinctRules.length - 2})` : firstTwo
-          }
-        }
+    if (matching.length > 0) {
+      const primary = matching[0]
+      const nodeIndex = primary.chains.indexOf(node)
+      const upstream = nodeIndex > 0 ? primary.chains.slice(0, nodeIndex) : []
+      if (upstream.length > 0) {
+        selector = upstream.join(' → ')
       } else {
-        // 2. Idle or default selected tunnel
-        if (mode === 'global') {
+        const parentGroups = Object.entries(proxies).filter(
+          ([name, p]) => name !== 'GLOBAL' && (p.now === node || (Array.isArray((p as { all?: string[] }).all) && (p as { all?: string[] }).all?.includes(node)))
+        )
+        if (parentGroups.length > 0) {
+          selector = parentGroups[0][0]
+        } else if (mode === 'global') {
           selector = 'GLOBAL'
-          rule = translate(locale, 'dashboard', 'routeGlobal')
-        } else {
-          const parentGroups = Object.entries(proxies).filter(
-            ([, p]) => p.now === node || ('all' in p && (p as { all?: string[] }).all?.includes(node) && p.now === node)
+        }
+      }
+      if (selector === node) selector = undefined
+
+      if (primary.rulePayload) {
+        rule = `${primary.rule} (${primary.rulePayload})`
+      } else {
+        rule = primary.rule || 'Match'
+      }
+
+      if (matching.length > 1) {
+        const distinctRules = Array.from(
+          new Set(
+            matching.map((c) => (c.rulePayload ? `${c.rule} (${c.rulePayload})` : c.rule || 'Match'))
           )
-          if (parentGroups.length > 0) {
-            selector = parentGroups.map(([name]) => name).join(', ')
-          }
+        )
+        if (distinctRules.length > 1) {
+          const firstTwo = distinctRules.slice(0, 2).join(', ')
+          rule = distinctRules.length > 2 ? `${firstTwo} (+${distinctRules.length - 2})` : firstTwo
+        }
+      }
+    } else {
+      // 2. Idle or default selected tunnel
+      if (mode === 'global') {
+        selector = 'GLOBAL'
+        rule = translate(locale, 'dashboard', 'routeGlobal')
+      } else {
+        const parentGroups = Object.entries(proxies).filter(
+          ([, p]) => p.now === node || ('all' in p && (p as { all?: string[] }).all?.includes(node) && p.now === node)
+        )
+        if (parentGroups.length > 0) {
+          selector = parentGroups.map(([name]) => name).join(', ')
+        }
 
-          if (rules && rules.length > 0) {
-            const targetGroup = parentGroups[0]?.[0]
-            const matchingRule = rules.find((r) => r.proxy === node || (targetGroup && r.proxy === targetGroup))
-            if (matchingRule) {
-              rule = matchingRule.payload ? `${matchingRule.type} (${matchingRule.payload})` : matchingRule.type
-            }
+        if (rules && rules.length > 0) {
+          const targetGroup = parentGroups[0]?.[0]
+          const matchingRule = rules.find((r) => r.proxy === node || (targetGroup && r.proxy === targetGroup))
+          if (matchingRule) {
+            rule = matchingRule.payload ? `${matchingRule.type} (${matchingRule.payload})` : matchingRule.type
           }
+        }
 
-          if (!rule) {
-            const matchTarget = rules?.find((r) => r.type === 'MATCH')?.proxy
-            const isMatchDirect = !matchTarget || matchTarget === 'DIRECT' || matchTarget === 'Прочие сервисы'
-            rule = isMatchDirect
-              ? (translate(locale, 'dashboard', 'routeTunnelRules'))
-              : (translate(locale, 'dashboard', 'routeDefault'))
-          }
+        if (!rule) {
+          const matchTarget = rules?.find((r) => r.type === 'MATCH')?.proxy
+          const isMatchDirect = !matchTarget || matchTarget === 'DIRECT' || matchTarget === 'Прочие сервисы'
+          rule = isMatchDirect
+            ? (translate(locale, 'dashboard', 'routeTunnelRules'))
+            : (translate(locale, 'dashboard', 'routeDefault'))
         }
       }
     }
-
     const fromLabel = [origin.city, originCountry || origin.country].filter(Boolean).join(', ') || (translate(locale, 'dashboard', 'yourDevice'))
     const toLabel = [location.city, country || location.country].filter(Boolean).join(', ') || (translate(locale, 'dashboard', 'server'))
 

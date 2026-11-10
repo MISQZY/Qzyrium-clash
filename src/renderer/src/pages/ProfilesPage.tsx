@@ -18,8 +18,7 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator
+  DropdownMenuItem
 } from '../components/ui/dropdown-menu'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
@@ -247,7 +246,6 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
                             <FileCode className="size-3.5 text-muted-foreground" />
                             <span>{t('editFile')}</span>
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onClick={() => setProfileToDelete(p)}
                             className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
@@ -262,7 +260,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
 
                   {p.type === 'remote' && <SubscriptionInfo info={p.userInfo} />}
 
-                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border/60 pt-3">
+                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 pt-3">
                     <p className="text-[10px] text-muted-foreground">{t('updated', { date: dateStr })}</p>
                     <div className="flex shrink-0 items-center gap-2">
                       {!isActive && (

@@ -7,7 +7,7 @@ const code = ts.transpileModule(fs.readFileSync('src/renderer/src/lib/cobe-globe
 }).outputText
 const geometry = { exports: {} }
 new Function('exports', code)(geometry.exports)
-const { projectRoutes, groupProjectedEndpoints, layoutEndpointLabels } = geometry.exports
+const { projectRoutes, groupProjectedEndpoints, layoutEndpointLabels, surfacePoint, globeProjection, globeLayout } = geometry.exports
 const view = { width: 1040, height: 620, reserved: 312 }
 const camera = { phi: 0, theta: 0, scale: 1 }
 const route = (id, to, country = 'Netherlands', from = [0, 0]) => ({
@@ -57,4 +57,17 @@ for (const viewport of [view, { width: 600, height: 460, reserved: 264 }]) {
     checkLabels(layoutEndpointLabels(markers, viewport, 'b', measure), markers, viewport)
   }
 }
-console.log('PASS: geographic grouping, stable ordering, group selection, rear occlusion, label bounds and collisions across camera rotations')
+const land = new Float32Array([0, 1, 0, 0, 0, 1, 1, 0, 0])
+const snapped = surfacePoint([-88, 2], land)
+assert.deepEqual(snapped, [0, 0, 1], 'endpoint selects the nearest actual sample instead of the gap between samples')
+for (const viewport of [view, { width: 1920, height: 1000, reserved: 336 }]) {
+  for (let phi = -3; phi <= 3; phi += 0.3) {
+    const camera = { phi, theta: 0.55, scale: 1.38 }
+    const projected = projectRoutes([route('snapped', [-88, 2])], camera, viewport, land)[0]
+    const dot = globeProjection(camera, globeLayout(camera, viewport))(snapped)
+    assert.equal(projected.endpoint.x, dot.x, 'marker and surface dot have identical horizontal coordinates')
+    assert.equal(projected.endpoint.y, dot.y, 'marker and surface dot have identical vertical coordinates')
+    assert.equal(projected.endpoint.visible, dot.depth >= 0, 'surface dot and marker share rear occlusion')
+  }
+}
+console.log('PASS: surface alignment across rotations/sizes, geographic grouping, stable ordering, rear occlusion and label collisions')

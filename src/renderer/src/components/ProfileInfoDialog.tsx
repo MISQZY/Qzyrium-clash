@@ -97,7 +97,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!saving) onOpenChange(nextOpen) }}>
       <DialogContent className="flex w-[calc(100%-32px)] max-w-xl flex-col gap-0 overflow-hidden p-0">
         <form onSubmit={handleSave} className="flex min-h-0 flex-1 flex-col">
-          <DialogHeader className="shrink-0 border-b border-border/60 px-5 py-4 pr-12 text-left">
+          <DialogHeader className="shrink-0 px-5 py-4 pr-12 text-left">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/50 text-primary">
                 <ProfileLogo url={profile.profileLogo} className="size-7 rounded-xs object-contain" fallback={isRemote ? <Globe className="size-5" /> : <FileCode className="size-5" />} />
@@ -142,7 +142,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
                     </div>
                     <Switch id={`${id}-auto`} checked={autoUpdate} onCheckedChange={setAutoUpdate} aria-describedby={`${id}-auto-hint`} />
                   </div>
-                  {autoUpdate && <div className="space-y-3 border-t border-border/60 p-3.5">
+                  {autoUpdate && <div className="space-y-3 p-3.5">
                     <div className="flex flex-wrap items-center justify-between gap-2.5">
                       <label htmlFor={`${id}-schedule`} className="text-xs font-medium">{t('updateFrequency')}</label>
                       <select id={`${id}-schedule`} className="w-full sm:w-auto sm:min-w-40" value={customInterval ? 'custom' : interval} onChange={(event) => {
@@ -170,7 +170,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
                     {t('advanced')}
                     <ChevronDown className="size-3.5 text-muted-foreground transition-transform group-open:rotate-180" />
                   </summary>
-                  <div className="space-y-2 border-t border-border/60 p-3.5">
+                  <div className="space-y-2 p-3.5">
                     <label htmlFor={`${id}-ua`} className="text-xs font-medium">{t('customUA')}</label>
                     <Input id={`${id}-ua`} type="text" value={customUA} onChange={(event) => setCustomUA(event.target.value)} placeholder={t('defaultUserAgent')} className="font-mono text-[11px]" aria-describedby={`${id}-ua-hint`} />
                     <p id={`${id}-ua-hint`} className="text-[11px] leading-relaxed text-muted-foreground">{t('userAgentHint')}</p>
@@ -181,7 +181,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
             {error && <Alert variant="destructive" className="mt-4 text-xs [overflow-wrap:anywhere]">{error}</Alert>}
           </div>
 
-          <DialogFooter className="shrink-0 gap-2 border-t border-border/60 bg-muted/15 px-5 py-3.5">
+          <DialogFooter className="shrink-0 gap-2 bg-muted/15 px-5 py-3.5">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>{t('cancel')}</Button>
             <Button type="submit" disabled={saving} aria-busy={saving}>
               {saving ? <LoaderCircle className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}

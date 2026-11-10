@@ -18,10 +18,11 @@ function load(file, dependencies) {
 
 async function main() {
   const requests = [], lookups = []
-  let failure = false, primaryDown = false, latitude = 52, local = '192.168.1.2'
+  let failure = false, primaryDown = false, originOnlineDown = false, latitude = 52, local = '192.168.1.2'
   const { GeoIpService, publicIp } = load('src/main/services/GeoIpService.ts', {
     axios: { get: async (url, options) => {
       requests.push({ url, options })
+      if (originOnlineDown && ['https://ipwho.is/', 'https://ipapi.co/json/'].includes(url)) throw new Error('Origin provider unavailable')
       if (failure || primaryDown && url.startsWith('https://ipwho.is/')) throw new Error('Offline')
       const ip = new URL(url).pathname.split('/')[1]
       return { data: { success: true, ip: !ip || ip === 'json' ? '8.8.8.8' : decodeURIComponent(ip), longitude: 5, latitude, city: 'Amsterdam', country: 'Netherlands' } }
@@ -61,6 +62,10 @@ async function main() {
   assert.equal((await service.locateHost('4.2.2.1')).ip, '4.2.2.1', 'secondary GeoIP provider works when primary is unavailable')
 
   const helpers = load('src/main/utils/globe-routes.ts', {})
+  const { connectionRoutes } = load('src/renderer/src/lib/globe.ts', { '../i18n/catalogs': { translate: (_locale, _namespace, key) => key } })
+  const located = { origin: a, routes: [{ node: 'fixture', location: a }] }
+  assert.deepEqual(connectionRoutes({ ...located, origin: null }, {}, {}), [], 'missing origin cannot fabricate a route from Moscow')
+  assert.deepEqual(connectionRoutes(located, {}, {}, undefined, 'rule', undefined, 'en', true), [], 'stopped/connecting state cannot create gray tunnels')
   const profileHelpers = load('src/main/utils/globe-profile.ts', {})
   const offlineHelpers = load('src/main/utils/offline-proxies.ts', {})
   const compact = profileHelpers.globeProfile({
@@ -85,12 +90,16 @@ async function main() {
     assert.equal((await localDb.lookup('8.8.8.8'))?.country, 'United States', 'GeoIP worker restarts after releasing its idle database')
   } finally { clearInterval(heartbeat); localDb.dispose() }
   const offlineService = new GeoIpService({ lookup: async (ip) => ({ ...a, ip, precision: 'country' }), dispose() {} })
+  primaryDown = false
   const beforeOffline = requests.length
   await offlineService.captureOrigin()
-  assert.equal(offlineService.getOrigin().precision, 'country')
-  assert.equal(requests.length, beforeOffline + 1, 'origin only fetches the public IP, not external GeoIP data')
+  assert.equal(offlineService.getOrigin().precision, 'city', 'online city coordinates take precedence over a country center')
+  assert.equal(requests.length, beforeOffline + 2, 'origin prepares precise coordinates and an independent local fallback')
   await offlineService.locateHost('9.9.9.8')
-  assert.equal(requests.length, beforeOffline + 1, 'server coordinates use the local database without HTTP')
+  assert.equal(requests.length, beforeOffline + 2, 'server coordinates use the local database without HTTP')
+  originOnlineDown = true
+  await offlineService.captureOrigin(true)
+  assert.equal(offlineService.getOrigin().precision, 'country', 'local country location remains available when online GeoIP fails')
   const nativeTimeout = AbortSignal.timeout, originDeadline = new AbortController()
   let releaseLateLocation
   const boundedService = new GeoIpService({ lookup: () => new Promise(resolve => { releaseLateLocation = resolve }), dispose() {} })
@@ -137,6 +146,9 @@ async function main() {
   const result = await kernel.getGlobeLocations()
   assert.deepEqual(hosts, ['1.1.1.1', '2606:4700:4700::1111', 'fallback.example.com'])
   assert.equal(result.routes.length, 3, 'direct, groups and unknown server locations are excluded')
+  kernel.getStatus = () => 'stopped'
+  assert.deepEqual((await kernel.getGlobeLocations()).routes, [], 'stopped core cannot produce profile-based tunnels')
+  kernel.getStatus = () => 'running'
   kernel.getConnections = async () => ({ connections: [] })
   kernel.getProxies = async () => ({ GROUP: { now: 'idle' } })
   kernel.profileService.getProfileContent = () => 'rules:\n  - MATCH,GROUP\nproxy-providers:\n  inline:\n    type: inline\n    payload:\n      - name: idle\n        server: vpn.example.com'
