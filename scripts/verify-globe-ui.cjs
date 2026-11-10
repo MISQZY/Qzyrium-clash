@@ -45,6 +45,23 @@ app.whenReady().then(async () => {
     }
     assert.ok(await evaluate(`document.querySelector('.globe-route-origin title').textContent.includes('Moscow')`), 'source location is available in the origin tooltip')
     await screenshot('connected')
+    for (const [width, height] of [[840, 620], [1040, 720], [840, 480]]) {
+      win.setSize(width, height)
+      await delay(200)
+      assert.ok(await evaluate(`(() => {
+        const column = document.querySelector('.overview-panel-column');
+        const rect = column.getBoundingClientRect();
+        return rect.top >= 0 && rect.bottom <= innerHeight && rect.right <= innerWidth;
+      })()`), `controls stay inside ${width}x${height}`)
+      await evaluate(`document.querySelector('.overview-panel-column').scrollTop = 10000`)
+      assert.ok(await evaluate(`(() => {
+        const column = document.querySelector('.overview-panel-column');
+        const last = column.lastElementChild.getBoundingClientRect();
+        return last.bottom <= innerHeight;
+      })()`), 'bottom of controls can be reached by scrolling')
+    }
+    win.setSize(1040, 720)
+    await delay(200)
     await evaluate(`document.querySelector('.overview-power').click()`)
     await waitFor(`document.querySelector('.overview-power').getAttribute('aria-pressed') === 'false'`)
     await waitFor(`!document.querySelector('.globe-route-track, .globe-route-origin, .globe-route-endpoint, .globe-route-summary, .globe-pending-node')`)
