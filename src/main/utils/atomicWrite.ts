@@ -35,29 +35,28 @@ export async function writeFileAtomicAsync(
   backup = false
 ): Promise<void> {
   const tempPath = `${filePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`
-  await fs.writeFile(tempPath, data, encoding)
-
-  if (backup && existsSync(filePath)) {
-    try {
-      await fs.copyFile(filePath, `${filePath}.bak`)
-    } catch {}
-  }
-
-  let retries = 5
-  while (retries > 0) {
-    try {
-      await fs.rename(tempPath, filePath)
-      return
-    } catch (err: unknown) {
-      const error = err as NodeJS.ErrnoException
-      if ((error.code === 'EPERM' || error.code === 'EBUSY') && --retries > 0) {
-        await new Promise((resolve) => setTimeout(resolve, 50))
-        continue
-      }
+  const backupTemp = `${tempPath}.bak`
+  try {
+    await fs.writeFile(tempPath, data, encoding)
+    if (backup) {
       try {
-        await fs.unlink(tempPath)
-      } catch {}
-      throw err
+        await fs.copyFile(filePath, backupTemp)
+        await fs.rename(backupTemp, `${filePath}.bak`)
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      }
     }
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await fs.rename(tempPath, filePath)
+        return
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code
+        if ((code !== 'EPERM' && code !== 'EBUSY') || attempt >= 4) throw error
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+    }
+  } finally {
+    await Promise.all([fs.unlink(tempPath).catch(() => {}), fs.unlink(backupTemp).catch(() => {})])
   }
 }

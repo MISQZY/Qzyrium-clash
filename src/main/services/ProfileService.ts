@@ -10,7 +10,9 @@ import { BaseService } from './BaseService'
 import { subscriptionName } from '../utils/subscription-name'
 import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import type { SettingService } from './SettingService'
-import { subscriptionUserAgent } from '@shared/app-config'
+import { DEFAULT_APP_CONFIG, subscriptionUserAgent } from '@shared/app-config'
+import { writeFileAtomicAsync } from '../utils/atomicWrite'
+import { validateProfileContent } from '../utils/profile-validator'
 
 function parseUserInfo(header?: unknown): ProfileUserInfo | undefined {
   if (!header || typeof header !== 'string') return undefined
@@ -143,25 +145,36 @@ export class ProfileService implements BaseService {
     return resolved
   }
 
+  private parseProfiles(raw: string): ProfileItem[] {
+    const profiles: unknown = JSON.parse(raw)
+    if (!Array.isArray(profiles)) throw new Error('Invalid profiles metadata: expected an array')
+    const ids = new Set<string>()
+    for (const item of profiles) {
+      if (!item || typeof item.name !== 'string' || !['remote', 'local'].includes(item.type)) throw new Error('Invalid profile metadata')
+      this.validateProfileId(item.id)
+      if (ids.has(item.id)) throw new Error(`Duplicate profile id: ${item.id}`)
+      ids.add(item.id)
+    }
+    return profiles
+  }
+
   async initialize(): Promise<void> {
     try {
       const raw = await fs.promises.readFile(this.profilesFilePath, 'utf-8')
-      this.profiles = JSON.parse(raw)
+      this.profiles = this.parseProfiles(raw)
       this.activeProfileId = this.settingService?.getSettings().activeProfileId ?? null
       logger.info(`Loaded ${this.profiles.length} profiles from disk`)
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-        await this.saveProfilesList()
-        return
-      }
       try {
         const bak = await fs.promises.readFile(`${this.profilesFilePath}.bak`, 'utf-8')
-        this.profiles = JSON.parse(bak)
+        this.profiles = this.parseProfiles(bak)
         this.activeProfileId = this.settingService?.getSettings().activeProfileId ?? null
+        await writeFileAtomicAsync(this.profilesFilePath, JSON.stringify(this.profiles, null, 2)).catch((error) => logger.error('Failed to restore primary profiles file', error))
         logger.warn('Recovered profiles metadata from backup file (.bak)')
       } catch {
-        logger.error('Failed to load profiles metadata', err)
         this.profiles = []
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') await this.saveProfilesList()
+        else logger.error('Failed to load profiles metadata', err)
       }
     }
   }
@@ -184,8 +197,11 @@ export class ProfileService implements BaseService {
     if (!found) {
       throw new Error(`Profile ${id} not found`)
     }
-    this.activeProfileId = id
+    const content = await this.getProfileContent(id)
+    if (content === null) throw new Error(`Profile file is missing: ${id}`)
+    await validateProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG, found.customRules)
     await this.settingService?.updateSettings({ activeProfileId: id })
+    this.activeProfileId = id
     logger.info(`Active profile switched to: ${found.name} (${id})`)
   }
 
@@ -217,8 +233,12 @@ export class ProfileService implements BaseService {
 
   async saveProfileContent(id: string, content: string): Promise<boolean> {
     const filePath = this.validateProfileId(id)
+    const content = await this.getProfileContent(id)
+    if (content === null) throw new Error(`Profile file is missing: ${id}`)
+    await validateProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG, rules)
     if (await this.getProfileContent(id) === content) return false
-    await fs.promises.writeFile(filePath, content, 'utf-8')
+    await validateProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG, this.getCustomRules(id))
+    await writeFileAtomicAsync(filePath, content, 'utf-8', true)
     const found = this.profiles.find((p) => p.id === id)
     if (found) {
       found.updatedAt = Date.now()
@@ -289,7 +309,8 @@ export class ProfileService implements BaseService {
     }
 
     const filePath = this.validateProfileId(id)
-    await fs.promises.writeFile(filePath, content, 'utf-8')
+    await validateProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG)
+    await writeFileAtomicAsync(filePath, content, 'utf-8', true)
 
     const item: ProfileItem = {
       id,
@@ -394,7 +415,7 @@ export class ProfileService implements BaseService {
   private saveProfilesList(): Promise<void> {
     const content = JSON.stringify(this.profiles, null, 2)
     // Preserve write order so a slower earlier save cannot overwrite newer metadata.
-    const save = this.metadataSave.then(() => fs.promises.writeFile(this.profilesFilePath, content, 'utf-8'))
+    const save = this.metadataSave.then(() => writeFileAtomicAsync(this.profilesFilePath, content, 'utf-8', true))
     this.metadataSave = save.catch((err) => logger.error('Failed to save profiles list', err))
     return save
   }
