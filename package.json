@@ -29,6 +29,7 @@
     "test:i18n": "node scripts/verify-i18n.cjs",
     "test:i18n:ui": "electron scripts/verify-localization-ui.cjs",
     "test:kernel": "node scripts/verify-kernel-lifecycle.cjs",
+    "test:logs": "node scripts/verify-logs.cjs",
     "test:profiles": "node scripts/verify-profile-loading.cjs",
     "test:loading": "node scripts/verify-data-loading.cjs",
     "test:settings": "node scripts/verify-settings.cjs",

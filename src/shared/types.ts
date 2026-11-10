@@ -18,6 +18,7 @@ export interface LogEntry {
   type: string
   payload: string
   time: string
+  source?: 'app' | 'mihomo'
 }
 
 export interface MihomoVersion {

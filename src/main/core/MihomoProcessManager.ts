@@ -6,6 +6,8 @@ import { EventEmitter } from 'events'
 import { CoreState, LogEntry } from '@shared/types'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
+import { LogLines } from '../utils/log-lines'
+import { parseMihomoLog } from '@shared/logs'
 
 const runFile = promisify(execFile)
 
@@ -85,7 +87,8 @@ export class MihomoProcessManager extends EventEmitter {
       this.emit('log', {
         type: 'warning',
         payload: 'Mihomo core binary missing. Run "pnpm prepare:resources" to download core.',
-        time: new Date().toLocaleTimeString()
+        time: new Date().toISOString(),
+        source: 'mihomo'
       } as LogEntry)
       throw new Error('Mihomo core binary is missing. Run pnpm prepare:resources before connecting.')
     }
@@ -124,42 +127,22 @@ export class MihomoProcessManager extends EventEmitter {
       }
       spawned.once('exit', onPrematureExit)
 
-      spawned.stdout?.on('data', (data: Buffer) => {
-        const text = data.toString('utf-8').trim()
-        if (text) {
-          const isTunError = text.includes('Start TUN listening error') || text.includes('configure tun interface')
-          const isError = isTunError || text.includes('level=error')
-          const isWarning = text.includes('level=warning')
-          const logType: LogEntry['type'] = isError ? 'error' : isWarning ? 'warning' : 'info'
-
-          if (isTunError) {
-            logger.error(`[Mihomo TUN error] ${text}`)
-            this.emit('tun-error', text)
-          } else if (isError) {
-            logger.error(`[Mihomo stdout] ${text}`)
-          } else {
-            logger.debug(`[Mihomo stdout] ${text}`)
-          }
-
-          this.emit('log', {
-            type: logType,
-            payload: text,
-            time: new Date().toLocaleTimeString()
-          } as LogEntry)
-        }
-      })
-
-      spawned.stderr?.on('data', (data: Buffer) => {
-        const text = data.toString('utf-8').trim()
-        if (text) {
-          logger.warn(`[Mihomo stderr] ${text}`)
-          this.emit('log', {
-            type: 'warning',
-            payload: text,
-            time: new Date().toLocaleTimeString()
-          } as LogEntry)
-        }
-      })
+      const receiveLine = (line: string, fallback: string) => {
+        const entry = parseMihomoLog(line, fallback)
+        if (!entry) return
+        const isTunError = entry.payload.includes('Start TUN listening error') || entry.payload.includes('configure tun interface')
+        if (isTunError) entry.type = 'error'
+        logger.writeEntry(entry)
+        this.emit('log', entry)
+        if (isTunError) this.emit('tun-error', entry.payload)
+      }
+      const stdout = new LogLines((line) => receiveLine(line, 'info'))
+      const stderr = new LogLines((line) => receiveLine(line, 'warning'))
+      spawned.stdout?.on('data', (data: Buffer) => stdout.push(data))
+      spawned.stderr?.on('data', (data: Buffer) => stderr.push(data))
+      spawned.stdout?.on('end', () => stdout.end())
+      spawned.stderr?.on('end', () => stderr.end())
+      spawned.on('close', () => { stdout.end(); stderr.end() })
 
       spawned.on('error', (err) => {
         if (this.childProcess !== spawned) return

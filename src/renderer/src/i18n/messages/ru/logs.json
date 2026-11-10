@@ -3,5 +3,7 @@
   "realtimeOutputStreamFromMihomoEngine": "События ядра Mihomo в реальном времени",
   "autoscroll": "Автопрокрутка",
   "clearLogs": "Очистить журнал",
-  "noLogEntriesRecordedYet": "В журнале пока нет записей."
+  "noLogEntriesRecordedYet": "В журнале пока нет записей.",
+  "searchLogs": "Поиск по сообщениям",
+  "noMatchingEntries": "Нет записей, соответствующих фильтру."
 }
