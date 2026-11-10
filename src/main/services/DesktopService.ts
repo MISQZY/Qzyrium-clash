@@ -11,6 +11,7 @@ import { isProcessElevated } from '../utils/elevation'
 
 export class DesktopService implements BaseService {
   private shortcuts = new Map<string, string>()
+  private recordingShortcut = false
   private timer: ReturnType<typeof setTimeout> | undefined
   private updating: Promise<void> | null = null
   private disposed = false
@@ -31,7 +32,7 @@ export class DesktopService implements BaseService {
     try {
       for (const [action, accelerator] of Object.entries(config.general.shortcuts ?? {})) {
         if (!accelerator.trim()) continue
-        if (!globalShortcut.register(accelerator, () => this.trigger(action))) throw new Error(`Shortcut is unavailable: ${accelerator}`)
+        if (!this.recordingShortcut && !globalShortcut.register(accelerator, () => this.trigger(action))) throw new Error(`Shortcut is unavailable: ${accelerator}`)
         registered.set(action, accelerator)
       }
       // Electron development binaries are not valid installed login targets.
@@ -40,13 +41,29 @@ export class DesktopService implements BaseService {
       this.schedule(config)
     } catch (err) {
       for (const accelerator of registered.values()) globalShortcut.unregister(accelerator)
-      for (const [action, accelerator] of previous) globalShortcut.register(accelerator, () => this.trigger(action))
+      if (!this.recordingShortcut) for (const [action, accelerator] of previous) globalShortcut.register(accelerator, () => this.trigger(action))
       throw err
     }
   }
 
+  isShortcutRecording(): boolean { return this.recordingShortcut }
+
+  setShortcutRecording(recording: boolean): void {
+    if (this.disposed || this.recordingShortcut === recording) return
+    this.recordingShortcut = recording
+    if (recording) {
+      for (const accelerator of this.shortcuts.values()) globalShortcut.unregister(accelerator)
+    } else {
+      const failed: string[] = []
+      for (const [action, accelerator] of this.shortcuts) {
+        if (!globalShortcut.register(accelerator, () => this.trigger(action))) failed.push(accelerator)
+      }
+      if (failed.length) throw new Error(`Shortcut is unavailable: ${failed.join(', ')}`)
+    }
+  }
+
   private trigger(action: string): void {
-    if (this.disposed) return
+    if (this.disposed || this.recordingShortcut) return
     if (action === 'showWindow') { this.window.show(); return }
     if (this.actionPending || this.disposed) return
     this.actionPending = this.runAction(action).then(() => this.changed()).catch((err) => logger.error(`Shortcut ${action} failed`, err)).finally(() => { this.actionPending = null })
@@ -119,6 +136,7 @@ export class DesktopService implements BaseService {
 
   async dispose(): Promise<void> {
     this.disposed = true
+    this.recordingShortcut = false
     clearTimeout(this.timer)
     for (const accelerator of this.shortcuts.values()) globalShortcut.unregister(accelerator)
     this.shortcuts.clear()

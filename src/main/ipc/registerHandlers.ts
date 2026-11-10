@@ -17,6 +17,33 @@ import { isProcessElevated, restartAsAdmin } from '../utils/elevation'
 export function registerIpcHandlers(services: ServiceManager): void {
   logger.info('Registering type-safe IPC handlers...')
   const profileUpdates = new Map<string, Promise<void>>()
+  let finishShortcutRecording: (() => void) | undefined
+  ipcMain.handle(IPC_CHANNELS.APP_SET_SHORTCUT_RECORDING, (event, recording: boolean) => {
+    const win = services.windowService.getMainWindow()
+    if (!win || event.sender !== win.webContents || typeof recording !== 'boolean') throw new Error('Invalid shortcut recorder')
+    finishShortcutRecording?.()
+    if (!recording || !win.isFocused()) return
+    services.desktopService.setShortcutRecording(true)
+    const stop = () => {
+      clearTimeout(timer)
+      win.removeListener('blur', stop)
+      win.removeListener('hide', stop)
+      event.sender.removeListener('destroyed', stop)
+      event.sender.removeListener('render-process-gone', stop)
+      event.sender.removeListener('did-start-navigation', stop)
+      finishShortcutRecording = undefined
+      try { services.desktopService.setShortcutRecording(false) }
+      catch (error) { logger.error('Failed to restore shortcuts after recording', error) }
+    }
+    const timer = setTimeout(stop, 45_000)
+    timer.unref()
+    finishShortcutRecording = stop
+    win.once('blur', stop)
+    win.once('hide', stop)
+    event.sender.once('destroyed', stop)
+    event.sender.once('render-process-gone', stop)
+    event.sender.once('did-start-navigation', stop)
+  })
   const restartActiveProfile = async (id: string | undefined): Promise<void> => {
     const status = services.kernelService.getStatus()
     if (id && services.profileService.getActiveProfile()?.id === id && (status === 'running' || status === 'starting')) {
@@ -178,6 +205,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.APP_UPDATE_SETTINGS, async (_, patch: Partial<AppConfig>) => {
+    finishShortcutRecording?.()
     const previous = services.settingService.getSettings()
     const nextKernel = { ...previous.kernel, ...patch.kernel }
     const candidate = { ...previous, ...patch, general: { ...previous.general, ...patch.general }, kernel: { ...nextKernel, tun: { ...previous.kernel.tun, ...patch.kernel?.tun } }, sysProxy: { ...previous.sysProxy, ...patch.sysProxy } }
@@ -243,6 +271,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.APP_RESTART_AS_ADMIN, async () => {
+    const wasRunning = ['running', 'starting'].includes(services.kernelService.getStatus())
     try {
       await services.sysProxyService.setCoreRunning(false)
     } catch (err) {
@@ -301,7 +330,6 @@ export function registerIpcHandlers(services: ServiceManager): void {
         const icon = await app.getFileIcon(targetPath, { size: 'normal' })
         if (icon && !icon.isEmpty()) {
           const dataUrl = icon.toDataURL()
-    const wasRunning = ['running', 'starting'].includes(services.kernelService.getStatus())
           iconCache.set(processPath, dataUrl)
           return dataUrl
         }

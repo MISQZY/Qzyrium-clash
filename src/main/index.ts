@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from 'electron'
-import { electronApp, optimizer } from '@electron-toolkit/utils'
+import { electronApp } from '@electron-toolkit/utils'
+import { watchWindowShortcuts } from './utils/window-shortcuts'
 import { registerIpcHandlers } from './ipc/registerHandlers'
 import { ServiceManager } from './services/ServiceManager'
 import { logger } from './utils/logger'
@@ -132,7 +133,7 @@ if (!gotTheLock) {
 
     // Default open or close DevTools by F12 in dev and ignore CommandOrControl + R in production
     app.on('browser-window-created', (_, window) => {
-      optimizer.watchWindowShortcuts(window)
+      watchWindowShortcuts(window, () => services?.desktopService.isShortcutRecording() ?? false)
     })
 
     logger.info('Starting Qzyrium-clash application...')

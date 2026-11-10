@@ -12,6 +12,7 @@ function load(file, dependencies = {}, overrides = {}) {
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
   const requireModule = name => {
     if (dependencies[name]) return dependencies[name]
+    if (name === '../utils/atomicWrite' && dependencies.fs) return { writeFileAtomicAsync: (...args) => dependencies.fs.promises.writeFile(...args) }
     if (name.endsWith('.json') && name.startsWith('.')) return require(path.resolve(path.dirname(file), name))
     const target = name.startsWith('@shared/') ? path.resolve('src/shared', name.slice(8) + '.ts') : name.startsWith('.') ? path.resolve(path.dirname(file), name + '.ts') : null
     return target && fs.existsSync(target) ? load(target) : require(name)
@@ -51,10 +52,7 @@ function verifyConfiguration() {
   config.kernel.tun.enable = true
   assert.equal(yaml.parse(MihomoConfigFactory.synthesize(profile, config)).tun.mtu, 1400)
   const base64Sample = 'aHlzdGVyaWEyOi8vbm9kZTE='
-  assert.doesNotThrow(() => {
-    const fallback = yaml.parse(MihomoConfigFactory.synthesize(base64Sample, config))
-    assert.equal(fallback['mixed-port'], config.kernel.mixedPort)
-  }, 'non-YAML profile string content must fall back to default skeleton instead of throwing')
+  assert.throws(() => MihomoConfigFactory.synthesize(base64Sample, config), /Profile must contain/, 'invalid profiles must never silently enable direct routing')
   const invalid = fresh()
   invalid.kernel.options = { 'socks-port': 70000 }
   assert.throws(() => validateAppConfig(invalid), /invalid value/)
@@ -65,6 +63,8 @@ function verifyConfiguration() {
   invalid.kernel.options = {}
   invalid.general.shortcuts = { showWindow: 'Ctrl+Q', tun: 'ctrl+q' }
   assert.throws(() => validateAppConfig(invalid), /unique/)
+  invalid.general.shortcuts = { showWindow: 'Control+Shift+Q', tun: 'Shift+Ctrl+q' }
+  assert.throws(() => validateAppConfig(invalid), /unique/, 'modifier aliases and order cannot hide duplicates')
   const dir = path.resolve('artifacts/settings-check')
   fs.mkdirSync(dir, { recursive: true })
   const filename = path.join(dir, 'config.yaml')
@@ -81,6 +81,7 @@ async function verifyPac() {
     '../utils/logger': { logger }
   }, { process: { platform: 'win32' } })
   const service = new SysProxyService({ getSettings: () => config, updateSettings: async patch => Object.assign(config, patch) })
+  await service.setCoreRunning(true)
   try {
     await service.setSysProxy(true)
     const url = commands.find(args => args[3] === 'AutoConfigURL')[7]
@@ -111,15 +112,25 @@ async function verifyDesktop() {
   config.general.shortcuts = { showWindow: 'Ctrl+Alt+Q', globalMode: 'Ctrl+Alt+G' }
   const { DesktopService } = load('src/main/services/DesktopService.ts', {
     electron: { app: { isPackaged: true, setLoginItemSettings: options => login.push(options.openAtLogin) }, globalShortcut: { register: (key, fn) => { if (key === 'Taken') return false; bindings.set(key, fn); return true }, unregister: key => bindings.delete(key) } },
-    '../utils/logger': { logger }
+    '../utils/logger': { logger },
+    '../utils/elevation': { isProcessElevated: () => true }
   }, { process: { platform: 'win32' }, setTimeout: (fn, ms) => { const timer = { fn, ms, unref() {} }; timers.add(timer); return timer }, clearTimeout: timer => timers.delete(timer) })
   const desktop = new DesktopService(
     { getSettings: () => config, updateSettings: async patch => { Object.assign(config, patch); calls.push('save') } },
     { getProfiles: () => [{ id: 'active', type: 'remote' }, { id: 'other', type: 'remote' }, { id: 'local', type: 'local' }, { id: 'disabled', type: 'remote', autoUpdate: false }, { id: 'recent', type: 'remote', interval: 15, updatedAt: Date.now() }], getActiveProfile: () => ({ id: 'active' }), updateProfile: async id => { calls.push('update:' + id); return true } },
     { getStatus: () => 'running', restart: async () => calls.push('restart'), patchConfigs: async patch => calls.push('mode:' + patch.mode) },
-    {}, { show: () => calls.push('show') }, () => calls.push('notify'))
+    { getStatus: () => ({ enabled: config.sysProxy.enable }), setSysProxy: async enable => { config.sysProxy.enable = enable; calls.push('proxy:' + enable) } }, { show: () => calls.push('show') }, () => calls.push('notify'))
   await desktop.initialize()
   assert.deepEqual(login, [true])
+  const previousShow = bindings.get('Ctrl+Alt+Q')
+  desktop.setShortcutRecording(true)
+  assert.equal(desktop.isShortcutRecording(), true)
+  assert.equal(bindings.size, 0, 'global combinations reach the recorder while editing')
+  previousShow()
+  assert.equal(calls.length, 0, 'stale callbacks cannot execute during recording')
+  desktop.setShortcutRecording(false)
+  assert.equal(desktop.isShortcutRecording(), false)
+  assert.equal(bindings.size, 2, 'recording completion restores registered actions')
   bindings.get('Ctrl+Alt+Q')()
   assert.equal(calls.at(-1), 'show')
   bindings.get('Ctrl+Alt+G')()
@@ -140,6 +151,26 @@ async function verifyDesktop() {
   await desktop.dispose()
   assert.equal(bindings.size, 0)
   assert.equal(timers.size, 0)
+  await desktop.initialize()
+  assert.equal(bindings.size, 2, 'resuming after cancelled elevation restores shortcuts')
+  assert.equal(timers.size, 1, 'resuming after cancelled elevation restores profile updates')
+  config.general.shortcuts = { showWindow: 'Ctrl+Alt+Q', sysProxy: 'Ctrl+Alt+P', tun: 'Ctrl+Alt+T', ruleMode: 'Ctrl+Alt+R', globalMode: 'Ctrl+Alt+G', directMode: 'Ctrl+Alt+D' }
+  desktop.applySettings(config)
+  assert.equal(bindings.size, 6, 'every recorder action has a global registration')
+  for (const [key, mode] of [['Ctrl+Alt+R', 'rule'], ['Ctrl+Alt+D', 'direct']]) {
+    bindings.get(key)()
+    await flush()
+    assert.equal(config.kernel.mode, mode)
+    assert.ok(calls.includes('mode:' + mode))
+  }
+  bindings.get('Ctrl+Alt+P')()
+  await flush()
+  assert.equal(config.sysProxy.enable, true)
+  bindings.get('Ctrl+Alt+T')()
+  await flush()
+  assert.equal(config.kernel.tun.enable, true)
+  assert.equal(config.sysProxy.enable, false, 'TUN shortcut disables the conflicting system proxy')
+  await desktop.dispose()
 }
 
 function verifySession() {
@@ -148,6 +179,7 @@ function verifySession() {
   const api = new EventEmitter()
   Object.assign(api, { startTrafficStream() {}, startLogStream() {}, stopAllStreams() {} })
   const { KernelService } = load('src/main/services/KernelService.ts', {
+    '../utils/elevation': { isProcessElevated: () => false },
     '../core/MihomoConfigFactory': { MihomoConfigFactory },
     '../core/MihomoProcessManager': { MihomoProcessManager: class { constructor() { return manager } } },
     '../core/MihomoApiClient': { MihomoApiClient: class { constructor() { return api } } },
@@ -195,4 +227,26 @@ async function verifyMigration() {
   assert.equal(settings.getSettings().kernel.tun.stack, 'mixed', 'callers cannot mutate saved settings through a returned snapshot')
 }
 
-Promise.resolve().then(verifyConfiguration).then(verifyPac).then(verifyDesktop).then(verifySession).then(verifyMigration).then(() => console.log('PASS: settings validation/migration/inheritance, real Mihomo config, PAC server, startup/shortcuts/update scheduling, session clock')).catch(err => { console.error(err); process.exitCode = 1 })
+function verifyWindowKeys() {
+  for (const dev of [false, true]) {
+    const { watchWindowShortcuts } = load('src/main/utils/window-shortcuts.ts', { '@electron-toolkit/utils': { is: { dev } } })
+    let recording = false, opened = false
+    const webContents = Object.assign(new EventEmitter(), {
+      setIgnoreMenuShortcuts: () => {},
+      isDevToolsOpened: () => opened, openDevTools: () => { opened = true }, closeDevTools: () => { opened = false }
+    })
+    watchWindowShortcuts({ webContents }, () => recording)
+    const press = code => {
+      let prevented = false
+      webContents.emit('before-input-event', { preventDefault: () => { prevented = true } }, { type: 'keyDown', code, control: true, shift: true })
+      return prevented
+    }
+    assert.equal(press('KeyR'), !dev, 'production reload guard stays active outside recording')
+    assert.equal(press('Minus'), true)
+    recording = true
+    for (const code of ['KeyR', 'KeyI', 'Minus', 'Equal', 'F12']) assert.equal(press(code), false, 'recording receives native key combinations')
+    assert.equal(opened, false, 'recording F12 does not open devtools')
+  }
+}
+
+Promise.resolve().then(verifyConfiguration).then(verifyPac).then(verifyDesktop).then(verifyWindowKeys).then(verifySession).then(verifyMigration).then(() => console.log('PASS: settings validation/migration/inheritance, real Mihomo config, PAC server, startup/shortcuts/update scheduling, native key recording, session clock')).catch(err => { console.error(err); process.exitCode = 1 })

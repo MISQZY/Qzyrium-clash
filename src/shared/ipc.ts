@@ -48,6 +48,7 @@ export const IPC_CHANNELS = {
   APP_GET_SETTINGS: 'app:get-settings',
   APP_UPDATE_SETTINGS: 'app:update-settings',
   APP_MINIMIZE: 'app:minimize',
+  APP_SET_SHORTCUT_RECORDING: 'app:set-shortcut-recording',
   APP_MAXIMIZE: 'app:maximize',
   APP_CLOSE: 'app:close',
   APP_OPEN_FOLDER: 'app:open-folder',
@@ -139,6 +140,7 @@ export interface IElectronApi {
   settings: {
     get: () => Promise<AppConfig>
     update: (patch: Partial<AppConfig>) => Promise<AppConfig>
+    setShortcutRecording: (recording: boolean) => Promise<void>
   }
   window: {
     minimize: () => Promise<void>
