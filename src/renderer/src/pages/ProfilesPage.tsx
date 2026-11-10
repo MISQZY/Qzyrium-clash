@@ -22,6 +22,7 @@ import {
   DropdownMenuSeparator
 } from '../components/ui/dropdown-menu'
 import { Input } from '../components/ui/input'
+import { Switch } from '../components/ui/switch'
 import { Textarea } from '../components/ui/textarea'
 import { EmojiText } from '../components/EmojiText'
 import { ProfileLogo } from '../components/ProfileLogo'
@@ -70,6 +71,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
   const [profileName, setProfileName] = useState('')
   const [profileUrl, setProfileUrl] = useState('')
   const [profileType, setProfileType] = useState<'remote' | 'local'>('remote')
+  const [updateViaProxy, setUpdateViaProxy] = useState(false)
   const [yamlContent, setYamlContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -83,6 +85,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
       const parsed = parseSubscriptionImportUrl(importRequest.url)
       setProfileUrl(parsed.url)
       setProfileName(importRequest.name || parsed.name || '')
+      setUpdateViaProxy(false)
       setShowAddModal(true)
       onClearImportRequest?.()
     }
@@ -107,11 +110,13 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
         name: profileName.trim() || undefined,
         url: profileType === 'remote' ? profileUrl.trim() : undefined,
         type: profileType,
+        updateViaProxy: profileType === 'remote' ? updateViaProxy : undefined,
         content: profileType === 'local' ? yamlContent : undefined
       })
       setShowAddModal(false)
       setProfileName('')
       setProfileUrl('')
+      setUpdateViaProxy(false)
       setYamlContent('')
       onRefreshAll()
     } catch (err) {
@@ -346,19 +351,36 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
             </div>
 
             {profileType === 'remote' ? (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-muted-foreground font-medium">{t('subscriptionURL')}</label>
-                <Input
-                  type="text"
-                  required
-                  value={profileUrl}
-                  onChange={(e) => handleUrlChange(e.target.value)}
-                  placeholder={t('importUrlPlaceholder')}
-                />
-                <p className="text-[10px] text-muted-foreground/75 leading-tight">
-                  {t('clashUrlSupportHint')}
-                </p>
-              </div>
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-muted-foreground font-medium">{t('subscriptionURL')}</label>
+                  <Input
+                    type="text"
+                    required
+                    value={profileUrl}
+                    onChange={(e) => handleUrlChange(e.target.value)}
+                    placeholder={t('importUrlPlaceholder')}
+                  />
+                  <p className="text-[10px] text-muted-foreground/75 leading-tight">
+                    {t('clashUrlSupportHint')}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div className="space-y-0.5">
+                    <label htmlFor="add-update-via-proxy" className="text-xs font-medium cursor-pointer">
+                      {t('updateViaProxy')}
+                    </label>
+                    <p className="text-[10px] text-muted-foreground">
+                      {t('updateViaProxyHint')}
+                    </p>
+                  </div>
+                  <Switch
+                    id="add-update-via-proxy"
+                    checked={updateViaProxy}
+                    onCheckedChange={setUpdateViaProxy}
+                  />
+                </div>
+              </>
             ) : (
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-muted-foreground font-medium">{t('yAMLContent')}</label>

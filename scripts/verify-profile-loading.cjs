@@ -139,6 +139,7 @@ async function verifyProfiles() {
   ])
   let metadataWrites = 0, maxMetadataWrites = 0, fetches = 0, content = 'new', failFetch = false, responseHeaders = {}
   const requestAgents = []
+  const requestProxies = []
   const missing = () => Object.assign(new Error('missing'), { code: 'ENOENT' })
   const { ProfileService } = load('src/main/services/ProfileService.ts', {
     fs: { promises: {
@@ -151,7 +152,7 @@ async function verifyProfiles() {
       },
       async unlink(file) { files.delete(file) }
     } },
-    axios: { async get(_url, options) { requestAgents.push(options.headers['User-Agent']); fetches++; await nextTurn(); if (failFetch) throw new Error('download failed'); return { data: content, headers: responseHeaders } } },
+    axios: { async get(_url, options) { requestAgents.push(options?.headers?.['User-Agent']); requestProxies.push(options?.proxy); fetches++; await nextTurn(); if (failFetch) throw new Error('download failed'); return { data: content, headers: responseHeaders } } },
     '../utils/subscription-name': { subscriptionName },
     '../utils/paths': { getAppPaths: () => ({ profilesFilePath: 'profiles.json', profilesDir: 'profiles' }) },
     '../utils/logger': { logger }
@@ -239,6 +240,15 @@ async function verifyProfiles() {
   profiles.getProfiles().find(item => item.id === 'a').customUA = 'Custom profile client'
   await profiles.updateProfile('a')
   assert.equal(requestAgents.at(-1), 'Custom profile client', 'explicit per-profile User-Agent is preserved')
+  profiles.setCoreStatusProvider(() => true)
+  assert.equal(requestProxies.at(-1), undefined, 'updates without updateViaProxy do not route through proxy tunnel')
+  await profiles.updateProfileInfo('a', { updateViaProxy: true })
+  assert.equal(profiles.getProfiles().find(item => item.id === 'a').updateViaProxy, true)
+  await profiles.updateProfile('a')
+  assert.deepEqual(requestProxies.at(-1), { host: '127.0.0.1', port: 7895, protocol: 'http' }, 'updates with updateViaProxy route through proxy tunnel')
+  await profiles.updateProfileInfo('a', { updateViaProxy: false })
+  await profiles.updateProfile('a')
+  assert.equal(requestProxies.at(-1), undefined, 'updates with updateViaProxy false route directly')
   await profiles.dispose()
 }
 

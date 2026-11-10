@@ -1,5 +1,5 @@
 import React, { useId, useState } from 'react'
-import { Check, LoaderCircle, Globe, FileCode, RefreshCw, ChevronDown } from 'lucide-react'
+import { Check, LoaderCircle, Globe, FileCode, RefreshCw, ChevronDown, ShieldCheck } from 'lucide-react'
 import type { ProfileItem } from '@shared/profile'
 import { useLocale, useTranslations, useCustomLocalization } from '../i18n'
 import { EmojiText } from './EmojiText'
@@ -42,6 +42,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
   const [name, setName] = useState(profile?.name || '')
   const [url, setUrl] = useState(profile?.url || '')
   const [autoUpdate, setAutoUpdate] = useState(profile?.autoUpdate ?? true)
+  const [updateViaProxy, setUpdateViaProxy] = useState(profile?.updateViaProxy ?? false)
   const [interval, setInterval] = useState(profile?.interval ?? 1440)
   const [customUA, setCustomUA] = useState(profile?.customUA || '')
   const [saving, setSaving] = useState(false)
@@ -53,6 +54,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
       setName(profile.name || '')
       setUrl(profile.url || '')
       setAutoUpdate(profile.autoUpdate ?? true)
+      setUpdateViaProxy(profile.updateViaProxy ?? false)
       setInterval(profile.interval ?? 1440)
       setCustomInterval(![60, 360, 720, 1440].includes(profile.interval ?? 1440))
       setCustomUA(profile.customUA || '')
@@ -72,6 +74,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
         name: name.trim() !== profile.name ? name.trim() : undefined,
         url: profile.type === 'remote' ? url.trim() : undefined,
         autoUpdate: profile.type === 'remote' ? autoUpdate : undefined,
+        updateViaProxy: profile.type === 'remote' ? updateViaProxy : undefined,
         interval: profile.type === 'remote' && autoUpdate ? Number(interval) || 1440 : undefined,
         customUA: profile.type === 'remote' ? customUA.trim() : undefined
       })
@@ -164,6 +167,19 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
                       <p id={`${id}-interval-hint`} className="text-[11px] text-muted-foreground">{t('intervalHint')}</p>
                     </div>}
                   </div>}
+                </section>
+
+                <section className="overflow-hidden rounded-xl border border-border/70" aria-labelledby={`${id}-proxy-label`}>
+                  <div className="flex items-center justify-between gap-4 bg-muted/20 p-3.5">
+                    <div className="flex min-w-0 items-start gap-2.5">
+                      <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                      <div>
+                        <label id={`${id}-proxy-label`} htmlFor={`${id}-proxy`} className="cursor-pointer text-xs font-medium">{t('updateViaProxy')}</label>
+                        <p id={`${id}-proxy-hint`} className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{t('updateViaProxyHint')}</p>
+                      </div>
+                    </div>
+                    <Switch id={`${id}-proxy`} checked={updateViaProxy} onCheckedChange={setUpdateViaProxy} aria-describedby={`${id}-proxy-hint`} />
+                  </div>
                 </section>
 
                 <details className="group rounded-xl border border-border/60">

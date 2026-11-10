@@ -99,6 +99,7 @@ export interface AddProfileDto {
   url?: string
   type: 'remote' | 'local'
   content?: string
+  updateViaProxy?: boolean
 }
 
 export interface IElectronApi {

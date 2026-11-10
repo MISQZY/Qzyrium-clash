@@ -31,7 +31,7 @@ export class ServiceManager {
     this.profileService = new ProfileService(this.settingService)
     this.sysProxyService = new SysProxyService(this.settingService)
     this.kernelService = new KernelService(this.settingService, this.profileService)
-    this.profileService.setCoreStatusProvider(() => this.kernelService.getStatus() === 'running')
+    this.profileService.setCoreStatusProvider?.(() => this.kernelService.getStatus() === 'running')
     this.themeStore = new ThemeStore(getAppPaths().userData)
     this.windowService = new WindowService(this.settingService, this.themeStore)
     this.trayService = new TrayService(

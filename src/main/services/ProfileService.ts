@@ -150,7 +150,7 @@ export class ProfileService implements BaseService {
     this.isCoreRunning = provider
   }
 
-  private async downloadSubscription(url: string, userAgent?: string): Promise<AxiosResponse<unknown>> {
+  private async downloadSubscription(url: string, userAgent?: string, updateViaProxy?: boolean): Promise<AxiosResponse<unknown>> {
     const ua = userAgent || subscriptionUserAgent(this.settingService?.getSettings().general.userAgent)
     const requestOptions = {
       timeout: 15000,
@@ -159,7 +159,7 @@ export class ProfileService implements BaseService {
       }
     }
     const mixedPort = this.settingService?.getSettings().kernel.mixedPort || 7895
-    if (this.isCoreRunning?.()) {
+    if (updateViaProxy && this.isCoreRunning?.()) {
       try {
         return await axios.get(url, {
           ...requestOptions,
@@ -316,6 +316,9 @@ export class ProfileService implements BaseService {
     if (patch.customUA !== undefined) {
       found.customUA = patch.customUA.trim() || undefined
     }
+    if (patch.updateViaProxy !== undefined) {
+      found.updateViaProxy = Boolean(patch.updateViaProxy)
+    }
     found.updatedAt = Date.now()
     await this.saveProfilesList()
     logger.info(`Updated info for profile ${found.name} (${id})`)
@@ -345,7 +348,7 @@ export class ProfileService implements BaseService {
         throw new Error('Invalid remote subscription URL scheme')
       }
       logger.info(`Fetching remote subscription from: ${sanitizeUrl(targetUrl)}`)
-      const res = await this.downloadSubscription(targetUrl)
+      const res = await this.downloadSubscription(targetUrl, undefined, dto.updateViaProxy)
       content = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
       providerName = subscriptionName(res.headers, content)
       userInfo = parseUserInfo(res.headers?.['subscription-userinfo'])
@@ -365,6 +368,7 @@ export class ProfileService implements BaseService {
       url: targetUrl,
       type: dto.type,
       updatedAt: Date.now(),
+      updateViaProxy: dto.updateViaProxy ? true : undefined,
       userInfo,
       profileLogo,
       announce,
@@ -399,7 +403,7 @@ export class ProfileService implements BaseService {
         throw new Error('Invalid remote subscription URL scheme')
       }
       logger.info(`Updating remote profile ${item.name} from ${sanitizeUrl(item.url)}`)
-      const res = await this.downloadSubscription(item.url, item.customUA)
+      const res = await this.downloadSubscription(item.url, item.customUA, item.updateViaProxy)
       const content = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
       // A subscription can be removed while its download is in flight.
       if (!this.profiles.includes(item)) return false
