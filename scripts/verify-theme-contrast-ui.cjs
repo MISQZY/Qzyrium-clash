@@ -6,7 +6,7 @@ const path = require('node:path')
 const output = path.resolve(__dirname, '../artifacts/theme-contrast-ui-check')
 fs.mkdirSync(output, { recursive: true })
 app.setPath('userData', path.join(output, 'user-data'))
-app.disableHardwareAcceleration()
+app.commandLine.appendSwitch('force-device-scale-factor', process.env.UI_DISPLAY_SCALE || '1')
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 app.whenReady().then(async () => {
@@ -38,7 +38,7 @@ app.whenReady().then(async () => {
   try {
     await win.loadFile(path.resolve(__dirname, '../out/renderer/index.html'))
     await evaluate(`localStorage.setItem('qzyrium:customThemeCache', ${JSON.stringify(JSON.stringify(customThemes))})`)
-    await win.reload()
+    await win.loadFile(path.resolve(__dirname, '../out/renderer/index.html'))
     await waitFor(`!!document.querySelector('.overview-power')`)
     for (const id of ['dark', 'light', ...customThemes.map(theme => theme.id), 'dark']) {
       await evaluate(`document.querySelector('.sidebar-link[aria-label="Settings"]').click()`)
@@ -54,7 +54,8 @@ app.whenReady().then(async () => {
       const ratios = await evaluate(`(() => {
         const probe = document.createElement('span'); document.body.append(probe);
         const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
-        const read = key => { probe.style.color = 'var(' + key + ')'; ctx.clearRect(0,0,1,1); ctx.fillStyle = getComputedStyle(probe).color; ctx.fillRect(0,0,1,1); return [...ctx.getImageData(0,0,1,1).data].slice(0,3); };
+        const samples = {};
+        const read = key => { probe.style.color = 'var(' + key + ')'; ctx.clearRect(0,0,1,1); ctx.fillStyle = getComputedStyle(probe).color; ctx.fillRect(0,0,1,1); const rgb = [...ctx.getImageData(0,0,1,1).data].slice(0,3); samples[key] = { css: getComputedStyle(probe).color, rgb }; return rgb; };
         const lum = rgb => rgb.reduce((sum,v,i) => { v /= 255; return sum + (v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4) * [.2126,.7152,.0722][i]; }, 0);
         const ratio = (a,b) => (Math.max(lum(a),lum(b))+.05)/(Math.min(lum(a),lum(b))+.05);
         const pairs = [['--foreground','--background'], ['--foreground','--card'], ['--foreground','--muted'], ['--card-foreground','--card'], ['--muted-foreground','--background'], ['--muted-foreground','--muted'], ['--primary-foreground','--primary'], ['--sidebar-foreground','--sidebar'], ['--accent-foreground','--accent']];
@@ -63,9 +64,9 @@ app.whenReady().then(async () => {
           const color = read(fg), card = read('--card'), tint = card.map((v,i) => v * .85 + color[i] * .15);
           result.push({fg,bg:'15% tinted card',ratio:ratio(color,tint)});
         }
-        probe.remove(); return result;
+        probe.remove(); return { pairs: result, samples };
       })()`)
-      for (const pair of ratios) assert.ok(pair.ratio >= 4.5, `${id}: ${pair.fg} on ${pair.bg}: ${pair.ratio}`)
+      for (const pair of ratios.pairs) assert.ok(pair.ratio >= 4.5, `${id}: ${pair.fg} on ${pair.bg}: ${pair.ratio}; samples: ${JSON.stringify(ratios.samples)}`)
       fs.writeFileSync(path.join(output, `${id}-settings.png`), (await win.webContents.capturePage()).toPNG())
       await evaluate(`document.querySelector('.sidebar-link[aria-label="Home"]').click()`)
       await waitFor(`document.querySelector('.globe-canvas')?.dataset.globeReady === 'true'`)
