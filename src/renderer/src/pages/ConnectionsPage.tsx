@@ -88,7 +88,16 @@ function getAppCategoryIcon(processName: string) {
   return AppWindow
 }
 
+const MAX_CLIENT_ICON_CACHE = 80
 const clientIconCache = new Map<string, string>()
+
+function setClientIcon(path: string, url: string): void {
+  if (clientIconCache.size >= MAX_CLIENT_ICON_CACHE) {
+    const oldest = clientIconCache.keys().next().value
+    if (oldest) clientIconCache.delete(oldest)
+  }
+  clientIconCache.set(path, url)
+}
 
 function ProcessIcon({
   processPath,
@@ -134,13 +143,13 @@ function ProcessIcon({
     let active = true
     window.api.app.getProcessIcon(processPath).then((url) => {
       if (active) {
-        clientIconCache.set(processPath, url || '')
+        setClientIcon(processPath, url || '')
         if (url) {
           setIconUrl(url)
         }
       }
     }).catch(() => {
-      clientIconCache.set(processPath, '')
+      setClientIcon(processPath, '')
     })
     return () => {
       active = false
@@ -156,7 +165,7 @@ function ProcessIcon({
         alt={name}
         className={`${className} object-contain rounded-xs select-none`}
         onError={() => {
-          clientIconCache.set(processPath || '', '')
+          setClientIcon(processPath || '', '')
           setIconUrl(null)
         }}
       />

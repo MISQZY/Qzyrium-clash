@@ -43,6 +43,7 @@ export default function createGlobe(canvas: HTMLCanvasElement, initial: GlobeOpt
   const context = canvas.getContext('2d', { alpha: true })
   if (!context) throw new Error('Canvas unavailable')
   let options = initial, data: Float32Array | undefined, disposed = false
+  const bands: number[][] = Array.from({ length: 8 }, () => [])
   const draw = () => {
     if (disposed) return
     const { width, height, phi, theta, scale, offset, baseColor, mapBrightness } = options
@@ -61,7 +62,7 @@ export default function createGlobe(canvas: HTMLCanvasElement, initial: GlobeOpt
     const project = globeProjection({ phi, theta, scale }, { cx, cy, radius })
     const dot = Math.max(0.65, radius / 160)
     // Single-pass projection: project each point once and bucket into depth bands
-    const bands: number[][] = [[], [], [], [], [], [], [], []]
+    for (let b = 0; b < 8; b++) bands[b].length = 0
     for (let i = 0; i < data.length; i += 3) {
       const point = project([data[i], data[i + 1], data[i + 2]])
       if (point.depth < 0) continue
