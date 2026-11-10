@@ -261,8 +261,17 @@ if (process.type === 'renderer') {
       const seconds = text => text.split(':').reduce((total, value) => total * 60 + Number(value), 0)
       assert.ok(seconds(await evaluate(`document.querySelector('.overview-session-duration').textContent`)) >= seconds(sessionBeforePause) + 65, 'restoring a throttled window catches up with wall-clock time')
       await evaluate(`Date.now = window.__clockBeforePause; delete window.__clockBeforePause; window.dispatchEvent(new Event('focus'))`)
-      assert.ok(await evaluate(`(() => { const state = document.querySelector('.sidebar-vpn-badge').getBoundingClientRect(); const modes = document.querySelector('.sidebar-routing').getBoundingClientRect(); const dot = document.querySelector('.sidebar-vpn-dot'); return state.left < modes.left && dot.getBoundingClientRect().width >= 9 && getComputedStyle(dot).animationName === 'sidebar-vpn-pulse' && getComputedStyle(document.querySelector('.sidebar-vpn-badge')).borderTopWidth === '0px' })()`))
-      result.checks.push('Session clock survives navigation/focus; sidebar state is left of modes with a soft pulse')
+      const sidebarStatus = await evaluate(`(() => {
+        const badge = document.querySelector('.sidebar-vpn-badge'), dot = document.querySelector('.sidebar-vpn-dot');
+        return { left: badge.getBoundingClientRect().left, modesLeft: document.querySelector('.sidebar-routing').getBoundingClientRect().left,
+          dotWidth: dot.getBoundingClientRect().width, animation: getComputedStyle(dot).animationName,
+          border: getComputedStyle(badge).borderTopWidth, reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches };
+      })()`)
+      assert.ok(sidebarStatus.left < sidebarStatus.modesLeft, 'VPN status stays left of routing modes')
+      assert.ok(sidebarStatus.dotWidth >= 9, 'VPN status dot stays visible')
+      assert.equal(sidebarStatus.animation, sidebarStatus.reducedMotion ? 'none' : 'sidebar-vpn-pulse', 'VPN status animation respects system motion preferences')
+      assert.equal(sidebarStatus.border, '0px')
+      result.checks.push('Session clock survives navigation/focus; sidebar state stays left of modes and respects reduced motion')
       await navigate('Proxy groups')
       await waitFor(`document.querySelectorAll('[aria-label^="Select Node"]').length === 18`)
       // Native lazy images do not start loading in a hidden test window.
