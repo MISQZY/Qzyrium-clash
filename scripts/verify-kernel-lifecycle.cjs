@@ -82,28 +82,36 @@ async function verifyRestart() {
   await flush()
   now = 15001
   timers.filter(timer => timer.delay === 200).at(-1).callback()
+  await flush()
+  children.at(-1).emit('exit', 1, null)
   await timeoutAssertion
   assert.equal(manager.getState(), 'error', 'readiness has a bounded deadline')
+  const recoveredStart = start()
+  await flush()
+  probes.at(-1).resolve({ data: { version: 'recovered' } })
+  await recoveredStart
+  assert.equal(manager.getState(), 'running', 'a failed startup cleans up its process and allows retry')
   const timeoutStop = manager.stop()
   timers.filter(timer => timer.delay === 5000 && !timer.cancelled).at(-1).callback()
   await assert.rejects(timeoutStop, /Timed out/)
   children.at(-1).emit('error', new Error('still alive'))
   await assert.rejects(start(), /previous Mihomo process/)
-  assert.equal(children.length, 4, 'failed stop must not orphan a still-running child')
+  assert.equal(children.length, 5, 'failed stop must not orphan a still-running child')
 }
 
 async function verifyModeUpdates() {
   const handlers = new Map(), calls = []
   const { registerIpcHandlers } = load('src/main/ipc/registerHandlers.ts', {
+    '../utils/elevation': { isProcessElevated: () => false, restartAsAdmin: async () => false },
     electron: { ipcMain: { handle: (channel, fn) => handlers.set(channel, fn) } },
     '@shared/ipc': { IPC_CHANNELS: new Proxy({}, { get: (_, key) => key }) }, '../utils/logger': { logger }
   })
   const initial = structuredClone(load('src/shared/app-config.ts', {}).DEFAULT_APP_CONFIG)
   initial.sysProxy.enable = true
-  let settings, status, rejectMode
-  const reset = (state = 'running') => { calls.length = 0; settings = structuredClone(initial); status = state; rejectMode = false }
+  let settings, status, rejectMode, rejectSave
+  const reset = (state = 'running') => { calls.length = 0; settings = structuredClone(initial); status = state; rejectMode = false; rejectSave = false }
   const services = {
-    settingService: { getSettings: () => settings, updateSettings: async patch => { calls.push('save'); settings = { ...settings, ...patch, kernel: { ...settings.kernel, ...patch.kernel } }; return settings } },
+    settingService: { getSettings: () => settings, updateSettings: async patch => { calls.push('save'); if (rejectSave) throw new Error('disk full'); settings = { ...settings, ...patch, kernel: { ...settings.kernel, ...patch.kernel } }; return settings } },
     kernelService: { getStatus: () => status, patchConfigs: async patch => { calls.push(`mode:${patch.mode}`); if (rejectMode) throw new Error('API unavailable') }, restart: async () => { calls.push('restart') } },
     sysProxyService: { setSysProxy: async () => { calls.push('system-proxy') } },
     trayService: { updateContextMenu() {} }, windowService: { updateTheme() {} }
@@ -124,6 +132,11 @@ async function verifyModeUpdates() {
   rejectMode = true
   await assert.rejects(update()(null, { kernel: { ...settings.kernel, mode: 'global' } }), /API unavailable/)
   assert.equal(settings.kernel.mode, 'rule', 'API failure must preserve saved mode')
+  reset()
+  rejectSave = true
+  await assert.rejects(update()(null, { kernel: { ...settings.kernel, mode: 'global' } }), /disk full/)
+  assert.deepEqual(calls, ['mode:global', 'save', 'mode:rule'], 'failed persistence rolls the live core back to the saved routing mode')
+  assert.equal(settings.kernel.mode, 'rule')
   reset()
   await update()(null, { kernel: { ...settings.kernel, mixedPort: 7896 } })
   assert.deepEqual(calls, ['save', 'restart', 'system-proxy'], 'port change still restarts and reapplies OS proxy')
