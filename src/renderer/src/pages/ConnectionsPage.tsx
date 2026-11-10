@@ -380,7 +380,7 @@ export function ConnectionsPage({
       <Card
         key={item.id}
         onClick={() => setSelectedConnection(item)}
-        className="group relative cursor-pointer border border-border/70 bg-card hover:bg-muted/30 hover:border-primary/40 transition-colors p-3 shadow-none rounded-xl"
+        className="group relative cursor-pointer border border-border/70 bg-card hover:bg-muted/30 hover:border-primary/40 transition-colors p-3 shadow-none rounded-xl [content-visibility:auto] [contain-intrinsic-size:auto_72px]"
       >
         <div className="flex items-center justify-between gap-3">
           {/* Left: Process icon & Details */}

@@ -134,7 +134,7 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
       <div ref={scrollRef} onScroll={(event) => { scrollPosition.current = event.currentTarget.scrollTop }} className="flex-1 min-w-0 min-h-0 rounded-xl bg-card border border-border p-4 font-mono text-xs overflow-y-auto [overflow-anchor:none] select-text shadow-inner">
         {filteredLogs.length > 0 ? (
           filteredLogs.map((item, idx) => (
-            <div key={`${item.time}-${idx}-${item.type}`} className="grid grid-cols-[auto_6rem_minmax(0,1fr)] items-start gap-3 py-1 leading-relaxed border-b border-border/40 last:border-0 hover:bg-muted/20">
+            <div key={`${item.time}-${idx}-${item.type}`} className="grid grid-cols-[auto_6rem_minmax(0,1fr)] items-start gap-3 py-1 leading-relaxed border-b border-border/40 last:border-0 hover:bg-muted/20 [content-visibility:auto] [contain-intrinsic-size:auto_28px]">
               <time className="text-muted-foreground shrink-0 tabular-nums" title={item.time}>[{displayTime(item.time)}]</time>
               <span className={`uppercase text-[10px] pt-px ${getLevelColor(item.type)}`}>
                 {common(normalizeLogLevel(item.type))}

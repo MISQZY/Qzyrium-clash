@@ -129,7 +129,13 @@ const api: IElectronApi = {
       }
     },
     onLog: (callback: (log: LogEntry) => void) => {
-      const listener = (_: IpcRendererEvent, log: LogEntry): void => callback(log)
+      const listener = (_: IpcRendererEvent, log: LogEntry | LogEntry[]): void => {
+        if (Array.isArray(log)) {
+          for (let i = 0; i < log.length; i++) callback(log[i])
+        } else {
+          callback(log)
+        }
+      }
       ipcRenderer.on(IPC_CHANNELS.EVENT_LOG, listener)
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.EVENT_LOG, listener)
