@@ -159,7 +159,7 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[96vw] max-w-6xl h-[92vh] max-h-[94vh] flex flex-col p-4 sm:p-5 gap-3 overflow-hidden">
         {/* Header */}
-        <DialogHeader className="pb-2 border-b border-border/60 shrink-0">
+        <DialogHeader className="pb-2 shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-3 pr-8">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="size-8 rounded-md bg-primary/15 text-primary flex items-center justify-center shrink-0">
@@ -255,7 +255,7 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
         </div>
 
         {/* Footer */}
-        <DialogFooter className="gap-2 sm:gap-2 pt-1 border-t border-border/40 shrink-0 flex items-center justify-between sm:justify-between">
+        <DialogFooter className="gap-2 sm:gap-2 pt-1 shrink-0 flex items-center justify-between sm:justify-between">
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
               <Switch

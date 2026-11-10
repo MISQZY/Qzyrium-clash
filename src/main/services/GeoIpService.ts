@@ -26,23 +26,30 @@ export class GeoIpService {
 
   getOrigin(): GeoLocation | null { return this.origin }
 
-  async captureOrigin(): Promise<void> {
+  async captureOrigin(force = false): Promise<void> {
     if (this.disposed) return
     if (this.originRequest) return this.originRequest
     const network = JSON.stringify(Object.entries(networkInterfaces()).flatMap(([name, addresses]) =>
       (addresses ?? []).filter((address) => !address.internal && !/mihomo|tun|clash/i.test(name)).map((address) => address.address)).sort())
-    if (network === this.originNetwork && Date.now() < this.originExpires) return
+    if (!force && network === this.originNetwork && Date.now() < this.originExpires) return
     const sameNetwork = network === this.originNetwork
     this.originNetwork = network
     if (!sameNetwork) this.origin = null
     this.cache.delete('')
     const signal = AbortSignal.timeout(2500)
+    let fallback: GeoLocation | null = null
+    // The bundled database contains country centers, not city coordinates.
+    // Resolve the direct public IP's city online; prepare a local fallback in
+    // parallel so an unavailable provider cannot hold up TUN startup.
+    const localOrigin = this.local
+      ? this.discoverOrigin(signal).then((location) => { fallback = location; return location }).catch(() => null)
+      : Promise.resolve(null)
     let onAbort: () => void
-    const deadline = new Promise<null>((resolve) => {
-      onAbort = () => resolve(null)
+    const deadline = new Promise<GeoLocation | null>((resolve) => {
+      onAbort = () => resolve(fallback)
       signal.addEventListener('abort', onAbort, { once: true })
     })
-    this.originRequest = Promise.race([this.local ? this.discoverOrigin(signal) : this.locateIp(''), deadline]).then((location) => {
+    this.originRequest = Promise.race([this.locateIp('', signal).then((location) => location ?? localOrigin), deadline]).then((location) => {
       if (this.disposed) return
       if (location) this.origin = location
       this.originExpires = Date.now() + (location ? 300_000 : 60_000)
@@ -55,7 +62,7 @@ export class GeoIpService {
       try {
         const { data } = await axios.get(url, { proxy: false, timeout: 1400, signal, maxRedirects: 0, maxContentLength: 1024 })
         const ip = typeof data === 'string' ? data.trim() : data?.ip
-        if (typeof ip === 'string' && publicIp(ip)) return this.locateIp(ip)
+        if (typeof ip === 'string' && publicIp(ip)) return this.locateIp(ip, signal)
       } catch { /* The second endpoint is independent of the first provider. */ }
     }
     return null
@@ -88,7 +95,7 @@ export class GeoIpService {
     return entry.value
   }
 
-  private locateIp(ip: string): Promise<GeoLocation | null> {
+  private locateIp(ip: string, requestSignal?: AbortSignal): Promise<GeoLocation | null> {
     if (this.disposed) return Promise.resolve(null)
     const cached = this.cache.get(ip)
     if (cached && cached.expires > Date.now()) return cached.value
@@ -101,13 +108,13 @@ export class GeoIpService {
       }
       const encoded = encodeURIComponent(ip)
       const providers = [`https://ipwho.is/${encoded}`, `https://ipapi.co/${ip ? `${encoded}/` : ''}json/`]
-      const signal = AbortSignal.timeout(3500)
+      const signal = requestSignal ?? AbortSignal.timeout(3500)
       for (const url of providers) {
         try {
           const { data } = await axios.get(url, { proxy: false, timeout: 2500, signal, maxRedirects: 0, maxContentLength: 32_768 })
           if (!data || data.success === false || data.error || typeof data.ip !== 'string' || !publicIp(data.ip) || !Number.isFinite(data.longitude) || !Number.isFinite(data.latitude) || Math.abs(data.longitude) > 180 || Math.abs(data.latitude) > 90) continue
           const countryCode = typeof data.country_code === 'string' ? data.country_code : typeof data.countryCode === 'string' ? data.countryCode : undefined
-          return { ip: data.ip, longitude: data.longitude, latitude: data.latitude, city: typeof data.city === 'string' ? data.city : '', country: typeof data.country_name === 'string' ? data.country_name : typeof data.country === 'string' ? data.country : '', countryCode }
+          return { ip: data.ip, longitude: data.longitude, latitude: data.latitude, city: typeof data.city === 'string' ? data.city : '', country: typeof data.country_name === 'string' ? data.country_name : typeof data.country === 'string' ? data.country : '', countryCode, precision: data.city ? 'city' : 'country' }
         } catch { /* Try a second provider within the same total time budget. */ }
       }
       entry.expires = Date.now() + 60_000

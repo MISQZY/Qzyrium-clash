@@ -631,7 +631,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 
                 {/* Expanded Content: Node Options Grid */}
                 {isExpanded && (
-                  <div className="px-3.5 sm:px-4 pb-4 pt-1 border-t border-border/50 bg-background/30">
+                  <div className="px-3.5 sm:px-4 pb-4 pt-1 bg-background/30">
                     {sortedNodes.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3">
                         {sortedNodes.map((nodeName) => {

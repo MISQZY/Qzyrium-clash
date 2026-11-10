@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import createGlobe, { type Globe } from '../lib/canvas-globe'
+import createGlobe, { landPoints, type Globe } from '../lib/canvas-globe'
 import { useTranslations } from '../i18n'
 import { EmojiText } from './EmojiText'
 import type { GlobeRoute } from '../lib/globe'
@@ -50,6 +50,7 @@ export function ConnectionGlobe({
   // Camera orientation is maintained permanently; user rotations are never overridden by routes or tunnels.
   const camera = useRef(defaultCamera())
   const viewport = useRef<Viewport>({ width: 1, height: 1, reserved: 0 })
+  const surface = useRef<Float32Array | undefined>(undefined)
   const routesRef = useRef(routes)
   routesRef.current = routes
   const runningRef = useRef(running)
@@ -90,7 +91,7 @@ export function ConnectionGlobe({
     host.append(canvas)
 
     let globe: Globe | undefined, rAfId: number | null = null, disposed = false, frames = 0
-    let sizedWidth = 0, sizedHeight = 0, lastTheme = ''
+    let sizedWidth = 0, sizedHeight = 0, lastDpr = 0, lastTheme = ''
     let lastPhi = -999, lastTheta = -999, lastScale = -999
     let lastColor: [number, number, number] | null = null
     let lastBrightness = -1
@@ -104,7 +105,7 @@ export function ConnectionGlobe({
       const layout = globeLayout(camera.current, view)
       const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
       const palette = `${theme}:${document.documentElement.dataset.theme}:${document.documentElement.style.getPropertyValue('--primary')}`
-      const resized = sizedWidth !== view.width || sizedHeight !== view.height
+      const resized = sizedWidth !== view.width || sizedHeight !== view.height || lastDpr !== window.devicePixelRatio
       const cameraChanged = Math.abs(lastPhi - camera.current.phi) > 0.0001 || Math.abs(lastTheta - camera.current.theta) > 0.0001 || Math.abs(lastScale - layout.scale) > 0.0001
       const themeChanged = lastTheme !== palette
 
@@ -160,6 +161,7 @@ export function ConnectionGlobe({
         })
         sizedWidth = view.width
         sizedHeight = view.height
+        lastDpr = window.devicePixelRatio
         lastTheme = palette
         lastPhi = camera.current.phi
         lastTheta = camera.current.theta
@@ -176,7 +178,7 @@ export function ConnectionGlobe({
       }
 
       if (frames < 4 || resized || cameraChanged) {
-        setProjected(projectRoutes(routesRef.current, camera.current, view))
+        setProjected(surface.current ? projectRoutes(routesRef.current, camera.current, view, surface.current) : [])
       }
     }
 
@@ -186,6 +188,12 @@ export function ConnectionGlobe({
       }
     }
     invalidate.current = schedule
+    void landPoints().then((points) => {
+      if (disposed) return
+      surface.current = points
+      setProjected(projectRoutes(routesRef.current, camera.current, viewport.current, points))
+      schedule()
+    }).catch(() => {})
 
 
     try {
@@ -221,6 +229,7 @@ export function ConnectionGlobe({
     const measureScene = () => {
       const bounds = scene.getBoundingClientRect()
       measure(bounds.width, bounds.height)
+      schedule()
     }
     window.addEventListener('resize', measureScene)
     measureScene()
@@ -256,7 +265,7 @@ export function ConnectionGlobe({
 
   useEffect(() => {
     if (viewport.current.width > 1 && viewport.current.height > 1) {
-      setProjected(projectRoutes(routesRef.current, camera.current, viewport.current))
+      setProjected(surface.current ? projectRoutes(routesRef.current, camera.current, viewport.current, surface.current) : [])
     }
   }, [routes])
 
@@ -354,7 +363,9 @@ export function ConnectionGlobe({
               Math.hypot(other.originPoint.x - route.originPoint!.x, other.originPoint.y - route.originPoint!.y) < 1) === index
           ).map((route) => (
             <circle key={`origin-${route.id}`} cx={route.originPoint!.x} cy={route.originPoint!.y}
-              r={2.5} className="globe-route-origin" />
+              r={2.5} className="globe-route-origin">
+              <title>{routes.find((item) => item.id === route.id)?.fromLabel}</title>
+            </circle>
           ))}
 
           {labels.map(({ endpoint, x, y, width, height }) =>
@@ -421,7 +432,7 @@ export function ConnectionGlobe({
                 onMouseLeave={() => setHovered(null)}
                 className={`globe-route-summary ${activeId === route.id ? 'is-active' : ''}`}
                 aria-pressed={expandedId === route.id}
-                title={route.node}
+                title={`${route.fromLabel} → ${route.toLabel}\n${route.node}`}
               >
                 <span className="globe-route-dot" style={{ backgroundColor: projected.find((group) => group.routeIds.includes(route.id))?.color ?? route.color }} aria-hidden="true" />
                 <span className="globe-route-name"><EmojiText text={route.node} /></span>

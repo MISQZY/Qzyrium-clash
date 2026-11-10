@@ -80,7 +80,7 @@ export function ShortcutSettings({ value, onChange, disabled }: {
   }, [recording])
 
   return <div>
-    <div className="divide-y divide-border/60">
+    <div className="">
       {SHORTCUT_ACTIONS.map(action => {
         const label = t(LABELS[action])
         const active = recording === action

@@ -31,10 +31,11 @@ if (process.type === 'renderer') {
         const ctx = canvas.getContext('2d');
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
         const scene = document.querySelector('.globe-scene').getBoundingClientRect();
+        const sx = canvas.width / scene.width, sy = canvas.height / scene.height;
         const cx = surface.x + surface.width / 2, cy = surface.y + surface.height / 2, radius = surface.width / 2;
         let transparent = 0, total = 0;
         for (let y = 0; y < canvas.height; y += 2) for (let x = 0; x < canvas.width; x += 2) {
-          if (Math.hypot(x + scene.x - cx, y + scene.y - cy) > radius * .8) continue;
+          if (Math.hypot(x / sx + scene.x - cx, y / sy + scene.y - cy) > radius * .8) continue;
           total++; if (data[(y * canvas.width + x) * 4 + 3] === 0) transparent++;
         }
         return { cx, cy, radius, width: innerWidth, transparentFraction: transparent / total };

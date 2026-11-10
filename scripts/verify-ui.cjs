@@ -91,7 +91,8 @@ if (process.type === 'renderer') {
       if (await evaluate(`!!document.querySelector('.globe-canvas')`)) {
         await waitFor(`(() => {
           const canvas = document.querySelector('.globe-canvas'), bounds = document.querySelector('.globe-scene')?.getBoundingClientRect();
-          return canvas?.dataset.globeReady === 'true' && bounds && canvas.width === Math.round(bounds.width) && canvas.height === Math.round(bounds.height);
+          const dpr = Math.min(devicePixelRatio || 1, 3);
+          return canvas?.dataset.globeReady === 'true' && bounds && canvas.width === Math.round(Math.round(bounds.width) * dpr) && canvas.height === Math.round(Math.round(bounds.height) * dpr);
         })()`)
       }
     }

@@ -1,4 +1,5 @@
 import landMask from '../assets/globe-land.png'
+import { globeProjection } from './cobe-globe'
 
 interface GlobeOptions {
   width: number; height: number; phi: number; theta: number; scale: number
@@ -8,7 +9,7 @@ interface GlobeOptions {
 // The tiny land mask is from COBE (MIT); see assets/globe-land.LICENSE.
 // Keep the same spherical camera, but draw only when it changes, without a WebGL context.
 let points: Promise<Float32Array> | undefined
-function landPoints(): Promise<Float32Array> {
+export function landPoints(): Promise<Float32Array> {
   return points ??= new Promise((resolve, reject) => {
     const image = new Image()
     image.onerror = () => reject(new Error('Globe map unavailable'))
@@ -45,8 +46,11 @@ export default function createGlobe(canvas: HTMLCanvasElement, initial: GlobeOpt
   const draw = () => {
     if (disposed) return
     const { width, height, phi, theta, scale, offset, baseColor, mapBrightness } = options
-    if (canvas.width !== width) canvas.width = Math.max(1, width)
-    if (canvas.height !== height) canvas.height = Math.max(1, height)
+    const dpr = Math.min(window.devicePixelRatio || 1, 3)
+    const bufferWidth = Math.max(1, Math.round(width * dpr)), bufferHeight = Math.max(1, Math.round(height * dpr))
+    if (canvas.width !== bufferWidth) canvas.width = bufferWidth
+    if (canvas.height !== bufferHeight) canvas.height = bufferHeight
+    context.setTransform(dpr, 0, 0, dpr, 0, 0)
     context.clearRect(0, 0, width, height)
     const radius = height * 0.4 * scale
     const cx = width / 2 + offset[0] * scale / 2, cy = height / 2 + offset[1] * scale / 2
@@ -54,7 +58,7 @@ export default function createGlobe(canvas: HTMLCanvasElement, initial: GlobeOpt
     // The CSS surface supplies neutral shading. Keep the oceans transparent;
     // adding a colored disk here doubles the atmosphere and lights up the center.
     if (!data) return
-    const sp = Math.sin(phi), cp = Math.cos(phi), st = Math.sin(theta), ct = Math.cos(theta)
+    const project = globeProjection({ phi, theta, scale }, { cx, cy, radius })
     const dot = Math.max(0.65, radius / 160)
     // Bucket by depth to batch thousands of dots into a handful of canvas calls.
     for (let band = 0; band < 8; band++) {
@@ -62,10 +66,9 @@ export default function createGlobe(canvas: HTMLCanvasElement, initial: GlobeOpt
       context.fillStyle = `rgba(${color},${Math.min(1, (0.22 + band / 10) * mapBrightness / 1.8)})`
       for (let i = 0; i < data.length; i += 3) {
         const x = data[i], y = data[i + 1], z = data[i + 2]
-        const depth = -sp * ct * x + st * y + cp * ct * z
+        const point = project([x, y, z]), depth = point.depth
         if (depth < 0 || Math.min(7, Math.floor(depth * 8)) !== band) continue
-        const px = cx + (cp * x + sp * z) * radius
-        const py = cy - (sp * st * x + ct * y - cp * st * z) * radius
+        const px = point.x, py = point.y
         context.moveTo(px + dot, py); context.arc(px, py, dot, 0, Math.PI * 2)
       }
       context.fill()

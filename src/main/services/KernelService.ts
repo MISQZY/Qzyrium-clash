@@ -154,7 +154,7 @@ export class KernelService implements BaseService {
 
     // Capture the physical source before TUN can alter routing. This is bounded
     // by GeoIpService and never blocks Electron's event loop or window creation.
-    const origin = this.geoIp.captureOrigin().catch(() => {})
+    const origin = this.geoIp.captureOrigin(true).catch(() => {})
     if (settings.kernel.tun.enable) await origin
 
     // Ensure geo database files are present in mihomoDir and up to date with bundled assets
@@ -320,6 +320,7 @@ export class KernelService implements BaseService {
 
   private async loadGlobeLocations(generation: number): Promise<GlobeLocations> {
     const isRunning = this.getStatus() === 'running'
+    if (!isRunning) return { origin: this.geoIp.getOrigin(), routes: [] }
     const settings = this.settingService.getSettings()
     if (settings.kernel.mode === 'direct') return { origin: this.geoIp.getOrigin(), routes: [], status: 'direct' }
     // Axios bypasses the system HTTP proxy. Retrying while our TUN is active could

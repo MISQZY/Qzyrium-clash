@@ -115,6 +115,11 @@ export function DashboardPage({
   const selectionKey = JSON.stringify(Object.entries(proxies).filter(([, node]) => node.now).map(([name, node]) => [name, node.now]))
 
   useEffect(() => {
+    if (!running) {
+      setLocations(EMPTY_LOCATIONS)
+      setLocating(false)
+      return
+    }
     if (!visible || liteMode || !window.api?.mihomo.getGlobeLocations) return
     setLocating(true)
     let disposed = false
@@ -131,11 +136,10 @@ export function DashboardPage({
     return () => { disposed = true; clearTimeout(timer) }
   }, [visible, liteMode, running, connecting, activeProfile?.id, activeProfile?.updatedAt, settings.kernel.mode, selectionKey])
 
-  const isConnectingOrStopped = !running
-  const shouldShowRoutes = settings.kernel.mode !== 'direct'
+  const shouldShowRoutes = running && settings.kernel.mode !== 'direct'
   const routes = useMemo(
-    () => shouldShowRoutes ? connectionRoutes(locations, proxies, delays, connections, settings.kernel.mode, rules, locale, isConnectingOrStopped) : [],
-    [shouldShowRoutes, locations, proxies, delays, connections, settings.kernel.mode, rules, locale, isConnectingOrStopped]
+    () => shouldShowRoutes ? connectionRoutes(locations, proxies, delays, connections, settings.kernel.mode, rules, locale) : [],
+    [shouldShowRoutes, locations, proxies, delays, connections, settings.kernel.mode, rules, locale]
   )
 
   const routeNames = JSON.stringify(routes.map((route) => route.node).sort())
@@ -266,7 +270,7 @@ export function DashboardPage({
             </div>
           )}
         </aside>
-        {!liteMode && <div className="overview-map-notes" role="status"><p>{locating ? t('locatingRoutes') : statusMessage}</p></div>}
+        {!liteMode && running && <div className="overview-map-notes" role="status"><p>{locating ? t('locatingRoutes') : statusMessage}</p></div>}
       </div>
     </div>
   </section>
