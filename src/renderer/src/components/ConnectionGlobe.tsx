@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import createGlobe, { type Globe } from 'cobe'
+import createGlobe, { type Globe } from '../lib/canvas-globe'
 import { useTranslations } from '../i18n'
 import { EmojiText } from './EmojiText'
 import type { GlobeRoute } from '../lib/globe'
@@ -34,12 +34,6 @@ const DORMANT_COLOR_DARK: [number, number, number] = [0.72, 0.74, 0.78]
 const DORMANT_COLOR_LIGHT: [number, number, number] = [0.62, 0.65, 0.68]
 const IGNITION_DURATION = 950
 
-function getOptimalSamples(): number {
-  if (typeof window === 'undefined') return 6500
-  const screenWidth = window.screen?.width || 1920
-  return screenWidth >= 2560 ? 8000 : 6500
-}
-
 export function ConnectionGlobe({
   running,
   routes,
@@ -69,7 +63,6 @@ export function ConnectionGlobe({
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [projected, setProjected] = useState<ProjectedRoute[]>([])
   const [unavailable, setUnavailable] = useState(false)
-  const [generation, setGeneration] = useState(0)
 
   // Detect running transition to trigger smooth 950ms globe ignition light-up
   useEffect(() => {
@@ -102,8 +95,6 @@ export function ConnectionGlobe({
     let lastColor: [number, number, number] | null = null
     let lastBrightness = -1
     let cachedActiveColor: [number, number, number] | null = null
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.0)
-    const optimalSamples = getOptimalSamples()
 
     const draw = () => {
       rAfId = null
@@ -163,7 +154,6 @@ export function ConnectionGlobe({
           scale: layout.scale,
           offset: layout.offset,
           baseColor: targetColor,
-          markerColor: targetColor,
           mapBrightness: targetBrightness,
           dark: theme === 'dark' ? 0.94 : 0.1,
           ...(resized || frames < 4 ? { width: view.width, height: view.height } : {})
@@ -197,15 +187,8 @@ export function ConnectionGlobe({
     }
     invalidate.current = schedule
 
-    const lost = (event: Event) => { event.preventDefault(); setUnavailable(true) }
-    const restored = () => setGeneration((value) => value + 1)
-    canvas.addEventListener('webglcontextlost', lost)
-    canvas.addEventListener('webglcontextrestored', restored)
 
     try {
-      const contextOptions = { alpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, powerPreference: 'low-power' as const }
-      const gl = canvas.getContext('webgl2', contextOptions) || canvas.getContext('webgl', contextOptions)
-      if (!gl) throw new Error('WebGL unavailable')
       const initialTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
       const initialDormant: [number, number, number] = initialTheme === 'dark' ? DORMANT_COLOR_DARK : DORMANT_COLOR_LIGHT
       const initialActive = getCssColorRgb('--primary', initialTheme === 'dark' ? [0.48, 0.74, 0.57] : [0.78, 0.88, 0.8])
@@ -213,12 +196,11 @@ export function ConnectionGlobe({
       const initialBrightness = running ? (initialTheme === 'dark' ? 2.6 : 0.85) : (initialTheme === 'dark' ? 1.7 : 0.75)
 
       globe = createGlobe(canvas, {
-        width: 1, height: 1, devicePixelRatio: dpr,
+        width: 1, height: 1, offset: [0, 0],
         phi: camera.current.phi, theta: camera.current.theta, scale: camera.current.scale,
-        dark: initialTheme === 'dark' ? 0.94 : 0.1, diffuse: 0.25, opacity: 1,
-        mapSamples: optimalSamples, mapBrightness: initialBrightness, mapBaseBrightness: 0,
-        baseColor: initialColor, markerColor: initialColor, glowColor: [0, 0, 0],
-        markers: [], arcs: [], context: contextOptions
+        dark: initialTheme === 'dark' ? 0.94 : 0.1,
+        mapBrightness: initialBrightness,
+        baseColor: initialColor
       })
       lastColor = initialColor
       lastBrightness = initialBrightness
@@ -257,13 +239,10 @@ export function ConnectionGlobe({
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3)
       resize.disconnect(); theme.disconnect()
       document.removeEventListener('visibilitychange', onVisibilityChange)
-      canvas.removeEventListener('webglcontextlost', lost); canvas.removeEventListener('webglcontextrestored', restored)
       globe?.destroy()
-      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
-      gl?.getExtension('WEBGL_lose_context')?.loseContext()
       host.replaceChildren()
     }
-  }, [generation])
+  }, [])
 
   // When routes update, redraw SVG projection without resetting camera orientation
   useEffect(() => {

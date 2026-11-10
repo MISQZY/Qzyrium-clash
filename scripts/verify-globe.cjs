@@ -61,6 +61,15 @@ async function main() {
   assert.equal((await service.locateHost('4.2.2.1')).ip, '4.2.2.1', 'secondary GeoIP provider works when primary is unavailable')
 
   const helpers = load('src/main/utils/globe-routes.ts', {})
+  const profileHelpers = load('src/main/utils/globe-profile.ts', {})
+  const compact = profileHelpers.globeProfile({
+    proxies: [{ name: 'node', server: 'vpn.example.com', password: 'secret', certificate: 'x'.repeat(100000) }],
+    'proxy-groups': [{ name: 'GROUP', proxies: ['node'] }],
+    rules: Array.from({ length: 10000 }, (_, i) => `DOMAIN,host${i}.example,GROUP`),
+    dns: { nameserver: ['1.1.1.1'] }
+  })
+  assert.ok(JSON.stringify(compact).length < 300, 'globe cache retains addresses and unique targets, not full profiles')
+  assert.deepEqual(compact.rules, ['MATCH,GROUP'])
   const { LocalGeoIp } = load('src/main/utils/local-geoip.ts', { './country-centers.json': JSON.parse(fs.readFileSync('src/main/utils/country-centers.json', 'utf8')) })
   const localDb = new LocalGeoIp(() => require('node:path').resolve('extra/files/geoip.dat'))
   let beats = 0
@@ -70,6 +79,9 @@ async function main() {
     assert.deepEqual(results.map((result) => result?.country), ['United States', 'Russia', 'China', 'United States'])
     assert.ok(results.every((result) => result.precision === 'country' && Number.isFinite(result.latitude)))
     assert.ok(beats > 0, 'GeoIP scan runs off the main event loop')
+    localDb.shutdownWorker()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    assert.equal((await localDb.lookup('8.8.8.8'))?.country, 'United States', 'GeoIP worker restarts after releasing its idle database')
   } finally { clearInterval(heartbeat); localDb.dispose() }
   const offlineService = new GeoIpService({ lookup: async (ip) => ({ ...a, ip, precision: 'country' }), dispose() {} })
   const beforeOffline = requests.length
@@ -102,6 +114,8 @@ async function main() {
 
   const empty = class {}
   const { KernelService } = load('src/main/services/KernelService.ts', {
+    '../utils/globe-profile': profileHelpers,
+    '../utils/elevation': { isProcessElevated: () => false },
     '../core/MihomoApiClient': { MihomoApiClient: empty }, '../core/MihomoConfigFactory': {}, '../core/MihomoProcessManager': { MihomoProcessManager: empty }, '../utils/logger': {}, '../utils/paths': {}, '@shared/ipc': {}, './GeoIpService': { GeoIpService }, '../utils/globe-routes': helpers, '../utils/local-geoip': { LocalGeoIp }
   })
   const kernel = Object.create(KernelService.prototype)
@@ -167,6 +181,8 @@ async function main() {
   let profileRead = new Promise(resolve => { releaseProfile = resolve })
   let originRead = new Promise(resolve => { releaseOrigin = () => { originFinished = true; resolve() } })
   const { KernelService: LifecycleKernel } = load('src/main/services/KernelService.ts', {
+    '../utils/globe-profile': profileHelpers,
+    '../utils/elevation': { isProcessElevated: () => true },
     fs: { constants: { COPYFILE_EXCL: 1 }, promises: { copyFile: async () => {}, writeFile: async () => {} } },
     '../core/MihomoApiClient': {}, '../core/MihomoProcessManager': {},
     '../core/MihomoConfigFactory': { MihomoConfigFactory: { synthesize: (_raw, _settings, rules) => { syntheses++; assert.deepEqual(rules, customRules); return 'fixture' } } },
