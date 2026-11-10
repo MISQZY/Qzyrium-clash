@@ -53,7 +53,7 @@ app.whenReady().then(async () => {
       await delay(250)
       const ratios = await evaluate(`(() => {
         const probe = document.createElement('span'); document.body.append(probe);
-        const ctx = document.createElement('canvas').getContext('2d');
+        const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
         const read = key => { probe.style.color = 'var(' + key + ')'; ctx.clearRect(0,0,1,1); ctx.fillStyle = getComputedStyle(probe).color; ctx.fillRect(0,0,1,1); return [...ctx.getImageData(0,0,1,1).data].slice(0,3); };
         const lum = rgb => rgb.reduce((sum,v,i) => { v /= 255; return sum + (v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4) * [.2126,.7152,.0722][i]; }, 0);
         const ratio = (a,b) => (Math.max(lum(a),lum(b))+.05)/(Math.min(lum(a),lum(b))+.05);

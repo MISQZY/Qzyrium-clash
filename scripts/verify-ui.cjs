@@ -14,7 +14,7 @@ if (process.type === 'renderer') {
   let sessionStartedAt = Date.now() - 3600000
   let trafficCallback, statusCallback, logCallback
   let configFile = null, savedConfig = null
-  let customThemes = []
+  let customThemes = JSON.parse(localStorage.getItem('qzyrium:customThemeCache') || '[]')
   const profiles = [
     { id: 'remote', name: 'Europe · Primary subscription', type: 'remote', url: 'https://example.com/subscription/' + 'long-path-'.repeat(60), updatedAt: Date.now() },
     { id: 'long', name: 'A very long profile name '.repeat(20), type: 'local', updatedAt: Date.now() }
