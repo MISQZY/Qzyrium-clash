@@ -16,6 +16,7 @@ if (process.type === 'renderer') {
     }
     api.events.onUpdaterStatus = (cb) => { callback = cb; return () => { callback = null } }
     expose(name, api)
+    expose('updaterTest', { setStatus: next => { status = next; callback?.(status) } })
   }
   require('./verify-ui.cjs')
 } else {
@@ -38,6 +39,7 @@ if (process.type === 'renderer') {
     }
     try {
       await win.loadFile(path.resolve(__dirname, '../out/renderer/index.html'))
+      win.showInactive()
       await waitFor(`document.querySelector('[role="dialog"]')?.textContent.includes("What's new")`)
       assert.ok(await evaluate(`document.querySelector('[role="dialog"]').textContent.includes('<script>unsafe</script>')`), 'remote notes render as text')
       await new Promise(resolve => setTimeout(resolve, 150))
@@ -45,7 +47,8 @@ if (process.type === 'renderer') {
       await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(button => button.textContent === 'Close').click()`)
       await waitFor(`!document.querySelector('[role="dialog"]')`)
       await new Promise(resolve => setTimeout(resolve, 150))
-      assert.deepEqual(await evaluate(`Array.from(document.querySelector('.sidebar-footer').children).map(element => element.className)`), ['sidebar-vpn-badge', 'sidebar-update', 'sidebar-routing'])
+      assert.deepEqual(await evaluate(`Array.from(document.querySelector('.sidebar-footer').children).map(element => element.className)`), ['sidebar-vpn-badge', 'sidebar-routing'])
+      assert.ok(await evaluate(`(() => { const button = document.querySelector('.sidebar-update'), settings = document.querySelector('nav [aria-label="Settings"]'); return button.parentElement === settings.closest('.sidebar-group') && button.getBoundingClientRect().bottom <= settings.getBoundingClientRect().top })()`), 'update button appears above settings')
       assert.ok(await evaluate(`(() => { const footer = document.querySelector('.sidebar-footer'); return footer.scrollWidth <= footer.clientWidth })()`), 'expanded footer fits')
       await win.webContents.capturePage().then(image => fs.writeFileSync(path.join(output, 'expanded.png'), image.toPNG()))
       await evaluate(`document.querySelector('[aria-label="Settings"]').click()`)
@@ -59,9 +62,35 @@ if (process.type === 'renderer') {
       await evaluate(`document.querySelector('.sidebar-update').click()`)
       await waitFor(`document.querySelector('.sidebar-update-percent')?.textContent === '42%'`)
       assert.ok(await evaluate(`document.querySelector('.sidebar-update').disabled`))
+      await new Promise(resolve => setTimeout(resolve, 150))
       await win.webContents.capturePage().then(image => fs.writeFileSync(path.join(output, 'collapsed.png'), image.toPNG()))
+      for (const width of [840, 900, 1040]) {
+        win.setContentSize(width, 720)
+        await waitFor(`Math.abs(innerWidth - ${width}) <= 2`)
+        for (const expanded of [false, true]) {
+          if (await evaluate(`document.querySelector('#app-sidebar').dataset.state === 'expanded'`) !== expanded) await evaluate(`document.querySelector('.sidebar-trigger').click()`)
+          await waitFor(`Math.round(document.querySelector('#app-sidebar').getBoundingClientRect().width) === ${expanded ? 256 : 64}`)
+          for (const status of [{ state: 'available', version: '123.456.789-beta.123456789' }, { state: 'downloading', percent: 100 }, { state: 'downloaded' }, { state: 'error', message: 'test' }]) {
+            await evaluate(`window.updaterTest.setStatus(${JSON.stringify(status)})`)
+            await waitFor(`document.querySelector('.sidebar-update')?.dataset.state === '${status.state}'`)
+            const layout = await evaluate(`(() => {
+              const button = document.querySelector('.sidebar-update'), bounds = button.getBoundingClientRect(), badge = document.querySelector('.sidebar-vpn-badge .sidebar-label');
+              return { fits: button.scrollWidth <= button.clientWidth && button.scrollHeight <= button.clientHeight,
+                childrenFit: [...button.children].filter(el => getComputedStyle(el).display !== 'none').every(el => { const r = el.getBoundingClientRect(); return r.left >= bounds.left && r.right <= bounds.right && r.top >= bounds.top && r.bottom <= bounds.bottom }),
+                statusFits: getComputedStyle(badge).display === 'none' || badge.scrollWidth <= badge.clientWidth };
+            })()`)
+            assert.deepEqual(layout, { fits: true, childrenFit: true, statusFits: true }, `${width}px / ${expanded ? 'expanded' : 'collapsed'} / ${status.state}`)
+            if (width === 840 && status.state === 'downloading') {
+              await new Promise(resolve => setTimeout(resolve, 150))
+              fs.writeFileSync(path.join(output, `progress-100-${expanded ? 'expanded' : 'collapsed'}.png`), (await win.webContents.capturePage()).toPNG())
+            }
+          }
+        }
+      }
+      await evaluate(`window.updaterTest.setStatus({ state: 'not-available' })`)
+      await waitFor(`!document.querySelector('.sidebar-update')`)
       assert.deepEqual(errors, [])
-      console.log('PASS: release notes dialog, safe remote text, dismiss, indicator position, expanded/collapsed layout and download progress')
+      console.log('PASS: release notes, update above settings, fixed 256/64px sidebar at 840/900/1040px, all update states fit, 100% progress and unobstructed VPN status')
     } finally { win.destroy(); app.quit() }
   }).catch(error => { console.error(error); app.exit(1) })
 }

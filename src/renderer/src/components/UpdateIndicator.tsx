@@ -19,6 +19,7 @@ export function UpdateIndicator() {
       else if (status.state === 'error') void window.api.app.checkUpdates().catch(() => {})
     }}>
       <Icon className={`size-4 shrink-0 ${busy ? 'animate-spin' : ''}`} />
+      <span className="sidebar-label sidebar-update-label">{label}</span>
       {downloading && <span className="sidebar-update-percent">{status.percent}%</span>}
     </button>
   </Tooltip.Trigger><Tooltip.Portal><Tooltip.Content side="top" sideOffset={8} className="sidebar-tooltip">{label}<Tooltip.Arrow className="fill-popover" /></Tooltip.Content></Tooltip.Portal></Tooltip.Root>
