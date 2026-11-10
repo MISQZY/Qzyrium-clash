@@ -18,5 +18,6 @@
   "routingMode": "Routing mode",
   "modeRule": "Rule",
   "modeGlobal": "Global",
-  "modeDirect": "Direct"
+  "modeDirect": "Direct",
+  "coreOnlyMode": "Core only"
 }

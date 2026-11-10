@@ -144,5 +144,8 @@
   "subscriptionsGroup": "Subscriptions and latency tests",
   "subscriptionsDescription": "Subscription updates, node switching and latency test options.",
   "shortcutsGroup": "Keyboard shortcuts",
-  "shortcutsDescription": "Global shortcuts for controlling the application."
+  "shortcutsDescription": "Global shortcuts for controlling the application.",
+  "coreOnlyMode": "Core only",
+  "coreOnlyDescription": "Close the interface to free memory. The core keeps its current state; control it and restore the interface from the tray. Save pending settings first.",
+  "enableCoreOnly": "Enable core only"
 }

@@ -47,6 +47,8 @@ export class WindowService implements BaseService {
   private isQuitting = false
   private startHidden = false
   private ready = false
+  private coreOnly = false
+  private modeChanged?: () => void
   private startupVisible?: boolean
   private visibilityHandler?: (visible: boolean) => void
 
@@ -58,15 +60,36 @@ export class WindowService implements BaseService {
     this.visibilityHandler = handler
   }
 
+  setModeChangedHandler(handler: () => void): void { this.modeChanged = handler }
+
+  isCoreOnlyMode(): boolean { return this.coreOnly }
+
   setStartupVisibility(visible: boolean): void { this.startupVisible = visible }
 
+  setCoreOnlyMode(enabled: boolean): void {
+    if (this.isQuitting || this.coreOnly === enabled) return
+    this.coreOnly = enabled
+    if (enabled) {
+      this.ready = false
+      this.visibilityHandler?.(false)
+      const window = this.mainWindow
+      this.mainWindow = null
+      // Destroy the renderer, bypassing the normal close-to-tray behavior.
+      window?.destroy()
+    } else {
+      this.show()
+    }
+    this.modeChanged?.()
+  }
+
   async initialize(): Promise<void> {
+    nativeTheme.on('updated', this.updateTheme)
+    if (this.coreOnly) return
     this.startHidden = this.startupVisible === undefined ? !!this.settingService.getSettings().general.silentStart : !this.startupVisible
     await this.createWindow()
     if (this.startHidden) {
       this.visibilityHandler?.(false)
     }
-    nativeTheme.on('updated', this.updateTheme)
   }
 
   async dispose(): Promise<void> {
@@ -271,6 +294,11 @@ export class WindowService implements BaseService {
   }
 
   show(): void {
+    if (this.isQuitting) return
+    if (this.coreOnly) {
+      this.coreOnly = false
+      this.modeChanged?.()
+    }
     this.startHidden = false
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
       void this.createWindow()

@@ -293,6 +293,12 @@ export class TrayService implements BaseService {
         click: () => this.windowService.show()
       },
       {
+        label: messages.coreOnlyMode,
+        type: 'checkbox',
+        checked: this.windowService.isCoreOnlyMode(),
+        click: () => this.windowService.setCoreOnlyMode(!this.windowService.isCoreOnlyMode())
+      },
+      {
         label: `${messages.proxy} (${sysProxyStatus.enabled ? messages.on : messages.off})`,
         click: async () => {
           await this.sysProxyService.setSysProxy(!sysProxyStatus.enabled)

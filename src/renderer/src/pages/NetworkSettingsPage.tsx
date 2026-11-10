@@ -558,6 +558,9 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
         </SettingsGroup>
         <SettingsGroup title={t('performanceGroup')} description={t('performanceDescription')} icon={<Gauge />}>
           {renderGeneralFields(['disableGpu', 'liteDashboard', 'connectionInterval', 'maxLogs'])}
+          <SettingRow title={t('coreOnlyMode')} description={t('coreOnlyDescription')}>
+            <Button type="button" variant="outline" disabled={busy || dirty} onClick={() => { void window.api.app.enterCoreOnly() }}>{t('enableCoreOnly')}</Button>
+          </SettingRow>
 
         </SettingsGroup>
         <SettingsGroup title={t('subscriptionsGroup')} description={t('subscriptionsDescription')} icon={<FileText />}>

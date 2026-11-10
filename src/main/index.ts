@@ -152,6 +152,7 @@ if (!gotTheLock) {
     if (restartState) {
       services.windowService.setStartupVisibility(restartState.visible)
       services.kernelService.setStartupRunning(restartState.running)
+      if (restartState.coreOnly) services.windowService.setCoreOnlyMode(true)
     }
     registerIpcHandlers(services)
     await services.initialize()
@@ -164,6 +165,7 @@ if (!gotTheLock) {
     }
 
     app.on('activate', () => {
+      if (services?.windowService.isCoreOnlyMode()) return
       if (BrowserWindow.getAllWindows().length === 0 && services) {
         services.windowService.createWindow()
       }
@@ -197,6 +199,7 @@ if (!gotTheLock) {
   })
 
   app.on('window-all-closed', () => {
+    if (services?.windowService.isCoreOnlyMode()) return
     const minimizeToTray = services?.settingService.getSettings().general.minimizeToTray ?? true
     if (!minimizeToTray || process.platform === 'darwin') {
       app.quit()

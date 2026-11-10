@@ -18,5 +18,6 @@
   "routingMode": "Режим маршрутизации",
   "modeRule": "По правилам",
   "modeGlobal": "Глобальный",
-  "modeDirect": "Прямой"
+  "modeDirect": "Прямой",
+  "coreOnlyMode": "Только ядро"
 }
