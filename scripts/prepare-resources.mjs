@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import zlib from 'zlib'
+import { pipeline } from 'node:stream/promises'
 import AdmZip from 'adm-zip'
 
 const cwd = process.cwd()
@@ -26,19 +27,25 @@ const targetName = MIHOMO_MAP[key]
 
 async function downloadFile(url, dest) {
   console.log(`[INFO] Downloading: ${url}`)
-  const res = await fetch(url)
+  const res = await fetch(url, { signal: AbortSignal.timeout(60_000) })
   if (!res.ok) {
     throw new Error(`Failed to download ${url}: ${res.status} ${res.statusText}`)
   }
   const buffer = await res.arrayBuffer()
-  fs.writeFileSync(dest, Buffer.from(buffer))
+  if (!buffer.byteLength) throw new Error(`Empty resource: ${url}`)
+  const temp = `${dest}.${process.pid}.tmp`
+  try {
+    fs.writeFileSync(temp, Buffer.from(buffer))
+    fs.renameSync(temp, dest)
+  } finally {
+    if (fs.existsSync(temp)) fs.unlinkSync(temp)
+  }
   console.log(`[INFO] Saved to: ${dest}`)
 }
 
 async function prepareMihomo() {
   if (!targetName) {
-    console.warn(`[WARN] Unsupported platform/arch: ${key}. Skipping core download.`)
-    return
+    throw new Error(`Unsupported platform/arch: ${key}`)
   }
 
   fs.mkdirSync(TARGET_DIR, { recursive: true })
@@ -47,14 +54,14 @@ async function prepareMihomo() {
   const ext = platform === 'win32' ? '.exe' : ''
   const coreDest = path.join(TARGET_DIR, `mihomo${ext}`)
 
-  if (fs.existsSync(coreDest)) {
+  if (fs.existsSync(coreDest) && fs.statSync(coreDest).size > 0) {
     console.log(`[INFO] Mihomo core already exists at: ${coreDest}`)
     return
   }
 
   // Get latest release version
   console.log('[INFO] Fetching latest Mihomo release tag...')
-  const verRes = await fetch('https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt')
+  const verRes = await fetch('https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt', { signal: AbortSignal.timeout(30_000) })
   if (!verRes.ok) {
     throw new Error('Failed to fetch latest mihomo version tag')
   }
@@ -71,7 +78,15 @@ async function prepareMihomo() {
     const entry = zip.getEntries().find((e) => e.entryName.endsWith('.exe') || e.entryName === targetName)
 
     if (entry) {
-      fs.writeFileSync(coreDest, entry.getData())
+      const data = entry.getData()
+      if (data.length === 0) throw new Error('Empty Mihomo executable in ZIP archive')
+      const tempCore = `${coreDest}.${process.pid}.tmp`
+      try {
+        fs.writeFileSync(tempCore, data)
+        fs.renameSync(tempCore, coreDest)
+      } finally {
+        if (fs.existsSync(tempCore)) fs.unlinkSync(tempCore)
+      }
       if (platform !== 'win32') {
         fs.chmodSync(coreDest, 0o755)
       }
@@ -88,10 +103,14 @@ async function prepareMihomo() {
     await downloadFile(gzUrl, tempGz)
     const gunzip = zlib.createGunzip()
     const inp = fs.createReadStream(tempGz)
-    const out = fs.createWriteStream(coreDest)
-    await new Promise((resolve, reject) => {
-      inp.pipe(gunzip).pipe(out).on('finish', resolve).on('error', reject)
-    })
+    const tempCore = `${coreDest}.${process.pid}.tmp`
+    try {
+      await pipeline(inp, gunzip, fs.createWriteStream(tempCore))
+      if (fs.statSync(tempCore).size === 0) throw new Error('Empty Mihomo executable', { cause: err })
+      fs.renameSync(tempCore, coreDest)
+    } finally {
+      if (fs.existsSync(tempCore)) fs.unlinkSync(tempCore)
+    }
     if (platform !== 'win32') {
       fs.chmodSync(coreDest, 0o755)
     }
@@ -119,12 +138,8 @@ async function prepareGeoFiles() {
 
   for (const item of geoFiles) {
     const dest = path.join(FILES_DIR, item.name)
-    if (!fs.existsSync(dest)) {
-      try {
-        await downloadFile(item.url, dest)
-      } catch (err) {
-        console.warn(`[WARN] Could not download ${item.name}: ${err.message}`)
-      }
+    if (!fs.existsSync(dest) || fs.statSync(dest).size === 0) {
+      await downloadFile(item.url, dest)
     } else {
       console.log(`[INFO] Geo file ${item.name} already exists.`)
     }
@@ -139,6 +154,7 @@ async function main() {
     console.log('[SUCCESS] All resources ready!')
   } catch (e) {
     console.error('[FATAL] Failed to prepare resources:', e)
+    process.exitCode = 1
   }
 }
 
