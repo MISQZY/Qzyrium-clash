@@ -306,7 +306,16 @@ export function registerIpcHandlers(services: ServiceManager): void {
     return restarted
   })
 
+  const MAX_ICON_CACHE = 80
   const iconCache = new Map<string, string>()
+
+  const setCachedIcon = (key: string, value: string) => {
+    if (iconCache.size >= MAX_ICON_CACHE) {
+      const oldest = iconCache.keys().next().value
+      if (oldest) iconCache.delete(oldest)
+    }
+    iconCache.set(key, value)
+  }
 
   ipcMain.handle(IPC_CHANNELS.APP_GET_PROCESS_ICON, async (_, processPath: string) => {
     if (!processPath || typeof processPath !== 'string') return null
@@ -317,7 +326,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
         const appIcon = await app.getFileIcon(process.execPath, { size: 'normal' }).catch(() => null)
         if (appIcon && !appIcon.isEmpty()) {
           const dataUrl = appIcon.toDataURL()
-          iconCache.set(processPath, dataUrl)
+          setCachedIcon(processPath, dataUrl)
           return dataUrl
         }
       }
@@ -337,14 +346,14 @@ export function registerIpcHandlers(services: ServiceManager): void {
         const icon = await app.getFileIcon(targetPath, { size: 'normal' })
         if (icon && !icon.isEmpty()) {
           const dataUrl = icon.toDataURL()
-          iconCache.set(processPath, dataUrl)
+          setCachedIcon(processPath, dataUrl)
           return dataUrl
         }
       }
     } catch {
       // Ignore file icon extraction failures
     }
-    iconCache.set(processPath, '')
+    setCachedIcon(processPath, '')
     return null
   })
 

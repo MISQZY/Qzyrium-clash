@@ -52,6 +52,8 @@ try {
 app.commandLine.appendSwitch('gpu-rasterization-msaa-sample-count', '0')
 app.commandLine.appendSwitch('disable-features', 'SpareRendererForSitePerProcess,BackForwardCache,WinUseBrowserSpellChecker')
 app.commandLine.appendSwitch('disable-spellcheck')
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=128 --optimize_for_size')
+app.commandLine.appendSwitch('renderer-process-limit', '1')
 
 let services: ServiceManager | null = null
 let shuttingDown = false
