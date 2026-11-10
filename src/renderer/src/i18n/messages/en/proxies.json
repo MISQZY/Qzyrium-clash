@@ -1,4 +1,7 @@
 {
+  "offlineSelectionHint": "VPN is off. Your node selection will be used the next time you connect.",
+  "latencyRequiresConnection": "Connect the VPN to test latency",
+  "noCachedNodes": "This provider has no downloaded nodes yet.",
   "timeout": "Timeout",
   "proxies": "Proxy groups",
   "selectActiveExitNodeAndTestLatency": "Select active exit node and test latency across proxy groups",
