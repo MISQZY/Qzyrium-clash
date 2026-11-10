@@ -65,7 +65,17 @@ export class KernelService implements BaseService {
         } catch {
           return undefined
         }
-      })
+      }),
+      async (host: string) => {
+        if (this.getStatus() === 'running') {
+          try {
+            return await this.apiClient.resolveHost(host)
+          } catch {
+            return null
+          }
+        }
+        return null
+      }
     )
 
     this.setupListeners()
@@ -248,6 +258,45 @@ export class KernelService implements BaseService {
     return this.enqueueLifecycle(async () => {
       await this.stopCore()
       await this.startCore()
+    })
+  }
+
+  async reloadConfig(force = true): Promise<void> {
+    if (this.getStatus() !== 'running') {
+      await this.restart()
+      return
+    }
+    this.invalidateGlobe()
+    return this.enqueueLifecycle(async () => {
+      try {
+        const paths = getAppPaths()
+        const settings = this.settingService.getSettings()
+        const activeProfile = this.profileService.getActiveProfile()
+        const rawContent = activeProfile ? await this.profileService.getProfileContent(activeProfile.id) : null
+        if (activeProfile && rawContent === null) throw new Error(`Profile file is missing: ${activeProfile.name}`)
+
+        const customRules = activeProfile ? this.profileService.getCustomRules(activeProfile.id) : []
+        const configKey = JSON.stringify([settings.kernel, customRules])
+        const digest = createHash('sha256').update(rawContent === null ? 'no-profile:' : 'profile:').update(rawContent ?? '').digest('hex')
+        this.synthesizedConfig = { digest, key: configKey, yaml: MihomoConfigFactory.synthesize(rawContent, settings, customRules) }
+        await fs.promises.writeFile(paths.activeConfigPath, this.synthesizedConfig.yaml, 'utf-8')
+
+        await this.apiClient.reloadConfig(force)
+        logger.info('Mihomo configuration reloaded on the fly via REST API')
+
+        if (activeProfile?.selectedGroupProxies && Object.keys(activeProfile.selectedGroupProxies).length) {
+          const proxies = await this.apiClient.getProxies()
+          for (const [group, node] of Object.entries(activeProfile.selectedGroupProxies)) {
+            if (!(proxies[group] as ProxyGroup | undefined)?.all?.includes(node)) continue
+            try { await this.apiClient.selectProxy(group, node) }
+            catch (error) { logger.warn(`Could not restore selected proxy for ${group}: ${String(error)}`) }
+          }
+        }
+      } catch (err) {
+        logger.warn(`Hot config reload failed, falling back to full restart: ${String(err)}`)
+        await this.stopCore()
+        await this.startCore()
+      }
     })
   }
 
