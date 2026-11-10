@@ -86,7 +86,10 @@ if (process.type === 'renderer') {
       assert.equal(breadcrumb.group, group[breadcrumb.locale === 'ru' ? 1 : 0], `${label}: breadcrumb group`)
       assert.equal(breadcrumb.page, label, `${label}: breadcrumb page`)
       if (await evaluate(`!!document.querySelector('.globe-canvas')`)) {
-        await waitFor(`(() => { const canvas = document.querySelector('.globe-canvas'); return canvas?.dataset.globeReady === 'true' })()`)
+        await waitFor(`(() => {
+          const canvas = document.querySelector('.globe-canvas'), bounds = document.querySelector('.globe-scene')?.getBoundingClientRect();
+          return canvas?.dataset.globeReady === 'true' && bounds && canvas.width === Math.round(bounds.width) && canvas.height === Math.round(bounds.height);
+        })()`)
       }
     }
     const screenshot = async (name) => {
