@@ -22,15 +22,10 @@ import { SettingService } from './SettingService'
 import { GeoIpService } from './GeoIpService'
 import { LocalGeoIp } from '../utils/local-geoip'
 import { globeCandidates } from '../utils/globe-routes'
-
-function checkElevated(): boolean {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('../utils/elevation').isProcessElevated()
-  } catch {
-    return true
-  }
-}
+import { globeProfile, globeProxies } from '../utils/globe-profile'
+import { isProcessElevated } from '../utils/elevation'
+import type { ProxyGroup } from '@shared/mihomo'
+import { offlineProxies } from '../utils/offline-proxies'
 
 export class KernelService implements BaseService {
   private processManager: MihomoProcessManager
@@ -151,7 +146,7 @@ export class KernelService implements BaseService {
     const paths = getAppPaths()
     const settings = this.settingService.getSettings()
 
-    if (settings.kernel.tun.enable && !checkElevated()) {
+    if (settings.kernel.tun.enable && !isProcessElevated()) {
       throw new Error(nativeMessage(settings.general.language, 'tunRequiresAdmin'))
     }
 
@@ -190,6 +185,7 @@ export class KernelService implements BaseService {
     const rawContent = activeProfile ? await this.profileService.getProfileContent(activeProfile.id) : null
 
     // Synthesize configuration
+    if (activeProfile && rawContent === null) throw new Error(`Profile file is missing: ${activeProfile.name}`)
     const customRules = activeProfile ? this.profileService.getCustomRules(activeProfile.id) : []
     const configKey = JSON.stringify([settings.kernel, customRules])
     if (!this.synthesizedConfig || this.synthesizedConfig.raw !== rawContent || this.synthesizedConfig.key !== configKey) {

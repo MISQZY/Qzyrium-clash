@@ -117,6 +117,7 @@ export class LocalGeoIp {
       this.checkIdle()
     })
     const fail = () => {
+      if (this.worker !== worker) return
       this.failed = true; this.worker = null
       if (this.idleTimer) {
         clearTimeout(this.idleTimer)
