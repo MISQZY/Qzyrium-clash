@@ -53,6 +53,13 @@ jobs:
       - run: pnpm test:bundle
       - run: pnpm test:functional
       - run: pnpm test:ui:all
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: functional-failure-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: ignore
 
   release:
     name: Build and publish Windows release

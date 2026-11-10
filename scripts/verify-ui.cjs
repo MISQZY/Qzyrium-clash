@@ -168,7 +168,7 @@ if (process.type === 'renderer') {
           const layout = await evaluate(`(() => { const root = document.documentElement; const main = document.querySelector('.app-main'); const sidebar = document.querySelector('.app-sidebar'); const viewport = document.querySelector('.page-viewport'); const page = document.querySelector('.page-scroll'); return { width: innerWidth, height: innerHeight, rootWidth: root.scrollWidth, rootHeight: root.scrollHeight, clientWidth: root.clientWidth, clientHeight: root.clientHeight, bodyOverflow: root.scrollWidth > root.clientWidth + 1 || root.scrollHeight > root.clientHeight + 1, mainOverflow: main.scrollWidth > main.clientWidth + 1, pageOverflow: page ? page.scrollWidth > page.clientWidth + 1 : false, aligned: Math.abs(main.getBoundingClientRect().top - sidebar.getBoundingClientRect().top) < 1, bottom: Math.abs(viewport.getBoundingClientRect().bottom - innerHeight) < 1 } })()`)
           assert.equal(layout.bodyOverflow, false, `${width}×${height} ${label}: body overflow ${JSON.stringify(layout)}`)
           assert.equal(layout.mainOverflow, false, `${width}×${height} ${label}: workspace overflow`)
-          assert.equal(layout.pageOverflow, false, `${width}×${height} ${label}: page overflow`)
+          assert.equal(layout.pageOverflow, false, `${width}×${height} ${label}: page overflow ${JSON.stringify(layout)}`)
           assert.ok(layout.aligned && layout.bottom, `${width}×${height} ${label}: misaligned shell`)
           result.checks.push(`${width}x${height} ${label}`)
         }
@@ -406,6 +406,17 @@ if (process.type === 'renderer') {
       win.destroy()
       app.exit(0)
     } catch (err) {
+      const layout = await evaluate(`(() => {
+        const page = document.querySelector('.page-scroll'), bounds = page?.getBoundingClientRect();
+        return { width: innerWidth, height: innerHeight, dpr: devicePixelRatio,
+          page: page && { width: page.clientWidth, scrollWidth: page.scrollWidth, height: page.clientHeight, scrollHeight: page.scrollHeight },
+          overflowing: bounds && Array.from(page.querySelectorAll('*')).map(el => {
+            const r = el.getBoundingClientRect();
+            return { tag: el.tagName, className: el.getAttribute('class'), x: r.x, y: r.y, width: r.width, height: r.height, right: r.right };
+          }).filter(r => r.right > bounds.right + 1).slice(0, 20)
+        };
+      })()`).catch(() => null)
+      console.error('Failure layout:', JSON.stringify(layout))
       result.errors.push(err.stack)
       fs.writeFileSync(path.join(output, 'result.json'), JSON.stringify(result, null, 2))
       await screenshot('failure').catch(() => {})
