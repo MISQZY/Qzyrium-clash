@@ -29,6 +29,7 @@ export interface ProfileItem {
   selectedGroupProxies?: Record<string, string>
   customRules?: CustomRuleItem[]
   autoUpdate?: boolean
+  updateViaProxy?: boolean
   interval?: number
   customUA?: string
   userInfo?: ProfileUserInfo

@@ -5,6 +5,8 @@
   "displayNameHint": "Leave blank to use the name provided by your subscription.",
   "subscriptionLinkHint": "Use the subscription link from your provider.",
   "autoUpdateHint": "Keep servers and subscription information up to date.",
+  "updateViaProxy": "Update via proxy",
+  "updateViaProxyHint": "Download and update this subscription through the active proxy tunnel.",
   "updateFrequency": "Update frequency",
   "everyHour": "Every hour",
   "every6Hours": "Every 6 hours",
