@@ -15,7 +15,10 @@ export function publicIp(ip: string): boolean {
 }
 
 export class GeoIpService {
-  constructor(private local?: LocalGeoIp) {}
+  constructor(
+    private local?: LocalGeoIp,
+    private dnsResolver?: (host: string) => Promise<string[] | null>
+  ) {}
   private cache = new Map<string, { expires: number; value: Promise<GeoLocation | null> }>()
   private hosts = new Map<string, { expires: number; value: Promise<string | null> }>()
   private origin: GeoLocation | null = null
@@ -83,8 +86,19 @@ export class GeoIpService {
     if (cached && cached.expires > Date.now()) return cached.value
     let timer: ReturnType<typeof setTimeout>
     const entry = { expires: Date.now() + 60_000, value: Promise.resolve<string | null>(null) }
+    const resolveDns = async (): Promise<string | null> => {
+      if (this.dnsResolver) {
+        try {
+          const answers = await this.dnsResolver(host)
+          if (answers && answers.length > 0 && answers[0]) return answers[0]
+        } catch {
+          // Fall back to system lookup
+        }
+      }
+      return lookup(host).then((result) => result.address)
+    }
     entry.value = Promise.race([
-      lookup(host).then((result) => result.address),
+      resolveDns(),
       new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), 2500); timer.unref() })
     ]).catch(() => null).then((address) => {
       if (!address) entry.expires = Date.now() + 10_000
