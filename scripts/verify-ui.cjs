@@ -24,7 +24,7 @@ if (process.type === 'renderer') {
   let connections = Array.from({ length: 8 }, (_, i) => ({ id: String(i), metadata: { network: 'tcp', type: 'HTTP', sourceIP: '127.0.0.1', destinationIP: '203.0.113.1', sourcePort: '51234', destinationPort: '443', host: i ? `service-${i}.example.com` : 'a-very-long-hostname-'.repeat(12) + '.example.com', processPath: 'C:\\Program Files\\Example\\browser.exe', dnsMode: 'normal' }, upload: 12345, download: 12345678, start: new Date().toISOString(), chains: ['PROXY', Object.keys(nodes)[0]], rule: 'DomainSuffix', rulePayload: 'example.com' }))
   const noop = async () => {}
   contextBridge.exposeInMainWorld('api', {
-    uiTest: { emitLogs: (count) => { for (let i = 0; i < count; i++) logCallback?.({ type: 'info', payload: `Journal regression ${Date.now()} ${i} ` + 'payload '.repeat(40), time: new Date().toISOString() }) } },
+    uiTest: { emitLogs: (count) => { for (let i = 0; i < count; i++) logCallback?.({ type: 'info', payload: `Journal regression ${Date.now()} ${i} ` + 'payload '.repeat(40), time: new Date().toISOString() }) }, increaseTraffic: () => { connections = connections.map(c => ({ ...c, download: c.download + 4096 })) } },
     kernel: { getStatus: async () => state, getSessionStartedAt: async () => state === 'running' ? sessionStartedAt : null, start: async () => { sessionStartedAt = Date.now(); state = 'running'; statusCallback?.(state) }, stop: async () => { state = 'stopped'; statusCallback?.(state); trafficCallback?.({ up: 0, down: 0 }) }, restart: async () => { sessionStartedAt = Date.now(); state = 'running'; statusCallback?.(state) }, getVersion: async () => ({ version: 'test', meta: true }) },
     settings: { get: async () => settings, update: async (patch) => { settings = { ...settings, ...patch }; return settings } },
     sysproxy: { getStatus: async () => ({ enabled: settings.sysProxy.enable, mode: 'manual', port: settings.kernel.mixedPort }), set: async (enable) => { settings.sysProxy.enable = enable } },
@@ -189,6 +189,15 @@ if (process.type === 'renderer') {
       assert.ok(await evaluate(`${journal}.scrollHeight - ${journal}.clientHeight - ${journal}.scrollTop < 2`), 'enabled autoscroll follows new entries')
       result.checks.push('Journal filter and autoscroll persist across navigation; scrolling stays off through buffer rollover')
 
+      await navigate('Connections')
+      await waitFor(`!!document.querySelector('[data-traffic="download"]')`)
+      assert.equal(await evaluate(`document.querySelector('[data-traffic="download"]').getAnimations().length`), 0, 'initial traffic is dim')
+      await evaluate(`window.api.uiTest.increaseTraffic()`)
+      await waitFor(`document.querySelector('[data-traffic="download"]').getAnimations().some(a => a.playState === 'running')`)
+      assert.equal(await evaluate(`document.querySelector('[data-traffic="upload"]').getAnimations().length`), 0, 'unchanged upload stays dim')
+      await delay(2400)
+      assert.equal(await evaluate(`document.querySelector('[data-traffic="download"]').getAnimations().length`), 0, 'traffic fades after activity')
+      result.checks.push('Traffic highlights only increasing counters and fades after activity')
       const pages = ['Home', 'Proxy groups', 'Profiles', 'Connections', 'Rules', 'Logs', 'System proxy', 'TUN interface', 'DNS', 'Sniffer', 'Resources', 'Mihomo core', 'Settings']
       for (const [width, height] of [[840, 560], [1040, 720], [1440, 900], [900, 600], [840, 560]]) {
         win.setSize(width, height)

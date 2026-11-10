@@ -35,8 +35,9 @@ import {
 } from '../components/ui/dialog'
 import { CopyableCodeLine } from '../components/CopyableCodeLine'
 import { ScrollArea } from '../components/ui/scroll-area'
-import { formatBytes, formatDuration } from '../lib/format'
+import { formatDuration } from '../lib/format'
 import { EmojiText } from '../components/EmojiText'
+import { TrafficValue } from '../components/TrafficValue'
 import druseSvg from '../assets/brand/druse.svg'
 
 function extractProcessName(processPath?: string): string {
@@ -452,14 +453,8 @@ export function ConnectionsPage({
           {/* Right: Traffic, Duration & Disconnect Action */}
           <div className="flex items-center gap-4 shrink-0">
             <div className="flex flex-col items-end text-right font-mono text-[11px] leading-tight">
-              <span className="text-success flex items-center gap-0.5 font-medium">
-                <ArrowDown className="size-3" />
-                {formatBytes(item.download, locale)}
-              </span>
-              <span className="text-primary flex items-center gap-0.5 font-medium mt-0.5">
-                <ArrowUp className="size-3" />
-                {formatBytes(item.upload, locale)}
-              </span>
+              <TrafficValue value={item.download} direction="download" />
+              <TrafficValue value={item.upload} direction="upload" className="mt-0.5" />
             </div>
 
             <div className="hidden sm:flex flex-col items-end text-right text-[10px] text-muted-foreground">
@@ -632,14 +627,8 @@ export function ConnectionsPage({
                     </Badge>
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-xs font-mono">
-                    <span className="text-success flex items-center gap-0.5 font-medium">
-                      <ArrowDown className="size-3" />
-                      {formatBytes(activeProcessGroup.totalDownload, locale)}
-                    </span>
-                    <span className="text-primary flex items-center gap-0.5 font-medium">
-                      <ArrowUp className="size-3" />
-                      {formatBytes(activeProcessGroup.totalUpload, locale)}
-                    </span>
+                    <TrafficValue key={`${activeProcessGroup.key}-download`} value={activeProcessGroup.totalDownload} direction="download" />
+                    <TrafficValue key={`${activeProcessGroup.key}-upload`} value={activeProcessGroup.totalUpload} direction="upload" />
                   </div>
                 </div>
               </div>
@@ -720,14 +709,8 @@ export function ConnectionsPage({
                   {/* Right: Traffic totals & Chevron */}
                   <div className="flex items-center gap-4 shrink-0">
                     <div className="flex flex-col items-end text-right font-mono text-[11px] leading-tight">
-                      <span className="text-success flex items-center gap-0.5 font-medium">
-                        <ArrowDown className="size-3" />
-                        {formatBytes(group.totalDownload, locale)}
-                      </span>
-                      <span className="text-primary flex items-center gap-0.5 font-medium mt-0.5">
-                        <ArrowUp className="size-3" />
-                        {formatBytes(group.totalUpload, locale)}
-                      </span>
+                      <TrafficValue value={group.totalDownload} direction="download" />
+                      <TrafficValue value={group.totalUpload} direction="upload" className="mt-0.5" />
                     </div>
 
                     <ChevronRight className="size-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
@@ -827,22 +810,18 @@ export function ConnectionsPage({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-0.5 p-3 rounded-xl bg-muted/20 border border-border/50">
                     <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                      <ArrowDown className="size-3 text-success" />
+                      <ArrowDown className="size-3 text-muted-foreground" />
                       {t('transfer')} (↓)
                     </span>
-                    <span className="font-mono text-base font-bold text-success">
-                      {formatBytes(activeDetail.download, locale)}
-                    </span>
+                    <TrafficValue key={`${activeDetail.id}-download`} value={activeDetail.download} direction="download" className="font-mono text-base font-bold" />
                   </div>
 
                   <div className="flex flex-col gap-0.5 p-3 rounded-xl bg-muted/20 border border-border/50">
                     <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                      <ArrowUp className="size-3 text-primary" />
+                      <ArrowUp className="size-3 text-muted-foreground" />
                       {t('transfer')} (↑)
                     </span>
-                    <span className="font-mono text-base font-bold text-primary">
-                      {formatBytes(activeDetail.upload, locale)}
-                    </span>
+                    <TrafficValue key={`${activeDetail.id}-upload`} value={activeDetail.upload} direction="upload" className="font-mono text-base font-bold" />
                   </div>
                 </div>
 
