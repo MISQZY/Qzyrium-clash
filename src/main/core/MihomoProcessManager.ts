@@ -88,12 +88,7 @@ export class MihomoProcessManager extends EventEmitter {
       `127.0.0.1:${controllerPort}`
     ]
 
-    if (secret) {
-      args.push('-secret', secret)
-    }
-
-    const sanitizedArgs = args.map((arg, idx) => (args[idx - 1] === '-secret' ? '[REDACTED]' : arg))
-    logger.info(`Spawning Mihomo: ${binary} ${sanitizedArgs.join(' ')}`)
+    logger.info(`Spawning Mihomo: ${binary} ${args.join(' ')}`)
 
     let exitedPrematurely = false
     let exitCode: number | null = null
