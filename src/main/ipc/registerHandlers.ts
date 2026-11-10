@@ -2,7 +2,7 @@ import { nativeMessage } from '@shared/localization'
 import { app, dialog, ipcMain, shell } from 'electron'
 import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
-import { basename } from 'node:path'
+import { basename, join } from 'node:path'
 import { AddProfileDto, IPC_CHANNELS } from '@shared/ipc'
 import { CustomRuleItem } from '@shared/profile'
 import { AppConfig } from '@shared/app-config'
@@ -276,8 +276,29 @@ export function registerIpcHandlers(services: ServiceManager): void {
     if (!processPath || typeof processPath !== 'string') return null
     if (iconCache.has(processPath)) return iconCache.get(processPath) || null
     try {
-      if (existsSync(processPath)) {
-        const icon = await app.getFileIcon(processPath, { size: 'normal' })
+      const lower = processPath.toLowerCase()
+      if (lower.includes('qzyrium') || lower === 'qzyrium-clash.exe' || lower === 'qzyrium-clash') {
+        const appIcon = await app.getFileIcon(process.execPath, { size: 'normal' }).catch(() => null)
+        if (appIcon && !appIcon.isEmpty()) {
+          const dataUrl = appIcon.toDataURL()
+          iconCache.set(processPath, dataUrl)
+          return dataUrl
+        }
+      }
+
+      let targetPath = processPath
+      if (!existsSync(targetPath)) {
+        if (process.platform === 'win32') {
+          const windir = process.env.WINDIR || 'C:\\Windows'
+          const candidate = join(windir, 'System32', processPath)
+          if (existsSync(candidate)) {
+            targetPath = candidate
+          }
+        }
+      }
+
+      if (existsSync(targetPath)) {
+        const icon = await app.getFileIcon(targetPath, { size: 'normal' })
         if (icon && !icon.isEmpty()) {
           const dataUrl = icon.toDataURL()
     const wasRunning = ['running', 'starting'].includes(services.kernelService.getStatus())
