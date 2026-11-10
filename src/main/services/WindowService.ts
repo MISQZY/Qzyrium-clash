@@ -1,12 +1,13 @@
 import { app, BrowserWindow, nativeTheme, shell } from 'electron'
 import { execFile } from 'child_process'
 import path from 'path'
-import { is } from '@electron-toolkit/utils'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 import { BaseService } from './BaseService'
 import { SettingService } from './SettingService'
 import { IPC_CHANNELS } from '@shared/ipc'
+import type { ThemeStore } from './ThemeStore'
+import { bootAppearance } from '@shared/appearance'
 
 const DWMWA_TRANSITIONS_FORCEDISABLED = 3
 
@@ -44,9 +45,10 @@ export class WindowService implements BaseService {
   private settingService: SettingService
   private isQuitting = false
   private startHidden = false
+  private ready = false
   private visibilityHandler?: (visible: boolean) => void
 
-  constructor(settingService: SettingService) {
+  constructor(settingService: SettingService, private themeStore?: ThemeStore) {
     this.settingService = settingService
   }
 
@@ -81,11 +83,11 @@ export class WindowService implements BaseService {
 
   updateTheme = (): void => {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) return
-    const theme = this.settingService.getSettings().general.theme
-    const dark = theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors)
-    this.mainWindow.setBackgroundColor(dark ? '#121615' : '#f7f9f8')
+    const { theme: preference, language } = this.settingService.getSettings().general
+    const appearance = bootAppearance(preference, language, this.themeStore?.listThemes() ?? [], nativeTheme.shouldUseDarkColors)
+    this.mainWindow.setBackgroundColor(appearance.backgroundColor)
     if (process.platform === 'win32') {
-      this.mainWindow.setTitleBarOverlay({ color: '#00000000', symbolColor: dark ? '#b4b9b7' : '#636a67', height: 36 })
+      this.mainWindow.setTitleBarOverlay({ color: '#00000000', symbolColor: appearance.theme.titleBarOverlay.symbolColor, height: 36 })
     }
   }
 
@@ -107,26 +109,29 @@ export class WindowService implements BaseService {
   }
 
   async createWindow(): Promise<BrowserWindow> {
-    const isDev = is.dev && process.env['ELECTRON_RENDERER_URL']
+    this.ready = false
+    const { theme, language } = this.settingService.getSettings().general
+    const appearance = bootAppearance(theme, language, this.themeStore?.listThemes() ?? [], nativeTheme.shouldUseDarkColors)
 
     const titleBarOverlay = process.platform === 'win32'
-      ? { color: '#00000000', symbolColor: '#b4b9b7', height: 36 }
+      ? { color: '#00000000', symbolColor: appearance.theme.titleBarOverlay.symbolColor, height: 36 }
       : undefined
 
     this.mainWindow = new BrowserWindow({
-      title: 'Qzyrium - clash',
+      title: 'Qzyrium-clash',
       icon: path.join(app.getAppPath(), 'resources', 'icon.png'),
       width: 1040,
       height: 720,
       minWidth: 840,
       minHeight: 620,
-      show: !this.startHidden,
+      show: false,
       center: true,
       titleBarStyle: 'hidden',
       titleBarOverlay,
       autoHideMenuBar: true,
-      backgroundColor: '#121615',
+      backgroundColor: appearance.backgroundColor,
       webPreferences: {
+        additionalArguments: [`--qzyrium-appearance=${encodeURIComponent(JSON.stringify(appearance))}`],
         spellcheck: false,
         preload: path.join(__dirname, '../preload/index.js'),
         sandbox: true,
@@ -157,16 +162,13 @@ export class WindowService implements BaseService {
 
     this.mainWindow.on('ready-to-show', () => {
       logger.info('Main window ready-to-show event fired')
+      this.ready = true
       if (this.startHidden) return
-      this.mainWindow?.show()
-      this.mainWindow?.focus()
+      this.show()
     })
 
     this.mainWindow.webContents.on('did-finish-load', () => {
       logger.info('Main window did-finish-load event fired')
-      if (this.startHidden) return
-      this.mainWindow?.show()
-      this.mainWindow?.focus()
     })
 
     this.mainWindow.webContents.on('console-message', (_, level, message, line, sourceId) => {
@@ -238,14 +240,6 @@ export class WindowService implements BaseService {
       this.mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
     }
 
-    // Force show fallback so the window is NEVER invisible
-    setTimeout(() => {
-      if (!this.startHidden && this.mainWindow && !this.mainWindow.isDestroyed() && !this.mainWindow.isVisible()) {
-        logger.info('Fallback showing main window after timeout')
-        this.mainWindow.show()
-      }
-    }, 1000)
-
     return this.mainWindow
   }
 
@@ -276,6 +270,7 @@ export class WindowService implements BaseService {
       void this.createWindow()
       return
     }
+    if (!this.ready) return
     if (this.mainWindow.isMinimized()) this.mainWindow.restore()
     this.mainWindow.show()
     this.mainWindow.focus()

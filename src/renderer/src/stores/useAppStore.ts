@@ -18,7 +18,10 @@ export function useAppStore() {
   const [sysProxy, setSysProxy] = useState<SysProxyStatus>({ enabled: false, mode: 'manual', port: 7895 })
   const [profiles, setProfiles] = useState<ProfileItem[]>([])
   const [activeProfile, setActiveProfile] = useState<ProfileItem | null>(null)
-  const [settings, setSettings] = useState<AppConfig>(DEFAULT_APP_CONFIG)
+  const [settings, setSettings] = useState<AppConfig>(() => {
+    const boot = window.api?.bootAppearance
+    return boot ? { ...DEFAULT_APP_CONFIG, general: { ...DEFAULT_APP_CONFIG.general, theme: boot.preference, language: boot.language } } : DEFAULT_APP_CONFIG
+  })
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [proxies, setProxies] = useState<Record<string, ProxyNode>>({})
   const [delays, setDelays] = useState<Record<string, number>>({})
@@ -65,6 +68,9 @@ export function useAppStore() {
       if (current()) update(value)
     }
     const request = (async () => {
+      // Proxy synchronization can wait for Windows registry/PAC operations.
+      // Preserve action completion semantics while displaying local data early.
+      const proxyResult = Promise.allSettled([apply(window.api.sysproxy.getStatus(), setSysProxy)])
       const results = await Promise.allSettled([
         apply(window.api.kernel.getStatus(), (status) => {
           if (revision !== statusRevision.current) return
@@ -73,13 +79,14 @@ export function useAppStore() {
         apply(window.api.kernel.getSessionStartedAt?.() ?? Promise.resolve(null), (startedAt) => {
           if (revision === statusRevision.current) setSessionStartedAt(startedAt)
         }),
-        apply(window.api.sysproxy.getStatus(), setSysProxy),
         apply(window.api.profiles.getList(), setProfiles),
         apply(window.api.profiles.getActive(), setActiveProfile),
         apply(window.api.settings.get(), setSettings)
       ])
       if (!current()) return
       setLoading(false)
+      results.push(...await proxyResult)
+      if (!current()) return
       setDataRevision((value) => value + 1)
       const failure = results.find((result) => result.status === 'rejected')
       if (failure?.status === 'rejected') throw failure.reason

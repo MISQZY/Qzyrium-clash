@@ -43,9 +43,12 @@ const CustomThemesContext = createContext<CustomThemesContextValue | null>(null)
 
 export function CustomThemesProvider({ children }: { children: ReactNode }) {
   const t = useTranslations('networksettings')
-  const [customThemes, setCustomThemes] = useState<ThemeDefinition[]>(() =>
-    readCache().map(packToThemeDefinition)
-  )
+  const [customThemes, setCustomThemes] = useState<ThemeDefinition[]>(() => {
+    const cached = readCache().map(packToThemeDefinition)
+    const boot = window.api?.bootAppearance?.theme
+    return boot && !BUILTIN_THEMES.some(theme => theme.id === boot.id)
+      ? [...cached.filter(theme => theme.id !== boot.id), boot] : cached
+  })
 
   const cacheThemePacks = useCallback((packs: CustomThemePack[]): CustomThemePack[] => {
     const normalized = packs.map(normalizeThemePack)

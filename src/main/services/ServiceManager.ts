@@ -29,7 +29,8 @@ export class ServiceManager {
     this.profileService = new ProfileService(this.settingService)
     this.sysProxyService = new SysProxyService(this.settingService)
     this.kernelService = new KernelService(this.settingService, this.profileService)
-    this.windowService = new WindowService(this.settingService)
+    this.themeStore = new ThemeStore(getAppPaths().userData)
+    this.windowService = new WindowService(this.settingService, this.themeStore)
     this.trayService = new TrayService(
       this.windowService,
       this.kernelService,
@@ -40,7 +41,6 @@ export class ServiceManager {
       this.windowService.broadcast('event:settings-changed', null)
       this.trayService.updateContextMenu()
     })
-    this.themeStore = new ThemeStore(getAppPaths().userData)
     this.updateService = new UpdateService((channel, payload) => this.windowService.broadcast(channel, payload), async () => {
       await this.desktopService.dispose()
       await this.kernelService.stop()
