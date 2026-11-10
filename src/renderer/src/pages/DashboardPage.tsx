@@ -1,3 +1,4 @@
+import { selectedLocalization } from '@shared/custom-localization'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocale, useTranslations } from '../i18n'
 import { ArrowDown, ArrowUp, ExternalLink, HelpCircle, LoaderCircle, Megaphone, Power } from 'lucide-react'
@@ -138,8 +139,8 @@ export function DashboardPage({
 
   const shouldShowRoutes = running && settings.kernel.mode !== 'direct'
   const routes = useMemo(
-    () => shouldShowRoutes ? connectionRoutes(locations, proxies, delays, connections, settings.kernel.mode, rules, locale) : [],
-    [shouldShowRoutes, locations, proxies, delays, connections, settings.kernel.mode, rules, locale]
+    () => shouldShowRoutes ? connectionRoutes(locations, proxies, delays, connections, settings.kernel.mode, rules, locale, undefined, selectedLocalization(settings.general)) : [],
+    [shouldShowRoutes, locations, proxies, delays, connections, settings.kernel.mode, rules, locale, settings.general]
   )
 
   const routeNames = JSON.stringify(routes.map((route) => route.node).sort())

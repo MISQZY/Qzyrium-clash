@@ -84,7 +84,9 @@ app.whenReady().then(async () => {
     await delay(100)
     const disclosure = title => `Array.from(document.querySelectorAll('details')).find(el => el.querySelector('summary')?.textContent.trim() === ${JSON.stringify(title)})`
     const themes = disclosure('Custom themes')
+    const localization = disclosure('Custom localization')
     assert.equal(await evaluate(`${themes}.open`), false)
+    assert.equal(await evaluate(`${localization}.open`), false)
     assert.ok(await evaluate(`(() => {
       const trigger = document.querySelector('[role="combobox"][aria-label="Appearance"]');
       const row = trigger.closest('.setting-row'), text = row.firstElementChild.getBoundingClientRect(), control = trigger.getBoundingClientRect();
@@ -92,8 +94,40 @@ app.whenReady().then(async () => {
     })()`), 'theme selector stays in the main row at the minimum window width')
     await evaluate(`${themes}.querySelector('summary').click()`)
     assert.ok(await evaluate(`${themes}.querySelectorAll('button').length >= 2`), 'theme file actions are inside the disclosure')
+    await evaluate(`${localization}.querySelector('summary').click()`)
+    await evaluate(`${localization}.querySelector('button').click()`)
+    await waitFor(`!!window.api.uiTest.getSavedConfig()`)
+    const exported = await evaluate(`JSON.parse(window.api.uiTest.getSavedConfig().content)`)
+    for (const [namespace, messages] of Object.entries(catalogs.en)) {
+      for (const key of Object.keys(messages)) assert.ok(Object.hasOwn(exported.messages[namespace], key), `${namespace}.${key} is in the example`)
+    }
+    assert.ok(exported.messages.native.quit && exported.messages.settingsfields['general.autoStart.label'])
+    const pack = { id: 'custom-test', name: 'Test language', locale: 'de', baseLanguage: 'en', messages: {
+      networksettings: { interfaceGroup: 'Custom interface' }, settingsfields: { 'general.autoStart.label': 'Custom startup' }
+    } }
+    await evaluate(`window.api.uiTest.setConfigFile(${JSON.stringify(JSON.stringify(pack))})`)
+    await clickText('Upload localization')
+    await waitFor(`!!document.querySelector('option[value="custom:custom-test"]')`)
+    await evaluate(`(() => { const select = document.querySelector('select[aria-label="Interface language"]'); select.value = 'custom:custom-test'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`)
+    await evaluate(`document.querySelector('button[form="settings-settings"]').click()`)
+    await waitFor(`document.documentElement.lang === 'de' && document.body.innerText.includes('Custom interface')`)
+    assert.ok(await evaluate(`document.body.innerText.includes('Custom startup')`), 'generated settings field keys are translated')
+    assert.equal(await evaluate(`window.api.settings.get().then(settings => settings.general.customLocalization)`), pack.id)
+    await navigate('en', 'dashboard')
+    await navigate('en', 'settings')
+    assert.ok(await evaluate(`document.body.innerText.includes('Custom interface')`), 'custom language survives navigation')
+    assert.equal(await evaluate(`${localization}.open`), false, 'custom localization is collapsed on entry')
+    await evaluate(`${localization}.querySelector('summary').click()`)
+    await evaluate(`window.api.uiTest.setConfigFile(${JSON.stringify(JSON.stringify({ ...pack, messages: { connections: { sessions: { other: '{wrong} sessions' } } } }))})`)
+    await clickText('Upload localization')
+    await waitFor(`Array.from(document.querySelectorAll('[role="alert"]')).some(el => el.textContent.includes('Invalid localization file'))`)
+    assert.equal(await evaluate(`document.querySelectorAll('option[value="custom:custom-test"]').length`), 1)
+    await evaluate(`${localization}.querySelector('li button').click()`)
+    await evaluate(`document.querySelector('button[form="settings-settings"]').click()`)
+    await waitFor(`document.documentElement.lang === 'en' && !document.body.innerText.includes('Custom interface')`)
+    assert.equal(await evaluate(`document.querySelector('option[value="custom:custom-test"]')`), null)
     assert.deepEqual(errors, [], 'renderer errors')
-    console.log('PASS: 13 pages and subscription dialog in RU/EN; live language changes, update status and placeholders; no renderer errors')
+    console.log('PASS: RU/EN pages and dialogs; collapsed theme/localization sections, theme row layout, complete generated template, custom language upload/selection/persistence/deletion and invalid-file handling; no renderer errors')
     win.destroy()
     app.exit(0)
   } catch (error) {

@@ -1,7 +1,7 @@
 import React, { useId, useState } from 'react'
 import { Check, LoaderCircle, Globe, FileCode, RefreshCw, ChevronDown } from 'lucide-react'
 import type { ProfileItem } from '@shared/profile'
-import { useLocale, useTranslations } from '../i18n'
+import { useLocale, useTranslations, useCustomLocalization } from '../i18n'
 import { EmojiText } from './EmojiText'
 import { profileName } from '../lib/profile-name'
 import { profileSource } from '../lib/profile-source'
@@ -34,6 +34,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
 }) => {
   const t = useTranslations('profiles')
   const locale = useLocale()
+  const customLocalization = useCustomLocalization()
   const id = useId()
   const presets = [60, 360, 720, 1440]
   const [customInterval, setCustomInterval] = useState(!presets.includes(profile?.interval ?? 1440))
@@ -105,7 +106,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
               <div className="min-w-0 space-y-1">
                 <DialogTitle className="text-base">{t('profileSettings')}</DialogTitle>
                 <DialogDescription className="truncate">
-                  <EmojiText text={profileName(profile, locale)} />
+                  <EmojiText text={profileName(profile, locale, customLocalization)} />
                   <span className="mx-1.5" aria-hidden="true">·</span>
                   {profileSource(profile.url) ?? t(isRemote ? 'remoteSubscription' : 'localYAML')}
                 </DialogDescription>

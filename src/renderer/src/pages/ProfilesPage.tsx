@@ -1,4 +1,4 @@
-import { useLocale, useTranslations } from '../i18n'
+import { useLocale, useTranslations, useCustomLocalization } from '../i18n'
 import React, { lazy, Suspense, useRef, useState } from 'react'
 import { Plus, RefreshCw, Trash2, Globe, FileCode, EllipsisVertical, Pencil } from 'lucide-react'
 import { RulesIcon } from '../lib/icons'
@@ -60,6 +60,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
 }) => {
   const t = useTranslations('profiles')
   const locale = useLocale()
+  const customLocalization = useCustomLocalization()
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingProfile, setEditingProfile] = useState<ProfileItem | null>(null)
@@ -205,7 +206,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className="truncate text-sm font-semibold text-foreground" title={displayName(p, locale)}><EmojiText text={displayName(p, locale)} /></span>
+                          <span className="truncate text-sm font-semibold text-foreground" title={displayName(p, locale, customLocalization)}><EmojiText text={displayName(p, locale, customLocalization)} /></span>
                         </div>
                       </div>
                     </div>
@@ -425,7 +426,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>{t('areYouSureYouWantToDeleteThisProfile')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {profileToDelete ? displayName(profileToDelete, locale) : ''}
+              {profileToDelete ? displayName(profileToDelete, locale, customLocalization) : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

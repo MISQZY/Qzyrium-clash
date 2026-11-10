@@ -149,7 +149,7 @@ export class KernelService implements BaseService {
     const settings = this.settingService.getSettings()
 
     if (settings.kernel.tun.enable && !isProcessElevated()) {
-      throw new Error(nativeMessage(settings.general.language, 'tunRequiresAdmin'))
+      throw new Error(nativeMessage(settings.general.language, 'tunRequiresAdmin', settings.general))
     }
 
     // Capture the physical source before TUN can alter routing. This is bounded

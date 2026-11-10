@@ -10,7 +10,8 @@ function load(file, dependencies) {
   vm.runInThisContext(`(function(exports, require) {${output}\n})`, { filename: file })(exports, (name) => {
     if (dependencies[name]) return dependencies[name]
     if (name.endsWith('.json') && name.startsWith('.')) return require(path.resolve(path.dirname(file), name))
-    const target = name.startsWith('@shared/') ? path.resolve('src/shared', name.slice(8) + '.ts') : null
+    const target = name.startsWith('@shared/') ? path.resolve('src/shared', name.slice(8) + '.ts')
+      : name.startsWith('.') ? path.resolve(path.dirname(file), name + '.ts') : null
     return target && fs.existsSync(target) ? load(target, {}) : require(name)
   })
   return exports

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import yaml from 'yaml'
 import { HelpCircle, RotateCcw } from 'lucide-react'
 import type { ConfigValues, SettingsField } from '@shared/settings-fields'
-import { useLocale, useTranslations } from '../i18n'
+import { useTranslations } from '../i18n'
+import { settingsFieldKey } from '../i18n/catalogs'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Switch } from './ui/switch'
@@ -37,7 +38,7 @@ function MappingInput({ id, label, value, onChange, placeholder }: { id: string;
 }
 
 export function SettingsFields({ fields, value, onChange, prefix, inherit = true }: { fields: readonly SettingsField[]; value: ConfigValues; onChange: (value: ConfigValues) => void; prefix: string; inherit?: boolean }) {
-  const locale = useLocale()
+  const fieldT = useTranslations('settingsfields')
   const t = useTranslations('networksettings')
   const optionLabels: Record<string, string> = {
     always: t('optionAlways'), strict: t('optionStrict'), off: t('optionOff'),
@@ -53,7 +54,7 @@ export function SettingsFields({ fields, value, onChange, prefix, inherit = true
   }
   return <div className="flex flex-col gap-4">{fields.map((field) => {
     const id = `${prefix}-${field.key}`
-    const label = field.label[locale]
+    const label = fieldT(`${settingsFieldKey(field)}.label`)
     const current = value[field.key]
 
     if (field.type === 'boolean' && !inherit) {
@@ -63,7 +64,7 @@ export function SettingsFields({ fields, value, onChange, prefix, inherit = true
             <label htmlFor={id} className="text-sm font-medium cursor-pointer">{label}</label>
             {field.description && (
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {field.description[locale]}
+                {fieldT(`${settingsFieldKey(field)}.description`)}
               </p>
             )}
           </div>
@@ -86,8 +87,8 @@ export function SettingsFields({ fields, value, onChange, prefix, inherit = true
           {field.description && (
             <span
               className="text-muted-foreground/60 hover:text-foreground cursor-help transition-colors"
-              title={field.description[locale]}
-              aria-label={field.description[locale]}
+              title={fieldT(`${settingsFieldKey(field)}.description`)}
+              aria-label={fieldT(`${settingsFieldKey(field)}.description`)}
             >
               <HelpCircle className="size-3.5" />
             </span>

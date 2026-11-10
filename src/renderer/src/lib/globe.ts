@@ -1,3 +1,4 @@
+import type { CustomLocalizationPack } from '@shared/custom-localization'
 import { translate, type Locale } from '../i18n/catalogs'
 import type { ProxyNode, ConnectionsSnapshot, MihomoRule } from '@shared/mihomo'
 import type { GlobeLocations } from '@shared/geo'
@@ -18,7 +19,8 @@ export interface GlobeRoute {
   selector?: string
   rule?: string
   connectionCount?: number
-  connecting?: boolean
+  connecting?: boolean,
+  custom?: CustomLocalizationPack
   approximate?: boolean
 }
 
@@ -80,7 +82,7 @@ const COUNTRY_NAME_TO_CODE: Record<string, string> = {
   korea: 'KR'
 }
 
-export function localizeCountry(country?: string, code?: string, locale: Locale = 'ru'): string {
+export function localizeCountry(country?: string, code?: string, locale: string = 'ru'): string {
   if (!country && !code) return ''
   const isoCode = code || (country ? COUNTRY_NAME_TO_CODE[country.toLowerCase().trim()] : undefined)
   if (isoCode) {
@@ -102,7 +104,8 @@ export function connectionRoutes(
   mode?: string,
   rules?: MihomoRule[],
   locale: Locale = 'ru',
-  connecting?: boolean
+  connecting?: boolean,
+  custom?: CustomLocalizationPack
 ): GlobeRoute[] {
   const origin = locations.origin
   if (connecting || !origin || !locations.routes || locations.routes.length === 0) return []
@@ -113,8 +116,8 @@ export function connectionRoutes(
     const delay = delays[node] ?? proxies[node]?.history.at(-1)?.delay
     const color = ROUTE_COLORS[index % ROUTE_COLORS.length]
 
-    const country = localizeCountry(location.country, location.countryCode, locale)
-    const originCountry = localizeCountry(origin.country, origin.countryCode, locale)
+    const country = localizeCountry(location.country, location.countryCode, custom?.locale ?? locale)
+    const originCountry = localizeCountry(origin.country, origin.countryCode, custom?.locale ?? locale)
 
     let selector: string | undefined
     let rule: string | undefined
@@ -166,7 +169,7 @@ export function connectionRoutes(
       // 2. Idle or default selected tunnel
       if (mode === 'global') {
         selector = 'GLOBAL'
-        rule = translate(locale, 'dashboard', 'routeGlobal')
+        rule = translate(locale, 'dashboard', 'routeGlobal', {}, custom)
       } else {
         const parentGroups = Object.entries(proxies).filter(
           ([, p]) => p.now === node || ('all' in p && (p as { all?: string[] }).all?.includes(node) && p.now === node)
@@ -187,13 +190,13 @@ export function connectionRoutes(
           const matchTarget = rules?.find((r) => r.type === 'MATCH')?.proxy
           const isMatchDirect = !matchTarget || matchTarget === 'DIRECT' || matchTarget === 'Прочие сервисы'
           rule = isMatchDirect
-            ? (translate(locale, 'dashboard', 'routeTunnelRules'))
-            : (translate(locale, 'dashboard', 'routeDefault'))
+            ? (translate(locale, 'dashboard', 'routeTunnelRules', {}, custom))
+            : (translate(locale, 'dashboard', 'routeDefault', {}, custom))
         }
       }
     }
-    const fromLabel = [origin.city, originCountry || origin.country].filter(Boolean).join(', ') || (translate(locale, 'dashboard', 'yourDevice'))
-    const toLabel = [location.city, country || location.country].filter(Boolean).join(', ') || (translate(locale, 'dashboard', 'server'))
+    const fromLabel = [origin.city, originCountry || origin.country].filter(Boolean).join(', ') || (translate(locale, 'dashboard', 'yourDevice', {}, custom))
+    const toLabel = [location.city, country || location.country].filter(Boolean).join(', ') || (translate(locale, 'dashboard', 'server', {}, custom))
 
     return {
       id: node,

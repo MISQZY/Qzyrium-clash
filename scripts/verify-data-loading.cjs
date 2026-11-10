@@ -82,7 +82,7 @@ const output = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
 }).outputText
 const context = {
   exports: {},
-  require: name => name === 'react' ? react : name === '@shared/app-config' ? { DEFAULT_APP_CONFIG: config } : name === '../i18n/catalogs' ? { translate: () => '' } : require(name),
+  require: name => name === 'react' ? react : name === '@shared/app-config' ? { DEFAULT_APP_CONFIG: config } : name === '../i18n/catalogs' ? { translate: () => '' } : name === '@shared/custom-localization' ? { selectedLocalization: () => undefined } : require(name),
   window: { api }, document,
   setTimeout: timer, clearTimeout: item => timers.delete(item),
   setInterval: timer, clearInterval: item => timers.delete(item)
