@@ -14,6 +14,7 @@ import { EmojiText } from '../components/EmojiText'
 export type ProxySortMode = 'default' | 'latency' | 'name'
 
 interface ProxiesPageProps {
+  running: boolean
   proxies: Record<string, ProxyNode>
   rules?: MihomoRule[]
   mode?: TunnelMode
@@ -123,6 +124,7 @@ const getGroupTypeStyle = (type?: string): { label: string; className: string } 
 }
 
 export const ProxiesPage: React.FC<ProxiesPageProps> = ({
+  running,
   proxies,
   rules,
   mode = 'rule',
@@ -170,7 +172,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 
     const isEligibleGroup = (name: string): boolean => {
       const item = proxies[name] as unknown as ProxyGroup | undefined
-      if (!item || !Array.isArray(item.all) || item.all.length === 0) return false
+      if (!item || !Array.isArray(item.all)) return false
       if (item.hidden) return false
       if (name === 'GLOBAL' && mode !== 'global') return false
       const rawType = (item.type || '').toLowerCase()
@@ -277,7 +279,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
     nodeNames: string[],
     concurrency = testConcurrency
   ): Promise<void> => {
-    if (!window.api || nodeNames.length === 0) return
+    if (!running || !window.api || nodeNames.length === 0) return
     let index = 0
     const batch: Record<string, number> = {}
     let flushTimer: ReturnType<typeof setTimeout> | null = null
@@ -483,7 +485,8 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 
           <Button
             onClick={handleTestAllLatency}
-            disabled={testingAll || !!testingGroup || allNodes.length === 0}
+            disabled={!running || testingAll || !!testingGroup || allNodes.length === 0}
+            title={!running ? t('latencyRequiresConnection') : undefined}
             variant="outline"
             size="sm"
             className="gap-2"
@@ -495,6 +498,8 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
           </Button>
         </div>
       </div>
+
+      {!running && <p className="text-xs leading-relaxed text-muted-foreground">{t('offlineSelectionHint')}</p>}
 
       {/* Search Input with Clear Button */}
       {groupNames.length > 0 && (
@@ -595,7 +600,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      disabled={isGroupTesting || testingAll || nodes.length === 0}
+                      disabled={!running || isGroupTesting || testingAll || nodes.length === 0}
                       onClick={(e) => {
                         e.stopPropagation()
                         handleTestGroupLatency(groupName, nodes)
@@ -680,7 +685,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
                         })}
                       </div>
                     ) : (
-                      <p className="empty-state py-6">{t('noProxyNodesMatchYourSearch')}</p>
+                      <p className="empty-state py-6">{t(!running && nodes.length === 0 ? 'noCachedNodes' : 'noProxyNodesMatchYourSearch')}</p>
                     )}
                   </div>
                 )}

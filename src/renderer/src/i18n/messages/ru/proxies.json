@@ -1,4 +1,7 @@
 {
+  "offlineSelectionHint": "VPN выключен. Выбранный узел будет использован при следующем подключении.",
+  "latencyRequiresConnection": "Для проверки задержки включите VPN",
+  "noCachedNodes": "У этого провайдера пока нет загруженных узлов.",
   "timeout": "Нет ответа",
   "proxies": "Группы прокси",
   "selectActiveExitNodeAndTestLatency": "Выбор активного узла и проверка задержки в группах прокси",

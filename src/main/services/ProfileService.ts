@@ -205,6 +205,15 @@ export class ProfileService implements BaseService {
     logger.info(`Active profile switched to: ${found.name} (${id})`)
   }
 
+  async setSelectedProxy(id: string, group: string, node: string): Promise<void> {
+    const profile = this.profiles.find(item => item.id === id)
+    if (!profile) throw new Error(`Profile ${id} not found`)
+    const previous = profile.selectedGroupProxies
+    profile.selectedGroupProxies = { ...previous, [group]: node }
+    try { await this.saveProfilesList() }
+    catch (error) { profile.selectedGroupProxies = previous; throw error }
+  }
+
   async getProfileContent(id: string): Promise<string | null> {
     const filePath = this.validateProfileId(id)
     try {
@@ -224,6 +233,9 @@ export class ProfileService implements BaseService {
     const found = this.profiles.find((p) => p.id === id)
     if (!found) throw new Error(`Profile ${id} not found`)
     if (isDeepStrictEqual(found.customRules || [], rules)) return false
+    const content = await this.getProfileContent(id)
+    if (content === null) throw new Error(`Profile file is missing: ${id}`)
+    await validateProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG, rules)
     found.customRules = rules
     found.updatedAt = Date.now()
     await this.saveProfilesList()
@@ -233,9 +245,6 @@ export class ProfileService implements BaseService {
 
   async saveProfileContent(id: string, content: string): Promise<boolean> {
     const filePath = this.validateProfileId(id)
-    const content = await this.getProfileContent(id)
-    if (content === null) throw new Error(`Profile file is missing: ${id}`)
-    await validateProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG, rules)
     if (await this.getProfileContent(id) === content) return false
     await validateProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG, this.getCustomRules(id))
     await writeFileAtomicAsync(filePath, content, 'utf-8', true)

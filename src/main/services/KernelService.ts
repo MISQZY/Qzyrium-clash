@@ -209,6 +209,14 @@ export class KernelService implements BaseService {
   }
 
   stop(): Promise<void> {
+    if (activeProfile?.selectedGroupProxies && Object.keys(activeProfile.selectedGroupProxies).length) {
+      const proxies = await this.apiClient.getProxies()
+      for (const [group, node] of Object.entries(activeProfile.selectedGroupProxies)) {
+        if (!(proxies[group] as ProxyGroup | undefined)?.all?.includes(node)) continue
+        try { await this.apiClient.selectProxy(group, node) }
+        catch (error) { logger.warn(`Could not restore selected proxy for ${group}: ${String(error)}`) }
+      }
+    }
     this.invalidateGlobe()
     return this.enqueueLifecycle(() => this.stopCore())
   }
@@ -248,13 +256,27 @@ export class KernelService implements BaseService {
   }
 
   async getProxies(): Promise<Record<string, ProxyNode>> {
-    return this.apiClient.getProxies()
+    if (this.getStatus() === 'running') return this.apiClient.getProxies()
+    const profile = this.profileService.getActiveProfile()
+    if (!profile) return {}
+    const content = await this.profileService.getProfileContent(profile.id)
+    if (content === null) return {}
+    return offlineProxies(yaml.parse(content) as Record<string, unknown>, getAppPaths().mihomoDir, profile.selectedGroupProxies)
   }
 
   async selectProxy(group: string, proxy: string): Promise<void> {
-    await this.apiClient.selectProxy(group, proxy)
-    if (this.settingService.getSettings().general.autoCloseConnection) await this.apiClient.closeAllConnections()
-    this.invalidateGlobe()
+    return this.enqueueLifecycle(async () => {
+      const profile = this.profileService.getActiveProfile()
+      if (!profile) throw new Error('No active profile')
+      const proxies = await this.getProxies()
+      if (!(proxies[group] as ProxyGroup | undefined)?.all?.includes(proxy)) throw new Error('Proxy is not available in this group')
+      if (this.getStatus() === 'running') {
+        await this.apiClient.selectProxy(group, proxy)
+        if (this.settingService.getSettings().general.autoCloseConnection) await this.apiClient.closeAllConnections()
+      }
+      await this.profileService.setSelectedProxy(profile.id, group, proxy)
+      this.invalidateGlobe()
+    })
   }
 
   async testDelay(name: string, url?: string, timeout?: number): Promise<number> {
@@ -270,6 +292,7 @@ export class KernelService implements BaseService {
     return this.apiClient.getConnections()
   }
 
+    if (this.getStatus() !== 'running') return []
   private invalidateGlobe(): void {
     this.geoGeneration++
     this.globeRequest = null

@@ -168,7 +168,7 @@ export function useAppStore() {
   }, [coreStatus])
 
   useEffect(() => {
-    if (!window.api || coreStatus !== 'running' || busy || refreshing || loading) return
+    if (!window.api || coreStatus === 'starting' || busy || refreshing || loading) return
     let disposed = false
     const timers = new Set<ReturnType<typeof setTimeout>>()
     const revision = statusRevision.current
