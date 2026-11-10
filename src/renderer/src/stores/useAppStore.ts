@@ -143,7 +143,11 @@ export function useAppStore() {
   }, [refreshAll, reportError])
 
   useEffect(() => {
-    if (!visible) return
+    if (!visible) {
+      setConnections(EMPTY_CONNECTIONS)
+      setLogs([])
+      return
+    }
     if (activeTab === 'dashboard') setTraffic(latestTraffic.current)
     if (activeTab !== 'logs') return
     let lastEntry: LogEntry | undefined
@@ -254,7 +258,7 @@ export function useAppStore() {
 
   return {
     activeTab, setActiveTab, coreStatus, sessionStartedAt, traffic, sysProxy, profiles, activeProfile,
-    settings, logs, proxies, delays, updateDelays, connections, rules, loading, busy, error,
+    settings, logs, proxies, delays, updateDelays, connections, rules, loading, busy, error, visible,
     dismissError: () => setError(null), saveSettings,
     refreshAll: () => perform(async () => {}),
     toggleSysProxy: () => perform(() => window.api.sysproxy.set(!sysProxy.enabled)),

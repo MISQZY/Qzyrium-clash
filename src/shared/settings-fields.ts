@@ -132,6 +132,10 @@ export const resourceFields: SettingsField[] = [
   field('rule-providers', 'Rule providers (YAML)', 'Провайдеры правил (YAML)', 'map')
 ]
 export const generalFields: SettingsField[] = [
+  field('lowMemoryMode', 'Reduce memory usage', 'Экономия памяти', 'boolean', desc(
+    'Use lightweight interface rendering. Restart the application to apply.',
+    'Облегчённая отрисовка интерфейса. Для применения нужен перезапуск приложения.'
+  )),
   field('autoStart', 'Start with Windows', 'Запускать вместе с Windows', 'boolean', desc(
     'Launch the application automatically when logging into Windows.',
     'Автоматически запускать приложение при входе в Windows.'

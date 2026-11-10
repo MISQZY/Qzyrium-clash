@@ -54,23 +54,6 @@ export class WindowService implements BaseService {
     this.visibilityHandler = handler
   }
 
-  trimMemory(): void {
-    if (process.platform !== 'win32') return
-    try {
-      const script = `
-Add-Type -Namespace N -Name Mem -MemberDefinition '[DllImport("kernel32.dll")] public static extern bool SetProcessWorkingSetSize(IntPtr h, IntPtr min, IntPtr max);'
-$pids = @(${process.pid}) + (Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq ${process.pid} }).ProcessId
-$pids | ForEach-Object {
-  $p = Get-Process -Id $_ -ErrorAction SilentlyContinue
-  if ($p) {
-    [N.Mem]::SetProcessWorkingSetSize($p.Handle, [IntPtr](-1), [IntPtr](-1)) | Out-Null
-  }
-}
-`
-      runEncodedPowerShell(script)
-    } catch {}
-  }
-
   async initialize(): Promise<void> {
     this.startHidden = !!this.settingService.getSettings().general.silentStart
     await this.createWindow()

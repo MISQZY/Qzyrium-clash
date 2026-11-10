@@ -240,7 +240,7 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
                 if (error) setError(null)
               }}
               options={{
-                minimap: { enabled: true, maxColumn: 45 },
+                minimap: { enabled: false },
                 lineNumbers: 'on',
                 wordWrap: 'on',
                 scrollBeyondLastLine: false,

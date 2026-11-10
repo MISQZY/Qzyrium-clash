@@ -3,6 +3,7 @@ import { IPC_CHANNELS } from '@shared/ipc'
 import fs from 'fs'
 import path from 'path'
 import { isIP } from 'node:net'
+import { createHash } from 'node:crypto'
 import yaml from 'yaml'
 import {
   ConnectionsSnapshot,
@@ -35,12 +36,13 @@ export class KernelService implements BaseService {
   private geoIp: GeoIpService
   private geoGeneration = 0
   private globeRequest: { key: string; value: Promise<GlobeLocations> } | null = null
-  private parsedProfile: { raw: string; config: Record<string, unknown> } | null = null
+  private parsedProfile: { digest: string; config: Record<string, unknown> } | null = null
   private providerCache = new Map<string, { stamp: string; proxies: unknown }>()
   private lifecycle: Promise<void> = Promise.resolve()
-  private synthesizedConfig: { raw: string | null; key: string; yaml: string } | null = null
+  private synthesizedConfig: { digest: string; key: string; yaml: string } | null = null
   private broadcaster: ((channel: string, data: unknown) => void) | null = null
   private sessionStartedAt: number | null = null
+  private streamsPaused = false
 
   constructor(settingService: SettingService, profileService: ProfileService) {
     this.settingService = settingService
@@ -75,7 +77,7 @@ export class KernelService implements BaseService {
       if (state === 'running') this.sessionStartedAt = Date.now()
       else this.sessionStartedAt = null
       this.broadcaster?.('event:core-status', state)
-      if (state === 'running') {
+      if (state === 'running' && !this.streamsPaused) {
         this.apiClient.startTrafficStream()
         this.apiClient.startLogStream(this.settingService.getSettings().kernel.logLevel)
       } else if (state === 'stopped' || state === 'error') {
@@ -183,13 +185,14 @@ export class KernelService implements BaseService {
     // Get active profile content
     const activeProfile = this.profileService.getActiveProfile()
     const rawContent = activeProfile ? await this.profileService.getProfileContent(activeProfile.id) : null
+    if (activeProfile && rawContent === null) throw new Error(`Profile file is missing: ${activeProfile.name}`)
 
     // Synthesize configuration
-    if (activeProfile && rawContent === null) throw new Error(`Profile file is missing: ${activeProfile.name}`)
     const customRules = activeProfile ? this.profileService.getCustomRules(activeProfile.id) : []
     const configKey = JSON.stringify([settings.kernel, customRules])
-    if (!this.synthesizedConfig || this.synthesizedConfig.raw !== rawContent || this.synthesizedConfig.key !== configKey) {
-      this.synthesizedConfig = { raw: rawContent, key: configKey, yaml: MihomoConfigFactory.synthesize(rawContent, settings, customRules) }
+    const digest = createHash('sha256').update(rawContent === null ? 'no-profile:' : 'profile:').update(rawContent ?? '').digest('hex')
+    if (!this.synthesizedConfig || this.synthesizedConfig.digest !== digest || this.synthesizedConfig.key !== configKey) {
+      this.synthesizedConfig = { digest, key: configKey, yaml: MihomoConfigFactory.synthesize(rawContent, settings, customRules) }
     }
     const yamlConfig = this.synthesizedConfig.yaml
     await fs.promises.writeFile(paths.activeConfigPath, yamlConfig, 'utf-8')
@@ -206,9 +209,6 @@ export class KernelService implements BaseService {
       settings.kernel.controllerPort,
       settings.kernel.controllerSecret
     )
-  }
-
-  stop(): Promise<void> {
     if (activeProfile?.selectedGroupProxies && Object.keys(activeProfile.selectedGroupProxies).length) {
       const proxies = await this.apiClient.getProxies()
       for (const [group, node] of Object.entries(activeProfile.selectedGroupProxies)) {
@@ -217,15 +217,22 @@ export class KernelService implements BaseService {
         catch (error) { logger.warn(`Could not restore selected proxy for ${group}: ${String(error)}`) }
       }
     }
+  }
+
+  stop(): Promise<void> {
     this.invalidateGlobe()
     return this.enqueueLifecycle(() => this.stopCore())
   }
 
   pauseStreams(): void {
+    this.streamsPaused = true
     this.apiClient.stopAllStreams()
+    this.parsedProfile = null
+    this.providerCache.clear()
   }
 
   resumeStreams(): void {
+    this.streamsPaused = false
     if (this.getStatus() === 'running') {
       this.apiClient.startTrafficStream()
       this.apiClient.startLogStream(this.settingService.getSettings().kernel.logLevel)
@@ -285,6 +292,7 @@ export class KernelService implements BaseService {
   }
 
   async getRules(): Promise<MihomoRule[]> {
+    if (this.getStatus() !== 'running') return []
     return this.apiClient.getRules()
   }
 
@@ -292,7 +300,6 @@ export class KernelService implements BaseService {
     return this.apiClient.getConnections()
   }
 
-    if (this.getStatus() !== 'running') return []
   private invalidateGlobe(): void {
     this.geoGeneration++
     this.globeRequest = null
@@ -334,11 +341,12 @@ export class KernelService implements BaseService {
     }
     try {
       const raw = profile ? await this.profileService.getProfileContent(profile.id) || '' : ''
-      if (this.parsedProfile?.raw === raw) config = this.parsedProfile.config
+      const digest = createHash('sha256').update(raw).digest('hex')
+      if (this.parsedProfile?.digest === digest) config = this.parsedProfile.config
       else {
         const parsed = yaml.parse(raw)
-        if (parsed && typeof parsed === 'object') config = parsed
-        this.parsedProfile = { raw, config }
+        if (parsed && typeof parsed === 'object') config = globeProfile(parsed)
+        this.parsedProfile = { digest, config }
         this.providerCache = new Map()
       }
       collect(config.proxies)
@@ -357,7 +365,7 @@ export class KernelService implements BaseService {
           const stamp = `${stat.mtimeMs}:${stat.size}`
           let cached = this.providerCache.get(filename)
           if (!cached || cached.stamp !== stamp) {
-            cached = { stamp, proxies: yaml.parse(await fs.promises.readFile(filename, 'utf8'))?.proxies }
+            cached = { stamp, proxies: globeProxies(yaml.parse(await fs.promises.readFile(filename, 'utf8'))?.proxies) }
             this.providerCache.set(filename, cached)
           }
           collect(cached.proxies)

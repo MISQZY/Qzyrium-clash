@@ -68,16 +68,12 @@ export class ServiceManager {
       }
     })
 
-    // Background hibernation and memory trimming
+    // Pause network streams while the interface is hidden.
     this.windowService.setVisibilityHandler((visible: boolean) => {
       if (visible) {
         this.kernelService.resumeStreams()
       } else {
         this.kernelService.pauseStreams()
-        if (typeof global.gc === 'function') {
-          try { global.gc() } catch {}
-        }
-        this.windowService.trimMemory()
       }
     })
 

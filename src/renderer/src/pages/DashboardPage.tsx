@@ -14,6 +14,7 @@ import { ConnectionGlobe } from '../components/ConnectionGlobe'
 import { Button } from '../components/ui/button'
 
 interface DashboardPageProps {
+  visible?: boolean
   coreStatus: CoreState; traffic: TrafficStats; activeProfile: ProfileItem | null
   sessionStartedAt: number | null
   profiles: ProfileItem[]; proxies: Record<string, ProxyNode>; delays: Record<string, number>
@@ -101,7 +102,8 @@ export function DashboardPage({
   rules,
   onToggleKernel,
   onUpdateDelays,
-  onNavigate
+  onNavigate,
+  visible = true
 }: DashboardPageProps) {
   const t = useTranslations('dashboard')
   const locale = useLocale()
@@ -113,7 +115,7 @@ export function DashboardPage({
   const selectionKey = JSON.stringify(Object.entries(proxies).filter(([, node]) => node.now).map(([name, node]) => [name, node.now]))
 
   useEffect(() => {
-    if (liteMode || !window.api?.mihomo.getGlobeLocations) return
+    if (!visible || liteMode || !window.api?.mihomo.getGlobeLocations) return
     setLocating(true)
     let disposed = false
     let timer: ReturnType<typeof setTimeout>
@@ -127,7 +129,7 @@ export function DashboardPage({
     }
     void poll()
     return () => { disposed = true; clearTimeout(timer) }
-  }, [liteMode, running, connecting, activeProfile?.id, activeProfile?.updatedAt, settings.kernel.mode, selectionKey])
+  }, [visible, liteMode, running, connecting, activeProfile?.id, activeProfile?.updatedAt, settings.kernel.mode, selectionKey])
 
   const isConnectingOrStopped = !running
   const shouldShowRoutes = settings.kernel.mode !== 'direct'
@@ -140,7 +142,7 @@ export function DashboardPage({
   const statusMessage = locations.status === 'origin-unavailable' ? t('originUnavailable') : locations.status === 'server-unavailable' ? t('serverUnavailable') : locations.status === 'geoip-unavailable' ? t('geoipUnavailable') : locations.status === 'direct' ? t('directConnection') : routes.length ? routes.some((route) => route.approximate) ? t('localGeoipLocations') : t('geoipLocations') : t('noLocatedRoutes')
 
   useEffect(() => {
-    if (liteMode || !running || !window.api || routeNames === '[]') return
+    if (!visible || liteMode || !running || !window.api || routeNames === '[]') return
     let disposed = false
     let timer: ReturnType<typeof setTimeout>
     const measure = async () => {
@@ -162,7 +164,7 @@ export function DashboardPage({
     }
     void measure()
     return () => { disposed = true; clearTimeout(timer) }
-  }, [liteMode, running, routeNames, onUpdateDelays, settings.general.delayTestConcurrency])
+  }, [visible, liteMode, running, routeNames, onUpdateDelays, settings.general.delayTestConcurrency])
 
   const statusLabel =
     connecting || (busy && !running)
@@ -187,7 +189,7 @@ export function DashboardPage({
       )}
     </header>
     <div className={`overview-layout${liteMode ? ' is-lite' : ''}`}>
-      {!liteMode && (
+      {!liteMode && visible && (
         <ConnectionGlobe
           running={running}
           routes={routes}
