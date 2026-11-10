@@ -130,6 +130,10 @@ export function connectionRoutes(
       (c) => c.chains.includes(node) || c.chains.at(-1) === node
     )
 
+    const parentGroups = Object.entries(proxies).filter(
+      ([name, p]) => name !== 'GLOBAL' && (p.now === node || (Array.isArray((p as { all?: string[] }).all) && (p as { all?: string[] }).all?.includes(node)))
+    )
+
     if (matching.length > 0) {
       const primary = matching[0]
       const nodeIndex = primary.chains.indexOf(node)
@@ -137,9 +141,6 @@ export function connectionRoutes(
       if (upstream.length > 0) {
         selector = upstream.join(' → ')
       } else {
-        const parentGroups = Object.entries(proxies).filter(
-          ([name, p]) => name !== 'GLOBAL' && (p.now === node || (Array.isArray((p as { all?: string[] }).all) && (p as { all?: string[] }).all?.includes(node)))
-        )
         if (parentGroups.length > 0) {
           selector = parentGroups[0][0]
         } else if (mode === 'global') {
@@ -171,9 +172,6 @@ export function connectionRoutes(
         selector = 'GLOBAL'
         rule = translate(locale, 'dashboard', 'routeGlobal', {}, custom)
       } else {
-        const parentGroups = Object.entries(proxies).filter(
-          ([, p]) => p.now === node || ('all' in p && (p as { all?: string[] }).all?.includes(node) && p.now === node)
-        )
         if (parentGroups.length > 0) {
           selector = parentGroups.map(([name]) => name).join(', ')
         }
