@@ -33,6 +33,7 @@
     "test:loading": "node scripts/verify-data-loading.cjs",
     "test:settings": "node scripts/verify-settings.cjs",
     "test:themes": "node scripts/verify-themes.cjs",
+    "test:themes:ui": "electron scripts/verify-theme-contrast-ui.cjs",
     "test:geo": "node scripts/verify-globe.cjs",
     "test:geo:layout": "node scripts/verify-globe-layout.cjs",
     "test:geo:ui": "electron scripts/verify-globe-ui.cjs",

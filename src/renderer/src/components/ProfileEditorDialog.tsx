@@ -1112,7 +1112,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                   {customRulesCount > 0 && (
                     <Badge
                       variant="outline"
-                      className="text-[10px] font-mono px-1.5 py-0 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 bg-emerald-500/10"
+                      className="text-[10px] font-mono px-1.5 py-0 text-success border-success/40 bg-success/10"
                     >
                       +{customRulesCount}
                     </Badge>
@@ -1294,7 +1294,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                           isDeleted && 'bg-destructive/10 opacity-60 border-destructive/20 cursor-not-allowed',
                           !isDeleted &&
                             rule.isCustom &&
-                            'bg-emerald-500/8 border-emerald-500/25 hover:border-emerald-500/50 hover:bg-emerald-500/12',
+                            'bg-success/8 border-success/25 hover:border-success/50 hover:bg-success/12',
                           !isDeleted &&
                             !rule.isCustom &&
                             'bg-card/50 border-border/50 hover:border-border hover:bg-card/90',
@@ -1342,7 +1342,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                             variant="secondary"
                             className={cn(
                               'text-[10px] font-mono font-medium px-1.5 py-0.5',
-                              rule.isCustom && 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-transparent'
+                              rule.isCustom && 'bg-success/15 text-success border-transparent'
                             )}
                           >
                             {rule.type}
@@ -1397,7 +1397,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                             }}
                             className={cn(
                               'hover:bg-transparent cursor-pointer',
-                              isDeleted ? 'text-emerald-500 hover:text-emerald-600' : 'text-destructive hover:text-destructive/80'
+                              isDeleted ? 'text-success hover:text-success' : 'text-destructive hover:text-destructive/80'
                             )}
                             title={isDeleted ? t('restore') : t('delete')}
                           >
@@ -1414,7 +1414,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
 
           {/* Import and mount Monaco only after the YAML mode is selected. */}
           {activeMode === 'yaml' && (
-            <div className="relative flex-1 min-h-0 w-full rounded-lg border border-border/70 overflow-hidden bg-[#1e1e1e] flex flex-col">
+            <div className="relative flex-1 min-h-0 w-full rounded-lg border border-border/70 overflow-hidden bg-background flex flex-col">
               <Suspense fallback={<div role="status" className="flex h-full items-center justify-center"><LoaderCircle className="size-6 animate-spin text-primary" /></div>}>
                 <YamlEditor
                   theme={isDark ? 'vs-dark' : 'light'}

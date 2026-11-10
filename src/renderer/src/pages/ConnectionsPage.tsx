@@ -398,8 +398,8 @@ export function ConnectionsPage({
                   variant="outline"
                   className={`text-[9px] font-mono px-1.5 py-0 uppercase border ${
                     isUdp
-                      ? 'border-amber-500/40 text-amber-500 bg-amber-500/10'
-                      : 'border-blue-500/40 text-blue-500 bg-blue-500/10'
+                      ? 'border-warning/40 text-warning bg-warning/10'
+                      : 'border-primary/40 text-primary bg-primary/10'
                   }`}
                 >
                   {item.metadata.network}
@@ -434,7 +434,7 @@ export function ConnectionsPage({
                     className="shrink-0 p-0.5 rounded text-muted-foreground/60 hover:text-foreground hover:bg-background/80 transition-colors"
                   >
                     {copiedKey === `host-${item.id}` ? (
-                      <Check className="size-3 text-emerald-500" />
+                      <Check className="size-3 text-success" />
                     ) : (
                       <Copy className="size-3 opacity-60 group-hover/codechip:opacity-100" />
                     )}
@@ -452,7 +452,7 @@ export function ConnectionsPage({
           {/* Right: Traffic, Duration & Disconnect Action */}
           <div className="flex items-center gap-4 shrink-0">
             <div className="flex flex-col items-end text-right font-mono text-[11px] leading-tight">
-              <span className="text-emerald-500 flex items-center gap-0.5 font-medium">
+              <span className="text-success flex items-center gap-0.5 font-medium">
                 <ArrowDown className="size-3" />
                 {formatBytes(item.download, locale)}
               </span>
@@ -632,7 +632,7 @@ export function ConnectionsPage({
                     </Badge>
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-xs font-mono">
-                    <span className="text-emerald-500 flex items-center gap-0.5 font-medium">
+                    <span className="text-success flex items-center gap-0.5 font-medium">
                       <ArrowDown className="size-3" />
                       {formatBytes(activeProcessGroup.totalDownload, locale)}
                     </span>
@@ -720,7 +720,7 @@ export function ConnectionsPage({
                   {/* Right: Traffic totals & Chevron */}
                   <div className="flex items-center gap-4 shrink-0">
                     <div className="flex flex-col items-end text-right font-mono text-[11px] leading-tight">
-                      <span className="text-emerald-500 flex items-center gap-0.5 font-medium">
+                      <span className="text-success flex items-center gap-0.5 font-medium">
                         <ArrowDown className="size-3" />
                         {formatBytes(group.totalDownload, locale)}
                       </span>
@@ -805,8 +805,8 @@ export function ConnectionsPage({
                         variant="outline"
                         className={`text-[9px] uppercase px-1.5 py-0 ${
                           activeDetail.metadata.network.toLowerCase() === 'udp'
-                            ? 'border-amber-500/40 text-amber-500 bg-amber-500/10'
-                            : 'border-blue-500/40 text-blue-500 bg-blue-500/10'
+                            ? 'border-warning/40 text-warning bg-warning/10'
+                            : 'border-primary/40 text-primary bg-primary/10'
                         }`}
                       >
                         {activeDetail.metadata.network}
@@ -827,10 +827,10 @@ export function ConnectionsPage({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-0.5 p-3 rounded-xl bg-muted/20 border border-border/50">
                     <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                      <ArrowDown className="size-3 text-emerald-500" />
+                      <ArrowDown className="size-3 text-success" />
                       {t('transfer')} (↓)
                     </span>
-                    <span className="font-mono text-base font-bold text-emerald-500">
+                    <span className="font-mono text-base font-bold text-success">
                       {formatBytes(activeDetail.download, locale)}
                     </span>
                   </div>
@@ -1125,7 +1125,7 @@ export function ConnectionsPage({
                           className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-background/80 transition-all focus:outline-none focus:ring-1 focus:ring-primary/40"
                         >
                           {copiedKey === `chain-${activeDetail.id}` ? (
-                            <Check className="size-3.5 text-emerald-500 animate-in zoom-in-75 duration-150" />
+                            <Check className="size-3.5 text-success animate-in zoom-in-75 duration-150" />
                           ) : (
                             <Copy className="size-3.5 opacity-60 group-hover/chainline:opacity-100 transition-opacity" />
                           )}

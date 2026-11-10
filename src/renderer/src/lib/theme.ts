@@ -7,6 +7,7 @@ import {
   type ThemePreference
 } from '@shared/theme'
 import { deriveTitleBarOverlay } from './color'
+import { applyReadableThemeColors } from './contrast'
 
 export {
   BUILTIN_THEMES,
@@ -100,6 +101,7 @@ export function applyThemeToDocument(theme: ThemeDefinition): void {
     document.documentElement.style.setProperty(key, value)
     appliedThemeKeys.add(key)
   }
+  applyReadableThemeColors()
   if (window.api?.window?.setTitleBarOverlay) {
     void window.api.window.setTitleBarOverlay(theme.titleBarOverlay).catch(() => {})
   }

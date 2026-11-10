@@ -90,7 +90,7 @@ const getGroupTypeStyle = (type?: string): { label: string; className: string } 
   if (raw === 'urltest') {
     return {
       label: 'AUTO',
-      className: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+      className: 'border-success/40 bg-success/10 text-success'
     }
   }
   if (raw === 'selector' || raw === 'select') {
@@ -102,7 +102,7 @@ const getGroupTypeStyle = (type?: string): { label: string; className: string } 
   if (raw === 'fallback') {
     return {
       label: 'FALLBACK',
-      className: 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+      className: 'border-warning/40 bg-warning/10 text-warning'
     }
   }
   if (raw === 'loadbalance') {

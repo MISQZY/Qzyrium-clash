@@ -191,7 +191,7 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
         {/* Editor Container */}
         <div
           ref={containerRef}
-          className="relative flex-1 min-h-0 w-full rounded-lg border border-border/70 overflow-hidden bg-[#1e1e1e] flex flex-col"
+          className="relative flex-1 min-h-0 w-full rounded-lg border border-border/70 overflow-hidden bg-background flex flex-col"
         >
           {loading ? (
             <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-20">

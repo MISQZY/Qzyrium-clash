@@ -194,7 +194,7 @@ h6 {
   --secondary: oklch(0.95 0.003 160);
   --secondary-foreground: oklch(0.22 0.004 160);
   --muted: oklch(0.95 0.003 160);
-  --muted-foreground: oklch(0.5 0.005 160);
+  --muted-foreground: oklch(0.40 0.005 160);
   --accent: oklch(0.95 0.03 149);
   --accent-foreground: oklch(0.36 0.1 149);
   --destructive: oklch(0.577 0.215 27);
@@ -213,7 +213,7 @@ h6 {
   --sidebar-accent-foreground: oklch(0.17 0.004 160);
   --sidebar-border: oklch(0.91 0.003 160);
   --sidebar-ring: oklch(0.6 0.19 149);
-  --globe-surface: color-mix(in oklch, var(--muted) 45%, var(--background));
+  --globe-surface: color-mix(in oklch, var(--foreground) 8%, var(--background));
 }
 
 .dark {
@@ -249,7 +249,7 @@ h6 {
   --sidebar-accent-foreground: oklch(0.965 0.003 160);
   --sidebar-border: oklch(1 0 0 / 8%);
   --sidebar-ring: oklch(0.76 0.19 149);
-  --globe-surface: color-mix(in oklch, var(--card) 65%, var(--background));
+  --globe-surface: color-mix(in oklch, var(--foreground) 6%, var(--background));
 }
 
 @layer base {
@@ -445,7 +445,8 @@ input, textarea, pre { user-select: text; }
   width: calc(var(--globe-radius, 0px) * 2);
   height: calc(var(--globe-radius, 0px) * 2);
   border-radius: 50%;
-  background: radial-gradient(ellipse at 40% 35%, var(--globe-surface), var(--background) 78%);
+  background: radial-gradient(ellipse at 40% 35%, var(--globe-surface), color-mix(in oklch, var(--foreground) 3%, var(--background)) 78%);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--foreground) 18%, transparent);
   pointer-events: none;
 }
 /* Keep atmosphere outside the opaque sphere, including with software compositing. */
@@ -546,6 +547,7 @@ input, textarea, pre { user-select: text; }
   100% { r: 14px; opacity: 0; }
 }
 .globe-endpoint-text {
+  fill: var(--foreground);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.02em;
