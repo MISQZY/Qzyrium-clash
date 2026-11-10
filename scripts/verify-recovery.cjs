@@ -134,7 +134,7 @@ async function verifyProxyLifecycle() {
     './ProfileService': { ProfileService: empty },
     './SysProxyService': { SysProxyService: class { constructor() { return proxy } } },
     './KernelService': { KernelService: class { setBroadcaster(fn) { broadcast = fn } } },
-    './WindowService': { WindowService: class { broadcast() {} setVisibilityHandler() {} } },
+    './WindowService': { WindowService: class { broadcast() {} setVisibilityHandler() {} setModeChangedHandler() {} } },
     './TrayService': { TrayService: class { clearProxies() {} updateContextMenu() {} async refreshProxies() {} } },
     './DesktopService': { DesktopService: empty }, './ThemeStore': { ThemeStore: empty }, './UpdateService': { UpdateService: empty },
     '../utils/paths': { getAppPaths: () => ({ userData: 'unused' }) }

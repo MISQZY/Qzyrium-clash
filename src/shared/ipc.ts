@@ -65,6 +65,7 @@ export const IPC_CHANNELS = {
   // Elevation
   APP_IS_ELEVATED: 'app:is-elevated',
   APP_RESTART_AS_ADMIN: 'app:restart-as-admin',
+  APP_ENTER_CORE_ONLY: 'app:enter-core-only',
 
   // Process Icons & Updates & URLs
   APP_GET_PROCESS_ICON: 'app:get-process-icon',
@@ -159,6 +160,7 @@ export interface IElectronApi {
     saveConfigFile: (defaultFileName: string, content: string) => Promise<boolean>
   }
   app: {
+    enterCoreOnly: () => Promise<void>
     isElevated: () => Promise<boolean>
     restartAsAdmin: () => Promise<boolean | void>
     getProcessIcon: (processPath: string) => Promise<string | null>

@@ -201,6 +201,10 @@ export function registerIpcHandlers(services: ServiceManager): void {
   })
 
   // --- App & Window Channels ---
+  ipcMain.handle(IPC_CHANNELS.APP_ENTER_CORE_ONLY, () => {
+    // Let the IPC response finish before destroying its sender.
+    setImmediate(() => services.windowService.setCoreOnlyMode(true))
+  })
   ipcMain.handle(IPC_CHANNELS.APP_GET_SETTINGS, () => {
     return services.settingService.getSettings()
   })

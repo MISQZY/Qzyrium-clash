@@ -57,8 +57,14 @@ app.whenReady().then(async () => {
     '@shared/vpn-status': { getVpnStatus }, '../utils/tray-icon': { createTrayIcon },
     '@shared/locales/en.json': require('../src/shared/locales/en.json'), '@shared/locales/ru.json': require('../src/shared/locales/ru.json')
   })
-  const service = new TrayService({}, { getStatus: () => core }, { getStatus: () => ({ enabled: proxy }), setSysProxy: async enabled => { proxy = enabled } }, { getSettings: () => settings })
+  let coreOnly = false
+  const windowService = { isCoreOnlyMode: () => coreOnly, setCoreOnlyMode: value => { coreOnly = value; service.updateContextMenu() }, show: () => { coreOnly = false; service.updateContextMenu() } }
+  const service = new TrayService(windowService, { getStatus: () => core }, { getStatus: () => ({ enabled: proxy }), setSysProxy: async enabled => { proxy = enabled } }, { getSettings: () => settings })
   await service.initialize()
+  currentTray.menu.find(item => item.label === 'Core only').click()
+  assert.equal(currentTray.menu.find(item => item.label === 'Core only').checked, true)
+  currentTray.menu.find(item => item.label === 'Core only').click()
+  assert.equal(currentTray.menu.find(item => item.label === 'Core only').checked, false)
   assert.match(currentTray.tooltip, /VPN off/)
   const off = currentTray.image
   core = 'running'
@@ -109,6 +115,8 @@ app.whenReady().then(async () => {
     }
   }
   const testWinService = {
+    isCoreOnlyMode: () => false,
+    setCoreOnlyMode: () => {},
     broadcast: () => {},
     show: () => {},
     setQuitting: () => {}

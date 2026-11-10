@@ -3,7 +3,7 @@ import { readFileSync, unlinkSync } from 'node:fs'
 import path from 'node:path'
 import { writeFileAtomic } from './atomicWrite'
 
-export interface RestartState { running: boolean; visible: boolean; elevated: boolean }
+export interface RestartState { running: boolean; visible: boolean; elevated: boolean; coreOnly?: boolean }
 const filename = () => path.join(app.getPath('userData'), 'pending-restart.json')
 
 export function saveRestartState(state: RestartState): void {
@@ -19,7 +19,7 @@ export function readRestartState(): RestartState | null {
     const state = JSON.parse(readFileSync(filename(), 'utf8'))
     if (typeof state.running === 'boolean' && typeof state.visible === 'boolean' && typeof state.elevated === 'boolean'
       && Number.isFinite(state.createdAt) && Date.now() - state.createdAt >= 0 && Date.now() - state.createdAt < 10 * 60_000) {
-      return { running: state.running, visible: state.visible, elevated: state.elevated }
+      return { running: state.running, visible: state.visible, elevated: state.elevated, ...(state.coreOnly === true ? { coreOnly: true } : {}) }
     }
   } catch { /* Normal launch. */ }
   clearRestartState()

@@ -99,6 +99,7 @@ const api: IElectronApi = {
       ipcRenderer.invoke(IPC_CHANNELS.CONFIG_SAVE_TEXT_FILE, defaultFileName, content)
   },
   app: {
+    enterCoreOnly: () => ipcRenderer.invoke(IPC_CHANNELS.APP_ENTER_CORE_ONLY),
     isElevated: () => ipcRenderer.invoke(IPC_CHANNELS.APP_IS_ELEVATED),
     restartAsAdmin: () => ipcRenderer.invoke(IPC_CHANNELS.APP_RESTART_AS_ADMIN),
     getProcessIcon: (processPath: string) => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_PROCESS_ICON, processPath),

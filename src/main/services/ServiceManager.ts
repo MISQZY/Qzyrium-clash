@@ -45,7 +45,7 @@ export class ServiceManager {
     })
     this.updateService = new UpdateService((channel, payload) => this.windowService.broadcast(channel, payload), async () => {
       const window = this.windowService.getMainWindow()
-      saveRestartState({ running: ['running', 'starting'].includes(this.kernelService.getStatus()), visible: !!window?.isVisible() && !window.isMinimized(), elevated: isProcessElevated() })
+      saveRestartState({ running: ['running', 'starting'].includes(this.kernelService.getStatus()), visible: !!window?.isVisible() && !window.isMinimized(), elevated: isProcessElevated(), coreOnly: this.windowService.isCoreOnlyMode() })
       await this.desktopService.dispose()
       await this.kernelService.stop()
       await this.sysProxyService.setCoreRunning(false)
@@ -86,6 +86,7 @@ export class ServiceManager {
         this.kernelService.pauseStreams()
       }
     })
+    this.windowService.setModeChangedHandler(() => this.trayService.updateContextMenu())
 
     // Ordered lifecycle array: window is created early for instant UI presentation
     this.services = [
