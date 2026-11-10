@@ -12,12 +12,17 @@
     "lint": "eslint . --max-warnings=0",
     "build": "electron-vite build",
     "postinstall": "electron-builder install-app-deps",
-    "build:win": "electron-vite build && electron-builder --publish never --win",
+    "build:win": "node scripts/verify-release.cjs resources && electron-vite build && electron-builder --publish never --win",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test:ui": "electron scripts/verify-ui.cjs",
     "test:editors:ui": "electron scripts/verify-editors-ui.cjs",
+    "test:profiles:ui": "electron scripts/verify-profile-info-ui.cjs",
+    "test:shortcuts:ui": "electron scripts/verify-shortcuts-ui.cjs",
+    "test:startup:ui": "electron scripts/verify-startup-theme-ui.cjs",
+    "test:proxies:offline": "node scripts/verify-offline-proxies.cjs",
+    "test:proxies:offline:ui": "electron scripts/verify-offline-proxies-ui.cjs",
     "test:updates": "node scripts/verify-updates.cjs",
     "test:updates:ui": "electron scripts/verify-updater-ui.cjs",
     "test:i18n": "node scripts/verify-i18n.cjs",
@@ -30,6 +35,10 @@
     "test:geo": "node scripts/verify-globe.cjs",
     "test:geo:layout": "node scripts/verify-globe-layout.cjs",
     "test:tray": "electron scripts/verify-tray.cjs",
+    "test:recovery": "node scripts/verify-recovery.cjs",
+    "test:functional": "node scripts/verify-functional.cjs",
+    "test:ui:all": "node scripts/verify-ui-suite.cjs",
+    "test:bundle": "node scripts/verify-bundle.cjs",
     "prepare:resources": "node scripts/prepare-resources.mjs",
     "prepare:icons": "electron scripts/prepare-app-icon.cjs"
   },
@@ -72,12 +81,12 @@
     "typescript-eslint": "^8.72.2"
   },
   "pnpm": {
+    "overrides": {
+      "dompurify": "^3.4.17"
+    },
     "onlyBuiltDependencies": [
       "electron",
       "esbuild"
     ]
   }
 }
-    "overrides": {
-      "dompurify": "^3.4.17"
-    },
