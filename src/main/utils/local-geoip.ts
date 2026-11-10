@@ -82,7 +82,7 @@ export class LocalGeoIp {
       if (this.idleTimer) clearTimeout(this.idleTimer)
       this.idleTimer = setTimeout(() => {
         this.shutdownWorker()
-      }, 15000)
+      }, 300000)
       this.idleTimer.unref()
     }
   }

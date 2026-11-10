@@ -13,10 +13,17 @@ import { watchWindowScale } from '../utils/window-scale'
 
 const DWMWA_TRANSITIONS_FORCEDISABLED = 3
 
+function getPowerShellBinary(): string {
+  if (process.platform === 'win32' && process.env.SystemRoot) {
+    return path.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+  }
+  return 'powershell.exe'
+}
+
 function runEncodedPowerShell(script: string, onError?: (err: Error) => void): void {
   const encoded = Buffer.from(script, 'utf16le').toString('base64')
   execFile(
-    'powershell.exe',
+    getPowerShellBinary(),
     ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand', encoded],
     { windowsHide: true },
     (error) => {

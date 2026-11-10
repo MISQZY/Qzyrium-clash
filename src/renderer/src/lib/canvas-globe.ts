@@ -60,16 +60,24 @@ export default function createGlobe(canvas: HTMLCanvasElement, initial: GlobeOpt
     if (!data) return
     const project = globeProjection({ phi, theta, scale }, { cx, cy, radius })
     const dot = Math.max(0.65, radius / 160)
-    // Bucket by depth to batch thousands of dots into a handful of canvas calls.
+    // Single-pass projection: project each point once and bucket into depth bands
+    const bands: number[][] = [[], [], [], [], [], [], [], []]
+    for (let i = 0; i < data.length; i += 3) {
+      const point = project([data[i], data[i + 1], data[i + 2]])
+      if (point.depth < 0) continue
+      const band = Math.min(7, Math.floor(point.depth * 8))
+      bands[band].push(point.x, point.y)
+    }
+
     for (let band = 0; band < 8; band++) {
+      const coords = bands[band]
+      if (coords.length === 0) continue
       context.beginPath()
       context.fillStyle = `rgba(${color},${Math.min(1, (0.22 + band / 10) * mapBrightness / 1.8)})`
-      for (let i = 0; i < data.length; i += 3) {
-        const x = data[i], y = data[i + 1], z = data[i + 2]
-        const point = project([x, y, z]), depth = point.depth
-        if (depth < 0 || Math.min(7, Math.floor(depth * 8)) !== band) continue
-        const px = point.x, py = point.y
-        context.moveTo(px + dot, py); context.arc(px, py, dot, 0, Math.PI * 2)
+      for (let j = 0; j < coords.length; j += 2) {
+        const px = coords[j], py = coords[j + 1]
+        context.moveTo(px + dot, py)
+        context.arc(px, py, dot, 0, Math.PI * 2)
       }
       context.fill()
     }
