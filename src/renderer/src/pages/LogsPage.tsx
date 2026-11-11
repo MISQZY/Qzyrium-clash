@@ -55,7 +55,9 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
 
   useLayoutEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = autoScroll ? scrollRef.current.scrollHeight : scrollPosition.current
+      scrollRef.current.scrollTop = autoScroll
+        ? scrollRef.current.scrollHeight
+        : (scrollPosition.current || scrollRef.current.scrollTop)
       scrollPosition.current = scrollRef.current.scrollTop
     }
   }, [filteredLogs, autoScroll])
