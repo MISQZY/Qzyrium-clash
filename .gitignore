@@ -4,6 +4,7 @@ node_modules/
 
 # Knowledge base & documentation
 /docs/
+*.[mM][dD]
 
 # Build and distribution outputs
 dist/
