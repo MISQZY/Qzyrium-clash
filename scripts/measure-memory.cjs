@@ -41,16 +41,10 @@ if (process.type === 'renderer') {
     const samples = []
     const sample = async stage => {
       const processes = app.getAppMetrics().map(({ pid, type, memory }) => ({ pid, type, ...memory }))
-      let privateWorkingSetMB
-      if (process.platform === 'win32') {
-        const { execFileSync } = require('node:child_process')
-        const pids = [...processes.map(p => p.pid), ...(core?.pid ? [core.pid] : [])].join(',')
-        const bytes = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `(Get-CimInstance Win32_PerfFormattedData_PerfProc_Process | Where-Object { $_.IDProcess -in @(${pids}) } | Measure-Object WorkingSetPrivate -Sum).Sum`], { windowsHide: true, encoding: 'utf8' })
-        privateWorkingSetMB = Number(bytes.trim()) / 1024 / 1024
-      }
+      // Electron metrics below exclude the optional Mihomo process.
       if (core && core.exitCode !== null) throw Error(`Benchmark core exited: ${core.exitCode}`)
       const heap = await evaluate('({ ...performance.memory && { used: performance.memory.usedJSHeapSize, total: performance.memory.totalJSHeapSize }, nodes: document.querySelectorAll("*").length, visibility: document.visibilityState, globe: !!document.querySelector(".globe-canvas") })')
-      const row = { stage, privateWorkingSetMB, workingSetMB: processes.reduce((sum, p) => sum + p.workingSetSize, 0) / 1024, privateMB: processes.reduce((sum, p) => sum + (p.privateBytes || 0), 0) / 1024, processes, heap }
+      const row = { stage, workingSetMB: processes.reduce((sum, p) => sum + p.workingSetSize, 0) / 1024, privateMB: processes.reduce((sum, p) => sum + (p.privateBytes || 0), 0) / 1024, processes, heap }
       samples.push(row)
       console.log(JSON.stringify(row))
     }

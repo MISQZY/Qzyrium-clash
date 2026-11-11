@@ -45,7 +45,8 @@ const dependencies = {
   '../utils/logger': { logger: { info() {}, warn() {}, error() {} } },
   '@shared/ipc': { IPC_CHANNELS: { EVENT_WINDOW_VISIBILITY: 'visibility' } },
   '@shared/appearance': { bootAppearance },
-  '../utils/window-scale': windowScale
+  '../utils/window-scale': windowScale,
+  '../utils/memory': { trimProcessMemory: async () => {} }
 }
 const code = ts.transpileModule(fs.readFileSync('src/main/services/WindowService.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }

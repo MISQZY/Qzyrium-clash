@@ -1,5 +1,4 @@
 import { app, BrowserWindow, nativeTheme, shell } from 'electron'
-import { execFile } from 'child_process'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { getAppPaths } from '../utils/paths'
@@ -11,44 +10,6 @@ import type { ThemeStore } from './ThemeStore'
 import { bootAppearance } from '@shared/appearance'
 import { watchWindowScale } from '../utils/window-scale'
 import { trimProcessMemory } from '../utils/memory'
-
-const DWMWA_TRANSITIONS_FORCEDISABLED = 3
-
-function getPowerShellBinary(): string {
-  if (process.platform === 'win32' && process.env.SystemRoot) {
-    return path.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
-  }
-  return 'powershell.exe'
-}
-
-function runEncodedPowerShell(script: string, onError?: (err: Error) => void): void {
-  const encoded = Buffer.from(script, 'utf16le').toString('base64')
-  execFile(
-    getPowerShellBinary(),
-    ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand', encoded],
-    { windowsHide: true },
-    (error) => {
-      if (error && onError) onError(error)
-    }
-  )
-}
-
-function disableWindowTransitionAnimations(win: BrowserWindow): void {
-  if (process.platform !== 'win32') return
-  try {
-    const hwnd = win.getNativeWindowHandle().readBigUInt64LE(0)
-    const script = `
-Add-Type -Namespace N -Name Dwm -MemberDefinition '[DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);'
-$v = 1
-[N.Dwm]::DwmSetWindowAttribute([IntPtr]${hwnd}, ${DWMWA_TRANSITIONS_FORCEDISABLED}, [ref]$v, 4) | Out-Null
-`
-    runEncodedPowerShell(script, (error) => {
-      logger.warn(`Failed to disable window transition animations: ${error.message}`)
-    })
-  } catch (err) {
-    logger.error('Error querying window handle for DWM setup', err)
-  }
-}
 
 export class WindowService implements BaseService {
   private mainWindow: BrowserWindow | null = null
@@ -219,13 +180,6 @@ export class WindowService implements BaseService {
       this.ready = true
       if (this.startHidden) return
       this.show()
-      // Defer heavy PowerShell invocation to idle phase so it doesn't delay window presentation
-      if (this.mainWindow) {
-        const win = this.mainWindow
-        setTimeout(() => {
-          if (!win.isDestroyed()) disableWindowTransitionAnimations(win)
-        }, 1000)
-      }
     })
 
     this.mainWindow.webContents.on('did-finish-load', () => {

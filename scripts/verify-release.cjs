@@ -10,7 +10,8 @@ if (stage === 'version') {
   assert.match(tag ?? '', /^v\d+\.\d+\.\d+$/, 'Release tags must use vX.Y.Z')
   assert.equal(tag, `v${version}`, 'Release tag must match package.json version')
 } else if (stage === 'resources') {
-  for (const file of ['sidecar/mihomo.exe', 'files/country.mmdb', 'files/geosite.dat', 'files/geoip.dat']) {
+  assert.ok(!fs.existsSync(path.join('extra', 'files', 'qzyrium-windows.exe')), 'Removed Windows helper must not be bundled')
+  for (const file of ['sidecar/mihomo.exe', 'files/country.mmdb', 'files/geosite.dat', 'files/geoip.dat', 'files/qzyrium-run.exe']) {
     assert.ok(fs.statSync(path.join('extra', file)).size > 0, `Missing or empty runtime resource: ${file}`)
   }
 } else if (stage === 'assets') {

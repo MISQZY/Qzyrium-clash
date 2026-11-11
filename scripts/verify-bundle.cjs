@@ -3,6 +3,8 @@ const path = require('node:path')
 const assert = require('node:assert/strict')
 
 const main = fs.readFileSync(path.resolve('out/main/index.js'), 'utf8')
+assert.ok(!/powershell\.exe|pwsh\.exe|EncodedCommand|\.ps1\b/i.test(main), 'application main bundle must not invoke PowerShell or install PowerShell scripts')
+assert.ok(!main.includes('qzyrium-windows'), 'removed Windows helper must not be referenced by the main bundle')
 assert.ok(!/require\(["']\.\.\/utils\/elevation["']\)/.test(main), 'bundled elevation guard must not require an absent source module')
 assert.ok(!/require\(["']\.\/logger["']\)/.test(main), 'admin restart logger must be included in the bundle')
 const assets = path.resolve('out/renderer/assets')
