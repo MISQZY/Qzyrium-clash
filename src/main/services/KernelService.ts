@@ -257,6 +257,7 @@ export class KernelService implements BaseService {
     this.apiClient.stopAllStreams()
     this.parsedProfile = null
     this.providerCache.clear()
+    this.geoIp.releaseWorker()
   }
 
   resumeStreams(): void {
@@ -441,7 +442,11 @@ export class KernelService implements BaseService {
       return true
     }
     const upperChains = conn.chains.map((c) => c.toUpperCase())
-    return upperChains.every((c) => c === 'DIRECT' || c === 'REJECT')
+    return (
+      upperChains.includes('DIRECT') ||
+      upperChains[upperChains.length - 1] === 'DIRECT' ||
+      upperChains.every((c) => c === 'DIRECT' || c === 'REJECT')
+    )
   }
 
   private invalidateGlobe(): void {

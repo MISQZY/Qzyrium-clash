@@ -57,7 +57,8 @@ async function verify() {
 
   const { WindowService } = load('src/main/services/WindowService.ts', {
     electron: {}, child_process: {}, '../utils/paths': {}, '../utils/logger': {},
-    '@shared/ipc': {}, '@shared/appearance': {}, '../utils/window-scale': {}
+    '@shared/ipc': {}, '@shared/appearance': {}, '../utils/window-scale': {},
+    '../utils/memory': { trimProcessMemory: async () => {} }
   })
   const window = new WindowService({})
   let destroyed = 0, created = 0, changes = 0

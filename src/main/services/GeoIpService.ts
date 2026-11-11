@@ -73,6 +73,8 @@ export class GeoIpService {
 
   dispose(): void { this.disposed = true; this.cache.clear(); this.hosts.clear(); this.local?.dispose() }
 
+  releaseWorker(): void { this.local?.shutdownWorker() }
+
   async locateHost(host: string): Promise<GeoLocation | null> {
     if (this.disposed || !host || host.length > 253) return null
     try {
