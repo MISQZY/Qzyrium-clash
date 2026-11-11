@@ -389,6 +389,20 @@ export function registerIpcHandlers(services: ServiceManager): void {
     return false
   })
 
+  ipcMain.handle(IPC_CHANNELS.APP_GET_BOOT_SNAPSHOT, async () => {
+    const coreStatus = services.kernelService.getStatus()
+    return {
+      settings: services.settingService.getSettings(),
+      profiles: services.profileService.getProfiles(),
+      activeProfile: services.profileService.getActiveProfile(),
+      coreStatus,
+      sessionStartedAt: coreStatus === 'running'
+        ? await (services.kernelService.getSessionStartedAt?.() ?? Promise.resolve(null))
+        : null,
+      sysProxy: await services.sysProxyService.getStatus()
+    }
+  })
+
   // --- Custom Themes & Config Files ---
   ipcMain.handle(IPC_CHANNELS.THEME_GET_CUSTOM_THEMES, (): CustomThemePack[] => {
     return services.themeStore.listThemes()

@@ -130,7 +130,9 @@ if (!gotTheLock) {
             app.setAsDefaultProtocolClient(scheme, process.execPath, [path.resolve(process.argv[1])])
           }
         } else {
-          app.setAsDefaultProtocolClient(scheme)
+          if (!app.isDefaultProtocolClient(scheme)) {
+            app.setAsDefaultProtocolClient(scheme)
+          }
         }
       } catch (err) {
         logger.warn(`Failed to register protocol client for ${scheme}: ${String(err)}`)

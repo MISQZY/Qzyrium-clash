@@ -76,6 +76,7 @@ export const IPC_CHANNELS = {
   APP_GET_WHATS_NEW: 'app:get-whats-new',
   APP_OPEN_URL: 'app:open-url',
   APP_COPY_TO_CLIPBOARD: 'app:copy-to-clipboard',
+  APP_GET_BOOT_SNAPSHOT: 'app:get-boot-snapshot',
 
   // Streaming events
   EVENT_TRAFFIC: 'event:traffic',
@@ -93,6 +94,15 @@ export interface SysProxyStatus {
   host?: string
   mode: 'manual' | 'pac'
   port: number
+}
+
+export interface BootSnapshot {
+  settings: AppConfig
+  profiles: ProfileItem[]
+  activeProfile: ProfileItem | null
+  coreStatus: CoreState
+  sessionStartedAt: number | null
+  sysProxy: SysProxyStatus
 }
 
 export interface AddProfileDto {
@@ -173,6 +183,7 @@ export interface IElectronApi {
     getWhatsNew: () => Promise<WhatsNewPayload | null>
     openUrl: (url: string) => Promise<void>
     copyToClipboard: (text: string) => Promise<boolean>
+    getBootSnapshot?: () => Promise<BootSnapshot>
   }
   events: {
     onUpdaterStatus: (callback: (status: AppUpdaterStatus) => void) => () => void

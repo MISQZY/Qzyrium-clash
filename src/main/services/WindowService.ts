@@ -208,7 +208,6 @@ export class WindowService implements BaseService {
       event.preventDefault()
     })
 
-    disableWindowTransitionAnimations(this.mainWindow)
     this.updateTheme()
 
     this.mainWindow.on('ready-to-show', () => {
@@ -216,6 +215,13 @@ export class WindowService implements BaseService {
       this.ready = true
       if (this.startHidden) return
       this.show()
+      // Defer heavy PowerShell invocation to idle phase so it doesn't delay window presentation
+      if (this.mainWindow) {
+        const win = this.mainWindow
+        setTimeout(() => {
+          if (!win.isDestroyed()) disableWindowTransitionAnimations(win)
+        }, 1000)
+      }
     })
 
     this.mainWindow.webContents.on('did-finish-load', () => {
