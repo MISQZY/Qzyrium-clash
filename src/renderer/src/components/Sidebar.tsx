@@ -1,7 +1,7 @@
 import { GlobalModeIcon, RulesIcon } from '../lib/icons'
 import { PanelLeft } from 'lucide-react'
 import { Tooltip } from 'radix-ui'
-import { memo, type ReactElement } from 'react'
+import { memo, useState, type ReactElement } from 'react'
 import type { CoreState, TunnelMode } from '@shared/types'
 import { sidebarNavigation, type NavTab } from '../lib/navigation'
 import { useTranslations } from '../i18n'
@@ -22,7 +22,21 @@ interface SidebarProps {
 }
 
 function SidebarHint({ label, open, children }: { label: string; open: boolean; children: ReactElement }) {
-  return <Tooltip.Root><Tooltip.Trigger asChild>{children}</Tooltip.Trigger>{!open && <Tooltip.Portal><Tooltip.Content side="right" sideOffset={12} className="sidebar-tooltip">{label}<Tooltip.Arrow className="fill-popover" /></Tooltip.Content></Tooltip.Portal>}</Tooltip.Root>
+  const [isOpen, setIsOpen] = useState(false)
+  if (open) return children
+  return (
+    <Tooltip.Root open={isOpen} onOpenChange={setIsOpen}>
+      <Tooltip.Trigger asChild onClick={() => setIsOpen(false)}>
+        {children}
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content side="right" sideOffset={12} className="sidebar-tooltip">
+          {label}
+          <Tooltip.Arrow className="fill-popover" />
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
+  )
 }
 
 export const Sidebar = memo(function Sidebar({ activeTab, onSelectTab, coreStatus, open, onToggle, mode, busy, onUpdateMode, tunEnabled }: SidebarProps) {
