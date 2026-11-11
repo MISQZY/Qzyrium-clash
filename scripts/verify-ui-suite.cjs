@@ -1,9 +1,4 @@
-const { spawnSync } = require('node:child_process')
-const path = require('node:path')
-const electron = require('electron')
+const { runSuite } = require('./test-runner.cjs')
 
-for (const script of ['ipc-ui', 'subscriptions-ui', 'ui', 'rules-ui', 'display-ui', 'globe-ui', 'theme-contrast-ui', 'editors-ui', 'profile-info-ui', 'shortcuts-ui', 'startup-theme-ui', 'offline-proxies-ui', 'localization-ui', 'updater-ui', 'tray']) {
-  const result = spawnSync(electron, [path.join(__dirname, `verify-${script}.cjs`)], { stdio: 'inherit', windowsHide: true })
-  if (result.error) console.error(result.error)
-  if (result.status !== 0) process.exit(result.status ?? 1)
-}
+runSuite('ui').then(report => { process.exitCode = report.failed ? 1 : 0 })
+  .catch(error => { console.error(error); process.exitCode = 1 })

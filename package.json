@@ -49,6 +49,8 @@
     "test:tray": "electron scripts/verify-tray.cjs",
     "test:recovery": "node scripts/verify-recovery.cjs",
     "test:functional": "node scripts/verify-functional.cjs",
+    "test:runner": "node scripts/verify-test-runner.cjs",
+    "test:all": "pnpm build && node scripts/test-runner.cjs",
     "test:ui:all": "node scripts/verify-ui-suite.cjs",
     "test:bundle": "node scripts/verify-bundle.cjs",
     "prepare:resources": "node scripts/prepare-resources.mjs",
