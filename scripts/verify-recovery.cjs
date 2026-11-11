@@ -208,6 +208,27 @@ async function verifyElevationRecovery() {
   }
 }
 
+async function verifyServiceLifecycle() {
+  const { ServiceManager } = load('src/main/services/ServiceManager.ts')
+  const calls = []
+  const service = (name, fail = false) => ({
+    async initialize() { calls.push(`start:${name}`); if (fail) throw new Error(name) },
+    async dispose() { calls.push(`stop:${name}`) }
+  })
+  const settings = service('settings'), profiles = service('profiles', true), after = service('after')
+  const failed = new ServiceManager(() => ({ settingService: settings, profileService: profiles, services: [settings, profiles, after] }))
+  await assert.rejects(failed.initialize(), /Required service failed/)
+  assert.deepEqual(calls, ['start:settings', 'start:profiles', 'stop:profiles', 'stop:settings'])
+  await failed.dispose()
+  assert.equal(calls.length, 4, 'cleanup is idempotent and never disposes unstarted services')
+  calls.length = 0
+  const optional = service('optional', true), last = service('last')
+  const partial = new ServiceManager(() => ({ settingService: settings, services: [settings, optional, last] }))
+  await partial.initialize()
+  await partial.dispose()
+  assert.deepEqual(calls, ['start:settings', 'start:optional', 'stop:optional', 'start:last', 'stop:last', 'stop:settings'])
+}
+
 function verifyStreams() {
   class Socket extends EventEmitter {
     static all = []
@@ -249,6 +270,6 @@ async function verifyResourceFailure() {
   }
 }
 
-Promise.resolve().then(verifyPersistenceAndProfiles).then(verifyProxyLifecycle).then(verifyElevationRecovery).then(verifyStreams).then(verifyResourceFailure)
+Promise.resolve().then(verifyPersistenceAndProfiles).then(verifyProxyLifecycle).then(verifyElevationRecovery).then(verifyServiceLifecycle).then(verifyStreams).then(verifyResourceFailure)
   .then(() => console.log('PASS: atomic persistence/recovery, rejected subscriptions with real Mihomo, proxy startup/restarts, cancelled elevation, stale WebSockets, encoded tokens and failed resource preparation'))
   .catch(error => { console.error(error); process.exitCode = 1 })
