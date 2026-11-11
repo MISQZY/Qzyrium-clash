@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useMemo, useState, useCallback, useRef } from 'react'
 import type { NavTab } from '../../lib/navigation'
 
 export interface NavigationStore {
@@ -73,7 +73,7 @@ export function useNavigationStore(): NavigationStore {
     [reportError]
   )
 
-  return {
+  return useMemo(() => ({
     activeTab,
     setActiveTab,
     visible,
@@ -94,5 +94,5 @@ export function useNavigationStore(): NavigationStore {
     statusRevision,
     mounted,
     createPerform
-  }
+  }), [activeTab, setActiveTab, visible, setVisible, loading, setLoading, busy, setBusy, error, setError, dismissError, reportError, dataRevision, setDataRevision, actionInProgress, refreshSequence, pendingRefresh, statusRevision, mounted, createPerform])
 }

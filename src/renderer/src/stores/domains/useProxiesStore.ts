@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useMemo, useState, useCallback, useEffect } from 'react'
 import type { ProxyNode } from '@shared/mihomo'
 import type { StoreCoordinator } from './types'
 
@@ -76,12 +76,12 @@ export function useProxiesStore(
     coord.actionInProgress
   ])
 
-  return {
+  return useMemo(() => ({
     proxies,
     setProxies,
     delays,
     setDelays,
     updateDelays,
     selectProxyNode
-  }
+  }), [proxies, setProxies, delays, setDelays, updateDelays, selectProxyNode])
 }

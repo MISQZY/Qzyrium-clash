@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { AppConfig, DEFAULT_APP_CONFIG } from '@shared/app-config'
 import type { SysProxyStatus } from '@shared/ipc'
 import { selectedLocalization } from '@shared/custom-localization'
@@ -60,12 +60,12 @@ export function useSettingsStore(coord: Pick<StoreCoordinator, 'perform'>): Sett
     return coord.perform(() => window.api.sysproxy.set(!sysProxy.enabled))
   }, [coord, sysProxy.enabled])
 
-  return {
+  return useMemo(() => ({
     settings,
     setSettings,
     sysProxy,
     setSysProxy,
     saveSettings,
     toggleSysProxy
-  }
+  }), [settings, setSettings, sysProxy, setSysProxy, saveSettings, toggleSysProxy])
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import type { ProfileItem, CustomRuleItem } from '@shared/profile'
 import type { StoreCoordinator } from './types'
 
@@ -52,7 +52,7 @@ export function useProfilesStore(coord: StoreCoordinator): ProfilesStore {
     [activeProfile, coord]
   )
 
-  return {
+  return useMemo(() => ({
     profiles,
     setProfiles,
     activeProfile,
@@ -61,5 +61,5 @@ export function useProfilesStore(coord: StoreCoordinator): ProfilesStore {
     updateActiveProfile,
     saveCustomRules,
     saveRawConfig
-  }
+  }), [profiles, setProfiles, activeProfile, setActiveProfile, switchActiveProfile, updateActiveProfile, saveCustomRules, saveRawConfig])
 }

@@ -376,6 +376,8 @@ export function useAppStoreInternal(): {
     }
   }, [refreshAll, reportError])
 
+  const refreshWorkspace = useCallback(() => perform(async () => {}), [perform])
+
   const store: AppStore = {
     activeTab: nav.activeTab,
     setActiveTab: nav.setActiveTab,
@@ -398,7 +400,7 @@ export function useAppStoreInternal(): {
     visible: nav.visible,
     dismissError: nav.dismissError,
     saveSettings: settingsStore.saveSettings,
-    refreshAll: () => perform(async () => {}),
+    refreshAll: refreshWorkspace,
     toggleSysProxy: settingsStore.toggleSysProxy,
     restartKernel: kernel.restartKernel,
     toggleKernel: kernel.toggleKernel,

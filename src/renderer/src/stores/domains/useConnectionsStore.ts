@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import type { ConnectionsSnapshot } from '@shared/mihomo'
 import { EMPTY_CONNECTIONS, type StoreCoordinator } from './types'
 
@@ -91,8 +91,8 @@ export function useConnectionsStore(
     coord.actionInProgress
   ])
 
-  return {
+  return useMemo(() => ({
     connections,
     setConnections
-  }
+  }), [connections, setConnections])
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import type { MihomoRule } from '@shared/mihomo'
 import type { StoreCoordinator } from './types'
 
@@ -69,8 +69,8 @@ export function useRulesStore(
     coord.actionInProgress
   ])
 
-  return {
+  return useMemo(() => ({
     rules,
     setRules
-  }
+  }), [rules, setRules])
 }

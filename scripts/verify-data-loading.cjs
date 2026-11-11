@@ -14,7 +14,7 @@ function deferred() {
 // A deterministic hook host exercises the actual store with controlled IPC promises.
 // It keeps React's dependency and cleanup semantics without starting Electron/Mihomo.
 const slots = [], effects = [], timers = new Set(), listeners = new Map(), events = {}
-let cursor = 0, view, scheduled = false, renders = 0
+let cursor = 0, view, domains, scheduled = false, renders = 0
 function schedule() {
   if (scheduled) return
   scheduled = true
@@ -24,10 +24,11 @@ const react = {
   useState(initial) {
     const i = cursor++
     slots[i] ??= { value: typeof initial === 'function' ? initial() : initial }
-    return [slots[i].value, value => {
+    slots[i].set ??= value => {
       const next = typeof value === 'function' ? value(slots[i].value) : value
       if (!Object.is(next, slots[i].value)) { slots[i].value = next; schedule() }
-    }]
+    }
+    return [slots[i].value, slots[i].set]
   },
   useRef(value) { const i = cursor++; slots[i] ??= { current: value }; return slots[i] },
   useCallback(fn, deps) {
@@ -139,7 +140,8 @@ vm.runInNewContext(output, context, { filename: file })
 function render() {
   cursor = 0
   renders++
-  view = context.exports.useAppStore()
+  domains = context.exports.useAppStoreInternal()
+  view = domains.store
   while (effects.length) effects.shift()()
 }
 
@@ -176,10 +178,15 @@ async function run() {
   await flush()
   assert.equal(renders, beforeTraffic, 'traffic does not render the logs page')
   events.log({ type: 'info', payload: 'batched', time: 'now' })
+  const beforeLogDomains = domains
   const logTimer = [...timers].find(t => t.ms === 250)
   logTimer.fn()
   await flush()
   assert.equal(view.logs.at(-1).payload, 'batched', 'visible logs publish on the batch interval')
+  for (const domain of ['navigation', 'kernel', 'settings', 'traffic', 'profiles', 'proxies', 'rules', 'connections']) {
+    assert.equal(domains[domain], beforeLogDomains[domain], `${domain} context remains stable during log publication`)
+  }
+  assert.notEqual(domains.logs, beforeLogDomains.logs)
   view.clearLogs()
   await flush()
   logTimer.fn()
@@ -249,8 +256,13 @@ async function run() {
   assert.equal(view.logs.length, 1, 'settings propagate to domain stores without navigation')
   view.setActiveTab('dashboard')
   await flush()
+  const beforeTrafficDomains = domains
   events.traffic({ up: 123, down: 456 })
   await flush()
+  for (const domain of ['navigation', 'kernel', 'settings', 'profiles', 'proxies', 'rules', 'connections', 'logs']) {
+    assert.equal(domains[domain], beforeTrafficDomains[domain], `${domain} context remains stable during traffic publication`)
+  }
+  assert.notEqual(domains.traffic, beforeTrafficDomains.traffic)
   assert.equal(view.connections.downloadTotal, 2)
   backendState = 'error'
   events.status(backendState)

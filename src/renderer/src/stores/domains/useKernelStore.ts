@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import type { CoreState } from '@shared/types'
 import type { StoreCoordinator } from './types'
 
@@ -25,12 +25,12 @@ export function useKernelStore(coord: Pick<StoreCoordinator, 'perform'>): Kernel
     )
   }, [coord, coreStatus])
 
-  return {
+  return useMemo(() => ({
     coreStatus,
     setCoreStatus,
     sessionStartedAt,
     setSessionStartedAt,
     restartKernel,
     toggleKernel
-  }
+  }), [coreStatus, setCoreStatus, sessionStartedAt, setSessionStartedAt, restartKernel, toggleKernel])
 }

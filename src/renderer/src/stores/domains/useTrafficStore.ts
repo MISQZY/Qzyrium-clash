@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import type { TrafficStats } from '@shared/types'
 import type { StoreCoordinator } from './types'
 
@@ -36,8 +36,8 @@ export function useTrafficStore(coord: StoreCoordinator): TrafficStore {
     setTraffic({ up: 0, down: 0 })
   }, [coord.coreStatus])
 
-  return {
+  return useMemo(() => ({
     traffic,
     setTraffic
-  }
+  }), [traffic, setTraffic])
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import type { LogEntry } from '@shared/types'
 import type { StoreCoordinator } from './types'
 
@@ -61,9 +61,9 @@ export function useLogsStore(coord: StoreCoordinator): LogsStore {
     setLogs([])
   }, [])
 
-  return {
+  return useMemo(() => ({
     logs,
     setLogs,
     clearLogs
-  }
+  }), [logs, setLogs, clearLogs])
 }
