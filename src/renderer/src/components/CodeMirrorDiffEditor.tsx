@@ -1,9 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { MergeView, unifiedMergeView } from '@codemirror/merge'
 import { EditorState } from '@codemirror/state'
-import { EditorView, lineNumbers, highlightActiveLineGutter } from '@codemirror/view'
-import { yaml } from '@codemirror/lang-yaml'
-import { createEditorTheme } from '../lib/codemirror-theme'
+import { EditorView } from '@codemirror/view'
+import { createDiffEditorExtensions } from '../lib/diff-editor-extensions'
 import { useIsDarkTheme } from '../lib/theme'
 
 export interface CodeMirrorDiffEditorProps {
@@ -33,6 +32,10 @@ export function CodeMirrorDiffEditor({
   const modifiedContainerRef = useRef<HTMLDivElement>(null)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
+  const onMountRef = useRef(onMount)
+  onMountRef.current = onMount
+  const modifiedRef = useRef(modified)
+  modifiedRef.current = modified
 
   useEffect(() => {
     const container = containerRef.current
@@ -41,13 +44,7 @@ export function CodeMirrorDiffEditor({
     let mergeInstance: MergeView | null = null
     let unifiedInstance: EditorView | null = null
 
-    const themeExtensions = createEditorTheme(isDark)
-    const baseExtensions = [
-      lineNumbers(),
-      highlightActiveLineGutter(),
-      yaml(),
-      ...themeExtensions
-    ]
+    const baseExtensions = createDiffEditorExtensions(isDark)
 
     if (sideBySide) {
       mergeInstance = new MergeView({
@@ -59,7 +56,7 @@ export function CodeMirrorDiffEditor({
           ]
         },
         b: {
-          doc: modified,
+          doc: modifiedRef.current,
           extensions: [
             ...baseExtensions,
             EditorView.updateListener.of((update) => {
@@ -79,7 +76,7 @@ export function CodeMirrorDiffEditor({
         bEditor.classList.add('modified')
       }
 
-      onMount?.({
+      onMountRef.current?.({
         getValue: () => mergeInstance!.b.state.doc.toString(),
         setValue: (val: string) => {
           mergeInstance!.b.dispatch({
@@ -91,7 +88,7 @@ export function CodeMirrorDiffEditor({
     } else {
       unifiedInstance = new EditorView({
         state: EditorState.create({
-          doc: modified,
+          doc: modifiedRef.current,
           extensions: [
             ...baseExtensions,
             unifiedMergeView({ original }),
@@ -107,7 +104,7 @@ export function CodeMirrorDiffEditor({
 
       container.classList.add('modified')
 
-      onMount?.({
+      onMountRef.current?.({
         getValue: () => unifiedInstance!.state.doc.toString(),
         setValue: (val: string) => {
           unifiedInstance!.dispatch({
@@ -123,7 +120,7 @@ export function CodeMirrorDiffEditor({
       unifiedInstance?.destroy()
       container.innerHTML = ''
     }
-  }, [original, sideBySide, isDark, onMount])
+  }, [original, sideBySide, isDark])
 
   return (
     <div className="monaco-diff-editor cm-diff-wrapper h-full w-full flex-1 min-h-0 relative flex flex-col">
