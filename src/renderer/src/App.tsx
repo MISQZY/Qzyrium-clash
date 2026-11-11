@@ -9,7 +9,7 @@ import { TitleBar } from './components/TitleBar'
 import { WhatsNewDialog } from './components/WhatsNewDialog'
 import { UpdaterProvider } from './providers/UpdaterProvider'
 import { Sidebar } from './components/Sidebar'
-import { useAppStore } from './stores/useAppStore'
+import { AppStoreProvider, useAppStore } from './stores/useAppStore'
 import { DashboardPage } from './pages/DashboardPage'
 import { getNavigationGroup, getNavigationItem } from './lib/navigation'
 import { EmojiText } from './components/EmojiText'
@@ -27,6 +27,14 @@ const NetworkSettingsPage = lazy(() => import('./pages/NetworkSettingsPage').the
 const ProfileConfigPage = lazy(() => import('./pages/ProfileConfigPage').then((module) => ({ default: module.ProfileConfigPage })))
 
 export default function App() {
+  return (
+    <AppStoreProvider>
+      <AppContent />
+    </AppStoreProvider>
+  )
+}
+
+function AppContent() {
   const store = useAppStore()
   useEffect(() => {
     const onError = (e: ErrorEvent) => {

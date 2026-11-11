@@ -10,6 +10,7 @@ import { IPC_CHANNELS } from '@shared/ipc'
 import type { ThemeStore } from './ThemeStore'
 import { bootAppearance } from '@shared/appearance'
 import { watchWindowScale } from '../utils/window-scale'
+import { trimProcessMemory } from '../utils/memory'
 
 const DWMWA_TRANSITIONS_FORCEDISABLED = 3
 
@@ -84,6 +85,9 @@ export class WindowService implements BaseService {
       this.mainWindow = null
       // Destroy the renderer, bypassing the normal close-to-tray behavior.
       window?.destroy()
+      setTimeout(() => {
+        void trimProcessMemory()
+      }, 500)
     } else {
       this.show()
     }

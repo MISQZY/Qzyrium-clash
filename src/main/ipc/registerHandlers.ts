@@ -201,7 +201,19 @@ export function registerIpcHandlers(services: ServiceManager): void {
   })
 
   // --- App & Window Channels ---
+  const MAX_ICON_CACHE = 80
+  const iconCache = new Map<string, string>()
+
+  const setCachedIcon = (key: string, value: string) => {
+    if (iconCache.size >= MAX_ICON_CACHE) {
+      const oldest = iconCache.keys().next().value
+      if (oldest) iconCache.delete(oldest)
+    }
+    iconCache.set(key, value)
+  }
+
   ipcMain.handle(IPC_CHANNELS.APP_ENTER_CORE_ONLY, () => {
+    iconCache.clear()
     // Let the IPC response finish before destroying its sender.
     setImmediate(() => services.windowService.setCoreOnlyMode(true))
   })
@@ -305,17 +317,6 @@ export function registerIpcHandlers(services: ServiceManager): void {
     }
     return restarted
   })
-
-  const MAX_ICON_CACHE = 80
-  const iconCache = new Map<string, string>()
-
-  const setCachedIcon = (key: string, value: string) => {
-    if (iconCache.size >= MAX_ICON_CACHE) {
-      const oldest = iconCache.keys().next().value
-      if (oldest) iconCache.delete(oldest)
-    }
-    iconCache.set(key, value)
-  }
 
   ipcMain.handle(IPC_CHANNELS.APP_GET_PROCESS_ICON, async (_, processPath: string) => {
     if (!processPath || typeof processPath !== 'string') return null

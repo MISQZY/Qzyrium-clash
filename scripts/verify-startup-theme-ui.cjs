@@ -11,7 +11,7 @@ app.on('window-all-closed', () => {})
 app.whenReady().then(async () => {
   const pending = () => new Promise(() => {})
   for (const [channel, handler] of Object.entries({
-    'app:get-settings': pending, 'theme:get-custom-themes': pending,
+    'app:get-boot-snapshot': pending, 'app:get-settings': pending, 'theme:get-custom-themes': pending,
     'kernel:get-status': () => 'stopped', 'kernel:get-session-started-at': () => null,
     'sysproxy:get-status': () => ({ enabled: false, mode: 'manual', port: 7895 }),
     'profile:get-list': () => [], 'profile:get-active': () => null,

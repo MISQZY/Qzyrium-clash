@@ -470,5 +470,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAppStore(): AppStore {
+  const ctx = useContext(AppStoreContext)
+  if (ctx) return ctx
   return useAppStoreInternal().store
 }

@@ -87,7 +87,7 @@ export class LocalGeoIp {
     }
   }
 
-  private shutdownWorker(): void {
+  shutdownWorker(): void {
     if (this.idleTimer) {
       clearTimeout(this.idleTimer)
       this.idleTimer = null
