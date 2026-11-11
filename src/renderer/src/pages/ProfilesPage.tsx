@@ -1,43 +1,20 @@
+import { ProfileCard } from '../components/profiles/ProfileCard'
 import { useLocale, useTranslations, useCustomLocalization } from '../i18n'
 import React, { lazy, Suspense, useRef, useState } from 'react'
-import { Plus, RefreshCw, Trash2, Globe, FileCode, EllipsisVertical, Pencil } from 'lucide-react'
-import { RulesIcon } from '../lib/icons'
+import { Plus, Globe } from 'lucide-react'
+
 import { ProfileItem } from '@shared/profile'
 import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import { Button } from '../components/ui/button'
-import { Card, CardContent } from '../components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from '../components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator
-} from '../components/ui/dropdown-menu'
+import { Card } from '../components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog'
+
 import { Input } from '../components/ui/input'
 import { Switch } from '../components/ui/switch'
 import { Textarea } from '../components/ui/textarea'
-import { EmojiText } from '../components/EmojiText'
-import { ProfileLogo } from '../components/ProfileLogo'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from '../components/ui/alert-dialog'
+
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog'
 import { profileName as displayName } from '../lib/profile-name'
-import { SubscriptionInfo } from '../components/SubscriptionInfo'
 
 const ProfileEditorDialog = lazy(() => import('../components/ProfileEditorDialog').then((module) => ({ default: module.ProfileEditorDialog })))
 const ProfileFileEditorDialog = lazy(() => import('../components/ProfileFileEditorDialog').then((module) => ({ default: module.ProfileFileEditorDialog })))
@@ -178,124 +155,12 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
       {error && !showAddModal && <p role="alert" className="text-xs text-destructive">{error}</p>}
       <div className="flex flex-col gap-3">
         {profiles.length > 0 ? (
-          profiles.map((p) => {
-            const isActive = activeProfile?.id === p.id
-            const dateStr = new Date(p.updatedAt).toLocaleString(locale)
-
-            return (
-              <Card
-                key={p.id}
-                aria-current={isActive ? 'true' : undefined}
-                className={`bg-card ${isActive ? 'border-primary' : 'border-border'}`}
-              >
-                <CardContent className="space-y-4 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex flex-1 min-w-0 items-center gap-3.5">
-                      <div
-                        className={`size-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden ${
-                          p.type === 'remote'
-                            ? 'bg-primary/15 text-primary border border-primary/30'
-                            : 'bg-warning/15 text-warning border border-warning/30'
-                        }`}
-                      >
-                        <ProfileLogo
-                          url={p.profileLogo}
-                          className="size-7 object-contain rounded-xs"
-                          fallback={
-                            p.type === 'remote' ? (
-                              <Globe className="size-5 shrink-0" />
-                            ) : (
-                              <FileCode className="size-5 shrink-0" />
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="truncate text-sm font-semibold text-foreground" title={displayName(p, locale, customLocalization)}><EmojiText text={displayName(p, locale, customLocalization)} /></span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button variant="outline" size="icon-sm" title={t('editInfo')} aria-label={t('editInfo')} onClick={() => setEditingInfoProfile(p)}>
-                        <Pencil className="size-3.5 shrink-0" />
-                      </Button>
-                      {p.type === 'remote' && (
-                        <Button
-                          onClick={() => handleUpdate(p.id)}
-                          variant="outline"
-                          size="icon-sm"
-                          title={t('updateSubscription')}
-                          aria-label={t('updateSubscription')}
-                          aria-busy={updating.has(p.id)}
-                          disabled={updating.has(p.id)}
-                        >
-                          <RefreshCw className={`size-3.5 shrink-0${updating.has(p.id) ? ' animate-spin' : ''}`} />
-                        </Button>
-                      )}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="icon-sm"
-                            className="cursor-pointer"
-                            title={t('moreActions')}
-                            aria-label={t('moreActions')}
-                          >
-                            <EllipsisVertical className="size-3.5 shrink-0" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem
-                            onClick={() => setEditingFileProfile(p)}
-                            className="gap-2 cursor-pointer"
-                          >
-                            <FileCode className="size-3.5 text-muted-foreground" />
-                            <span>{t('editFile')}</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => setProfileToDelete(p)}
-                            className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
-                          >
-                            <Trash2 className="size-3.5" />
-                            <span>{t('deleteProfile')}</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-
-                  {p.type === 'remote' && <SubscriptionInfo info={p.userInfo} />}
-
-                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border/60 pt-3">
-                    <p className="text-[10px] text-muted-foreground">{t('updated', { date: dateStr })}</p>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {!isActive && (
-                        <Button
-                          onClick={() => onSwitchProfile(p.id)}
-                          variant="outline"
-                          size="sm"
-                          className="h-7"
-                        >
-                          {t('select')}
-                        </Button>
-                      )}
-                      <Button
-                        onClick={() => setEditingProfile(p)}
-                        variant="outline"
-                        size="icon-sm"
-                        title={t('editRules')}
-                        aria-label={t('editRules')}
-                      >
-                        <RulesIcon className="size-3.5 shrink-0" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })
+          profiles.map(profile => (
+            <ProfileCard key={profile.id} profile={profile} isActive={activeProfile?.id === profile.id}
+              updating={updating.has(profile.id)} onSwitchProfile={onSwitchProfile} onUpdate={handleUpdate}
+              onEditInfo={setEditingInfoProfile} onEditFile={setEditingFileProfile}
+              onDelete={setProfileToDelete} onEditRules={setEditingProfile} />
+          ))
         ) : (
           <Card className="p-12 text-center flex flex-col items-center justify-center">
             <Globe className="size-8 text-muted-foreground/40 mb-2" />
