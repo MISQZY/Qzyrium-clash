@@ -79,7 +79,13 @@ export interface AppStore {
 }
 
 // Domain Contexts for Granular Subscriptions
-export const AppStoreContext = createContext<AppStore | null>(null)
+const RefreshContext = createContext<AppStore['refreshAll'] | null>(null)
+
+export function useRefreshAll() {
+  const refresh = useContext(RefreshContext)
+  if (!refresh) throw new Error('useRefreshAll must be used within an AppStoreProvider')
+  return refresh
+}
 export const NavigationContext = createContext<NavigationStore | null>(null)
 export const KernelContext = createContext<KernelStore | null>(null)
 export const TrafficContext = createContext<TrafficStore | null>(null)
@@ -429,8 +435,8 @@ export function useAppStoreInternal(): {
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const domainStores = useAppStoreInternal()
   return createElement(
-    AppStoreContext.Provider,
-    { value: domainStores.store },
+    RefreshContext.Provider,
+    { value: domainStores.store.refreshAll },
     createElement(
       NavigationContext.Provider,
       { value: domainStores.navigation },
@@ -465,10 +471,4 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       )
     )
   )
-}
-
-export function useAppStore(): AppStore {
-  const ctx = useContext(AppStoreContext)
-  if (ctx) return ctx
-  return useAppStoreInternal().store
 }

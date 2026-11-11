@@ -1,6 +1,7 @@
+import { PageContent } from './pages/PageContent'
 import { I18nProvider, useTranslations } from './i18n'
 import { selectedLocalization } from '@shared/custom-localization'
-import { useEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { AlertTriangle, ChevronRight, FileText, LoaderCircle, RefreshCw, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { Alert } from './components/ui/alert'
@@ -9,22 +10,14 @@ import { TitleBar } from './components/TitleBar'
 import { WhatsNewDialog } from './components/WhatsNewDialog'
 import { UpdaterProvider } from './providers/UpdaterProvider'
 import { Sidebar } from './components/Sidebar'
-import { AppStoreProvider, useAppStore } from './stores/useAppStore'
-import { DashboardPage } from './pages/DashboardPage'
+import { AppStoreProvider, useNavigation, useKernel, useSettings, useProfiles } from './stores/useAppStore'
+
 import { getNavigationGroup, getNavigationItem } from './lib/navigation'
 import { EmojiText } from './components/EmojiText'
 import { profileName } from './lib/profile-name'
 import { ProfileLogo } from './components/ProfileLogo'
 import { CustomThemesProvider, useCustomThemes } from './providers/CustomThemesProvider'
 import { BUILTIN_THEMES, applyThemeToDocument, resolveTheme, type ThemeDefinition } from './lib/theme'
-
-const ProxiesPage = lazy(() => import('./pages/ProxiesPage').then((module) => ({ default: module.ProxiesPage })))
-const ProfilesPage = lazy(() => import('./pages/ProfilesPage').then((module) => ({ default: module.ProfilesPage })))
-const ConnectionsPage = lazy(() => import('./pages/ConnectionsPage').then((module) => ({ default: module.ConnectionsPage })))
-const LogsPage = lazy(() => import('./pages/LogsPage').then((module) => ({ default: module.LogsPage })))
-const RulesPage = lazy(() => import('./pages/RulesPage').then((module) => ({ default: module.RulesPage })))
-const NetworkSettingsPage = lazy(() => import('./pages/NetworkSettingsPage').then((module) => ({ default: module.NetworkSettingsPage })))
-const ProfileConfigPage = lazy(() => import('./pages/ProfileConfigPage').then((module) => ({ default: module.ProfileConfigPage })))
 
 export default function App() {
   return (
@@ -35,7 +28,7 @@ export default function App() {
 }
 
 function AppContent() {
-  const store = useAppStore()
+  const { settings } = useSettings()
   useEffect(() => {
     const onError = (e: ErrorEvent) => {
       if (e.message?.includes('ResizeObserver')) {
@@ -46,15 +39,16 @@ function AppContent() {
     return () => window.removeEventListener('error', onError)
   }, [])
   return (
-    <I18nProvider locale={store.settings.general.language} custom={selectedLocalization(store.settings.general)}>
+    <I18nProvider locale={settings.general.language} custom={selectedLocalization(settings.general)}>
       <CustomThemesProvider>
-        <UpdaterProvider><Workspace store={store} /></UpdaterProvider>
+        <UpdaterProvider><Workspace /></UpdaterProvider>
       </CustomThemesProvider>
     </I18nProvider>
   )
 }
 
-function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
+function Workspace() {
+  const store = { ...useNavigation(), ...useKernel(), ...useSettings(), ...useProfiles() }
   const t = useTranslations('app')
   const common = useTranslations('common')
   const profileT = useTranslations('profiles')
@@ -84,7 +78,7 @@ function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
       window.removeEventListener('blur', handleBlur)
     }
   }, [])
-  const { activeTab, setActiveTab, coreStatus, traffic, sysProxy, activeProfile, profiles, settings, proxies, delays, updateDelays, connections, logs, rules, busy, loading, error } = store
+  const { activeTab, setActiveTab, coreStatus, sysProxy, activeProfile, settings, busy, error } = store
   const [updatingProfile, setUpdatingProfile] = useState(false)
   const profileUpdatePending = useRef(false)
   const updateActiveProfile = async () => {
@@ -167,10 +161,6 @@ function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
     }
   }, [settings.general.theme, themes])
 
-  const toggleTun = () => {
-    const nextEnable = !settings.kernel.tun.enable
-    void store.saveSettings({ kernel: { ...settings.kernel, tun: { ...settings.kernel.tun, enable: nextEnable } } }).catch(() => {})
-  }
   return <div className="app-shell">
     <TitleBar />
     <WhatsNewDialog />
@@ -221,16 +211,7 @@ function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
         )}
         {!window.api && <div className="shrink-0 border-b border-border bg-muted/40 px-5 py-2 text-xs text-muted-foreground">{t('interfacePreviewOpenQzyriumInElectronToConnectToMihomo')}</div>}
         <div className="page-viewport" key={activeTab}>
-          {loading ? <div className="empty-state h-full"><LoaderCircle className="size-5 animate-spin" /><p>{t('loadingWorkspace')}</p></div> : <Suspense fallback={<div className="empty-state h-full"><LoaderCircle className="size-5 animate-spin" /><p>{t('loadingWorkspace')}</p></div>}>
-            {activeTab === 'dashboard' && <DashboardPage visible={store.visible} coreStatus={coreStatus} sessionStartedAt={store.sessionStartedAt} traffic={traffic} activeProfile={activeProfile} profiles={profiles} proxies={proxies} delays={delays} onSwitchProfile={store.switchActiveProfile} onUpdateDelays={updateDelays} settings={settings} connections={connections} sysProxy={sysProxy} busy={busy} rules={rules} onRestart={store.restartKernel} onToggleKernel={store.toggleKernel} onToggleSysProxy={store.toggleSysProxy} onToggleTun={toggleTun} onUpdateMode={(mode) => { void store.saveSettings({ kernel: { ...settings.kernel, mode } }).catch(() => {}) }} onToggleOnlyVpn={() => { void store.saveSettings({ general: { ...settings.general, onlyVpnTraffic: settings.general.onlyVpnTraffic === false ? true : false } }).catch(() => {}) }} onNavigate={setActiveTab} />}
-            {activeTab === 'proxies' && <ProxiesPage running={coreStatus === 'running'} proxies={proxies} rules={rules} mode={settings.kernel.mode} delays={delays} onUpdateDelays={updateDelays} onSelectNode={store.selectProxyNode} testConcurrency={settings.general.delayTestConcurrency ?? 6} />}
-            {activeTab === 'profiles' && <ProfilesPage profiles={profiles} activeProfile={activeProfile} onSwitchProfile={store.switchActiveProfile} onRefreshAll={store.refreshAll} importRequest={pendingImport} onClearImportRequest={() => setPendingImport(null)} />}
-            {activeTab === 'connections' && <ConnectionsPage connections={connections} onRefresh={store.refreshAll} />}
-            {activeTab === 'rules' && <RulesPage rules={rules} running={coreStatus === 'running'} busy={busy} onRefresh={store.refreshAll} />}
-            {activeTab === 'logs' && <LogsPage logs={logs} onClear={store.clearLogs} />}
-            {(activeTab === 'tun' || activeTab === 'sysproxy' || activeTab === 'mihomo' || activeTab === 'settings') && <NetworkSettingsPage section={activeTab} settings={settings} sysProxy={sysProxy} busy={busy} onSaveSettings={store.saveSettings} onToggleSysProxy={store.toggleSysProxy} onNavigate={setActiveTab} />}
-            {(activeTab === 'dns' || activeTab === 'sniffer' || activeTab === 'resources') && <ProfileConfigPage section={activeTab} settings={settings} busy={busy} onSaveSettings={store.saveSettings} onNavigate={setActiveTab} />}
-          </Suspense>}
+          <PageContent importRequest={pendingImport} onClearImportRequest={() => setPendingImport(null)} />
         </div>
       </main>
     </div>
