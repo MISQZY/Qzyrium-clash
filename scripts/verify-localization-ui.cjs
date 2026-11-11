@@ -17,7 +17,7 @@ app.whenReady().then(async () => {
   const win = new BrowserWindow({ width: 1100, height: 760, show: false, webPreferences: {
     preload: path.resolve('scripts/verify-ui.cjs'), contextIsolation: true, sandbox: false
   } })
-  win.webContents.on('console-message', (_event, level, message) => { if (level >= 3) errors.push(message) })
+  win.webContents.on('console-message', (event) => { const level = event.level; const message = event.message; if (level === 'error' || level >= 3) errors.push(message) })
   win.webContents.on('render-process-gone', (_event, details) => errors.push(details.reason))
   win.webContents.session.protocol.handle('https', () => new Response('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#69b88a"/></svg>', { headers: { 'Content-Type': 'image/svg+xml' } }))
   const evaluate = code => win.webContents.executeJavaScript(code)

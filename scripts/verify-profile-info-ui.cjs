@@ -33,7 +33,7 @@ if (process.type === 'renderer') {
   app.whenReady().then(async () => {
     const win = new BrowserWindow({ show: process.env.PROFILE_UI_CAPTURE === '1', width: 1040, height: 720, webPreferences: { preload: __filename, sandbox: false, contextIsolation: true, backgroundThrottling: false } })
     const errors = []
-    win.webContents.on('console-message', (_, level, message) => { if (level >= 3) errors.push(message) })
+    win.webContents.on('console-message', (event) => { const level = event.level; const message = event.message; if (level === 'error' || level >= 3) errors.push(message) })
     const evaluate = async code => { try { return await win.webContents.executeJavaScript(code) } catch (error) { throw new Error(`${error.message}: ${code}`, { cause: error }) } }
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
     const waitFor = async code => {

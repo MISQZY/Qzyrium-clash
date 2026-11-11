@@ -20,7 +20,7 @@ if (process.type === 'renderer') {
   app.whenReady().then(async () => {
     const win = new BrowserWindow({ show: false, width: 1100, height: 760, webPreferences: { preload: __filename, sandbox: false, contextIsolation: true, backgroundThrottling: false } })
     const errors = []
-    win.webContents.on('console-message', (_, level, message) => { if (level >= 3) errors.push(message) })
+    win.webContents.on('console-message', (event) => { const level = event.level; const message = event.message; if (level === 'error' || level >= 3) errors.push(message) })
     const evaluate = code => win.webContents.executeJavaScript(code)
     // Use the mounted Monaco model in the hidden window; OS keyboard input is not delivered there.
     const findEditor = `(() => {

@@ -222,8 +222,8 @@ export class WindowService implements BaseService {
       logger.info('Main window did-finish-load event fired')
     })
 
-    this.mainWindow.webContents.on('console-message', (_, level, message, line, sourceId) => {
-      logger.info(`[Renderer Console] [${level}] ${message} (${sourceId}:${line})`)
+    this.mainWindow.webContents.on('console-message', (event) => {
+      logger.info(`[Renderer Console] [${event.level}] ${event.message} (${event.sourceId}:${event.lineNumber})`)
     })
 
     this.mainWindow.webContents.on('render-process-gone', (_, details) => {
