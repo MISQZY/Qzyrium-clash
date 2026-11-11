@@ -7,12 +7,14 @@ export interface AppPaths {
   mihomoDir: string
   profilesDir: string
   logsDir: string
+  tasksDir: string
   sidecarDir: string
   geoFilesDir: string
   activeConfigPath: string
   settingsFilePath: string
   profilesFilePath: string
   coreBinaryPath: string
+  runnerBinaryPath: string
 }
 
 let cachedPaths: AppPaths | null = null
@@ -24,6 +26,7 @@ export function getAppPaths(): AppPaths {
   const mihomoDir = path.join(userData, 'mihomo')
   const profilesDir = path.join(userData, 'profiles')
   const logsDir = path.join(userData, 'logs')
+  const tasksDir = path.join(userData, 'tasks')
 
   // Find sidecar core directory
   const isDev = !app.isPackaged
@@ -37,13 +40,14 @@ export function getAppPaths(): AppPaths {
 
   const ext = process.platform === 'win32' ? '.exe' : ''
   const coreBinaryPath = path.join(sidecarDir, `mihomo${ext}`)
+  const runnerBinaryPath = path.join(geoFilesDir, `qzyrium-run${ext}`)
 
   const activeConfigPath = path.join(mihomoDir, 'config.yaml')
   const settingsFilePath = path.join(userData, 'settings.json')
   const profilesFilePath = path.join(userData, 'profiles.json')
 
   // Ensure directories exist
-  const dirs = [userData, mihomoDir, profilesDir, logsDir]
+  const dirs = [userData, mihomoDir, profilesDir, logsDir, tasksDir]
   for (const dir of dirs) {
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true })
@@ -55,12 +59,14 @@ export function getAppPaths(): AppPaths {
     mihomoDir,
     profilesDir,
     logsDir,
+    tasksDir,
     sidecarDir,
     geoFilesDir,
     activeConfigPath,
     settingsFilePath,
     profilesFilePath,
-    coreBinaryPath
+    coreBinaryPath,
+    runnerBinaryPath
   }
 
   return cachedPaths

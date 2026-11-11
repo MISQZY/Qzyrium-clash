@@ -42,3 +42,4 @@ nsis:
   oneClick: false
   perMachine: true
   createDesktopShortcut: true
+  include: build/nsis/installer.nsh
