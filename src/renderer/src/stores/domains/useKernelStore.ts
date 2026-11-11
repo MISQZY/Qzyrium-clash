@@ -11,7 +11,7 @@ export interface KernelStore {
   toggleKernel: () => Promise<boolean>
 }
 
-export function useKernelStore(coord: StoreCoordinator): KernelStore {
+export function useKernelStore(coord: Pick<StoreCoordinator, 'perform'>): KernelStore {
   const [coreStatus, setCoreStatus] = useState<CoreState>('stopped')
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null)
 

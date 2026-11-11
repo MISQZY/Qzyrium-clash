@@ -58,7 +58,7 @@ const react = {
   useContext(ctx) { return ctx?._currentValue },
   createElement(type, props, ...children) { return { type, props: { ...props, children } } }
 }
-const config = { general: { language: 'en' }, kernel: { mode: 'rule' } }
+let config = { general: { language: 'en' }, kernel: { mode: 'rule' } }
 let connectionsCalls = 0, proxyCalls = 0, baseCalls = 0
 const ruleScopes = []
 let backendState = 'running'
@@ -241,6 +241,24 @@ async function run() {
   view.setActiveTab('logs')
   await flush()
   assert.equal(view.logs.at(-1).payload, 'retained history', 'bounded history survives releasing the displayed array')
+  config = { ...config, general: { ...config.general, maxLogs: 1 } }
+  await view.refreshAll()
+  events.log({ type: 'info', payload: 'updated limit', time: 'now' })
+  ;[...timers].find(t => t.ms === 250).fn()
+  await flush()
+  assert.equal(view.logs.length, 1, 'settings propagate to domain stores without navigation')
+  view.setActiveTab('dashboard')
+  await flush()
+  events.traffic({ up: 123, down: 456 })
+  await flush()
+  assert.equal(view.connections.downloadTotal, 2)
+  backendState = 'error'
+  events.status(backendState)
+  await flush()
+  assert.equal(view.coreStatus, 'error')
+  assert.equal(view.traffic.down, 0, 'unexpected core exit clears traffic without navigation or refresh')
+  assert.equal(view.connections.downloadTotal, 0, 'unexpected core exit releases connections')
+  assert.equal([...timers].filter(t => t.ms === 2000).length, 0, 'unexpected core exit stops polling')
   console.log('PASS renderer store: progressive loading, independent retry, single snapshot owner, buffered logs, relevant traffic, visibility pause, stale result protection')
 }
 run().catch(error => { console.error(error); process.exitCode = 1 })

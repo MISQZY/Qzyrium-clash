@@ -10,7 +10,7 @@ import {
   type ReactNode
 } from 'react'
 import { selectedLocalization } from '@shared/custom-localization'
-import { AppConfig, DEFAULT_APP_CONFIG } from '@shared/app-config'
+import { AppConfig } from '@shared/app-config'
 import { ConnectionsSnapshot, MihomoRule, ProxyNode } from '@shared/mihomo'
 import { ProfileItem, CustomRuleItem } from '@shared/profile'
 import { CoreState, LogEntry, TrafficStats } from '@shared/types'
@@ -172,21 +172,21 @@ export function useAppStoreInternal(): {
 
   const [refreshing, setRefreshing] = useState(false)
 
-  // Mutable refs to resolve coordinator dependencies across hooks
-  const coreStatusRef = useRef<CoreState>('stopped')
-  const settingsRef = useRef<AppConfig>(DEFAULT_APP_CONFIG)
-
   const refreshAllRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const perform = useMemo(() => {
     return createPerform(() => refreshAllRef.current())
   }, [createPerform])
 
+  const actions = useMemo(() => ({ perform }), [perform])
+  const kernel = useKernelStore(actions)
+  const settingsStore = useSettingsStore(actions)
+
   const coord: StoreCoordinator = useMemo(
     () => ({
       activeTab,
       visible,
-      coreStatus: coreStatusRef.current,
-      settings: settingsRef.current,
+      coreStatus: kernel.coreStatus,
+      settings: settingsStore.settings,
       dataRevision,
       statusRevision,
       mounted,
@@ -198,6 +198,8 @@ export function useAppStoreInternal(): {
     [
       activeTab,
       visible,
+      kernel.coreStatus,
+      settingsStore.settings,
       dataRevision,
       statusRevision,
       mounted,
@@ -206,12 +208,6 @@ export function useAppStoreInternal(): {
       perform
     ]
   )
-
-  const kernel = useKernelStore(coord)
-  coreStatusRef.current = kernel.coreStatus
-
-  const settingsStore = useSettingsStore(coord)
-  settingsRef.current = settingsStore.settings
 
   const traffic = useTrafficStore(coord)
   const profiles = useProfilesStore(coord)
