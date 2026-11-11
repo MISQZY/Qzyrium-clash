@@ -1,3 +1,5 @@
+import { ActiveConfigBuilder } from '../core/ActiveConfigBuilder'
+import { restoreProxySelection } from '../core/ProxySelection'
 import { TrafficAccounting } from '../core/TrafficAccounting'
 import { nativeMessage } from '@shared/localization'
 import { IPC_CHANNELS } from '@shared/ipc'
@@ -14,8 +16,6 @@ import {
 import type { GeoLocation, GlobeLocations } from '@shared/geo'
 import { CoreState, LogEntry, MihomoVersion, TrafficStats } from '@shared/types'
 import { MihomoApiClient } from '../core/MihomoApiClient'
-import { prepareProfileContent } from '../utils/profile-validator'
-import { MihomoConfigFactory } from '../core/MihomoConfigFactory'
 import { MihomoProcessManager } from '../core/MihomoProcessManager'
 import { logger } from '../utils/logger'
 import { getAppPaths } from '../utils/paths'
@@ -46,7 +46,7 @@ export class KernelService implements BaseService {
   private parsedProfile: { digest: string; config: Record<string, unknown> } | null = null
   private providerCache = new Map<string, { stamp: string; proxies: unknown }>()
   private lifecycle: Promise<void> = Promise.resolve()
-  private synthesizedConfig: { digest: string; key: string; yaml: string } | null = null
+  private configBuilder: ActiveConfigBuilder
   private broadcaster: ((channel: string, data: unknown) => void) | null = null
   private sessionStartedAt: number | null = null
   private streamsPaused = false
@@ -62,6 +62,7 @@ export class KernelService implements BaseService {
   constructor(settingService: SettingService, profileService: ProfileService) {
     this.settingService = settingService
     this.profileService = profileService
+    this.configBuilder = new ActiveConfigBuilder(profileService)
     this.processManager = new MihomoProcessManager()
 
     const settings = this.settingService.getSettings()
@@ -205,21 +206,7 @@ export class KernelService implements BaseService {
       }
     }))
 
-    // Get active profile content
-    const activeProfile = this.profileService.getActiveProfile()
-    const rawContent = activeProfile ? await this.profileService.getProfileContent(activeProfile.id) : null
-    if (activeProfile && rawContent === null) throw new Error(`Profile file is missing: ${activeProfile.name}`)
-
-    // Synthesize configuration
-    const customRules = activeProfile ? this.profileService.getCustomRules(activeProfile.id) : []
-    const configKey = JSON.stringify([settings.kernel, customRules])
-    const digest = createHash('sha256').update(rawContent === null ? 'no-profile:' : 'profile:').update(rawContent ?? '').digest('hex')
-    if (customRules.some((rule) => rule.enabled !== false && !rule.isDeleted) ||
-      !this.synthesizedConfig || this.synthesizedConfig.digest !== digest || this.synthesizedConfig.key !== configKey) {
-      this.synthesizedConfig = { digest, key: configKey, yaml: await this.prepareConfig(rawContent, activeProfile?.id) }
-    }
-    const yamlConfig = this.synthesizedConfig.yaml
-    await fs.promises.writeFile(paths.activeConfigPath, yamlConfig, 'utf-8')
+    const activeProfile = await this.configBuilder.build(settings)
 
     this.apiClient.reconfigure(
       '127.0.0.1',
@@ -234,25 +221,7 @@ export class KernelService implements BaseService {
       settings.kernel.controllerSecret
     )
     this.warnInvalidRules(activeProfile?.id)
-    if (activeProfile?.selectedGroupProxies && Object.keys(activeProfile.selectedGroupProxies).length) {
-      const proxies = await this.apiClient.getProxies()
-      for (const [group, node] of Object.entries(activeProfile.selectedGroupProxies)) {
-        if (!(proxies[group] as ProxyGroup | undefined)?.all?.includes(node)) continue
-        try { await this.apiClient.selectProxy(group, node) }
-        catch (error) { logger.warn(`Could not restore selected proxy for ${group}: ${String(error)}`) }
-      }
-    }
-  }
-
-  private async prepareConfig(content: string | null, profileId?: string): Promise<string> {
-    const settings = this.settingService.getSettings()
-    const rules = profileId ? this.profileService.getCustomRules(profileId) : []
-    if (!rules.some((rule) => rule.enabled !== false && !rule.isDeleted)) {
-      return MihomoConfigFactory.synthesize(content, settings, rules)
-    }
-    const prepared = await prepareProfileContent(content, settings, rules)
-    if (profileId) await this.profileService.setRuleValidation(profileId, prepared.rules)
-    return prepared.config
+    await restoreProxySelection(activeProfile, this.apiClient)
   }
 
   private warnInvalidRules(profileId?: string): void {
@@ -323,30 +292,14 @@ export class KernelService implements BaseService {
     this.invalidateGlobe()
     return this.enqueueLifecycle(async () => {
       try {
-        const paths = getAppPaths()
         const settings = this.settingService.getSettings()
-        const activeProfile = this.profileService.getActiveProfile()
-        const rawContent = activeProfile ? await this.profileService.getProfileContent(activeProfile.id) : null
-        if (activeProfile && rawContent === null) throw new Error(`Profile file is missing: ${activeProfile.name}`)
-
-        const customRules = activeProfile ? this.profileService.getCustomRules(activeProfile.id) : []
-        const configKey = JSON.stringify([settings.kernel, customRules])
-        const digest = createHash('sha256').update(rawContent === null ? 'no-profile:' : 'profile:').update(rawContent ?? '').digest('hex')
-        this.synthesizedConfig = { digest, key: configKey, yaml: await this.prepareConfig(rawContent, activeProfile?.id) }
-        await fs.promises.writeFile(paths.activeConfigPath, this.synthesizedConfig.yaml, 'utf-8')
+        const activeProfile = await this.configBuilder.build(settings, true)
 
         await this.apiClient.reloadConfig(force)
         logger.info('Mihomo configuration reloaded on the fly via REST API')
         this.warnInvalidRules(activeProfile?.id)
 
-        if (activeProfile?.selectedGroupProxies && Object.keys(activeProfile.selectedGroupProxies).length) {
-          const proxies = await this.apiClient.getProxies()
-          for (const [group, node] of Object.entries(activeProfile.selectedGroupProxies)) {
-            if (!(proxies[group] as ProxyGroup | undefined)?.all?.includes(node)) continue
-            try { await this.apiClient.selectProxy(group, node) }
-            catch (error) { logger.warn(`Could not restore selected proxy for ${group}: ${String(error)}`) }
-          }
-        }
+        await restoreProxySelection(activeProfile, this.apiClient)
       } catch (err) {
         logger.warn(`Hot config reload failed, falling back to full restart: ${String(err)}`)
         await this.stopCore()

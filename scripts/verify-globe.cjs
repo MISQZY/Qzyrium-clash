@@ -210,13 +210,13 @@ async function main() {
   let raw = 'proxies: []', customRules = []
   let profileRead = new Promise(resolve => { releaseProfile = resolve })
   let originRead = new Promise(resolve => { releaseOrigin = () => { originFinished = true; resolve() } })
-  const { KernelService: LifecycleKernel } = load('src/main/services/KernelService.ts', {
+  const lifecycleDependencies = {
     '../utils/offline-proxies': offlineHelpers,
     '../utils/globe-profile': profileHelpers,
     '../utils/elevation': { isProcessElevated: () => true },
     fs: { constants: { COPYFILE_EXCL: 1 }, promises: { copyFile: async () => {}, writeFile: async () => {} } },
     '../core/MihomoApiClient': {}, '../core/MihomoProcessManager': {},
-    '../core/MihomoConfigFactory': { MihomoConfigFactory: { synthesize: (_raw, _settings, rules) => { syntheses++; assert.deepEqual(rules, customRules); return 'fixture' } } },
+    './MihomoConfigFactory': { MihomoConfigFactory: { synthesize: (_raw, _settings, rules) => { syntheses++; assert.deepEqual(rules, customRules); return 'fixture' } } },
     '../utils/profile-validator': { prepareProfileContent: async (_raw, _settings, rules) => {
       syntheses++
       assert.deepEqual(rules, customRules)
@@ -225,7 +225,8 @@ async function main() {
     '../utils/logger': { logger: { info() {} } },
     '../utils/paths': { getAppPaths: () => ({ geoFilesDir: 'geo', mihomoDir: 'mihomo', activeConfigPath: 'config.yaml' }) },
     './GeoIpService': {}, '../utils/local-geoip': {}, '../utils/globe-routes': helpers
-  })
+  }
+  const { KernelService: LifecycleKernel } = load('src/main/services/KernelService.ts', lifecycleDependencies)
   const lifecycle = Object.create(LifecycleKernel.prototype)
   lifecycle.trafficAccounting = new (load('src/main/core/TrafficAccounting.ts', {}).TrafficAccounting)()
   lifecycle.lifecycle = Promise.resolve()
@@ -234,6 +235,8 @@ async function main() {
   lifecycle.geoIp = { captureOrigin: () => originRead }
   lifecycle.profileService = { getActiveProfile: () => ({ id: 'fixture' }), getProfileContent: async () => { await profileRead; return raw }, getCustomRules: () => customRules,
     setRuleValidation: async (_id, rules) => { assert.deepEqual(rules, customRules) } }
+  const { ActiveConfigBuilder } = load('src/main/core/ActiveConfigBuilder.ts', lifecycleDependencies)
+  lifecycle.configBuilder = new ActiveConfigBuilder(lifecycle.profileService)
   lifecycle.apiClient = { reconfigure() {}, stopAllStreams() {} }
   lifecycle.processManager = { getState: () => state, start: async () => { assert.ok(originFinished, 'TUN waits for physical origin capture'); starts++; state = 'running' }, stop: async () => { stops++; state = 'stopped' } }
   const pendingStart = lifecycle.start(), duplicateStart = lifecycle.start(), pendingStop = lifecycle.stop()

@@ -163,7 +163,8 @@ async function main() {
     getCustomRules: () => savedRules,
     setRuleValidation: async (_id, value) => { savedRules = value }
   }
-  await service.prepareConfig(profile, 'test')
+  const { ActiveConfigBuilder } = load('src/main/core/ActiveConfigBuilder.ts')
+  await new ActiveConfigBuilder(service.profileService).prepare(profile, settings, 'test')
   assert.ok(savedRules[0].validationError, 'kernel preparation persists the errors used by the editor')
   service.warnInvalidRules('test')
   assert.equal(warnings.length, 1)
