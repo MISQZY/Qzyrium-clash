@@ -18,10 +18,12 @@
 
 !macro customInstall
   ; The installer runs with administrative privileges (perMachine: true).
+  nsExec::Exec '"$SYSDIR\schtasks.exe" /delete /tn "Qzyrium-clash-run" /f'
   !insertmacro removeLegacyStartupTasks
 !macroend
 
 !macro customUnInstall
+  ExecWait '"$SYSDIR\schtasks.exe" /delete /tn "Qzyrium-clash-run-v2" /f'
   ExecWait '"$SYSDIR\schtasks.exe" /delete /tn "Qzyrium-clash-run" /f'
   !insertmacro removeLegacyStartupTasks
 !macroend

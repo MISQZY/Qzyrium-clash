@@ -1,13 +1,19 @@
-import { execSync } from 'child_process'
-import { copyFileSync, existsSync, writeFileSync } from 'fs'
+import { execFileSync } from 'child_process'
+import { existsSync, unlinkSync, writeFileSync } from 'fs'
+import { randomUUID } from 'node:crypto'
 import path from 'path'
 import { app } from 'electron'
 import { getAppPaths } from './paths'
 import { logger } from './logger'
 
-export const ELEVATE_TASK_NAME = 'Qzyrium-clash-run'
+export const ELEVATE_TASK_NAME = 'Qzyrium-clash-run-v2'
+const LEGACY_TASK_NAME = 'Qzyrium-clash-run'
 
-function getElevateTaskXml(runnerPath: string, appPath: string): string {
+function escapeXml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function getElevateTaskXml(runnerPath: string, appPath: string, paramPath: string): string {
   return `<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <Triggers />
@@ -38,8 +44,8 @@ function getElevateTaskXml(runnerPath: string, appPath: string): string {
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>"${runnerPath}"</Command>
-      <Arguments>"${appPath}"</Arguments>
+      <Command>${escapeXml(runnerPath)}</Command>
+      <Arguments>${escapeXml(`"${appPath}" "${paramPath}"`)}</Arguments>
     </Exec>
   </Actions>
 </Task>
@@ -48,30 +54,33 @@ function getElevateTaskXml(runnerPath: string, appPath: string): string {
 
 export function createElevateTaskSync(): boolean {
   if (process.platform !== 'win32') return false
+  let taskXmlPath: string | undefined
   try {
     const paths = getAppPaths()
     const taskDir = paths.tasksDir
-    const sourceRunner = paths.runnerBinaryPath
-    const targetRunner = path.join(taskDir, 'qzyrium-run.exe')
-    const taskXmlPath = path.join(taskDir, `${ELEVATE_TASK_NAME}.xml`)
+    const targetRunner = paths.runnerBinaryPath
 
-    if (existsSync(sourceRunner)) {
-      copyFileSync(sourceRunner, targetRunner)
-    }
-
+    // Never execute a copy from userData. The bundled helper checks the entire
+    // installation's ownership/ACLs before we register a privileged action.
+    deleteTask(LEGACY_TASK_NAME)
     if (!existsSync(targetRunner)) {
       logger.warn(`Elevate task runner not found at ${targetRunner}`)
       return false
     }
 
-    const xmlContent = getElevateTaskXml(targetRunner, process.execPath)
-    writeFileSync(taskXmlPath, Buffer.from(`\ufeff${xmlContent}`, 'utf16le'))
+    if (!app.isPackaged) return false
+    execFileSync(targetRunner, ['--check-install', process.execPath], { windowsHide: true, timeout: 10000, stdio: 'pipe' })
+    // schtasks reads XML after this write. Keep it in the verified protected
+    // installation too, so a non-admin cannot replace the action before import.
+    taskXmlPath = path.join(path.dirname(targetRunner), `.elevate-${randomUUID()}.xml`)
+    const xmlContent = getElevateTaskXml(targetRunner, process.execPath, path.join(taskDir, 'param.txt'))
+    writeFileSync(taskXmlPath, Buffer.from(`\ufeff${xmlContent}`, 'utf16le'), { flag: 'wx' })
 
     const schtasks = process.env?.SystemRoot
       ? path.join(process.env.SystemRoot, 'System32', 'schtasks.exe')
       : 'schtasks.exe'
 
-    execSync(`"${schtasks}" /create /tn "${ELEVATE_TASK_NAME}" /xml "${taskXmlPath}" /f`, {
+    execFileSync(schtasks, ['/create', '/tn', ELEVATE_TASK_NAME, '/xml', taskXmlPath, '/f'], {
       windowsHide: true,
       stdio: 'pipe'
     })
@@ -80,6 +89,10 @@ export function createElevateTaskSync(): boolean {
   } catch (err) {
     logger.warn(`Could not create elevate task "${ELEVATE_TASK_NAME}": ${String(err)}`)
     return false
+  } finally {
+    if (taskXmlPath) {
+      try { unlinkSync(taskXmlPath) } catch { /* Registration may fail before creating the file. */ }
+    }
   }
 }
 
@@ -90,18 +103,16 @@ export function tryRunElevateTask(args: string[] = []): boolean {
     const taskDir = paths.tasksDir
     const paramPath = path.join(taskDir, 'param.txt')
 
-    const cleanArgs = args.filter((arg) => !arg.startsWith('--admin-restart'))
-    if (cleanArgs.length > 0) {
-      writeFileSync(paramPath, cleanArgs.join(' '), 'utf8')
-    } else {
-      writeFileSync(paramPath, 'empty', 'utf8')
-    }
+    // The privileged runner independently enforces this allowlist. Arbitrary
+    // Electron switches must never cross the elevation boundary.
+    const cleanArgs = args.filter((arg) => /^--admin-restart=\d+$/.test(arg) || /^(clash|qzyrium|mihomo):\/\/[^\r\n"]+$/i.test(arg))
+    writeFileSync(paramPath, cleanArgs.join('\n'), 'utf8')
 
     const schtasks = process.env?.SystemRoot
       ? path.join(process.env.SystemRoot, 'System32', 'schtasks.exe')
       : 'schtasks.exe'
 
-    execSync(`"${schtasks}" /run /tn "${ELEVATE_TASK_NAME}"`, {
+    execFileSync(schtasks, ['/run', '/tn', ELEVATE_TASK_NAME], {
       windowsHide: true,
       stdio: 'pipe'
     })
@@ -120,7 +131,7 @@ export function checkElevateTask(): boolean {
       ? path.join(process.env.SystemRoot, 'System32', 'schtasks.exe')
       : 'schtasks.exe'
 
-    execSync(`"${schtasks}" /query /tn "${ELEVATE_TASK_NAME}"`, {
+    execFileSync(schtasks, ['/query', '/tn', ELEVATE_TASK_NAME], {
       windowsHide: true,
       stdio: 'pipe'
     })
@@ -130,18 +141,23 @@ export function checkElevateTask(): boolean {
   }
 }
 
-export function deleteElevateTask(): void {
+function deleteTask(name: string): void {
   if (process.platform !== 'win32') return
   try {
     const schtasks = process.env?.SystemRoot
       ? path.join(process.env.SystemRoot, 'System32', 'schtasks.exe')
       : 'schtasks.exe'
 
-    execSync(`"${schtasks}" /delete /tn "${ELEVATE_TASK_NAME}" /f`, {
+    execFileSync(schtasks, ['/delete', '/tn', name, '/f'], {
       windowsHide: true,
       stdio: 'pipe'
     })
   } catch {
     // Ignore deletion errors
   }
+}
+
+export function deleteElevateTask(): void {
+  deleteTask(ELEVATE_TASK_NAME)
+  deleteTask(LEGACY_TASK_NAME)
 }
