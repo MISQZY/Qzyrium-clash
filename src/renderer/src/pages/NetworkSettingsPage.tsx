@@ -1,4 +1,5 @@
-import { createSettingsSectionPatch, resetSettingsSection, type SettingsSection } from '@shared/settings-config'
+import { useSettingsDraft } from '../hooks/useSettingsDraft'
+import { type SettingsSection } from '@shared/settings-config'
 import { SETTINGS_SECTIONS } from '../lib/settings-sections'
 import { useTranslations } from '../i18n'
 import { useState, useEffect, type FormEvent, type ReactNode } from 'react'
@@ -57,11 +58,9 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
   const t = useTranslations('networksettings')
   const common = useTranslations('common')
 
-  const [form, setForm] = useState(settings)
-  const [bypass, setBypass] = useState(settings.sysProxy.bypass.join('\n'))
-  const [dnsHijack, setDnsHijack] = useState(settings.kernel.tun.dnsHijack.join('\n'))
-  const [dirty, setDirty] = useState(false)
-  const [message, setMessage] = useState<Parameters<typeof t>[0] | ''>('')
+  const draft = useSettingsDraft(section, settings, onSaveSettings)
+  const { form, setForm, bypass, setBypass, dnsHijack, setDnsHijack, dirty, setDirty, message, setMessage,
+    updateKernel, updateTun, updateGeneral, updateSysProxy, discard, resetToDefaults, save } = draft
   const [coreVersion, setCoreVersion] = useState<string>('v1.19.33')
   const [appVersion, setAppVersion] = useState<string>('0.1.0')
   const [checkingUpdates, setCheckingUpdates] = useState(false)
@@ -154,40 +153,8 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
     }
   }
 
-  useEffect(() => {
-    setForm((prev) => ({ ...prev, general: { ...prev.general, language: settings.general.language, theme: settings.general.theme, customLocalization: settings.general.customLocalization } }))
-  }, [settings.general.language, settings.general.theme, settings.general.customLocalization])
-  useEffect(() => { if (!dirty) setForm(settings) }, [settings, dirty])
   const { title: titleKey, icon: Icon } = SETTINGS_SECTIONS[section]
   const title = t(titleKey)
-  const updateKernel = (patch: Partial<AppConfig['kernel']>) => { setDirty(true); setMessage(''); setForm((prev) => ({ ...prev, kernel: { ...prev.kernel, ...patch } })) }
-  const updateTun = (patch: Partial<AppConfig['kernel']['tun']>) => updateKernel({ tun: { ...form.kernel.tun, ...patch } })
-  const updateGeneral = (patch: Partial<AppConfig['general']>) => { setDirty(true); setMessage(''); setForm((prev) => ({ ...prev, general: { ...prev.general, ...patch } })) }
-  const updateSysProxy = (patch: Partial<AppConfig['sysProxy']>) => { setDirty(true); setMessage(''); setForm((prev) => ({ ...prev, sysProxy: { ...prev.sysProxy, ...patch } })) }
-  const save = async (event: FormEvent) => {
-    event.preventDefault()
-    setMessage('')
-    try {
-      if (section === 'mihomo' && form.kernel.mixedPort === form.kernel.controllerPort) {
-        setMessage('mixedAndControllerPortsMustBeDifferent')
-        return
-      }
-      await onSaveSettings(createSettingsSectionPatch(section, { form, bypass, dnsHijack }, settings))
-      setDirty(false)
-      setMessage('changesSaved')
-    } catch { setMessage('changesCouldNotBeAppliedCheckTheErrorAbove') }
-  }
-
-  const resetToDefaults = () => {
-    if (section === 'settings' || section === 'sysproxy' || section === 'tun' || section === 'mihomo') {
-      const reset = resetSettingsSection(form, section)
-      setForm(reset)
-      if (section === 'sysproxy') setBypass(reset.sysProxy.bypass.join('\n'))
-      if (section === 'tun') setDnsHijack(reset.kernel.tun.dnsHijack.join('\n'))
-    }
-    setDirty(true)
-  }
-
 
   const renderGeneralFields = (keys: string[]) => <SettingsFields
     prefix="general" inherit={false}
@@ -258,13 +225,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => {
-            setForm(settings)
-            setBypass(settings.sysProxy.bypass.join('\n'))
-            setDnsHijack(settings.kernel.tun.dnsHijack.join('\n'))
-            setDirty(false)
-            setMessage('')
-          }}
+          onClick={discard}
           className="text-xs text-muted-foreground hover:text-foreground"
         >
           {t('discard')}
