@@ -8,6 +8,7 @@ const ts = require('typescript')
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'qzyrium-logs-'))
 let now = Date.parse('2026-11-10T23:59:59.000Z')
 const failures = []
+let lastOutput = ''
 class Clock extends Date {
   constructor(...args) { super(...(args.length ? args : [now])) }
   static now() { return now }
@@ -18,8 +19,8 @@ function load(file, dependencies = {}) {
   }).outputText
   const exports = {}
   vm.runInNewContext(`(function(exports, require) { ${output}\n})`, {
-    Date: Clock, Buffer,
-    console: { log() {}, warn() {}, error: (...args) => failures.push(args) }
+    Date: Clock, Buffer, URL,
+    console: { log: value => { lastOutput = value }, warn: value => { lastOutput = value }, error: (...args) => failures.push(args) }
   })(exports, (name) => {
     if (dependencies[name]) return dependencies[name]
     if (name.startsWith('@shared/')) return load(path.resolve('src/shared', name.slice(8) + '.ts'))
@@ -29,7 +30,19 @@ function load(file, dependencies = {}) {
 }
 
 try {
-  const { parseMihomoLog, normalizeLogLevel } = load('src/shared/logs.ts')
+  const { parseMihomoLog, normalizeLogLevel, cleanLogMessage, redactUrl } = load('src/shared/logs.ts')
+  const privateUrl = 'https://private-user:private-password@provider.example/personal-path?Token=private-token&access_token=private-access#private-fragment'
+  assert.equal(redactUrl(privateUrl), 'https://provider.example/[REDACTED]')
+  const safeMessage = cleanLogMessage(`Failed (${privateUrl}), Authorization: Bearer private-bearer ?API_KEY=private-key`)
+  for (const secret of ['private-user', 'private-password', 'personal-path', 'private-token', 'private-access', 'private-fragment', 'private-bearer', 'private-key']) {
+    assert.ok(!safeMessage.includes(secret), `redacts ${secret}`)
+  }
+  assert.ok(safeMessage.includes('https://provider.example/[REDACTED]'))
+  assert.equal(cleanLogMessage(safeMessage), safeMessage, 'redaction is idempotent')
+  assert.equal(redactUrl('https://example.com/'), 'https://example.com/')
+  assert.equal(redactUrl('not-a-url'), '[REDACTED_URL]')
+  const privateEntry = parseMihomoLog(JSON.stringify({ level: 'warning', msg: `Request ${privateUrl} failed` }))
+  assert.ok(!privateEntry.payload.includes('personal-path'), 'streamed core logs are sanitized')
   const line = '\x1b[33mtime="2026-11-10T12:00:00+03:00" level=warning msg="DNS failed\\n  retry"\x1b[0m'
   const entry = parseMihomoLog(line)
   assert.equal(entry.type, 'warning')
@@ -72,6 +85,9 @@ try {
   for (const name of ['latest.log', 'qzyrium.log', 'qzyrium.log.1']) fs.utimesSync(path.join(directory, name), stamp, stamp)
   const logger = new Logger()
   logger.initialize(directory)
+  logger.warn(`Fetching ${privateUrl}`)
+  assert.ok(!lastOutput.includes('personal-path'), 'console output is sanitized')
+  assert.ok(!fs.readFileSync(path.join(directory, 'latest.log'), 'utf8').includes('private-token'), 'disk output is sanitized')
   logger.writeEntry(entry)
   const archives = () => fs.readdirSync(directory).filter(name => /^\d{4}-.*\.log$/.test(name))
   assert.equal(archives().length, 3)

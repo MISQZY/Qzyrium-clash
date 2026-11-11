@@ -21,7 +21,12 @@ export class SubscriptionClient {
     }
     const response = await axios.get<unknown>(url, updateViaProxy ? {
       ...options, proxy: { host: '127.0.0.1', port: settings.kernel.mixedPort, protocol: 'http' }
-    } : options)
+    } : options).catch((error: unknown) => {
+      // Axios errors can carry the full URL, auth headers and request config.
+      const status = (error as { response?: { status?: unknown } } | null)?.response?.status
+      throw new Error(`Subscription download failed${typeof status === 'number' && Number.isInteger(status)
+        && status >= 100 && status <= 599 ? ` (HTTP ${status})` : ''}`)
+    })
     const content = typeof response.data === 'string' ? response.data : JSON.stringify(response.data)
     return { content, ...parseSubscriptionMetadata(response.headers, content) }
   }

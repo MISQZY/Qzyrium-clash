@@ -1,15 +1,6 @@
-export function sanitizeUrl(rawUrl?: string): string {
-  if (!rawUrl) return ''
-  try {
-    const u = new URL(rawUrl)
-    for (const key of ['token', 'secret', 'password', 'key', 'auth']) {
-      if (u.searchParams.has(key)) u.searchParams.set(key, '[REDACTED]')
-    }
-    return u.toString()
-  } catch {
-    return '[REDACTED_URL]'
-  }
-}
+import { redactUrl } from '@shared/logs'
+
+export const sanitizeUrl = (rawUrl?: string): string => rawUrl ? redactUrl(rawUrl) : ''
 
 export function isValidRemoteSubscriptionUrl(rawUrl: string): boolean {
   try {

@@ -13,13 +13,28 @@ export function normalizeLogLevel(level: string): 'debug' | 'info' | 'warning' |
   }
 }
 
+/** Log only the origin: providers also use paths, fragments and userinfo as credentials. */
+export function redactUrl(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl)
+    if (!['http:', 'https:'].includes(url.protocol)) return '[REDACTED_URL]'
+    return url.origin + (url.pathname !== '/' || url.search || url.hash || url.username || url.password
+      ? '/[REDACTED]' : '/')
+  } catch { return '[REDACTED_URL]' }
+}
+
 export function cleanLogMessage(message: string): string {
   // Remove terminal colors and controls, keeping newlines and indentation.
   // eslint-disable-next-line no-control-regex
   return message.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '').replace(/\r\n?/g, '\n')
     // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
-    .replace(/([?&](?:token|password|secret|key|auth)=)[^&\s]+/gi, '$1[REDACTED]')
+    .replace(/https?:\/\/[^\s"'<>\\]+/gi, value => {
+      const suffix = /[),.;]+$/.exec(value)?.[0] ?? ''
+      return redactUrl(suffix ? value.slice(0, -suffix.length) : value) + suffix
+    })
+    .replace(/([?&](?:token|access[_-]?token|refresh[_-]?token|password|secret|client[_-]?secret|key|api[_-]?key|auth)=)[^&\s]+/gi, '$1[REDACTED]')
+    .replace(/(authorization\s*[:=]\s*(?:bearer|basic)\s+)[^\s,"']+/gi, '$1[REDACTED]')
     .trimEnd()
 }
 

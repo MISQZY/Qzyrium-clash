@@ -158,7 +158,14 @@ async function verifyProfiles() {
       },
       async unlink(file) { files.delete(file) }
     } },
-    axios: { async get(_url, options) { requestAgents.push(options?.headers?.['User-Agent']); requestProxies.push(options?.proxy); fetches++; await nextTurn(); if (failFetch) throw new Error('download failed'); return { data: content, headers: responseHeaders } } },
+    axios: { async get(_url, options) {
+      requestAgents.push(options?.headers?.['User-Agent']); requestProxies.push(options?.proxy)
+      fetches++; await nextTurn()
+      if (failFetch) throw Object.assign(new Error('Failed https://user:password@fixture/private-path?Token=private-token'), {
+        response: { status: 403 }, config: { url: _url, headers: { Authorization: 'Bearer private-token' } }
+      })
+      return { data: content, headers: responseHeaders }
+    } },
     '../utils/subscription-name': { subscriptionName },
     '../utils/paths': { getAppPaths: () => ({ profilesFilePath: 'profiles.json', profilesDir: 'profiles' }) },
     '../utils/logger': { logger }
@@ -180,7 +187,13 @@ async function verifyProfiles() {
   failFetch = true
   const failedUpdate = profiles.updateProfile('a')
   assert.equal(profiles.updateProfile('a'), failedUpdate, 'service consumers must share pending updates too')
-  await assert.rejects(failedUpdate, /download failed/)
+  await assert.rejects(failedUpdate, error => {
+    assert.equal(error.message, 'Subscription download failed (HTTP 403)')
+    assert.equal(error.config, undefined)
+    assert.equal(error.cause, undefined)
+    assert.ok(!error.stack.includes('private-token') && !error.stack.includes('private-path'))
+    return true
+  })
   failFetch = false
   fetches = 0
 
