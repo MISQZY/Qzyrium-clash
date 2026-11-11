@@ -30,6 +30,35 @@ app.whenReady().then(async () => {
     await waitFor(`document.querySelector('.globe-route-endpoint') && document.querySelector('.globe-route-origin')`)
     await evaluate('document.fonts.ready')
     await delay(1000)
+    const dragStart = await evaluate(`(() => {
+      const scene = document.querySelector('.globe-scene'), rect = scene.getBoundingClientRect();
+      for (let y = rect.top + 30; y < rect.bottom - 30; y += 30) {
+        for (let x = rect.left + 30; x < rect.right - 30; x += 30) {
+          const target = document.elementFromPoint(x, y);
+          if (target === scene || target?.classList.contains('globe-solid-surface')) return { x: Math.round(x), y: Math.round(y) };
+        }
+      }
+      throw new Error('No globe drag surface');
+    })()`)
+    win.webContents.sendInputEvent({ type: 'mouseMove', ...dragStart })
+    await evaluate(`document.querySelector('.globe-route-hit').dispatchEvent(new PointerEvent('pointerover', { bubbles: true }))`)
+    await waitFor(`document.querySelector('.globe-route-glow')`)
+    win.webContents.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...dragStart })
+    await waitFor(`!document.querySelector('.globe-route-glow')`)
+    await evaluate(`document.querySelector('.globe-route-hit').dispatchEvent(new PointerEvent('pointerover', { bubbles: true }))`)
+    await delay(50)
+    assert.equal(await evaluate(`!!document.querySelector('.globe-route-glow')`), false, 'capture cannot restore stale route hover while dragging')
+    win.webContents.sendInputEvent({ type: 'mouseMove', x: dragStart.x + 20, y: dragStart.y + 10 })
+    win.webContents.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, x: dragStart.x + 20, y: dragStart.y + 10 })
+    await delay(100)
+    assert.equal(await evaluate(`!!document.querySelector('.globe-route-glow')`), false, 'route highlight is cleared after rotating')
+    await evaluate(`document.querySelector('.globe-route-summary').click()`)
+    await waitFor(`document.querySelector('.globe-route-glow')`)
+    win.webContents.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...dragStart })
+    win.webContents.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, ...dragStart })
+    await delay(50)
+    assert.ok(await evaluate(`document.querySelector('.globe-route-glow')`), 'explicitly pinned route survives dragging')
+    await evaluate(`document.querySelector('.globe-route-summary').click()`)
     for (let rotation = 0; rotation < 4; rotation++) {
       assert.ok(await evaluate(`(() => {
         const canvas = document.querySelector('.globe-canvas'), ctx = canvas.getContext('2d');

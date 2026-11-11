@@ -93,6 +93,14 @@ export function ConnectionGlobe({
   const [projected, setProjected] = useState<ProjectedRoute[]>([])
   const [unavailable, setUnavailable] = useState(false)
 
+  const previewRoute = (id: string) => {
+    if (!drag.current) setHovered(id)
+  }
+  const endDrag = () => {
+    drag.current = null
+    setHovered(null)
+  }
+
   // Detect running transition to trigger smooth 950ms globe ignition light-up
   useEffect(() => {
     if (running && !prevRunning.current) {
@@ -351,12 +359,14 @@ export function ConnectionGlobe({
         aria-label={t('globeDescription')}
         onPointerDown={(event) => {
           if (event.button !== 0) return
+          setHovered(null)
           drag.current = { x: event.clientX, y: event.clientY }
           event.currentTarget.setPointerCapture(event.pointerId)
         }}
-        onPointerUp={() => { drag.current = null }}
-        onPointerCancel={() => { drag.current = null }}
-        onLostPointerCapture={() => { drag.current = null }}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onLostPointerCapture={endDrag}
+        onPointerLeave={() => setHovered(null)}
         onPointerMove={(event) => {
           if (!drag.current) return
           camera.current.phi += (event.clientX - drag.current.x) * 0.005
@@ -400,7 +410,7 @@ export function ConnectionGlobe({
                   className="globe-route-hit"
                   aria-label={routes.filter((item) => route.routeIds.includes(item.id)).map((item) => item.node).join(', ')}
                   onPointerDown={(event) => event.stopPropagation()}
-                  onPointerEnter={() => setHovered(route.id)}
+                  onPointerEnter={() => previewRoute(route.id)}
                   onPointerLeave={() => setHovered(null)}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -466,7 +476,7 @@ export function ConnectionGlobe({
             return (
               <g key={endpoint.id} className="globe-endpoint-group cursor-pointer"
                 onPointerDown={(event) => event.stopPropagation()}
-                onPointerEnter={() => setHovered(endpoint.routeIds[0])}
+                onPointerEnter={() => previewRoute(endpoint.routeIds[0])}
                 onPointerLeave={() => setHovered(null)}
                 onClick={(event) => { event.stopPropagation(); toggleEndpoint(endpoint.routeIds) }}>
                 <title>{routes.filter((route) => endpoint.routeIds.includes(route.id)).map((route) => route.node).join('\n')}</title>
@@ -485,7 +495,7 @@ export function ConnectionGlobe({
             return (
               <g key={`label-${endpoint.id}`} className="globe-endpoint-label"
                 role="button" tabIndex={0} aria-label={text}
-                onFocus={() => setHovered(endpoint.routeIds[0])}
+                onFocus={() => previewRoute(endpoint.routeIds[0])}
                 onBlur={() => setHovered(null)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
@@ -493,7 +503,7 @@ export function ConnectionGlobe({
                   }
                 }}
                 onPointerDown={(event) => event.stopPropagation()}
-                onPointerEnter={() => setHovered(endpoint.routeIds[0])}
+                onPointerEnter={() => previewRoute(endpoint.routeIds[0])}
                 onPointerLeave={() => setHovered(null)}
                 onClick={(event) => { event.stopPropagation(); toggleEndpoint(endpoint.routeIds) }}>
                 <title>{routes.filter((route) => endpoint.routeIds.includes(route.id)).map((route) => route.node).join('\n')}</title>
@@ -525,7 +535,7 @@ export function ConnectionGlobe({
                   type="button"
                   key={route.id}
                   onClick={() => setExpandedId((current) => current === route.id ? null : route.id)}
-                  onMouseEnter={() => setHovered(route.id)}
+                  onMouseEnter={() => previewRoute(route.id)}
                   onMouseLeave={() => setHovered(null)}
                   className={`globe-route-summary ${isYellowGroup ? 'is-group-active' : isSingleActive ? 'is-active' : ''}`}
                   aria-pressed={expandedId === route.id}
