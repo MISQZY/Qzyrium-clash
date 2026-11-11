@@ -253,6 +253,17 @@ async function verifyProfiles() {
   assert.equal(profiles.getProfiles().find(item => item.id === 'a').updateViaProxy, true)
   await profiles.updateProfile('a')
   assert.deepEqual(requestProxies.at(-1), { host: '127.0.0.1', port: 7895, protocol: 'http' }, 'updates with updateViaProxy route through proxy tunnel')
+    failFetch = true
+    const beforeProxyFailure = fetches
+    await assert.rejects(profiles.updateProfile('a'), /download failed/)
+    assert.equal(fetches, beforeProxyFailure + 1, 'proxy failure must never retry directly')
+    assert.deepEqual(requestProxies.at(-1), { host: '127.0.0.1', port: 7895, protocol: 'http' })
+    failFetch = false
+    profiles.setCoreStatusProvider(() => false)
+    const beforeOffline = fetches
+    await assert.rejects(profiles.updateProfile('a'), /Start the VPN core/)
+    await assert.rejects(profiles.addProfile({ type: 'remote', url: 'https://provider.example/sub', updateViaProxy: true }), /Start the VPN core/)
+    assert.equal(fetches, beforeOffline, 'stopped core must not send a subscription request')
   await profiles.updateProfileInfo('a', { updateViaProxy: false })
   await profiles.updateProfile('a')
   assert.equal(requestProxies.at(-1), undefined, 'updates with updateViaProxy false route directly')
