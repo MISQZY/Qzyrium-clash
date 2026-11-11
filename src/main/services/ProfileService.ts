@@ -1,146 +1,18 @@
+import { SubscriptionClient } from '../core/SubscriptionClient'
+import { sanitizeUrl } from '../utils/subscription-url'
 import fs from 'fs'
 import path from 'path'
-import axios, { type AxiosResponse } from 'axios'
 import { isDeepStrictEqual } from 'node:util'
 import { AddProfileDto } from '@shared/ipc'
 import { ProfileItem, CustomRuleItem, ProfileUserInfo } from '@shared/profile'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 import { BaseService } from './BaseService'
-import { subscriptionName } from '../utils/subscription-name'
 import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import type { SettingService } from './SettingService'
-import { DEFAULT_APP_CONFIG, subscriptionUserAgent } from '@shared/app-config'
+import { DEFAULT_APP_CONFIG } from '@shared/app-config'
 import { writeFileAtomicAsync } from '../utils/atomicWrite'
 import { prepareProfileContent, validateProfileContent } from '../utils/profile-validator'
-
-function parseUserInfo(header?: unknown): ProfileUserInfo | undefined {
-  if (!header || typeof header !== 'string') return undefined
-  const info: ProfileUserInfo = {}
-  const pairs = header.split(';')
-  for (const pair of pairs) {
-    const [k, v] = pair.trim().split('=')
-    if (!k || !v) continue
-    const key = k.toLowerCase().trim()
-    const num = Number(v.trim())
-    if (!isNaN(num)) {
-      if (key === 'upload') info.upload = num
-      else if (key === 'download') info.download = num
-      else if (key === 'total') info.total = num
-      else if (key === 'expire') info.expire = num
-    }
-  }
-  return Object.keys(info).length > 0 ? info : undefined
-}
-
-function getHeader(headers: Record<string, unknown> | undefined, key: string): string | undefined {
-  if (!headers) return undefined
-  const target = key.toLowerCase()
-  for (const [k, v] of Object.entries(headers)) {
-    if (k.toLowerCase() === target) {
-      if (typeof v === 'string') return v
-      if (Array.isArray(v) && typeof v[0] === 'string') return v[0]
-    }
-  }
-  return undefined
-}
-
-function parseProfileLogo(raw: string | undefined): string | undefined {
-  if (!raw || typeof raw !== 'string') return undefined
-  const trimmed = raw.trim()
-  try {
-    const url = new URL(trimmed)
-    if (url.protocol === 'https:') return trimmed
-  } catch {
-    // Invalid URL
-  }
-  return undefined
-}
-
-function parseSupportUrl(raw: string | undefined): string | undefined {
-  if (!raw || typeof raw !== 'string') return undefined
-  const trimmed = raw.trim()
-  try {
-    const url = new URL(trimmed)
-    if (url.protocol === 'https:') return trimmed
-  } catch {
-    // Invalid URL
-  }
-  return undefined
-}
-
-function parseAnnounce(raw: string | undefined): string | undefined {
-  if (!raw || typeof raw !== 'string') return undefined
-  let text = raw.trim()
-  if (!text) return undefined
-
-  if (/^base64:/i.test(text)) {
-    const encoded = text.slice(7).trim()
-    try {
-      const decoded = Buffer.from(encoded, 'base64').toString('utf8')
-      if (decoded && !decoded.includes('\ufffd')) return decoded.trim()
-    } catch {
-      // fallback
-    }
-  }
-
-  if (text.includes('%')) {
-    try {
-      text = decodeURIComponent(text)
-    } catch {
-      // keep original
-    }
-  }
-
-  if (/^[A-Za-z0-9+/=]+$/.test(text) && text.length > 8 && text.length % 4 === 0) {
-    try {
-      const decoded = Buffer.from(text, 'base64').toString('utf-8')
-      // eslint-disable-next-line no-control-regex -- Reject binary data while retaining tabs and line breaks.
-      if (/[\p{L}\p{N}]/u.test(decoded) && !/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(decoded)) {
-        text = decoded
-      }
-    } catch {
-      // keep original
-    }
-  }
-  return text.trim() || undefined
-}
-
-function sanitizeUrl(rawUrl?: string): string {
-  if (!rawUrl) return ''
-  try {
-    const u = new URL(rawUrl)
-    for (const key of ['token', 'secret', 'password', 'key', 'auth']) {
-      if (u.searchParams.has(key)) u.searchParams.set(key, '[REDACTED]')
-    }
-    return u.toString()
-  } catch {
-    return '[REDACTED_URL]'
-  }
-}
-
-function isValidRemoteSubscriptionUrl(rawUrl: string): boolean {
-  try {
-    const parsed = new URL(rawUrl)
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
-    const hostname = parsed.hostname.toLowerCase().trim()
-    if (
-      hostname === '169.254.169.254' ||
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname === '0.0.0.0' ||
-      hostname === '::1' ||
-      hostname === '[::1]' ||
-      hostname.endsWith('.localhost') ||
-      hostname.endsWith('.local')
-    ) {
-      return false
-    }
-    return true
-  } catch {
-    return false
-  }
-}
 
 export class ProfileService implements BaseService {
   private profiles: ProfileItem[] = []
@@ -150,8 +22,12 @@ export class ProfileService implements BaseService {
   private metadataSave: Promise<void> = Promise.resolve()
   private updates = new Map<string, Promise<boolean>>()
   private isCoreRunning?: () => boolean
+  private subscriptions: Pick<SubscriptionClient, 'download'>
 
-  constructor(private settingService?: SettingService) {
+  constructor(private settingService?: SettingService, subscriptions?: Pick<SubscriptionClient, 'download'>) {
+    this.subscriptions = subscriptions ?? new SubscriptionClient(
+      () => this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG,
+      () => this.isCoreRunning?.() ?? false)
     const paths = getAppPaths()
     this.profilesFilePath = paths.profilesFilePath
     this.profilesDir = paths.profilesDir
@@ -159,28 +35,6 @@ export class ProfileService implements BaseService {
 
   setCoreStatusProvider(provider: () => boolean): void {
     this.isCoreRunning = provider
-  }
-
-  private async downloadSubscription(url: string, userAgent?: string, updateViaProxy?: boolean): Promise<AxiosResponse<unknown>> {
-    const ua = userAgent || subscriptionUserAgent(this.settingService?.getSettings().general.userAgent)
-    const requestOptions = {
-      timeout: 15000,
-      maxContentLength: 15 * 1024 * 1024,
-      maxBodyLength: 15 * 1024 * 1024,
-      maxRedirects: 5,
-      headers: {
-        'User-Agent': ua
-      }
-    }
-    const mixedPort = this.settingService?.getSettings().kernel.mixedPort || 7895
-    if (updateViaProxy) {
-      if (!this.isCoreRunning?.()) throw new Error('Start the VPN core before downloading a subscription through proxy')
-      return axios.get(url, {
-        ...requestOptions,
-        proxy: { host: '127.0.0.1', port: mixedPort, protocol: 'http' }
-      })
-    }
-    return axios.get(url, requestOptions)
   }
 
   private validateProfileId(id: string): string {
@@ -364,17 +218,9 @@ export class ProfileService implements BaseService {
     }
 
     if (dto.type === 'remote' && targetUrl) {
-      if (!isValidRemoteSubscriptionUrl(targetUrl)) {
-        throw new Error('Invalid remote subscription URL scheme')
-      }
       logger.info(`Fetching remote subscription from: ${sanitizeUrl(targetUrl)}`)
-      const res = await this.downloadSubscription(targetUrl, undefined, dto.updateViaProxy)
-      content = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
-      providerName = subscriptionName(res.headers, content)
-      userInfo = parseUserInfo(res.headers?.['subscription-userinfo'])
-      profileLogo = parseProfileLogo(getHeader(res.headers, 'profile-logo'))
-      announce = parseAnnounce(getHeader(res.headers, 'announce') || getHeader(res.headers, 'profile-announce'))
-      supportUrl = parseSupportUrl(getHeader(res.headers, 'support-url'))
+      ;({ content, providerName, userInfo, profileLogo, announce, supportUrl } =
+        await this.subscriptions.download(targetUrl, undefined, dto.updateViaProxy))
     }
 
     const filePath = this.validateProfileId(id)
@@ -419,20 +265,12 @@ export class ProfileService implements BaseService {
     if (!item) throw new Error(`Profile not found: ${id}`)
 
     if (item.type === 'remote' && item.url) {
-      if (!isValidRemoteSubscriptionUrl(item.url)) {
-        throw new Error('Invalid remote subscription URL scheme')
-      }
       logger.info(`Updating remote profile ${item.name} from ${sanitizeUrl(item.url)}`)
-      const res = await this.downloadSubscription(item.url, item.customUA, item.updateViaProxy)
-      const content = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
+      const { content, providerName, userInfo, profileLogo, announce, supportUrl } =
+        await this.subscriptions.download(item.url, item.customUA, item.updateViaProxy)
       // A subscription can be removed while its download is in flight.
       if (!this.profiles.includes(item)) return false
       const changed = await this.saveProfileContent(id, content)
-      const providerName = subscriptionName(res.headers, content)
-      const userInfo = parseUserInfo(res.headers?.['subscription-userinfo'])
-      const profileLogo = parseProfileLogo(getHeader(res.headers, 'profile-logo'))
-      const announce = parseAnnounce(getHeader(res.headers, 'announce') || getHeader(res.headers, 'profile-announce'))
-      const supportUrl = parseSupportUrl(getHeader(res.headers, 'support-url'))
       let metadataChanged = false
       if (userInfo && !isDeepStrictEqual(item.userInfo, userInfo)) {
         item.userInfo = userInfo
