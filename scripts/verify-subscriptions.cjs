@@ -93,11 +93,13 @@ async function verifyTransportPolicy() {
 
 async function verifyResolver() {
   let systemLookups = 0
+  let controllerError
   const queries = []
   const { resolveSubscription } = load('src/main/core/SubscriptionResolver.ts', {
     'node:dns/promises': { lookup: async () => { systemLookups++; return good } },
     axios: { get: async (url, options) => {
       queries.push({ url, options })
+      if (controllerError) throw controllerError
       return { data: { Status: 0, Answer: options.params.type === 'A'
         ? [{ type: 5, data: 'alias.invalid' }, { type: 1, data: '203.0.113.12' }]
         : [{ type: 28, data: '2001:db8::1' }] } }
@@ -108,13 +110,21 @@ async function verifyResolver() {
   assert.equal(systemLookups, 1)
   const addresses = await resolveSubscription('provider.invalid', defaults, true, signal)
   assert.deepEqual(addresses, [...good, { address: '2001:db8::1', family: 6 }])
-  assert.equal(systemLookups, 1, 'proxy-mode DNS never calls the system resolver')
+  assert.equal(systemLookups, 1, 'enabled core DNS avoids a system lookup')
   assert.deepEqual(queries.map(query => query.options.params.type), ['A', 'AAAA'])
   for (const { url, options } of queries) {
     assert.equal(url, `http://127.0.0.1:${defaults.kernel.controllerPort}/dns/query`)
     assert.equal(options.headers.Authorization, `Bearer ${defaults.kernel.controllerSecret}`)
     assert.equal(options.proxy, false)
     assert.equal(options.maxRedirects, 0, 'controller credentials cannot follow redirects')
+  }
+  controllerError = { response: { status: 500, data: { message: 'DNS section is disabled' } } }
+  assert.deepEqual(await resolveSubscription('provider.invalid', defaults, true, signal), good)
+  assert.equal(systemLookups, 2, 'disabled core DNS uses the system resolver for validation')
+  for (const error of [{ response: { status: 401 } }, new Error('controller unavailable')]) {
+    controllerError = error
+    await assert.rejects(resolveSubscription('provider.invalid', defaults, true, signal))
+    assert.equal(systemLookups, 2, 'other controller errors cannot silently change the resolver')
   }
 }
 
