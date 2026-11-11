@@ -173,15 +173,12 @@ export class ProfileService implements BaseService {
       }
     }
     const mixedPort = this.settingService?.getSettings().kernel.mixedPort || 7895
-    if (updateViaProxy && this.isCoreRunning?.()) {
-      try {
-        return await axios.get(url, {
-          ...requestOptions,
-          proxy: { host: '127.0.0.1', port: mixedPort, protocol: 'http' }
-        })
-      } catch (err) {
-        logger.warn(`Failed to fetch subscription through proxy: ${String(err)}. Falling back to direct connection.`)
-      }
+    if (updateViaProxy) {
+      if (!this.isCoreRunning?.()) throw new Error('Start the VPN core before downloading a subscription through proxy')
+      return axios.get(url, {
+        ...requestOptions,
+        proxy: { host: '127.0.0.1', port: mixedPort, protocol: 'http' }
+      })
     }
     return axios.get(url, requestOptions)
   }
