@@ -204,8 +204,14 @@ if (process.type === 'renderer') {
       await evaluate(`window.api.uiTest.increaseTraffic()`)
       await waitFor(`document.querySelector('[data-traffic="download"]').getAnimations().some(a => a.playState === 'running')`)
       assert.equal(await evaluate(`document.querySelector('[data-traffic="upload"]').getAnimations().length`), 0, 'unchanged upload stays dim')
-      await delay(2400)
+      await waitFor(`document.querySelector('[data-traffic="download"]').getAnimations().length === 0`)
       assert.equal(await evaluate(`document.querySelector('[data-traffic="download"]').getAnimations().length`), 0, 'traffic fades after activity')
+      assert.ok(await evaluate(`(() => {
+        const element = document.querySelector('[data-traffic="download"]');
+        const probe = document.createElement('span'); probe.style.color = 'var(--muted-foreground)';
+        document.body.append(probe); const muted = getComputedStyle(probe).color; probe.remove();
+        return getComputedStyle(element).color === muted;
+      })()`), 'finished traffic returns to the idle color')
       await evaluate(`document.querySelector('[data-traffic="download"]').closest('.group').click()`)
       await waitFor(`!!document.querySelector('[class*="group/codechip"]')`)
       await evaluate(`document.querySelector('[class*="group/codechip"]').closest('.group').click()`)
