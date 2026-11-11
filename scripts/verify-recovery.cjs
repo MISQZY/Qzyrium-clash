@@ -151,6 +151,55 @@ async function verifyProxyLifecycle() {
   await proxy.dispose()
 }
 
+async function verifyProfileRepository() {
+  const { ProfileRepository } = load('src/main/services/ProfileRepository.ts')
+  const directory = fs.mkdtempSync(path.resolve('artifacts/profile-repository-'))
+  const metadata = path.join(directory, 'profiles.json')
+  const repository = new ProfileRepository({ profilesDir: directory, profilesFilePath: metadata })
+  const first = { id: 'one', name: 'First', type: 'local', updatedAt: 1 }
+  const second = { id: 'two', name: 'Second', type: 'local', updatedAt: 2 }
+  const selection = { async apply() {}, async rollback() {} }
+  await repository.initialize()
+  await repository.add(first, 'original', selection)
+  await repository.add(second, 'second', selection)
+  const baseline = repository.list()
+  repository.list()[0].name = 'external mutation'
+  assert.deepEqual(repository.list(), baseline, 'readers cannot mutate repository state')
+  const write = repository.write.bind(repository)
+  let failNextWrite = false
+  repository.write = async (...args) => {
+    if (failNextWrite) { failNextWrite = false; throw new Error('metadata write failed') }
+    return write(...args)
+  }
+  failNextWrite = true
+  await assert.rejects(repository.saveContent('one', 'unsaved content', async () => {}), /metadata write failed/)
+  assert.equal(await repository.content('one'), 'original', 'metadata failure restores the previous YAML')
+  failNextWrite = true
+  await assert.rejects(repository.add({ ...first, id: 'three' }, 'orphan', selection), /metadata write failed/)
+  assert.equal(await repository.content('three'), null, 'failed add removes the new orphan file')
+  assert.deepEqual(repository.list(), baseline)
+  let rolledBack = 0
+  const rejectedSelection = { async apply() { throw new Error('settings write failed') }, async rollback() { rolledBack++ } }
+  await assert.rejects(repository.add({ ...first, id: 'four' }, 'orphan', rejectedSelection), /settings write failed/)
+  assert.equal(await repository.content('four'), null)
+  await assert.rejects(repository.remove('one', rejectedSelection), /settings write failed/)
+  assert.equal(rolledBack, 2, 'failed active-profile changes are rolled back for add and delete')
+  assert.equal(await repository.content('one'), 'original')
+  const unlink = fs.promises.unlink
+  fs.promises.unlink = async file => {
+    if (file === path.join(directory, 'one.yaml')) throw new Error('file is locked')
+    return unlink(file)
+  }
+  try { await assert.rejects(repository.remove('one', selection), /file is locked/) }
+  finally { fs.promises.unlink = unlink }
+  assert.deepEqual(JSON.parse(fs.readFileSync(metadata, 'utf8')), baseline, 'failed deletion restores disk metadata')
+  assert.deepEqual(repository.list(), baseline, 'failed deletion preserves memory')
+  await Promise.all([repository.update('one', item => { item.name = 'Renamed' }), repository.remove('two', selection)])
+  await repository.flush()
+  assert.equal(repository.list().length, 1, 'queued mutations recover after rejected operations')
+  assert.equal(repository.get('one').name, 'Renamed')
+}
+
 async function verifyElevationRecovery() {
   // Exercise the actual launcher without opening UAC or starting another process.
   for (const outcome of ['success', 'cancel', 'throw']) {
@@ -270,6 +319,6 @@ async function verifyResourceFailure() {
   }
 }
 
-Promise.resolve().then(verifyPersistenceAndProfiles).then(verifyProxyLifecycle).then(verifyElevationRecovery).then(verifyServiceLifecycle).then(verifyStreams).then(verifyResourceFailure)
+Promise.resolve().then(verifyPersistenceAndProfiles).then(verifyProfileRepository).then(verifyProxyLifecycle).then(verifyElevationRecovery).then(verifyServiceLifecycle).then(verifyStreams).then(verifyResourceFailure)
   .then(() => console.log('PASS: atomic persistence/recovery, rejected subscriptions with real Mihomo, proxy startup/restarts, cancelled elevation, stale WebSockets, encoded tokens and failed resource preparation'))
   .catch(error => { console.error(error); process.exitCode = 1 })
