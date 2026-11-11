@@ -6,6 +6,7 @@ import { logger } from '../utils/logger'
 import { BaseService } from './BaseService'
 import { SettingService } from './SettingService'
 import { pacScript } from '../utils/pac'
+import { flushSystemDns } from '../utils/network-transition'
 
 const execFileAsync = promisify(execFile)
 
@@ -111,6 +112,7 @@ export class SysProxyService implements BaseService {
           await setRegistryValue('ProxyEnable', 'REG_DWORD', '0')
           this.enabled = false
           logger.info('System proxy disabled')
+          flushSystemDns()
         }
       } catch (err) {
         if (!hadServer) this.closePacServer()
