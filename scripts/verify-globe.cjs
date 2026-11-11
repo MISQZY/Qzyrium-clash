@@ -18,6 +18,16 @@ function load(file, dependencies) {
 }
 
 async function main() {
+  const { summarizeRules } = load('src/shared/rules.ts', {})
+  const fullRules = Array.from({ length: 20000 }, (_, i) => ({ type: 'DomainSuffix', payload: `host${i}.example`, proxy: i % 2 ? 'PROXY' : 'DIRECT' }))
+  fullRules.push({ type: 'MATCH', payload: '', proxy: 'DIRECT' })
+  const summary = summarizeRules(fullRules)
+  assert.equal(summary.length, 3, 'dashboard retains first rules per outbound and the default route')
+  for (const [node, group] of [['DIRECT', undefined], ['node', 'PROXY'], ['PROXY', 'DIRECT']]) {
+    assert.deepEqual(summary.find(r => r.proxy === node || (group && r.proxy === group)), fullRules.find(r => r.proxy === node || (group && r.proxy === group)), 'summary preserves route-label priority across node and selector matches')
+  }
+  assert.deepEqual(summary.find(r => r.type === 'MATCH'), fullRules.find(r => r.type === 'MATCH'))
+  assert.equal(fullRules.length, 20001, 'summary does not mutate the full rules page data')
   const requests = [], lookups = []
   let failure = false, primaryDown = false, originOnlineDown = false, latitude = 52, local = '192.168.1.2'
   const { GeoIpService, publicIp } = load('src/main/services/GeoIpService.ts', {
@@ -130,6 +140,11 @@ async function main() {
     '../utils/elevation': { isProcessElevated: () => false },
     '../core/MihomoApiClient': { MihomoApiClient: empty }, '../core/MihomoConfigFactory': {}, '../core/MihomoProcessManager': { MihomoProcessManager: empty }, '../utils/logger': {}, '../utils/paths': {}, '@shared/ipc': {}, './GeoIpService': { GeoIpService }, '../utils/globe-routes': helpers, '../utils/local-geoip': { LocalGeoIp }
   })
+  const ruleKernel = Object.create(KernelService.prototype)
+  ruleKernel.getStatus = () => 'running'
+  ruleKernel.apiClient = { getRules: async () => fullRules }
+  assert.deepEqual(await ruleKernel.getRules('summary'), summary, 'main process reduces rules before IPC serialization')
+  assert.equal(await ruleKernel.getRules(), fullRules, 'rules page still receives every original rule')
   const kernel = Object.create(KernelService.prototype)
   const hosts = []
   kernel.getStatus = () => 'running'

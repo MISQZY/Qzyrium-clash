@@ -30,14 +30,17 @@ export default defineConfig({
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('react') || id.includes('react-dom') || id.includes('scheduler')) {
+            const moduleId = id.replace(/\\/g, '/')
+            if (moduleId.includes('node_modules/')) {
+              // Match package directories: a substring match also pulls
+              // @uiw/react-codemirror and its editor dependencies into startup.
+              if (/\/node_modules\/(react|react-dom|scheduler)\//.test(moduleId)) {
                 return 'vendor-react'
               }
-              if (id.includes('lucide-react') || id.includes('@tabler/icons-react')) {
+              if (/\/node_modules\/(lucide-react|@tabler\/icons-react)\//.test(moduleId)) {
                 return 'vendor-icons'
               }
-              if (id.includes('radix-ui') || id.includes('@radix-ui')) {
+              if (/\/node_modules\/(radix-ui|@radix-ui\/[^/]+)\//.test(moduleId)) {
                 return 'vendor-ui'
               }
             }

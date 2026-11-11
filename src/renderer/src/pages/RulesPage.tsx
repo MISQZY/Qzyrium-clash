@@ -30,23 +30,23 @@ export function RulesPage({
 
   const types = useMemo(() => [...new Set(rules.map((rule) => rule.type))].sort(), [rules])
 
-  const filteredRules = useMemo(
-    () =>
-      rules
-        .map((rule, index) => ({ ...rule, index }))
-        .filter(
-          (rule) =>
-            (type === 'all' || rule.type === type) &&
-            `${rule.type} ${rule.payload} ${rule.proxy}`
-              .toLowerCase()
-              .includes(query.toLowerCase())
-        ),
-    [rules, query, type]
-  )
+  // Keep indexes rather than cloning every rule for a 100-row page.
+  const filteredIndexes = useMemo(() => {
+    const search = query.toLowerCase()
+    const indexes: number[] = []
+    for (let index = 0; index < rules.length; index++) {
+      const rule = rules[index]
+      if (type !== 'all' && rule.type !== type) continue
+      if (search && !`${rule.type} ${rule.payload} ${rule.proxy}`.toLowerCase().includes(search)) continue
+      indexes.push(index)
+    }
+    return indexes
+  }, [rules, query, type])
 
-  const lastPage = Math.max(0, Math.ceil(filteredRules.length / 100) - 1)
+  const lastPage = Math.max(0, Math.ceil(filteredIndexes.length / 100) - 1)
   const currentPage = Math.min(page, lastPage)
-  const visibleRules = filteredRules.slice(currentPage * 100, (currentPage + 1) * 100)
+  const visibleRules = filteredIndexes.slice(currentPage * 100, (currentPage + 1) * 100)
+    .map(index => ({ ...rules[index], index }))
 
   return (
     <Page
@@ -98,7 +98,7 @@ export function RulesPage({
             ))}
           </select>
           <span className="text-xs tabular-nums text-muted-foreground">
-            {filteredRules.length} / {rules.length}
+            {filteredIndexes.length} / {rules.length}
           </span>
         </div>
       </div>
@@ -130,7 +130,7 @@ export function RulesPage({
           </tbody>
         </table>
 
-        {filteredRules.length === 0 && (
+        {filteredIndexes.length === 0 && (
           <div className="empty-state py-10">
             <RulesIcon className="size-7 text-muted-foreground" />
             <p>
@@ -145,7 +145,7 @@ export function RulesPage({
       </Card>
 
       {/* Pagination */}
-      {filteredRules.length > 100 && (
+      {filteredIndexes.length > 100 && (
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs text-muted-foreground">
             {t('pagination', { page: currentPage + 1, total: lastPage + 1 })}

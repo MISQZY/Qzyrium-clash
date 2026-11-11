@@ -99,8 +99,9 @@ export function registerIpcHandlers(services: ServiceManager): void {
     }
   )
 
-  ipcMain.handle(IPC_CHANNELS.MIHOMO_GET_RULES, async () => {
-    return await services.kernelService.getRules()
+  ipcMain.handle(IPC_CHANNELS.MIHOMO_GET_RULES, async (_, scope?: 'summary') => {
+    if (scope !== undefined && scope !== 'summary') throw new Error('Invalid rules scope')
+    return await services.kernelService.getRules(scope)
   })
 
   ipcMain.handle(IPC_CHANNELS.MIHOMO_GET_CONNECTIONS, async () => {

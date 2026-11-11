@@ -48,7 +48,7 @@ const api: IElectronApi = {
       ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_SELECT_PROXY, group, proxy),
     testDelay: (name, url, timeout) =>
       ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_TEST_DELAY, name, url, timeout),
-    getRules: () => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_RULES),
+    getRules: (scope) => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_RULES, scope),
     getConnections: () => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_CONNECTIONS),
     getGlobeLocations: () => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_GLOBE_LOCATIONS),
     closeConnection: (id) => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_CLOSE_CONNECTION, id),

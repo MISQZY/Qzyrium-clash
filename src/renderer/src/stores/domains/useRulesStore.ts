@@ -14,9 +14,16 @@ export function useRulesStore(
   loading: boolean
 ): RulesStore {
   const [rules, setRules] = useState<MihomoRule[]>([])
+  const needsRules = coord.visible && (coord.activeTab === 'rules' || (
+    coord.activeTab === 'dashboard' && !coord.settings.general.liteDashboard
+  ))
+  const scope = coord.activeTab === 'rules' ? undefined : 'summary'
 
   useEffect(() => {
-    if (!window.api || coord.coreStatus === 'starting' || busy || refreshing || loading) return
+    // Drop the full dataset immediately when leaving its page, including while
+    // a replacement request is pending. Old responses cannot restore it.
+    setRules([])
+    if (!window.api || !needsRules || coord.coreStatus === 'starting' || busy || refreshing || loading) return
     let disposed = false
     const timers = new Set<ReturnType<typeof setTimeout>>()
     const revision = coord.statusRevision.current
@@ -25,7 +32,7 @@ export function useRulesStore(
 
     const load = async (attempt = 0): Promise<void> => {
       try {
-        const value = await window.api.mihomo.getRules()
+        const value = await window.api.mihomo.getRules(scope)
         if (current()) setRules(value)
       } catch (err) {
         if (!current()) return
@@ -51,6 +58,8 @@ export function useRulesStore(
     }
   }, [
     coord.coreStatus,
+    needsRules,
+    scope,
     busy,
     refreshing,
     loading,

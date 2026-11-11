@@ -17,10 +17,10 @@ export function useConnectionsStore(
   const connectionRequest = useRef<Promise<ConnectionsSnapshot> | null>(null)
 
   useEffect(() => {
-    if (!coord.visible) {
+    if (!coord.visible || (coord.activeTab !== 'dashboard' && coord.activeTab !== 'connections')) {
       setConnections(EMPTY_CONNECTIONS)
     }
-  }, [coord.visible])
+  }, [coord.visible, coord.activeTab])
 
   useEffect(() => {
     if (coord.coreStatus === 'running' || coord.coreStatus === 'starting') return
