@@ -210,7 +210,6 @@ export function DashboardPage({
             const onlyVpn = settings.general.onlyVpnTraffic !== false
             const vpnDownload = connections.vpnDownloadTotal ?? 0
             const vpnUpload = connections.vpnUploadTotal ?? 0
-            const vpnPrefix = connections.vpnTrafficIsLowerBound ? '≥ ' : ''
             const trafficMetrics = [
               {
                 label: t('download'),
@@ -264,7 +263,7 @@ export function DashboardPage({
                               <Icon className="size-3 text-primary shrink-0" />
                               {label}
                             </span>
-                            <AutoFitTrafficText text={`${onlyVpn ? vpnPrefix : ''}${formatBytes(value, locale)}`} />
+                            <AutoFitTrafficText text={formatBytes(value, locale)} />
                             <p className="mt-1 text-[10px] text-muted-foreground tabular-nums text-center whitespace-nowrap overflow-hidden text-ellipsis w-full">
                               {t('rate', { value: formatBytes(rate, locale) })}
                             </p>
@@ -280,7 +279,7 @@ export function DashboardPage({
                               </div>
                               <div className="flex justify-between gap-3 text-muted-foreground">
                                 <span>{t('trafficVpn')}</span>
-                                <span className="font-mono text-foreground font-medium">{vpnPrefix}{formatBytes(vpnValue, locale)}</span>
+                                <span className="font-mono text-foreground font-medium">{formatBytes(vpnValue, locale)}</span>
                               </div>
                               <div className="flex justify-between gap-3 text-muted-foreground">
                                 <span>{t('trafficTotal')}</span>
