@@ -156,6 +156,10 @@ export const generalFields: SettingsField[] = [
     'Hide 3D globe to reduce GPU and memory usage.',
     'Скрыть 3D-глобус для экономии ресурсов видеокарты и памяти.'
   )),
+  field('onlyVpnTraffic', 'Count only VPN traffic', 'Учитывать только VPN-трафик', 'boolean', desc(
+    'Display only proxied VPN traffic on the dashboard, excluding direct connections.',
+    'Отображать на главной только трафик через VPN/прокси, исключая прямые соединения.'
+  )),
   field('disableGpu', 'Disable GPU acceleration', 'Отключить ускорение GPU', 'boolean', desc(
     'Disable hardware graphics acceleration (restart required).',
     'Отключить аппаратное ускорение графики (нужен перезапуск).'

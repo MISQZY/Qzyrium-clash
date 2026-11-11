@@ -6,7 +6,13 @@ import type { CoreState, LogEntry, TrafficStats } from '@shared/types'
 import type { SysProxyStatus } from '@shared/ipc'
 import type { NavTab } from '../../lib/navigation'
 
-export const EMPTY_CONNECTIONS: ConnectionsSnapshot = { downloadTotal: 0, uploadTotal: 0, connections: [] }
+export const EMPTY_CONNECTIONS: ConnectionsSnapshot = {
+  downloadTotal: 0,
+  uploadTotal: 0,
+  directDownloadTotal: 0,
+  directUploadTotal: 0,
+  connections: []
+}
 
 export interface StoreCoordinator {
   activeTab: NavTab

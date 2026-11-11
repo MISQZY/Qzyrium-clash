@@ -15,6 +15,7 @@ export interface AppConfig {
     customLocalizations?: CustomLocalizationPack[]
     customLocalization?: string | null
     liteDashboard?: boolean
+    onlyVpnTraffic?: boolean
     silentStart?: boolean
     disableGpu?: boolean
     lowMemoryMode?: boolean
@@ -79,6 +80,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     theme: 'dark',
     language: 'ru',
     liteDashboard: false,
+    onlyVpnTraffic: true,
     silentStart: false,
     disableGpu: false,
     lowMemoryMode: true,
