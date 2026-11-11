@@ -51,36 +51,16 @@ function SessionDuration({ startedAt, running, ariaLabel }: { startedAt: number 
 }
 
 function AutoFitTrafficText({ text }: { text: string }) {
-  const containerRef = useRef<HTMLParagraphElement>(null)
-  const [fontSize, setFontSize] = useState(20)
-
-  useLayoutEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-
-    const update = () => {
-      el.style.fontSize = '20px'
-      const clientW = el.clientWidth
-      const scrollW = el.scrollWidth
-
-      if (clientW > 0 && scrollW > clientW) {
-        const ratio = clientW / scrollW
-        const fitted = Math.max(12, Math.floor(20 * ratio * 0.95))
-        setFontSize(fitted)
-        el.style.fontSize = `${fitted}px`
-      } else {
-        setFontSize(20)
-      }
-    }
-
-    update()
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
+  const fontSize = useMemo(() => {
+    if (text.length <= 13) return 20
+    if (text.length <= 16) return 17
+    if (text.length <= 19) return 15
+    if (text.length <= 22) return 13
+    return 12
   }, [text])
 
   return (
     <p
-      ref={containerRef}
       className="mt-2 w-full font-medium tabular-nums tracking-tight text-center whitespace-nowrap overflow-hidden text-ellipsis select-text"
       style={{ fontSize: `${fontSize}px`, minHeight: '1.75rem', lineHeight: '1.75rem' }}
       title={text}

@@ -64,6 +64,18 @@ function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [toggleSidebar])
+
+  useEffect(() => {
+    const handleFocus = () => { document.documentElement.dataset.windowFocused = 'true' }
+    const handleBlur = () => { document.documentElement.dataset.windowFocused = 'false' }
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('blur', handleBlur)
+    document.documentElement.dataset.windowFocused = document.hasFocus() ? 'true' : 'false'
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('blur', handleBlur)
+    }
+  }, [])
   const { activeTab, setActiveTab, coreStatus, traffic, sysProxy, activeProfile, profiles, settings, proxies, delays, updateDelays, connections, logs, rules, busy, loading, error } = store
   const [updatingProfile, setUpdatingProfile] = useState(false)
   const profileUpdatePending = useRef(false)
