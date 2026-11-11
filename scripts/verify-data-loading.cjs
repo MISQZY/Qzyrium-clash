@@ -141,7 +141,9 @@ function render() {
   cursor = 0
   renders++
   domains = context.exports.useAppStoreInternal()
-  view = domains.store
+  view = { ...domains.navigation, ...domains.kernel, ...domains.settings, ...domains.profiles,
+    ...domains.proxies, ...domains.rules, ...domains.traffic, ...domains.connections, ...domains.logs,
+    refreshAll: domains.refreshAll }
   while (effects.length) effects.shift()()
 }
 

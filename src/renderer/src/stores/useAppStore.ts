@@ -1,85 +1,16 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-  useMemo,
-  createElement,
-  type ReactNode
-} from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, createElement, type ReactNode } from 'react'
 import { selectedLocalization } from '@shared/custom-localization'
-import { AppConfig } from '@shared/app-config'
-import { ConnectionsSnapshot, MihomoRule, ProxyNode } from '@shared/mihomo'
-import { ProfileItem, CustomRuleItem } from '@shared/profile'
-import { CoreState, LogEntry, TrafficStats } from '@shared/types'
-import { SysProxyStatus } from '@shared/ipc'
+
 import type { NavTab } from '../lib/navigation'
 import { translate } from '../i18n/catalogs'
 
-import {
-  EMPTY_CONNECTIONS,
-  StoreCoordinator,
-  NavigationStore,
-  useNavigationStore,
-  KernelStore,
-  useKernelStore,
-  TrafficStore,
-  useTrafficStore,
-  ProfilesStore,
-  useProfilesStore,
-  SettingsStore,
-  useSettingsStore,
-  ProxiesStore,
-  useProxiesStore,
-  RulesStore,
-  useRulesStore,
-  ConnectionsStore,
-  useConnectionsStore,
-  LogsStore,
-  useLogsStore
-} from './domains'
+import { StoreCoordinator, NavigationStore, useNavigationStore, KernelStore, useKernelStore, TrafficStore, useTrafficStore, ProfilesStore, useProfilesStore, SettingsStore, useSettingsStore, ProxiesStore, useProxiesStore, RulesStore, useRulesStore, ConnectionsStore, useConnectionsStore, LogsStore, useLogsStore } from './domains'
 
 export type { NavTab } from '../lib/navigation'
 export * from './domains'
 
-export interface AppStore {
-  activeTab: NavTab
-  setActiveTab: (tab: NavTab) => void
-  coreStatus: CoreState
-  sessionStartedAt: number | null
-  traffic: TrafficStats
-  sysProxy: SysProxyStatus
-  profiles: ProfileItem[]
-  activeProfile: ProfileItem | null
-  settings: AppConfig
-  logs: LogEntry[]
-  proxies: Record<string, ProxyNode>
-  delays: Record<string, number>
-  updateDelays: (updates: Record<string, number>) => void
-  connections: ConnectionsSnapshot
-  rules: MihomoRule[]
-  loading: boolean
-  busy: boolean
-  error: string | null
-  visible: boolean
-  dismissError: () => void
-  saveSettings: (patch: Partial<AppConfig>) => Promise<void>
-  refreshAll: () => Promise<boolean>
-  toggleSysProxy: () => Promise<boolean>
-  restartKernel: () => Promise<boolean>
-  toggleKernel: () => Promise<boolean>
-  selectProxyNode: (group: string, node: string) => Promise<boolean>
-  switchActiveProfile: (id: string) => Promise<boolean>
-  updateActiveProfile: () => Promise<boolean>
-  saveCustomRules: (rules: CustomRuleItem[]) => Promise<boolean>
-  saveRawConfig: (content: string) => Promise<boolean>
-  clearLogs: () => void
-}
-
 // Domain Contexts for Granular Subscriptions
-const RefreshContext = createContext<AppStore['refreshAll'] | null>(null)
+const RefreshContext = createContext<(() => Promise<boolean>) | null>(null)
 
 export function useRefreshAll() {
   const refresh = useContext(RefreshContext)
@@ -152,7 +83,7 @@ export function useAppStoreInternal(): {
   rules: RulesStore
   connections: ConnectionsStore
   logs: LogsStore
-  store: AppStore
+  refreshAll: () => Promise<boolean>
 } {
   const nav = useNavigationStore()
   const {
@@ -385,40 +316,6 @@ export function useAppStoreInternal(): {
 
   const refreshWorkspace = useCallback(() => perform(async () => {}), [perform])
 
-  const store: AppStore = {
-    activeTab: nav.activeTab,
-    setActiveTab: nav.setActiveTab,
-    coreStatus: kernel.coreStatus,
-    sessionStartedAt: kernel.sessionStartedAt,
-    traffic: traffic.traffic,
-    sysProxy: settingsStore.sysProxy,
-    profiles: profiles.profiles,
-    activeProfile: profiles.activeProfile,
-    settings: settingsStore.settings,
-    logs: logs.logs,
-    proxies: proxies.proxies,
-    delays: proxies.delays,
-    updateDelays: proxies.updateDelays,
-    connections: connections.connections,
-    rules: rules.rules,
-    loading: nav.loading,
-    busy: nav.busy,
-    error: nav.error,
-    visible: nav.visible,
-    dismissError: nav.dismissError,
-    saveSettings: settingsStore.saveSettings,
-    refreshAll: refreshWorkspace,
-    toggleSysProxy: settingsStore.toggleSysProxy,
-    restartKernel: kernel.restartKernel,
-    toggleKernel: kernel.toggleKernel,
-    selectProxyNode: proxies.selectProxyNode,
-    switchActiveProfile: profiles.switchActiveProfile,
-    updateActiveProfile: profiles.updateActiveProfile,
-    saveCustomRules: profiles.saveCustomRules,
-    saveRawConfig: profiles.saveRawConfig,
-    clearLogs: logs.clearLogs
-  }
-
   return {
     navigation: nav,
     kernel,
@@ -429,7 +326,7 @@ export function useAppStoreInternal(): {
     rules,
     connections,
     logs,
-    store
+    refreshAll: refreshWorkspace
   }
 }
 
@@ -437,7 +334,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const domainStores = useAppStoreInternal()
   return createElement(
     RefreshContext.Provider,
-    { value: domainStores.store.refreshAll },
+    { value: domainStores.refreshAll },
     createElement(
       NavigationContext.Provider,
       { value: domainStores.navigation },
