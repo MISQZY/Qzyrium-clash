@@ -148,24 +148,27 @@ async function prepareGeoFiles() {
 
 async function prepareRunner() {
   if (platform !== 'win32') return
-  const runnerDest = path.join(FILES_DIR, 'qzyrium-run.exe')
-  const runnerSource = path.join(cwd, 'scripts', 'runner', 'Program.cs')
-  if (fs.existsSync(runnerDest) && fs.statSync(runnerDest).size > 0) {
-    console.log(`[INFO] Runner executable already exists at: ${runnerDest}`)
-    return
-  }
-  if (!fs.existsSync(runnerSource)) {
-    console.log('[WARN] Runner source Program.cs not found, skipping compile')
-    return
-  }
-  const cscPath = 'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe'
-  if (!fs.existsSync(cscPath)) {
-    console.log('[WARN] Framework csc.exe not found, skipping compile')
-    return
-  }
+  fs.mkdirSync(FILES_DIR, { recursive: true })
+  const systemRoot = process.env.SystemRoot || 'C:\\Windows'
+  const cscPath = ['Framework64', 'Framework']
+    .map(framework => path.join(systemRoot, 'Microsoft.NET', framework, 'v4.0.30319', 'csc.exe'))
+    .find(filename => fs.existsSync(filename))
   const { execFileSync } = await import('node:child_process')
-  execFileSync(cscPath, ['/target:winexe', '/optimize+', '/platform:anycpu', `/out:${runnerDest}`, runnerSource], { stdio: 'ignore' })
-  console.log(`[SUCCESS] Runner executable compiled to: ${runnerDest}`)
+  const directory = 'runner', executable = 'qzyrium-run.exe'
+  const source = path.join(cwd, 'scripts', directory, 'Program.cs')
+  const destination = path.join(FILES_DIR, executable)
+  const sourceInfo = fs.statSync(source)
+  if (fs.existsSync(destination)) {
+    const binaryInfo = fs.statSync(destination)
+    if (binaryInfo.size > 0 && binaryInfo.mtimeMs >= sourceInfo.mtimeMs) {
+      console.log(`[INFO] ${executable} is up to date.`)
+      return
+    }
+  }
+  if (!cscPath) throw new Error('Windows .NET Framework C# compiler not found')
+  execFileSync(cscPath, ['/target:winexe', '/optimize+', '/platform:anycpu',
+    `/out:${destination}`, source], { windowsHide: true, stdio: 'pipe' })
+  console.log(`[SUCCESS] Compiled ${executable}`)
 }
 
 async function main() {

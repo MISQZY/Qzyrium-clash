@@ -1,10 +1,10 @@
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const ts = require('typescript')
-function load(file, deps) {
+function load(file, deps, runtime = process) {
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
   const exports = {}
-  new Function('exports', 'require', code)(exports, name => name in deps ? deps[name] : require(name))
+  new Function('exports', 'require', 'process', code)(exports, name => name in deps ? deps[name] : require(name), runtime)
   return exports
 }
 
@@ -24,36 +24,59 @@ async function verify() {
   assert.equal(state.readRestartState(), null, 'old state must not start a VPN on a later normal launch')
   assert.ok(deleted > 0)
 
-  const scripts = [], login = []
-  let failDirect = false, cancel = false
-  const { applyWindowsStartup } = load('src/main/utils/windows-startup.ts', {
-    electron: { app: { setLoginItemSettings: options => login.push(options.openAtLogin) } },
-    'node:child_process': { execFile: (_, args, options, callback) => {
+  const deletedTasks = [], login = [], warnings = []
+  const legacyTask = '\\Qzyrium-clash-Startup-S-1-5-21-123-456-789-1000'
+  const otherLegacyTask = '\\qzyrium-clash-startup-S-1-5-21-123-456-789-1001'
+  let queryFails = false, deletionFails = false, registrationFails = false, queries = 0
+  const deps = {
+    electron: { app: { setLoginItemSettings: options => {
+      if (registrationFails) throw new Error('registration failed')
+      login.push(options.openAtLogin)
+    } } },
+    './logger': { logger: { info() {}, warn(message) { warnings.push(message) } } },
+    'node:child_process': { execFile: (file, args, options, callback) => {
+      assert.equal(require('node:path').basename(file), 'schtasks.exe', 'only native Task Scheduler is invoked')
       assert.equal(options.windowsHide, true)
-      const script = Buffer.from(args.at(-1), 'base64').toString('utf16le')
-      scripts.push(script)
-      const elevated = script.includes('Start-Process')
-      callback((elevated ? cancel : failDirect) ? new Error('denied') : null)
+      assert.ok(options.timeout > 0, 'cleanup cannot hang startup indefinitely')
+      if (args.includes('/query')) {
+        queries++
+        const names = [legacyTask, otherLegacyTask, '\\OtherTask', '\\Qzyrium-clash-run',
+          '\\Qzyrium-clash-Startup-backup', `${legacyTask}-backup`, `\\Folder${legacyTask}`]
+        callback(queryFails ? new Error('query failed') : null, names.map(name => `"${name}","N/A","Готово"`).join('\r\n'), '')
+      } else {
+        assert.equal(args[0], '/delete')
+        deletedTasks.push(args[args.indexOf('/tn') + 1])
+        callback(deletionFails ? new Error('access denied') : null, '', '')
+      }
     } }
-  })
-  await applyWindowsStartup({ autoStart: true, autoStartAsAdmin: true })
-  assert.match(scripts.at(-1), /-AtLogOn -User \$sid/)
-  assert.match(scripts.at(-1), /-LogonType Interactive -RunLevel Highest/)
-  assert.match(scripts.at(-1), /if \(!\$task -or/)
-  assert.match(scripts.at(-1), /ExecutionTimeLimit \(\[TimeSpan\]::Zero\)/)
-  assert.equal(login.at(-1), false, 'scheduled startup disables the duplicate registry entry')
-  await applyWindowsStartup({ autoStart: true, autoStartAsAdmin: false })
-  assert.match(scripts.at(-1), /Unregister-ScheduledTask/)
-  assert.equal(login.at(-1), true)
+  }
+  const runtime = { platform: 'win32', env: { SystemRoot: 'C:\\Windows' } }
+  const { applyWindowsStartup, removeLegacyStartupTasks } = load('src/main/utils/windows-startup.ts', deps, runtime)
+  for (const autoStartAsAdmin of [true, false]) {
+    deletedTasks.length = 0
+    await applyWindowsStartup({ autoStart: true, autoStartAsAdmin })
+    assert.equal(login.at(-1), true, 'both legacy modes migrate to native login registration')
+    assert.deepEqual(deletedTasks, [legacyTask, otherLegacyTask], 'only exact old root tasks are removed')
+  }
+  deletionFails = true
   await applyWindowsStartup({ autoStart: false, autoStartAsAdmin: true })
-  assert.equal(login.at(-1), false)
-  failDirect = true
-  await applyWindowsStartup({ autoStart: true, autoStartAsAdmin: true })
-  assert.match(scripts.at(-1), /-Verb RunAs.*-Wait -PassThru/)
-  cancel = true
-  const previous = login.length
-  await assert.rejects(() => applyWindowsStartup({ autoStart: true, autoStartAsAdmin: true }), /denied/)
-  assert.equal(login.length, previous, 'cancelled UAC leaves registry startup unchanged')
+  assert.equal(login.at(-1), false, 'access denied during cleanup does not block disabling startup')
+  assert.ok(warnings.some(message => message.includes('access denied')))
+  deletionFails = false
+  deletedTasks.length = 0
+  await removeLegacyStartupTasks()
+  assert.deepEqual(deletedTasks, [legacyTask, otherLegacyTask], 'cleanup retries after an elevated restart')
+  queryFails = true
+  await applyWindowsStartup({ autoStart: true })
+  assert.equal(login.at(-1), true, 'query failure does not block login registration')
+  registrationFails = true
+  const previousQueries = queries
+  await assert.rejects(() => applyWindowsStartup({ autoStart: false }), /registration failed/)
+  assert.equal(queries, previousQueries, 'failed replacement leaves legacy startup intact')
+  const unsupported = load('src/main/utils/windows-startup.ts', deps, { platform: 'linux', env: {} })
+  await unsupported.applyWindowsStartup({ autoStart: true })
+  await unsupported.removeLegacyStartupTasks()
+  assert.equal(queries, previousQueries, 'Windows migration is skipped on other platforms')
 
   const { WindowService } = load('src/main/services/WindowService.ts', {
     electron: {}, child_process: {}, '../utils/paths': {}, '../utils/logger': {},
@@ -81,6 +104,6 @@ async function verify() {
   window.setCoreOnlyMode(true)
   window.show()
   assert.equal(window.isCoreOnlyMode(), false, 'opening the app leaves core-only mode')
-  console.log('PASS: one-shot restart state, expiry, scheduled startup modes/UAC cancellation, renderer destruction and recreation')
+  console.log('PASS: one-shot restart state, expiry, native startup migration, exact legacy task cleanup/retry/failures, renderer destruction and recreation')
 }
 verify().catch(error => { console.error(error); process.exitCode = 1 })
