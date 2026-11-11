@@ -54,6 +54,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
 
   // --- Kernel Channels ---
   ipcMain.handle(IPC_CHANNELS.KERNEL_GET_SESSION_STARTED_AT, () => services.kernelService.getSessionStartedAt())
+  ipcMain.handle(IPC_CHANNELS.KERNEL_GET_RULE_WARNING, () => services.kernelService.getRuleWarning())
   ipcMain.handle(IPC_CHANNELS.KERNEL_GET_STATUS, () => {
     return services.kernelService.getStatus()
   })
@@ -150,6 +151,10 @@ export function registerIpcHandlers(services: ServiceManager): void {
 
   ipcMain.handle(IPC_CHANNELS.PROFILE_GET_CUSTOM_RULES, (_, id: string) => {
     return services.profileService.getCustomRules(id)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.PROFILE_VALIDATE_CUSTOM_RULES, (_, id: string, rules: CustomRuleItem[]) => {
+    return services.profileService.validateCustomRules(id, rules)
   })
 
   ipcMain.handle(

@@ -37,6 +37,7 @@ export const IPC_CHANNELS = {
   PROFILE_UPDATE: 'profile:update',
   PROFILE_GET_CUSTOM_RULES: 'profile:get-custom-rules',
   PROFILE_SAVE_CUSTOM_RULES: 'profile:save-custom-rules',
+  PROFILE_VALIDATE_CUSTOM_RULES: 'profile:validate-custom-rules',
   PROFILE_GET_RAW_CONFIG: 'profile:get-raw-config',
   PROFILE_SAVE_RAW_CONFIG: 'profile:save-raw-config',
   PROFILE_UPDATE_INFO: 'profile:update-info',
@@ -85,6 +86,8 @@ export const IPC_CHANNELS = {
   EVENT_CORE_STATUS: 'event:core-status',
   EVENT_SETTINGS_CHANGED: 'event:settings-changed',
   EVENT_TUN_ERROR: 'event:tun-error',
+  EVENT_WARNING: 'event:warning',
+  KERNEL_GET_RULE_WARNING: 'kernel:get-rule-warning',
   EVENT_IMPORT_PROFILE: 'event:import-profile',
   EVENT_WINDOW_VISIBILITY: 'event:window-visibility'
 } as const
@@ -118,6 +121,7 @@ export interface IElectronApi {
   kernel: {
     getStatus: () => Promise<CoreState>
     getSessionStartedAt: () => Promise<number | null>
+    getRuleWarning: () => Promise<string | null>
     start: () => Promise<void>
     stop: () => Promise<void>
     restart: () => Promise<void>
@@ -144,6 +148,7 @@ export interface IElectronApi {
     update: (id: string) => Promise<void>
     getCustomRules: (profileId: string) => Promise<CustomRuleItem[]>
     saveCustomRules: (profileId: string, rules: CustomRuleItem[]) => Promise<void>
+    validateCustomRules: (profileId: string, rules: CustomRuleItem[]) => Promise<CustomRuleItem[]>
     getRawConfig: (profileId: string) => Promise<string | null>
     saveRawConfig: (profileId: string, content: string) => Promise<void>
     updateInfo: (id: string, patch: Partial<ProfileItem>) => Promise<ProfileItem>
@@ -192,6 +197,7 @@ export interface IElectronApi {
     onLog: (callback: (log: LogEntry) => void) => () => void
     onCoreStatus: (callback: (status: CoreState) => void) => () => void
     onTunError: (callback: (errorText: string) => void) => () => void
+    onWarning: (callback: (message: string) => void) => () => void
     onImportProfile: (callback: (data: { url: string; name?: string }) => void) => () => void
     onWindowVisibility: (callback: (visible: boolean) => void) => () => void
   }

@@ -7,9 +7,13 @@ export interface CustomRuleItem {
   proxy: string
   position?: 'top' | 'bottom'
   enabled?: boolean
+  validationError?: string
   additionalParams?: string[]
   isDeleted?: boolean
   offset?: number
+  /** Original subscription rule and its occurrence identify a row across reloads. */
+  sourceRule?: string
+  sourceOccurrence?: number
 }
 
 export interface ProfileUserInfo {

@@ -14,6 +14,7 @@ import {
 import type { GeoLocation, GlobeLocations } from '@shared/geo'
 import { CoreState, LogEntry, MihomoVersion, TrafficStats } from '@shared/types'
 import { MihomoApiClient } from '../core/MihomoApiClient'
+import { prepareProfileContent } from '../utils/profile-validator'
 import { MihomoConfigFactory } from '../core/MihomoConfigFactory'
 import { MihomoProcessManager } from '../core/MihomoProcessManager'
 import { logger } from '../utils/logger'
@@ -32,6 +33,9 @@ import { flushSystemDns } from '../utils/network-transition'
 import { summarizeRules } from '@shared/rules'
 
 export class KernelService implements BaseService {
+  private ruleWarning: string | null = null
+
+  getRuleWarning(): string | null { return this.ruleWarning }
   private processManager: MihomoProcessManager
   private apiClient: MihomoApiClient
   private settingService: SettingService
@@ -220,8 +224,9 @@ export class KernelService implements BaseService {
     const customRules = activeProfile ? this.profileService.getCustomRules(activeProfile.id) : []
     const configKey = JSON.stringify([settings.kernel, customRules])
     const digest = createHash('sha256').update(rawContent === null ? 'no-profile:' : 'profile:').update(rawContent ?? '').digest('hex')
-    if (!this.synthesizedConfig || this.synthesizedConfig.digest !== digest || this.synthesizedConfig.key !== configKey) {
-      this.synthesizedConfig = { digest, key: configKey, yaml: MihomoConfigFactory.synthesize(rawContent, settings, customRules) }
+    if (customRules.some((rule) => rule.enabled !== false && !rule.isDeleted) ||
+      !this.synthesizedConfig || this.synthesizedConfig.digest !== digest || this.synthesizedConfig.key !== configKey) {
+      this.synthesizedConfig = { digest, key: configKey, yaml: await this.prepareConfig(rawContent, activeProfile?.id) }
     }
     const yamlConfig = this.synthesizedConfig.yaml
     await fs.promises.writeFile(paths.activeConfigPath, yamlConfig, 'utf-8')
@@ -238,6 +243,7 @@ export class KernelService implements BaseService {
       settings.kernel.controllerPort,
       settings.kernel.controllerSecret
     )
+    this.warnInvalidRules(activeProfile?.id)
     if (activeProfile?.selectedGroupProxies && Object.keys(activeProfile.selectedGroupProxies).length) {
       const proxies = await this.apiClient.getProxies()
       for (const [group, node] of Object.entries(activeProfile.selectedGroupProxies)) {
@@ -246,6 +252,25 @@ export class KernelService implements BaseService {
         catch (error) { logger.warn(`Could not restore selected proxy for ${group}: ${String(error)}`) }
       }
     }
+  }
+
+  private async prepareConfig(content: string | null, profileId?: string): Promise<string> {
+    const settings = this.settingService.getSettings()
+    const rules = profileId ? this.profileService.getCustomRules(profileId) : []
+    if (!rules.some((rule) => rule.enabled !== false && !rule.isDeleted)) {
+      return MihomoConfigFactory.synthesize(content, settings, rules)
+    }
+    const prepared = await prepareProfileContent(content, settings, rules)
+    if (profileId) await this.profileService.setRuleValidation(profileId, prepared.rules)
+    return prepared.config
+  }
+
+  private warnInvalidRules(profileId?: string): void {
+    this.ruleWarning = null
+    if (!profileId || !this.profileService.getCustomRules(profileId).some((rule) => rule.enabled !== false && rule.validationError)) return
+    const settings = this.settingService.getSettings()
+    this.ruleWarning = nativeMessage(settings.general.language, 'invalidUserRulesMessage', settings.general)
+    this.broadcaster?.(IPC_CHANNELS.EVENT_WARNING, this.ruleWarning)
   }
 
   stop(): Promise<void> {
@@ -317,11 +342,12 @@ export class KernelService implements BaseService {
         const customRules = activeProfile ? this.profileService.getCustomRules(activeProfile.id) : []
         const configKey = JSON.stringify([settings.kernel, customRules])
         const digest = createHash('sha256').update(rawContent === null ? 'no-profile:' : 'profile:').update(rawContent ?? '').digest('hex')
-        this.synthesizedConfig = { digest, key: configKey, yaml: MihomoConfigFactory.synthesize(rawContent, settings, customRules) }
+        this.synthesizedConfig = { digest, key: configKey, yaml: await this.prepareConfig(rawContent, activeProfile?.id) }
         await fs.promises.writeFile(paths.activeConfigPath, this.synthesizedConfig.yaml, 'utf-8')
 
         await this.apiClient.reloadConfig(force)
         logger.info('Mihomo configuration reloaded on the fly via REST API')
+        this.warnInvalidRules(activeProfile?.id)
 
         if (activeProfile?.selectedGroupProxies && Object.keys(activeProfile.selectedGroupProxies).length) {
           const proxies = await this.apiClient.getProxies()

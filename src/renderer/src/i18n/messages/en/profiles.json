@@ -116,5 +116,6 @@
   "yamlPrependComment": "Rules in prepend have highest priority and run before subscription rules",
   "yamlAppendComment": "Rules in append are inserted before the final MATCH rule",
   "yamlDeleteComment": "Rules in delete remove matching subscription rules",
-  "yamlExamplesComment": "Examples:"
+  "yamlExamplesComment": "Examples:",
+  "ruleValidationError": "Rule disabled due to an error. Click the row to edit. Save checks the rule again."
 }
