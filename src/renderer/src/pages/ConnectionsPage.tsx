@@ -1,22 +1,20 @@
+import { ConnectionCard } from '../components/connections/ConnectionCard'
+import { ProcessGroupCard } from '../components/connections/ProcessGroupCard'
+import { ProcessGroupHero } from '../components/connections/ProcessGroupHero'
 import { useConnectionActions } from '../hooks/useConnectionActions'
 import { filterConnections, groupConnections, sortConnections, type ConnectionProtocol, type ConnectionSort } from '../lib/connection-selectors'
-import { ProcessIcon, getAppCategoryIcon } from '../components/ProcessIcon'
+
 import { ConnectionDetailsDialog } from '../components/ConnectionDetailsDialog'
-import { extractProcessName, formatChain } from '../lib/connections'
+
 import { useLocale, useTranslations } from '../i18n'
 import { useState, useMemo } from 'react'
-import { Search, Copy, Check, Clock, Layers, ArrowLeft, ChevronRight, ListFilter } from 'lucide-react'
+import { Search, Layers, ArrowLeft, ListFilter } from 'lucide-react'
 import { ConnectionsIcon, DisconnectIcon } from '../lib/icons'
 import type { ConnectionItem, ConnectionsSnapshot } from '@shared/mihomo'
 import { Page } from '../components/Page'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
-import { Badge } from '../components/ui/badge'
-
-import { formatDuration } from '../lib/format'
-import { EmojiText } from '../components/EmojiText'
-import { TrafficValue } from '../components/TrafficValue'
 
 export function ConnectionsPage({
   connections,
@@ -38,7 +36,7 @@ export function ConnectionsPage({
   const [protocolFilter, setProtocolFilter] = useState<ConnectionProtocol>('all')
   const [sortBy, setSortBy] = useState<ConnectionSort>('traffic')
   const actions = useConnectionActions(onRefresh)
-  const { selectedConnection, setSelectedConnection, copiedKey, closing, error, handleCopy, close, closeProcessConnections } = actions
+  const { selectedConnection, setSelectedConnection, copiedKey, closing, error, handleCopy, close } = actions
 
   const matchingConnections = useMemo(() => filterConnections(connections.connections, query, protocolFilter),
     [connections.connections, query, protocolFilter])
@@ -59,125 +57,7 @@ export function ConnectionsPage({
     return connections.connections.find((c) => c.id === selectedConnection.id) || selectedConnection
   }, [selectedConnection, connections.connections])
 
-  const renderConnectionCard = (item: ConnectionItem) => {
-    const procName = extractProcessName(item.metadata.processPath) || item.metadata.process || t('system')
-    const IconComponent = getAppCategoryIcon(procName)
-    const isUdp = item.metadata.network.toLowerCase() === 'udp'
-    const duration = formatDuration(Math.max(0, Date.now() - new Date(item.start).getTime()))
-    const hostOrIp = item.metadata.host || item.metadata.destinationIP || t('unknownHost')
-    const fullDestination = `${hostOrIp}${item.metadata.destinationPort ? `:${item.metadata.destinationPort}` : ''}`
-
-    return (
-      <Card
-        key={item.id}
-        onClick={() => setSelectedConnection(item)}
-        className="group relative cursor-pointer border border-border/70 bg-card hover:bg-muted/30 hover:border-primary/40 transition-colors p-3 shadow-none rounded-xl [content-visibility:auto] [contain-intrinsic-size:auto_72px]"
-      >
-        <div className="flex items-center justify-between gap-3">
-          {/* Left: Process icon & Details */}
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 group-hover:scale-105 transition-transform overflow-hidden p-1">
-              <ProcessIcon
-                processPath={item.metadata.processPath}
-                processName={procName}
-                className="size-5"
-                fallbackClassName="size-4.5"
-              />
-            </div>
-
-            <div className="flex flex-col min-w-0 flex-1">
-              {/* Top line: Process name, Protocol Badge, Rule Badge */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-foreground truncate max-w-[180px] sm:max-w-[260px]">
-                  {procName}
-                </span>
-                <Badge
-                  variant="outline"
-                  className={`text-[9px] font-mono px-1.5 py-0 uppercase border ${
-                    isUdp
-                      ? 'border-warning/40 text-warning bg-warning/10'
-                      : 'border-primary/40 text-primary bg-primary/10'
-                  }`}
-                >
-                  {item.metadata.network}
-                </Badge>
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
-                  {item.rule}
-                </Badge>
-              </div>
-
-              {/* Bottom line: Code-style destination chip with embedded copy button */}
-              <div className="flex items-center gap-2 mt-1 min-w-0 flex-wrap">
-                <div
-                  className="group/codechip inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-border/60 bg-muted/40 dark:bg-zinc-950/40 font-mono text-[11px] text-foreground/90 max-w-[260px] sm:max-w-[360px] hover:border-primary/40 transition-colors"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleCopy(fullDestination, `host-${item.id}`)
-                  }}
-                  title={fullDestination}
-                >
-                  <span className="truncate font-mono">
-                    <EmojiText text={hostOrIp} />
-                    {item.metadata.destinationPort ? `:${item.metadata.destinationPort}` : ''}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleCopy(fullDestination, `host-${item.id}`)
-                    }}
-                    title={copiedKey === `host-${item.id}` ? t('copied') : t('copy')}
-                    aria-label={copiedKey === `host-${item.id}` ? t('copied') : t('copy')}
-                    className="shrink-0 p-0.5 rounded text-muted-foreground/60 hover:text-foreground hover:bg-background/80 transition-colors"
-                  >
-                    {copiedKey === `host-${item.id}` ? (
-                      <Check className="size-3 text-success" />
-                    ) : (
-                      <Copy className="size-3 opacity-60 group-hover/codechip:opacity-100" />
-                    )}
-                  </button>
-                </div>
-
-                <span className="text-border text-xs hidden sm:inline">•</span>
-                <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                  <EmojiText text={formatChain(item.chains)} />
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Traffic, Duration & Disconnect Action */}
-          <div className="flex items-center gap-4 shrink-0">
-            <div className="flex flex-col items-end text-right font-mono text-[11px] leading-tight">
-              <TrafficValue value={item.download} direction="download" />
-              <TrafficValue value={item.upload} direction="upload" className="mt-0.5" />
-            </div>
-
-            <div className="hidden sm:flex flex-col items-end text-right text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1 font-mono">
-                <Clock className="size-2.5" />
-                {duration}
-              </span>
-            </div>
-
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t('closeConnection')}
-              disabled={closing}
-              onClick={(e) => {
-                e.stopPropagation()
-                close(item.id)
-              }}
-              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            >
-              <DisconnectIcon className="size-3.5" />
-            </Button>
-          </div>
-        </div>
-      </Card>
-    )
-  }
+    const renderConnectionCard = (item: ConnectionItem) => <ConnectionCard key={item.id} item={item} actions={actions} />
 
   return (
     <Page
@@ -302,45 +182,7 @@ export function ConnectionsPage({
         /* Level 2: Drilldown into selected process */
         <div className="flex flex-col gap-3">
           {/* Hero Process Banner */}
-          <Card className="p-4 rounded-xl border border-border/70 bg-card/60 backdrop-blur-xs flex flex-col gap-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="size-11 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0 border border-primary/25 overflow-hidden p-1.5">
-                  <ProcessIcon
-                    processPath={activeProcessGroup.path}
-                    processName={activeProcessGroup.name}
-                    className="size-6"
-                    fallbackClassName="size-5.5"
-                  />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-base font-bold text-foreground truncate">
-                      {activeProcessGroup.name}
-                    </h3>
-                    <Badge className="min-w-5 h-5 justify-center px-1.5 leading-none text-[11px] font-semibold bg-primary text-primary-foreground border-0 rounded-full">
-                      {t('sessions', { count: activeProcessGroup.connections.length })}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-3 mt-1 text-xs font-mono">
-                    <TrafficValue key={`${activeProcessGroup.key}-download`} value={activeProcessGroup.totalDownload} direction="download" />
-                    <TrafficValue key={`${activeProcessGroup.key}-upload`} value={activeProcessGroup.totalUpload} direction="upload" />
-                  </div>
-                </div>
-              </div>
-
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => closeProcessConnections(activeProcessGroup)}
-                disabled={closing || !activeProcessGroup.connections.length}
-                className="gap-1.5 text-xs shrink-0 self-start sm:self-center"
-              >
-                <DisconnectIcon className="size-3.5" />
-                <span>{t('closeProcessConnections')}</span>
-              </Button>
-            </div>
-          </Card>
+          <ProcessGroupHero group={activeProcessGroup} actions={actions} />
 
           {/* List of connections for this process */}
           <div className="flex flex-col gap-2">
@@ -363,58 +205,7 @@ export function ConnectionsPage({
       ) : viewMode === 'process' ? (
         /* Level 1: Process Cards List */
         <div className="flex flex-col gap-2">
-          {processGroups.map((group) => {
-            const IconComponent = getAppCategoryIcon(group.name)
-
-            return (
-              <Card
-                key={group.key}
-                onClick={() => setSelectedProcessKey(group.key)}
-                className="group relative cursor-pointer border border-border/70 bg-card hover:bg-muted/30 hover:border-primary/40 transition-colors p-3.5 shadow-none rounded-xl"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  {/* Left: Process icon & Details */}
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 group-hover:scale-105 transition-transform overflow-hidden p-1.5">
-                      <ProcessIcon
-                        processPath={group.path}
-                        processName={group.name}
-                        className="size-5.5"
-                        fallbackClassName="size-5"
-                      />
-                    </div>
-
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-foreground truncate">
-                          {group.name}
-                        </span>
-                        <Badge className="min-w-5 h-5 justify-center px-1.5 leading-none text-[11px] font-semibold bg-primary text-primary-foreground border-0 rounded-full">
-                          {group.activeCount}
-                        </Badge>
-                      </div>
-
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground truncate">
-                        <span className="font-mono text-[11px] truncate text-muted-foreground/80">
-                          {group.path || group.name}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: Traffic totals & Chevron */}
-                  <div className="flex items-center gap-3 shrink-0 pl-2 pr-1">
-                    <div className="flex flex-col items-end text-right font-mono text-[11px] leading-tight">
-                      <TrafficValue value={group.totalDownload} direction="download" />
-                      <TrafficValue value={group.totalUpload} direction="upload" className="mt-0.5" />
-                    </div>
-
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  </div>
-                </div>
-              </Card>
-            )
-          })}
+          {processGroups.map(group => <ProcessGroupCard key={group.key} group={group} onSelect={setSelectedProcessKey} />)}
 
           {!processGroups.length && (
             <Card className="p-8 text-center flex flex-col items-center justify-center gap-3 border-dashed">
