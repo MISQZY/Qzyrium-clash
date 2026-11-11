@@ -42,6 +42,18 @@ function load(file) {
   return exports
 }
 async function run() {
+  const { visibleProxyGroups, sortProxyNodes } = load('src/renderer/src/lib/proxies.ts')
+  const ordered = {
+    Alpha: { name: 'Alpha', type: 'Selector', all: ['Zulu'] },
+    Zulu: { name: 'Zulu', type: 'Selector', all: ['Alpha'] },
+    Hidden: { name: 'Hidden', type: 'Selector', all: [], hidden: true },
+    GLOBAL: { name: 'GLOBAL', type: 'Selector', all: ['Zulu', 'Hidden', 'Alpha'] }
+  }
+  assert.deepEqual(visibleProxyGroups(ordered, [{ proxy: 'Alpha' }], 'rule'), ['Zulu', 'Alpha'], 'visibility traversal preserves provider order even with cycles')
+  assert.deepEqual(visibleProxyGroups(ordered, [], 'global'), ['GLOBAL', 'Zulu', 'Alpha'])
+  const nodeOrder = ['failed', 'untested', 'fast', 'slow']
+  assert.deepEqual(sortProxyNodes(nodeOrder, 'latency', {}, { failed: -1, fast: 20, slow: 600 }), ['fast', 'slow', 'untested', 'failed'])
+  assert.deepEqual(nodeOrder, ['failed', 'untested', 'fast', 'slow'], 'sorting never mutates provider order')
   const config = structuredClone(load('src/shared/app-config.ts').DEFAULT_APP_CONFIG)
   config.general.autoConnect = false
   config.general.autoCloseConnection = true
