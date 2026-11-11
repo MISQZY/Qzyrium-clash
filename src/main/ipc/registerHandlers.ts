@@ -10,7 +10,7 @@ import type { CustomThemePack } from '@shared/theme'
 import { ServiceManager } from '../services/ServiceManager'
 import { logger } from '../utils/logger'
 import { isDeepStrictEqual } from 'node:util'
-import { validateAppConfig } from '@shared/settings-validation'
+import { mergeSettings } from '@shared/settings-config'
 import { pacScript } from '../utils/pac'
 import { isProcessElevated, restartAsAdmin } from '../utils/elevation'
 import { saveRestartState, clearRestartState } from '../utils/restart-state'
@@ -231,8 +231,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
     finishShortcutRecording?.()
     const previous = services.settingService.getSettings()
     const nextKernel = { ...previous.kernel, ...patch.kernel }
-    const candidate = { ...previous, ...patch, general: { ...previous.general, ...patch.general }, kernel: { ...nextKernel, tun: { ...previous.kernel.tun, ...patch.kernel?.tun } }, sysProxy: { ...previous.sysProxy, ...patch.sysProxy } }
-    validateAppConfig(candidate)
+    const candidate = mergeSettings(previous, patch)
     if (candidate.sysProxy.mode === 'pac') pacScript(candidate)
 
     if (patch.kernel?.tun?.enable && !isProcessElevated()) {

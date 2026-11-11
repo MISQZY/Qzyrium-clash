@@ -49,6 +49,14 @@ for (const [saved, expected] of [
 }
 
 function verifyConfiguration() {
+  const { resetSettingsSection, mergeSettings } = load('src/shared/settings-config.ts')
+  const { createInitialSettings, restoreSettings } = load('src/main/core/SettingsFactory.ts')
+  const initial = createInitialSettings(() => 'fixture-unique-secret')
+  assert.equal(resetSettingsSection(initial, 'mihomo').kernel.controllerSecret, 'fixture-unique-secret', 'reset preserves authentication identity')
+  assert.equal(restoreSettings({}, initial).kernel.controllerSecret, 'fixture-unique-secret', 'legacy settings without secret receive the generated secret')
+  assert.equal(restoreSettings({ kernel: { controllerSecret: DEFAULT_APP_CONFIG.kernel.controllerSecret } }, initial).kernel.controllerSecret, 'fixture-unique-secret', 'shared legacy secret is migrated')
+  assert.equal(restoreSettings({ kernel: { controllerSecret: 'custom' } }, initial).kernel.controllerSecret, 'custom')
+  assert.equal(mergeSettings(initial, { kernel: { tun: { enable: true } } }).kernel.tun.stack, initial.kernel.tun.stack, 'nested patches retain TUN preferences')
   const config = fresh()
   config.kernel.options = { ipv6: false, 'tcp-concurrent': true, 'unified-delay': true, 'socks-port': 0, 'find-process-mode': 'strict' }
   config.kernel.dns = { enable: true, nameserver: ['1.1.1.1'], 'enhanced-mode': 'fake-ip', 'nameserver-policy': { '+.example.com': '8.8.8.8' } }

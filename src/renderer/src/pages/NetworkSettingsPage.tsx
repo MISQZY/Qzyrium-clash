@@ -1,3 +1,4 @@
+import { resetSettingsSection } from '@shared/settings-config'
 import { useTranslations } from '../i18n'
 import { useState, useEffect, type FormEvent, type ReactNode } from 'react'
 import { Save, Folder, ArrowLeft, ChevronRight, Download, Upload, Trash2, RefreshCw, Palette, Power, Gauge, Keyboard, FileText } from 'lucide-react'
@@ -184,17 +185,11 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
   }
 
   const resetToDefaults = () => {
-    if (section === 'settings') {
-      setForm((prev) => ({ ...prev, general: { ...DEFAULT_APP_CONFIG.general, language: prev.general.language, theme: settings.general.theme,
-        customLocalizations: prev.general.customLocalizations, customLocalization: prev.general.customLocalization } }))
-    } else if (section === 'sysproxy') {
-      setForm((prev) => ({ ...prev, sysProxy: { ...DEFAULT_APP_CONFIG.sysProxy } }))
-      setBypass(DEFAULT_APP_CONFIG.sysProxy.bypass.join('\n'))
-    } else if (section === 'tun') {
-      setForm((prev) => ({ ...prev, kernel: { ...prev.kernel, tun: { ...DEFAULT_APP_CONFIG.kernel.tun } } }))
-      setDnsHijack(DEFAULT_APP_CONFIG.kernel.tun.dnsHijack.join('\n'))
-    } else if (section === 'mihomo') {
-      setForm((prev) => ({ ...prev, kernel: { ...DEFAULT_APP_CONFIG.kernel, tun: prev.kernel.tun } }))
+    if (section === 'settings' || section === 'sysproxy' || section === 'tun' || section === 'mihomo') {
+      const reset = resetSettingsSection(form, section)
+      setForm(reset)
+      if (section === 'sysproxy') setBypass(reset.sysProxy.bypass.join('\n'))
+      if (section === 'tun') setDnsHijack(reset.kernel.tun.dnsHijack.join('\n'))
     }
     setDirty(true)
   }
