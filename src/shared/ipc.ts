@@ -129,7 +129,7 @@ export interface IElectronApi {
     getProxies: () => Promise<Record<string, ProxyNode>>
     selectProxy: (group: string, proxy: string) => Promise<void>
     testDelay: (name: string, url?: string, timeout?: number) => Promise<number>
-    getRules: () => Promise<MihomoRule[]>
+    getRules: (scope?: 'summary') => Promise<MihomoRule[]>
     getConnections: () => Promise<ConnectionsSnapshot>
     getGlobeLocations: () => Promise<GlobeLocations>
     closeConnection: (id: string) => Promise<void>

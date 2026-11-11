@@ -38,11 +38,10 @@ export function useLogsStore(coord: StoreCoordinator): LogsStore {
   }, [])
 
   useEffect(() => {
-    if (!coord.visible) {
+    if (!coord.visible || coord.activeTab !== 'logs') {
       setLogs([])
       return
     }
-    if (coord.activeTab !== 'logs') return
     let lastEntry: LogEntry | undefined
     const flush = () => {
       const latest = logBuffer.current.at(-1)

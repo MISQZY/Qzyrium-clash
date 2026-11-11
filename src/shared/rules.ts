@@ -1,3 +1,20 @@
+import type { MihomoRule } from './mihomo'
+
+/** Preserve dashboard lookups without retaining every routing condition. */
+export function summarizeRules(rules: MihomoRule[]): MihomoRule[] {
+  const proxies = new Set<string>()
+  const summary: MihomoRule[] = []
+  let hasMatch = false
+  for (const rule of rules) {
+    const firstProxy = !proxies.has(rule.proxy)
+    const firstMatch = rule.type === 'MATCH' && !hasMatch
+    if (firstProxy || firstMatch) summary.push(rule)
+    proxies.add(rule.proxy)
+    if (firstMatch) hasMatch = true
+  }
+  return summary
+}
+
 /** Logical rules contain commas inside nested clauses. Split only the outer rule fields. */
 export function splitRuleFields(value: string): string[] {
   const fields: string[] = []

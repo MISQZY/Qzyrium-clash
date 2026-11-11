@@ -60,6 +60,7 @@ const react = {
 }
 const config = { general: { language: 'en' }, kernel: { mode: 'rule' } }
 let connectionsCalls = 0, proxyCalls = 0, baseCalls = 0
+const ruleScopes = []
 let backendState = 'running'
 let backendSessionStartedAt = 12345
 const connections = deferred(), rules = deferred(), systemProxy = deferred()
@@ -75,7 +76,7 @@ const api = {
   settings: { get: async () => config },
   mihomo: {
     getProxies: async () => { proxyCalls++; if (proxyCalls === 1) throw Error('transient'); return { PROXY: { name: 'ready' } } },
-    getRules: () => rules.promise,
+    getRules: scope => { ruleScopes.push(scope); return rules.promise },
     getConnections: () => { connectionsCalls++; return connections.promise }
   },
   events: {
@@ -188,10 +189,12 @@ async function run() {
   rules.resolve([{ type: 'MATCH', payload: '', proxy: 'PROXY' }])
   connections.resolve({ uploadTotal: 1, downloadTotal: 2, connections: [] })
   await flush()
-  assert.equal(view.rules.length, 1, 'independent rules publish')
+  assert.equal(view.rules.length, 0, 'late rules response cannot retain data on an unrelated page')
   assert.equal(view.connections.downloadTotal, 0, 'snapshot for an old view is discarded')
   view.setActiveTab('dashboard')
   await flush()
+  assert.equal(ruleScopes.at(-1), 'summary', 'dashboard requests only routing labels')
+  assert.equal(view.rules.length, 1, 'dashboard summary loads independently')
   assert.equal(view.traffic.up, 42)
   assert.equal(connectionsCalls, 2)
   document.visibilityState = 'hidden'
@@ -199,6 +202,7 @@ async function run() {
   await flush()
   assert.equal([...timers].filter(t => t.ms === 2000).length, 0, 'hidden window suspends connections polling')
   assert.equal(view.sessionStartedAt, 12345, 'hiding the application preserves session uptime')
+  assert.equal(view.rules.length, 0, 'hidden window releases routing data')
   backendState = 'stopped'
   events.status(backendState)
   await flush()
@@ -213,6 +217,30 @@ async function run() {
   assert.equal(baseCalls, beforeStart + 1, 'start event and completed action produce one refresh')
   assert.equal(proxyCalls, beforeProxies + 1, 'core datasets load once after the action')
   assert.equal(connectionsCalls, 2, 'starting while hidden does not resume polling')
+  document.visibilityState = 'visible'
+  listeners.get('visibilitychange')()
+  await flush()
+  view.setActiveTab('rules')
+  await flush()
+  assert.equal(ruleScopes.at(-1), undefined, 'rules page requests the complete dataset')
+  assert.equal(view.rules.length, 1)
+  view.setActiveTab('profiles')
+  await flush()
+  assert.equal(view.rules.length, 0, 'leaving the rules page releases its complete dataset')
+  assert.equal(view.connections.downloadTotal, 0, 'unrelated pages release connection snapshots')
+  view.setActiveTab('logs')
+  await flush()
+  events.log({ type: 'info', payload: 'retained history', time: 'now' })
+  const visibleLogTimer = [...timers].find(t => t.ms === 250)
+  visibleLogTimer.fn()
+  await flush()
+  assert.equal(view.logs.at(-1).payload, 'retained history')
+  view.setActiveTab('profiles')
+  await flush()
+  assert.equal(view.logs.length, 0, 'leaving logs releases the displayed array')
+  view.setActiveTab('logs')
+  await flush()
+  assert.equal(view.logs.at(-1).payload, 'retained history', 'bounded history survives releasing the displayed array')
   console.log('PASS renderer store: progressive loading, independent retry, single snapshot owner, buffered logs, relevant traffic, visibility pause, stale result protection')
 }
 run().catch(error => { console.error(error); process.exitCode = 1 })

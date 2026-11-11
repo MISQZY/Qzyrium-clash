@@ -29,6 +29,7 @@ import { isProcessElevated } from '../utils/elevation'
 import type { ProxyGroup } from '@shared/mihomo'
 import { offlineProxies } from '../utils/offline-proxies'
 import { flushSystemDns } from '../utils/network-transition'
+import { summarizeRules } from '@shared/rules'
 
 export class KernelService implements BaseService {
   private processManager: MihomoProcessManager
@@ -377,9 +378,10 @@ export class KernelService implements BaseService {
     return this.apiClient.testProxyDelay(name, url ?? general.delayTestUrl, timeout ?? general.delayTestTimeout)
   }
 
-  async getRules(): Promise<MihomoRule[]> {
+  async getRules(scope?: 'summary'): Promise<MihomoRule[]> {
     if (this.getStatus() !== 'running') return []
-    return this.apiClient.getRules()
+    const rules = await this.apiClient.getRules()
+    return scope === 'summary' ? summarizeRules(rules) : rules
   }
 
   async getConnections(): Promise<ConnectionsSnapshot> {
