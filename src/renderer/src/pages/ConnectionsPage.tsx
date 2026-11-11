@@ -1,9 +1,10 @@
+import { useConnectionActions } from '../hooks/useConnectionActions'
 import { filterConnections, groupConnections, sortConnections, type ConnectionProtocol, type ConnectionSort } from '../lib/connection-selectors'
 import { ProcessIcon, getAppCategoryIcon } from '../components/ProcessIcon'
 import { ConnectionDetailsDialog } from '../components/ConnectionDetailsDialog'
-import { extractProcessName, formatChain, type ProcessGroup } from '../lib/connections'
+import { extractProcessName, formatChain } from '../lib/connections'
 import { useLocale, useTranslations } from '../i18n'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import { Search, Copy, Check, Clock, Layers, ArrowLeft, ChevronRight, ListFilter } from 'lucide-react'
 import { ConnectionsIcon, DisconnectIcon } from '../lib/icons'
 import type { ConnectionItem, ConnectionsSnapshot } from '@shared/mihomo'
@@ -12,8 +13,6 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
-
-import { copyToClipboard } from '../lib/clipboard'
 
 import { formatDuration } from '../lib/format'
 import { EmojiText } from '../components/EmojiText'
@@ -38,59 +37,8 @@ export function ConnectionsPage({
   const [processLimit, setProcessLimit] = useState(100)
   const [protocolFilter, setProtocolFilter] = useState<ConnectionProtocol>('all')
   const [sortBy, setSortBy] = useState<ConnectionSort>('traffic')
-  const [selectedConnection, setSelectedConnection] = useState<ConnectionItem | null>(null)
-  const [copiedKey, setCopiedKey] = useState<string | null>(null)
-  const [closing, setClosing] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleCopy = useCallback(async (text: string, key: string) => {
-    const ok = await copyToClipboard(text)
-    if (ok) {
-      setCopiedKey(key)
-      setTimeout(() => {
-        setCopiedKey((prev) => (prev === key ? null : prev))
-      }, 1800)
-    }
-  }, [])
-
-  const close = async (id?: string) => {
-    if (!window.api || closing || (!id && !confirm(t('terminateAllActiveSessions')))) return
-    setClosing(true)
-    setError('')
-    try {
-      if (id) {
-        await window.api.mihomo.closeConnection(id)
-        if (selectedConnection?.id === id) {
-          setSelectedConnection(null)
-        }
-      } else {
-        await window.api.mihomo.closeAllConnections()
-        setSelectedConnection(null)
-      }
-      onRefresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setClosing(false)
-    }
-  }
-
-  const closeProcessConnections = async (group: ProcessGroup) => {
-    if (!window.api || closing) return
-    setClosing(true)
-    setError('')
-    try {
-      await Promise.all(group.connections.map((item) => window.api.mihomo.closeConnection(item.id)))
-      if (selectedConnection && group.connections.some((c) => c.id === selectedConnection.id)) {
-        setSelectedConnection(null)
-      }
-      onRefresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setClosing(false)
-    }
-  }
+  const actions = useConnectionActions(onRefresh)
+  const { selectedConnection, setSelectedConnection, copiedKey, closing, error, handleCopy, close, closeProcessConnections } = actions
 
   const matchingConnections = useMemo(() => filterConnections(connections.connections, query, protocolFilter),
     [connections.connections, query, protocolFilter])
