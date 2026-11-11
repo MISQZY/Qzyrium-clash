@@ -53,12 +53,16 @@ export class KernelService implements BaseService {
   private startupRunning?: boolean
   private directDownloadTotal = 0
   private directUploadTotal = 0
+  private vpnDownloadTotal = 0
+  private vpnUploadTotal = 0
   private lastSeenDownloadTotal = 0
   private activeTrackedConns = new Map<string, { download: number; upload: number; isDirect: boolean }>()
 
   private resetDirectTraffic(): void {
     this.directDownloadTotal = 0
     this.directUploadTotal = 0
+    this.vpnDownloadTotal = 0
+    this.vpnUploadTotal = 0
     this.lastSeenDownloadTotal = 0
     if (this.activeTrackedConns) {
       this.activeTrackedConns.clear()
@@ -418,26 +422,20 @@ export class KernelService implements BaseService {
     }
     this.lastSeenDownloadTotal = snapshot.downloadTotal
 
-    const settings = this.settingService.getSettings()
-    if (settings.kernel.mode === 'direct') {
-      return {
-        ...snapshot,
-        directDownloadTotal: snapshot.downloadTotal,
-        directUploadTotal: snapshot.uploadTotal
-      }
-    }
-
     if (!this.activeTrackedConns) this.activeTrackedConns = new Map()
     const currentIds = new Set<string>()
     for (const conn of snapshot.connections) {
       currentIds.add(conn.id)
       const isDirect = this.isDirectConnection(conn)
       const prev = this.activeTrackedConns.get(conn.id)
+      const dlDelta = prev ? Math.max(0, conn.download - prev.download) : conn.download
+      const ulDelta = prev ? Math.max(0, conn.upload - prev.upload) : conn.upload
       if (isDirect) {
-        const dlDelta = prev ? Math.max(0, conn.download - prev.download) : conn.download
-        const ulDelta = prev ? Math.max(0, conn.upload - prev.upload) : conn.upload
         this.directDownloadTotal += dlDelta
         this.directUploadTotal += ulDelta
+      } else {
+        this.vpnDownloadTotal += dlDelta
+        this.vpnUploadTotal += ulDelta
       }
       this.activeTrackedConns.set(conn.id, {
         download: conn.download,
@@ -458,7 +456,12 @@ export class KernelService implements BaseService {
     return {
       ...snapshot,
       directDownloadTotal,
-      directUploadTotal
+      directUploadTotal,
+      // /connections forgets closed connections. Attribute only bytes actually
+      // observed on a proxy chain; unobserved traffic must never become VPN bytes.
+      vpnDownloadTotal: Math.min(this.vpnDownloadTotal, snapshot.downloadTotal),
+      vpnUploadTotal: Math.min(this.vpnUploadTotal, snapshot.uploadTotal),
+      vpnTrafficIsLowerBound: true
     }
   }
 
