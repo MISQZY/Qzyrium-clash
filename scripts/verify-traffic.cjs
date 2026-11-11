@@ -5,13 +5,18 @@ const ts = require('typescript')
 
 // Exercise accounting without launching a core or changing OS network settings.
 const exportsObject = {}
+const accounting = {}
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/main/core/TrafficAccounting.ts', 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+}).outputText, { exports: accounting, require: () => ({}) })
 const code = ts.transpileModule(fs.readFileSync('src/main/services/KernelService.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
 }).outputText
-vm.runInNewContext(code, { exports: exportsObject, require: () => ({}) })
+vm.runInNewContext(code, { exports: exportsObject, require: name => name.endsWith('/TrafficAccounting') ? accounting : {} })
 
 async function verify() {
   const kernel = Object.create(exportsObject.KernelService.prototype)
+  kernel.trafficAccounting = new accounting.TrafficAccounting()
   kernel.resetDirectTraffic()
   let snapshot
   kernel.apiClient = { getConnections: async () => snapshot }

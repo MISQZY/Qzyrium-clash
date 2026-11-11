@@ -227,6 +227,7 @@ async function main() {
     './GeoIpService': {}, '../utils/local-geoip': {}, '../utils/globe-routes': helpers
   })
   const lifecycle = Object.create(LifecycleKernel.prototype)
+  lifecycle.trafficAccounting = new (load('src/main/core/TrafficAccounting.ts', {}).TrafficAccounting)()
   lifecycle.lifecycle = Promise.resolve()
   lifecycle.geoGeneration = 0
   lifecycle.settingService = { getSettings: () => ({ kernel: { tun: { enable: true } } }) }

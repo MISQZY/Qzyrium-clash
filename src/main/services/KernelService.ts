@@ -1,3 +1,4 @@
+import { TrafficAccounting } from '../core/TrafficAccounting'
 import { nativeMessage } from '@shared/localization'
 import { IPC_CHANNELS } from '@shared/ipc'
 import fs from 'fs'
@@ -6,7 +7,6 @@ import { isIP } from 'node:net'
 import { createHash } from 'node:crypto'
 import yaml from 'yaml'
 import {
-  ConnectionItem,
   ConnectionsSnapshot,
   MihomoRule,
   ProxyNode
@@ -51,24 +51,10 @@ export class KernelService implements BaseService {
   private sessionStartedAt: number | null = null
   private streamsPaused = false
   private startupRunning?: boolean
-  private directDownloadTotal = 0
-  private directUploadTotal = 0
-  private vpnDownloadTotal = 0
-  private vpnUploadTotal = 0
-  private lastSeenDownloadTotal = 0
-  private activeTrackedConns = new Map<string, { download: number; upload: number; isDirect: boolean }>()
+  private trafficAccounting = new TrafficAccounting()
 
   private resetDirectTraffic(): void {
-    this.directDownloadTotal = 0
-    this.directUploadTotal = 0
-    this.vpnDownloadTotal = 0
-    this.vpnUploadTotal = 0
-    this.lastSeenDownloadTotal = 0
-    if (this.activeTrackedConns) {
-      this.activeTrackedConns.clear()
-    } else {
-      this.activeTrackedConns = new Map()
-    }
+    this.trafficAccounting.reset()
   }
 
   setStartupRunning(running: boolean): void { this.startupRunning = running }
@@ -415,69 +401,7 @@ export class KernelService implements BaseService {
   }
 
   async getConnections(): Promise<ConnectionsSnapshot> {
-    const snapshot = await this.apiClient.getConnections()
-
-    if (snapshot.downloadTotal < this.lastSeenDownloadTotal) {
-      this.resetDirectTraffic()
-    }
-    this.lastSeenDownloadTotal = snapshot.downloadTotal
-
-    if (!this.activeTrackedConns) this.activeTrackedConns = new Map()
-    const currentIds = new Set<string>()
-    for (const conn of snapshot.connections) {
-      currentIds.add(conn.id)
-      const isDirect = this.isDirectConnection(conn)
-      const prev = this.activeTrackedConns.get(conn.id)
-      const dlDelta = prev ? Math.max(0, conn.download - prev.download) : conn.download
-      const ulDelta = prev ? Math.max(0, conn.upload - prev.upload) : conn.upload
-      if (isDirect) {
-        this.directDownloadTotal += dlDelta
-        this.directUploadTotal += ulDelta
-      } else {
-        this.vpnDownloadTotal += dlDelta
-        this.vpnUploadTotal += ulDelta
-      }
-      this.activeTrackedConns.set(conn.id, {
-        download: conn.download,
-        upload: conn.upload,
-        isDirect
-      })
-    }
-
-    for (const id of this.activeTrackedConns.keys()) {
-      if (!currentIds.has(id)) {
-        this.activeTrackedConns.delete(id)
-      }
-    }
-
-    const directDownloadTotal = Math.min(this.directDownloadTotal, snapshot.downloadTotal)
-    const directUploadTotal = Math.min(this.directUploadTotal, snapshot.uploadTotal)
-
-    return {
-      ...snapshot,
-      directDownloadTotal,
-      directUploadTotal,
-      // /connections forgets closed connections. Attribute only bytes actually
-      // observed on a proxy chain; unobserved traffic must never become VPN bytes.
-      vpnDownloadTotal: Math.min(this.vpnDownloadTotal, snapshot.downloadTotal),
-      vpnUploadTotal: Math.min(this.vpnUploadTotal, snapshot.uploadTotal),
-      vpnTrafficIsLowerBound: true
-    }
-  }
-
-  private isDirectConnection(conn: ConnectionItem): boolean {
-    if (conn.rule?.toUpperCase() === 'DIRECT' || conn.rulePayload?.toUpperCase() === 'DIRECT') {
-      return true
-    }
-    if (!conn.chains || conn.chains.length === 0) {
-      return true
-    }
-    const upperChains = conn.chains.map((c) => c.toUpperCase())
-    return (
-      upperChains.includes('DIRECT') ||
-      upperChains[upperChains.length - 1] === 'DIRECT' ||
-      upperChains.every((c) => c === 'DIRECT' || c === 'REJECT')
-    )
+    return this.trafficAccounting.sample(await this.apiClient.getConnections())
   }
 
   private invalidateGlobe(): void {
