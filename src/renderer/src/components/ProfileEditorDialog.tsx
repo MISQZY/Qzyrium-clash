@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect, useState, useCallback, useRef, useMemo, startTransition } from 'react'
 import yaml from 'yaml'
 import { insertRuleOverrides } from '@shared/rules'
+import { validateRulePayload } from '@shared/rule-validation'
 import { Tooltip } from 'radix-ui'
 import {
   CodeXml,
@@ -170,49 +171,6 @@ const formatLogicalRuleClause = (clause: string): string => {
   return cValues.length > 0 ? `${cType}: ${cValues.join(', ')}` : cType
 }
 
-const domainValidator = (value: string): boolean => {
-  if (value.length > 253 || value.length < 2) return false
-  return (
-    /^(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)\.)+[a-zA-Z]{2,}$/.test(value) ||
-    ['localhost', 'local', 'localdomain'].includes(value.toLowerCase())
-  )
-}
-
-const domainSuffixValidator = (value: string): boolean => {
-  return /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.[a-zA-Z]{2,}$/.test(
-    value
-  )
-}
-
-const domainKeywordValidator = (value: string): boolean => {
-  return value.length > 0 && !value.includes(',') && !value.includes(' ')
-}
-
-const domainRegexValidator = (value: string): boolean => {
-  try {
-    new RegExp(value)
-    return true
-  } catch {
-    return false
-  }
-}
-
-const portValidator = (value: string): boolean => {
-  return /^(?:[1-9]\d{0,3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$/.test(value)
-}
-
-const ipv4CIDRValidator = (value: string): boolean => {
-  return /^(?:(?:[1-9]?[0-9]|1[0-9][0-9]|2(?:[0-4][0-9]|5[0-5]))\.){3}(?:[1-9]?[0-9]|1[0-9][0-9]|2(?:[0-4][0-9]|5[0-5]))(?:\/(?:[12]?[0-9]|3[0-2]))$/.test(
-    value
-  )
-}
-
-const ipv6CIDRValidator = (value: string): boolean => {
-  return /^([0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4}){7}|::|:(?::[0-9a-fA-F]{1,4}){1,6}|[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,5}|(?:[0-9a-fA-F]{1,4}:){2}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){3}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){4}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){5}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,6}:)\/(?:12[0-8]|1[01][0-9]|[1-9]?[0-9])$/.test(
-    value
-  )
-}
-
 export const ruleDefinitionsMap = new Map<
   string,
   {
@@ -220,26 +178,24 @@ export const ruleDefinitionsMap = new Map<
     example?: string
     noResolve?: boolean
     src?: boolean
-    validator?: (value: string) => boolean
   }
 >([
-  ['DOMAIN', { name: 'DOMAIN', example: 'example.com', validator: domainValidator }],
-  ['DOMAIN-SUFFIX', { name: 'DOMAIN-SUFFIX', example: 'example.com', validator: domainSuffixValidator }],
-  ['DOMAIN-KEYWORD', { name: 'DOMAIN-KEYWORD', example: 'example', validator: domainKeywordValidator }],
-  ['DOMAIN-REGEX', { name: 'DOMAIN-REGEX', example: 'example.*', validator: domainRegexValidator }],
+  ['DOMAIN', { name: 'DOMAIN', example: 'example.com' }],
+  ['DOMAIN-SUFFIX', { name: 'DOMAIN-SUFFIX', example: 'example.com' }],
+  ['DOMAIN-KEYWORD', { name: 'DOMAIN-KEYWORD', example: 'example' }],
+  ['DOMAIN-REGEX', { name: 'DOMAIN-REGEX', example: 'example.*' }],
   ['GEOSITE', { name: 'GEOSITE', example: 'youtube' }],
   ['GEOIP', { name: 'GEOIP', example: 'RU', noResolve: true, src: true }],
   ['SRC-GEOIP', { name: 'SRC-GEOIP', example: 'RU' }],
-  ['IP-ASN', { name: 'IP-ASN', example: '13335', noResolve: true, src: true, validator: (v) => !!+v }],
-  ['SRC-IP-ASN', { name: 'SRC-IP-ASN', example: '9808', validator: (v) => !!+v }],
+  ['IP-ASN', { name: 'IP-ASN', example: '13335', noResolve: true, src: true }],
+  ['SRC-IP-ASN', { name: 'SRC-IP-ASN', example: '9808' }],
   [
     'IP-CIDR',
     {
       name: 'IP-CIDR',
       example: '192.168.1.0/24',
       noResolve: true,
-      src: true,
-      validator: (v) => ipv4CIDRValidator(v) || ipv6CIDRValidator(v)
+      src: true
     }
   ],
   [
@@ -248,16 +204,14 @@ export const ruleDefinitionsMap = new Map<
       name: 'IP-CIDR6',
       example: '2620:0:2d0:200::7/32',
       noResolve: true,
-      src: true,
-      validator: (v) => ipv4CIDRValidator(v) || ipv6CIDRValidator(v)
+      src: true
     }
   ],
   [
     'SRC-IP-CIDR',
     {
       name: 'SRC-IP-CIDR',
-      example: '192.168.1.201/32',
-      validator: (v) => ipv4CIDRValidator(v) || ipv6CIDRValidator(v)
+      example: '192.168.1.201/32'
     }
   ],
   [
@@ -266,36 +220,34 @@ export const ruleDefinitionsMap = new Map<
       name: 'IP-SUFFIX',
       example: '8.8.8.8/24',
       noResolve: true,
-      src: true,
-      validator: (v) => ipv4CIDRValidator(v) || ipv6CIDRValidator(v)
+      src: true
     }
   ],
   [
     'SRC-IP-SUFFIX',
     {
       name: 'SRC-IP-SUFFIX',
-      example: '192.168.1.201/8',
-      validator: (v) => ipv4CIDRValidator(v) || ipv6CIDRValidator(v)
+      example: '192.168.1.201/8'
     }
   ],
-  ['SRC-PORT', { name: 'SRC-PORT', example: '7777', validator: portValidator }],
-  ['DST-PORT', { name: 'DST-PORT', example: '80', validator: portValidator }],
-  ['IN-PORT', { name: 'IN-PORT', example: '7897', validator: portValidator }],
+  ['SRC-PORT', { name: 'SRC-PORT', example: '7777' }],
+  ['DST-PORT', { name: 'DST-PORT', example: '80' }],
+  ['IN-PORT', { name: 'IN-PORT', example: '7897' }],
   ['DSCP', { name: 'DSCP', example: '4' }],
   ['PROCESS-NAME', { name: 'PROCESS-NAME', example: 'chrome.exe' }],
   ['PROCESS-PATH', { name: 'PROCESS-PATH', example: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' }],
   ['PROCESS-NAME-REGEX', { name: 'PROCESS-NAME-REGEX', example: '.*telegram.*' }],
   ['PROCESS-PATH-REGEX', { name: 'PROCESS-PATH-REGEX', example: '(?i).*Application\\\\chrome.*' }],
-  ['NETWORK', { name: 'NETWORK', example: 'udp', validator: (v) => ['tcp', 'udp'].includes(v.toLowerCase()) }],
-  ['UID', { name: 'UID', example: '1001', validator: (v) => !!+v }],
+  ['NETWORK', { name: 'NETWORK', example: 'udp' }],
+  ['UID', { name: 'UID', example: '1001' }],
   ['IN-TYPE', { name: 'IN-TYPE', example: 'SOCKS/HTTP' }],
   ['IN-USER', { name: 'IN-USER', example: 'mihomo' }],
   ['IN-NAME', { name: 'IN-NAME', example: 'ss' }],
   ['SUB-RULE', { name: 'SUB-RULE', example: '(NETWORK,tcp)' }],
   ['RULE-SET', { name: 'RULE-SET', example: 'providername', noResolve: true, src: true }],
-  ['AND', { name: 'AND', example: '((DOMAIN,example.com),(NETWORK,UDP))', validator: (v) => getLogicalRuleClauses(v).length >= 2 }],
-  ['OR', { name: 'OR', example: '((NETWORK,UDP),(DOMAIN,example.com))', validator: (v) => getLogicalRuleClauses(v).length >= 2 }],
-  ['NOT', { name: 'NOT', example: '((DOMAIN,example.com))', validator: (v) => getLogicalRuleClauses(v).length >= 1 }],
+  ['AND', { name: 'AND', example: '((DOMAIN,example.com),(NETWORK,UDP))' }],
+  ['OR', { name: 'OR', example: '((NETWORK,UDP),(DOMAIN,example.com))' }],
+  ['NOT', { name: 'NOT', example: '((DOMAIN,example.com))' }],
   ['MATCH', { name: 'MATCH', example: 'MATCH' }]
 ])
 
@@ -607,18 +559,10 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
   }
 
   // Validate payload
-  const validatePayload = useCallback((type: string, payload: string): boolean => {
-    const norm = type.toUpperCase()
-    if (norm === 'MATCH') return true
-    const def = ruleDefinitionsMap.get(norm)
-    if (!def?.validator) return true
-    return def.validator(payload.trim())
-  }, [])
-
   const isNewPayloadValid = useMemo(() => {
     if (newRule.type === 'MATCH' || !newRule.payload) return true
-    return validatePayload(newRule.type, newRule.payload)
-  }, [newRule.type, newRule.payload, validatePayload])
+    return validateRulePayload(newRule.type, newRule.payload)
+  }, [newRule.type, newRule.payload])
 
   const isNewRuleLogical = isLogicalRuleType(newRule.type)
   const newRuleLogicalSummary = useMemo(() => {
@@ -729,7 +673,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
 
   const saveInlineEdit = async () => {
     if (!editingDraft || !profile || !window.api || validatingRule) return
-    if (editingDraft.type !== 'MATCH' && editingDraft.payload.trim() && !validatePayload(editingDraft.type, editingDraft.payload)) {
+    if (editingDraft.type !== 'MATCH' && editingDraft.payload.trim() && !validateRulePayload(editingDraft.type, editingDraft.payload)) {
       setError(`${t('invalidPayload')}: ${getRuleExample(editingDraft.type)}`)
       return
     }
