@@ -69,6 +69,25 @@ export function useAppStore() {
       if (current()) update(value)
     }
     const request = (async () => {
+      if (window.api?.app?.getBootSnapshot) {
+        try {
+          const boot = await window.api.app.getBootSnapshot()
+          if (!current()) return
+          setSettings(boot.settings)
+          setProfiles(boot.profiles)
+          setActiveProfile(boot.activeProfile)
+          if (revision === statusRevision.current) {
+            setCoreStatus(boot.coreStatus)
+            setSessionStartedAt(boot.sessionStartedAt)
+          }
+          setSysProxy(boot.sysProxy)
+          setLoading(false)
+          setDataRevision((value) => value + 1)
+          return
+        } catch {
+          // Fall back to individual requests if batched snapshot fails
+        }
+      }
       // Proxy synchronization can wait for Windows registry/PAC operations.
       // Preserve action completion semantics while displaying local data early.
       const proxyResult = Promise.allSettled([apply(window.api.sysproxy.getStatus(), setSysProxy)])

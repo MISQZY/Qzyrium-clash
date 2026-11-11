@@ -93,8 +93,8 @@ export class ServiceManager {
     this.services = [
       this.settingService,
       this.profileService,
-      this.updateService,
       this.windowService,
+      this.updateService,
       this.sysProxyService,
       this.trayService,
       this.kernelService,
