@@ -42,7 +42,21 @@ const react = {
       slots[i] = { deps, cleanup: previous?.cleanup }
       effects.push(() => { slots[i].cleanup?.(); slots[i].cleanup = fn() })
     }
-  }
+  },
+  useMemo(fn, deps) {
+    const i = cursor++
+    if (!slots[i] || deps.some((d, n) => !Object.is(d, slots[i].deps[n]))) {
+      slots[i] = { value: fn(), deps }
+    }
+    return slots[i].value
+  },
+  createContext(defaultValue) {
+    const ctx = { _currentValue: defaultValue }
+    ctx.Provider = ({ value, children }) => { ctx._currentValue = value; return children }
+    return ctx
+  },
+  useContext(ctx) { return ctx?._currentValue },
+  createElement(type, props, ...children) { return { type, props: { ...props, children } } }
 }
 const config = { general: { language: 'en' }, kernel: { mode: 'rule' } }
 let connectionsCalls = 0, proxyCalls = 0, baseCalls = 0
@@ -80,9 +94,42 @@ const file = path.resolve(__dirname, '../src/renderer/src/stores/useAppStore.ts'
 const output = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
 }).outputText
+function createResolver(fromDir) {
+  return function customRequire(name) {
+    if (name === 'react') return react
+    if (name === '@shared/app-config') return { DEFAULT_APP_CONFIG: config }
+    if (name === '../i18n/catalogs' || name.endsWith('i18n/catalogs')) return { translate: () => '' }
+    if (name === '@shared/custom-localization') return { selectedLocalization: () => undefined }
+    if (name.startsWith('.')) {
+      let resolved = path.resolve(fromDir, name)
+      if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+        resolved = path.join(resolved, 'index.ts')
+      } else if (!fs.existsSync(resolved)) {
+        if (fs.existsSync(resolved + '.ts')) resolved += '.ts'
+        else if (fs.existsSync(resolved + '.tsx')) resolved += '.tsx'
+        else if (fs.existsSync(resolved + '.js')) resolved += '.js'
+        else if (fs.existsSync(path.join(resolved, 'index.ts'))) resolved = path.join(resolved, 'index.ts')
+      }
+      const code = fs.readFileSync(resolved, 'utf8')
+      const js = ts.transpileModule(code, {
+        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+      }).outputText
+      const subModule = { exports: {} }
+      const subContext = {
+        ...context,
+        exports: subModule.exports,
+        module: subModule,
+        require: createResolver(path.dirname(resolved))
+      }
+      vm.runInNewContext(js, subContext, { filename: resolved })
+      return subModule.exports
+    }
+    return require(name)
+  }
+}
 const context = {
   exports: {},
-  require: name => name === 'react' ? react : name === '@shared/app-config' ? { DEFAULT_APP_CONFIG: config } : name === '../i18n/catalogs' ? { translate: () => '' } : name === '@shared/custom-localization' ? { selectedLocalization: () => undefined } : require(name),
+  require: createResolver(path.dirname(file)),
   window: { api }, document,
   setTimeout: timer, clearTimeout: item => timers.delete(item),
   setInterval: timer, clearInterval: item => timers.delete(item)
