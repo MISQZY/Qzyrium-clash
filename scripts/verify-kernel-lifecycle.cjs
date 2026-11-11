@@ -5,6 +5,7 @@ const vm = require('node:vm')
 const { EventEmitter } = require('node:events')
 const ts = require('typescript')
 const { createIpcFixture } = require('./fixtures/ipc.cjs')
+const channels = load('src/shared/ipc.ts', {}).IPC_CHANNELS
 
 function load(file, dependencies, overrides = {}) {
   const output = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
@@ -119,7 +120,8 @@ async function verifyModeUpdates() {
   const { registerIpcHandlers } = load('src/main/ipc/registerHandlers.ts', {
     '../utils/elevation': { isProcessElevated: () => false, restartAsAdmin: async () => false },
     electron: { ipcMain: { handle: (channel, fn) => handlers.set(channel, fn) } },
-    '@shared/ipc': { IPC_CHANNELS: new Proxy({}, { get: (_, key) => key }) }, '../utils/logger': { logger }
+
+    '../utils/logger': { logger }
   })
   const initial = structuredClone(load('src/shared/app-config.ts', {}).DEFAULT_APP_CONFIG)
   initial.sysProxy.enable = true
@@ -134,7 +136,7 @@ async function verifyModeUpdates() {
   const { NetworkModeController } = load('src/main/services/NetworkModeController.ts', { '../utils/logger': { logger } })
   services.networkModeController = new NetworkModeController(services.settingService, services.kernelService, services.sysProxyService)
   registerIpcHandlers(services)
-  const update = () => handlers.get('APP_UPDATE_SETTINGS')
+  const update = () => handlers.get(channels.APP_UPDATE_SETTINGS)
   reset()
   await update()(ipc.event, { kernel: { ...settings.kernel, mode: 'global' } })
   assert.deepEqual(calls, ['mode:global', 'save'], 'live mode change must not restart or touch OS proxy')

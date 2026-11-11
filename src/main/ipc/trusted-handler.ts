@@ -1,4 +1,5 @@
 import type { BrowserWindow, IpcMain, IpcMainInvokeEvent } from 'electron'
+import { validateIpcArguments } from './argument-validation'
 
 interface RendererSource {
   getMainWindow(): BrowserWindow | null
@@ -28,6 +29,7 @@ export function createTrustedRegistrar(ipc: Pick<IpcMain, 'handle'>, source: Ren
         !sameDocument(event.senderFrame.url, source.getRendererUrl())) {
         throw new Error('Untrusted IPC sender')
       }
+      validateIpcArguments(channel, args)
       return callback(event, ...args)
     })
   }

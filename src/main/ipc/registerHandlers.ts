@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { AddProfileDto, IPC_CHANNELS } from '@shared/ipc'
-import { CustomRuleItem } from '@shared/profile'
+import { CustomRuleItem, ProfileInfoPatch } from '@shared/profile'
 import { AppConfig } from '@shared/app-config'
 import type { CustomThemePack } from '@shared/theme'
 import { ServiceManager } from '../services/ServiceManager'
@@ -174,7 +174,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
     if (await services.profileService.saveProfileContent(id, content)) await restartActiveProfile(id)
   })
 
-  handle(IPC_CHANNELS.PROFILE_UPDATE_INFO, async (_, id: string, patch: Record<string, unknown>) => {
+  handle(IPC_CHANNELS.PROFILE_UPDATE_INFO, async (_, id: string, patch: ProfileInfoPatch) => {
     return services.profileService.updateProfileInfo(id, patch)
   })
 

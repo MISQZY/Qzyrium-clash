@@ -3,7 +3,7 @@ import { SubscriptionClient } from '../core/SubscriptionClient'
 import { sanitizeUrl } from '../utils/subscription-url'
 import { isDeepStrictEqual } from 'node:util'
 import { AddProfileDto } from '@shared/ipc'
-import { ProfileItem, CustomRuleItem, ProfileUserInfo } from '@shared/profile'
+import { ProfileItem, CustomRuleItem, ProfileUserInfo, ProfileInfoPatch } from '@shared/profile'
 import { logger } from '../utils/logger'
 import { BaseService } from './BaseService'
 import { parseSubscriptionImportUrl } from '@shared/clash-url'
@@ -94,7 +94,7 @@ export class ProfileService implements BaseService {
       validateProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG, profile.customRules))
   }
 
-  async updateProfileInfo(id: string, patch: Partial<ProfileItem>): Promise<ProfileItem> {
+  async updateProfileInfo(id: string, patch: ProfileInfoPatch): Promise<ProfileItem> {
     const updated = await this.repository.update(id, found => {
       if (patch.interval !== undefined && (!Number.isInteger(patch.interval) || patch.interval < 15 || patch.interval > 43200)) throw new Error('Profile update interval must be between 15 and 43200 minutes')
       if (patch.name !== undefined) {

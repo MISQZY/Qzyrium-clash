@@ -1,6 +1,6 @@
 import { AppConfig } from './app-config'
 import { ConnectionsSnapshot, MihomoRule, ProxyNode } from './mihomo'
-import { ProfileItem, CustomRuleItem } from './profile'
+import { ProfileItem, CustomRuleItem, ProfileInfoPatch } from './profile'
 import { CoreState, LogEntry, MihomoVersion, TrafficStats } from './types'
 import type { GlobeLocations } from './geo'
 import type { CustomThemePack } from './theme'
@@ -151,7 +151,7 @@ export interface IElectronApi {
     validateCustomRules: (profileId: string, rules: CustomRuleItem[]) => Promise<CustomRuleItem[]>
     getRawConfig: (profileId: string) => Promise<string | null>
     saveRawConfig: (profileId: string, content: string) => Promise<void>
-    updateInfo: (id: string, patch: Partial<ProfileItem>) => Promise<ProfileItem>
+    updateInfo: (id: string, patch: ProfileInfoPatch) => Promise<ProfileItem>
   }
   sysproxy: {
     getStatus: () => Promise<SysProxyStatus>

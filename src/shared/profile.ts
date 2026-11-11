@@ -43,3 +43,7 @@ export interface ProfileItem {
   announce?: string
   supportUrl?: string
 }
+
+/** Fields editable through profile information; identity and rule state are separate commands. */
+export type ProfileInfoPatch = Partial<Pick<ProfileItem,
+  'name' | 'url' | 'autoUpdate' | 'updateViaProxy' | 'interval' | 'customUA'>>

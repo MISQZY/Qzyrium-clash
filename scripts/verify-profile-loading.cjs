@@ -5,6 +5,7 @@ const vm = require('node:vm')
 const ts = require('typescript')
 const { setImmediate: nextTurn } = require('node:timers/promises')
 const { createIpcFixture } = require('./fixtures/ipc.cjs')
+const channels = load('src/shared/ipc.ts', {}).IPC_CHANNELS
 
 function load(file, dependencies, runtime = process) {
   const output = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
@@ -164,7 +165,7 @@ async function verifyProfiles() {
   })
   const profiles = new ProfileService()
   await profiles.initialize()
-  const rules = [{ type: 'DOMAIN', payload: 'example.com', proxy: 'DIRECT' }]
+  const rules = [{ id: 'fixture-rule', type: 'DOMAIN', payload: 'example.com', proxy: 'DIRECT' }]
   await Promise.all([profiles.saveCustomRules('a', rules), profiles.saveCustomRules('b', rules)])
   assert.equal(maxMetadataWrites, 1, 'metadata saves must never overlap')
   assert.equal(JSON.parse(files.get('profiles.json'))[1].customRules.length, 1, 'latest metadata must survive concurrent saves')
@@ -192,14 +193,14 @@ async function verifyProfiles() {
       app: { getVersion: () => '1.0.0', getFileIcon: async () => null },
       shell: { openExternal: async () => {} }
     },
-    '@shared/ipc': { IPC_CHANNELS: new Proxy({}, { get: (_, key) => key }) },
+
     '../utils/logger': { logger }
   })
   const ipc = createIpcFixture()
   registerIpcHandlers({ windowService: ipc.windowService, profileService: profiles, kernelService: {
     getStatus: () => status, async restart() { restarts++; await nextTurn() }
   } })
-  const invoke = (channel, ...args) => handlers.get(channel)(ipc.event, ...args)
+  const invoke = (channel, ...args) => handlers.get(channels[channel])(ipc.event, ...args)
   const first = invoke('PROFILE_UPDATE', 'a')
   await Promise.all([first, invoke('PROFILE_UPDATE', 'a'), invoke('PROFILE_UPDATE', 'a')])
   assert.equal(fetches, 1, 'concurrent subscription updates must share one download')
@@ -298,7 +299,7 @@ async function verifySystemProxy() {
   const { registerIpcHandlers } = load('src/main/ipc/registerHandlers.ts', {
     '../utils/elevation': { isProcessElevated: () => false, restartAsAdmin: async () => false },
     electron: { ipcMain: { handle: (channel, callback) => handlers.set(channel, callback) } },
-    '@shared/ipc': { IPC_CHANNELS: new Proxy({}, { get: (_, key) => key }) },
+
     '../utils/logger': { logger }
   })
   const ipc = createIpcFixture()
@@ -306,7 +307,7 @@ async function verifySystemProxy() {
   await proxy.setCoreRunning(true)
   const enabling = proxy.setSysProxy(true)
   let statusRead = false
-  const initialRead = handlers.get('SYSPROXY_GET_STATUS')(ipc.event).then(status => { statusRead = true; return status })
+  const initialRead = handlers.get(channels.SYSPROXY_GET_STATUS)(ipc.event).then(status => { statusRead = true; return status })
   await Promise.resolve()
   assert.equal(statusRead, false, 'initial status read must wait for proxy restoration')
   assert.equal((await initialRead).enabled, true)
