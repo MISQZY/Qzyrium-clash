@@ -71,7 +71,7 @@ export class MihomoConfigFactory {
         enable: true,
         stack: appConfig.kernel.tun.stack || 'gvisor',
         'auto-route': appConfig.kernel.tun.autoRoute ?? true,
-        'auto-detect-interface': true,
+        'auto-detect-interface': appConfig.kernel.tun.options?.['auto-detect-interface'] ?? true,
         'strict-route': appConfig.kernel.tun.strictRoute ?? false,
         'dns-hijack': appConfig.kernel.tun.dnsHijack && appConfig.kernel.tun.dnsHijack.length > 0
           ? appConfig.kernel.tun.dnsHijack

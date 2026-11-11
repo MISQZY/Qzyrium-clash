@@ -80,6 +80,8 @@ function verifyConfiguration() {
   assert.deepEqual(yaml.parse(MihomoConfigFactory.synthesize(profile, config)).dns.nameserver, ['8.8.8.8'], 'disabling override restores subscription')
   config.kernel.tun.enable = true
   assert.equal(yaml.parse(MihomoConfigFactory.synthesize(profile, config)).tun.mtu, 1400)
+  config.kernel.tun.options['auto-detect-interface'] = false
+  assert.equal(yaml.parse(MihomoConfigFactory.synthesize(profile, config)).tun['auto-detect-interface'], false, 'explicit false survives TUN synthesis')
   const base64Sample = 'aHlzdGVyaWEyOi8vbm9kZTE='
   assert.throws(() => MihomoConfigFactory.synthesize(base64Sample, config), /Profile must contain/, 'invalid profiles must never silently enable direct routing')
   const invalid = fresh()
