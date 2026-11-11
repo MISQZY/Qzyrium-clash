@@ -39,6 +39,25 @@ app.whenReady().then(async () => {
     await evaluate(`document.querySelector('.sidebar-link[aria-label="${tab}"]').click()`)
     await waitFor(`document.querySelector('.workspace-header [aria-current="page"]').textContent.trim() === '${tab}' && document.querySelector('.page-heading')`)
   }
+  const checkDialogBounds = async label => {
+    const bounds = await evaluate(`(() => {
+      const r = document.querySelector('[role="dialog"]').getBoundingClientRect();
+      const title = document.querySelector('.app-titlebar').getBoundingClientRect();
+      const overlay = document.querySelector('.app-dialog-overlay').getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, titleBottom: title.bottom,
+        overlayTop: overlay.top, width: innerWidth, height: innerHeight,
+        centerY: (r.top + r.bottom) / 2 };
+    })()`)
+    assert.ok(bounds.top >= bounds.titleBottom + 15 && bounds.bottom <= bounds.height - 15,
+      `${label} keeps its vertical margins below the native titlebar: ${JSON.stringify(bounds)}`)
+    assert.ok(bounds.left >= 15 && bounds.right <= bounds.width - 15, `${label} keeps horizontal margins`)
+    assert.ok(Math.abs(bounds.centerY - (bounds.height + bounds.titleBottom) / 2) < 2, `${label} centers in the workspace`)
+    assert.ok(Math.abs(bounds.overlayTop - bounds.titleBottom) < 2, `${label} overlay starts below the titlebar`)
+  }
+  const closeDialog = async () => {
+    await evaluate(`document.querySelector('[role="dialog"] button .sr-only').parentElement.click()`)
+    await waitFor(`!document.querySelector('[role="dialog"]')`)
+  }
   try {
     await win.loadFile(path.resolve(__dirname, '../out/renderer/index.html'))
     await waitFor(`document.querySelector('.overview-panel')`)
@@ -63,9 +82,18 @@ app.whenReady().then(async () => {
       await navigate('Profiles')
       await evaluate(`Array.from(document.querySelectorAll('button')).find(el => el.textContent.includes('Add Subscription')).click()`)
       await waitFor(`document.querySelector('[role="dialog"]')`)
-      assert.ok(await evaluate(`(() => { const r = document.querySelector('[role="dialog"]').getBoundingClientRect(); return r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight && Math.abs((r.left + r.right) / 2 - innerWidth / 2) < 2; })()`), `dialog fits and stays centered at ${width}x${height}`)
-      await evaluate(`document.querySelector('[role="dialog"] button .sr-only').parentElement.click()`)
-      await waitFor(`!document.querySelector('[role="dialog"]')`)
+      await checkDialogBounds(`subscription dialog at ${width}x${height}`)
+      await closeDialog()
+      await evaluate(`document.querySelector('[aria-label="More actions"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, ctrlKey: false }))`)
+      await waitFor(`Array.from(document.querySelectorAll('[role="menuitem"]')).some(item => item.textContent.trim() === 'Edit file')`)
+      await evaluate(`Array.from(document.querySelectorAll('[role="menuitem"]')).find(item => item.textContent.trim() === 'Edit file').click()`)
+      await waitFor(`document.querySelector('[role="dialog"] .cm-editor')`)
+      await checkDialogBounds(`YAML editor at ${width}x${height}`)
+      await closeDialog()
+      await evaluate(`document.querySelector('[aria-label="Edit rules"]').click()`)
+      await waitFor(`document.querySelector('[role="dialog"]')`)
+      await checkDialogBounds(`rules editor at ${width}x${height}`)
+      await closeDialog()
     }
     console.log(`PASS: display adaptation, seven pages, dialogs, native titlebar and resize back to 840x620 (system scale ${dpi})`)
   } finally { win.destroy(); app.quit() }

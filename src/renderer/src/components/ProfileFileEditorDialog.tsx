@@ -161,7 +161,7 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[96vw] max-w-6xl h-[92vh] max-h-[94vh] flex flex-col p-4 sm:p-5 gap-3 overflow-hidden">
+      <DialogContent className="w-[96vw] max-w-6xl h-[92dvh] flex flex-col p-4 sm:p-5 gap-3 overflow-hidden">
         {/* Header */}
         <DialogHeader className="pb-2 border-b border-border/60 shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-3 pr-8">
