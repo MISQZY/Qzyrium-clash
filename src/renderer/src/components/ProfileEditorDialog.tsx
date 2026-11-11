@@ -112,17 +112,18 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
   const yamlMessages = useRef(t)
   yamlMessages.current = t
   const serializeRulesToYaml = useCallback((ruleList: RuleItem[]): string => {
-    type Entry = string | { rule: string; sourceOccurrence: number }
+    type Entry = string | { rule: string; sourceOccurrence: number; sourceRule?: string }
     const prepend: Entry[] = []
     const append: Entry[] = []
     const deleted: Entry[] = []
-    const inactive: { rule: string; position: 'top' | 'bottom'; enabled?: boolean; validationError?: string; sourceOccurrence?: number }[] = []
+    const inactive: { rule: string; position: 'top' | 'bottom'; enabled?: boolean; validationError?: string; sourceOccurrence?: number; sourceRule?: string }[] = []
 
     for (const rule of toCustomRules(ruleList)) {
       const value = convertRuleToString(rule)
       const indexed = rule.offset === undefined ? value : `${rule.offset},${value}`
       const entry: Entry = rule.sourceRule === undefined ? indexed : {
-        rule: indexed, sourceOccurrence: rule.sourceOccurrence ?? 0
+        rule: indexed, sourceOccurrence: rule.sourceOccurrence ?? 0,
+        ...(rule.replacementRule ? { sourceRule: rule.sourceRule } : {})
       }
       if (rule.isDeleted) {
         deleted.push(rule.sourceRule === undefined ? value : entry)
@@ -130,7 +131,8 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
       }
       if (rule.enabled === false || rule.validationError) {
         inactive.push({ rule: indexed, position: rule.position || 'top', enabled: rule.enabled, validationError: rule.validationError,
-          sourceOccurrence: rule.sourceRule === undefined ? undefined : rule.sourceOccurrence ?? 0 })
+          sourceOccurrence: rule.sourceRule === undefined ? undefined : rule.sourceOccurrence ?? 0,
+          ...(rule.replacementRule ? { sourceRule: rule.sourceRule } : {}) })
       } else if (rule.position === 'bottom') append.push(entry)
       else prepend.push(entry)
     }
@@ -189,7 +191,9 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
       // A source occurrence marks a subscription row; older YAML also included its full sourceRule.
       const sourceRule = typeof entry.sourceRule === 'string' ? entry.sourceRule : occurrence === undefined ? undefined :
         base.find((item) => item.sourceOccurrence === occurrence && convertRuleToString(item) === convertRuleToString(rule))?.sourceRule ?? convertRuleToString(rule)
-      overrides.push({ ...rule, position, sourceRule, sourceOccurrence: occurrence, ...extra })
+      overrides.push({ ...rule, position, sourceRule, sourceOccurrence: occurrence,
+        replacementRule: sourceRule !== undefined && convertRuleToString(rule) !== sourceRule ? convertRuleToString(rule) : undefined,
+        ...extra })
     }
     const prepend = entries(parsed.prepend)
     const append = entries(parsed.append)

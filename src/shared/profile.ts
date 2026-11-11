@@ -14,6 +14,8 @@ export interface CustomRuleItem {
   /** Original subscription rule and its occurrence identify a row across reloads. */
   sourceRule?: string
   sourceOccurrence?: number
+  /** Replacement text; absent on legacy move/delete overrides. */
+  replacementRule?: string
 }
 
 export interface ProfileUserInfo {

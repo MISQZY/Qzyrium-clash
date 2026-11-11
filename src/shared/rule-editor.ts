@@ -17,11 +17,14 @@ export interface RuleItem {
   isMoved?: boolean
   enabled?: boolean
   validationError?: string
+  replacementRule?: string
 }
 
 export function toCustomRules(ruleItems: RuleItem[]): CustomRuleItem[] {
   return ruleItems.flatMap((rule, index): CustomRuleItem[] => {
-    if (rule.sourceRule !== undefined && !rule.isMoved && !rule.isDeleted) return []
+    const replacementRule = rule.sourceRule !== undefined && convertRuleToString(rule) !== rule.sourceRule
+      ? convertRuleToString(rule) : undefined
+    if (rule.sourceRule !== undefined && !rule.isMoved && !rule.isDeleted && !replacementRule && rule.enabled !== false) return []
     if (rule.sourceRule === undefined && !rule.isCustom && !rule.isDeleted) return []
     const position = rule.sourceRule !== undefined ? 'top' : rule.position || 'top'
     return [{
@@ -29,6 +32,7 @@ export function toCustomRules(ruleItems: RuleItem[]): CustomRuleItem[] {
       additionalParams: rule.additionalParams, position,
       offset: position === 'bottom' ? ruleItems.length - 1 - index : index,
       sourceRule: rule.sourceRule, sourceOccurrence: rule.sourceOccurrence,
+      replacementRule,
       isDeleted: rule.isDeleted, enabled: rule.enabled !== false,
       validationError: rule.validationError
     }]

@@ -133,7 +133,8 @@ export class MihomoConfigFactory {
         occurrences.set(value, occurrence + 1)
         const source = sources.get(JSON.stringify([value, occurrence]))
         if (source) {
-          overrides.push({ value, offset: source.offset, position: 'top', disabled: source.isDeleted || source.enabled === false })
+          overrides.push({ value: source.replacementRule ?? value, id: source.replacementRule ? source.id : undefined,
+            offset: source.offset, position: 'top', disabled: source.isDeleted || source.enabled === false || !!source.validationError })
           continue
         }
         const parts = splitRuleFields(value).map((part) => part.trim())
