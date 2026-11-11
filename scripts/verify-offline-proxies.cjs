@@ -42,6 +42,35 @@ function load(file) {
   return exports
 }
 async function run() {
+  const { runLatencyTests } = load('src/renderer/src/lib/latency-tests.ts')
+  let activeTests = 0, maximumTests = 0
+  const delays = {}, tested = []
+  await runLatencyTests(['a', 'b', 'a', 'failed'], {
+    concurrency: 2, signal: new AbortController().signal,
+    test: async name => {
+      tested.push(name)
+      maximumTests = Math.max(maximumTests, ++activeTests)
+      await new Promise(resolve => setImmediate(resolve))
+      activeTests--
+      if (name === 'failed') throw new Error('offline')
+      return 25
+    }, publish: batch => Object.assign(delays, batch)
+  })
+  assert.equal(maximumTests, 2)
+  assert.deepEqual(tested.sort(), ['a', 'b', 'failed'], 'latency queue deduplicates nodes')
+  assert.deepEqual(delays, { a: 25, b: 25, failed: -1 })
+  const cancelled = new AbortController()
+  let releaseTest, lateUpdates = 0, cancelledCalls = 0
+  const pendingTest = runLatencyTests(['old', 'never-started'], {
+    concurrency: 1, signal: cancelled.signal,
+    test: () => { cancelledCalls++; return new Promise(resolve => { releaseTest = resolve }) },
+    publish: () => { lateUpdates++ }
+  })
+  cancelled.abort()
+  releaseTest(50)
+  await pendingTest
+  assert.equal(cancelledCalls, 1, 'cancellation stops queued requests')
+  assert.equal(lateUpdates, 0, 'late IPC results cannot update the new screen')
   const { visibleProxyGroups, sortProxyNodes } = load('src/renderer/src/lib/proxies.ts')
   const ordered = {
     Alpha: { name: 'Alpha', type: 'Selector', all: ['Zulu'] },

@@ -1,3 +1,4 @@
+import { useProxyLatency } from '../hooks/useProxyLatency'
 import { useTranslations } from '../i18n'
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { ArrowUpDown, ChevronDown, ChevronsUpDown, Search, X } from 'lucide-react'
@@ -136,31 +137,9 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 }) => {
   const t = useTranslations('proxies')
 
-  // Local fallback state if external store is not provided
-  const [internalDelays, setInternalDelays] = useState<Record<string, number>>({})
-  const delays = externalDelays ?? internalDelays
-
-  const setDelay = useCallback(
-    (node: string, delay: number) => {
-      if (onUpdateDelays) {
-        onUpdateDelays({ [node]: delay })
-      } else {
-        setInternalDelays((prev) => ({ ...prev, [node]: delay }))
-      }
-    },
-    [onUpdateDelays]
-  )
-
-  const setBatchDelays = useCallback(
-    (batch: Record<string, number>) => {
-      if (onUpdateDelays) {
-        onUpdateDelays(batch)
-      } else {
-        setInternalDelays((prev) => ({ ...prev, ...batch }))
-      }
-    },
-    [onUpdateDelays]
-  )
+  const { delays, testingGroup, testingAll, testGroup, testAll } = useProxyLatency({
+    running, proxies, delays: externalDelays, onUpdateDelays, concurrency: testConcurrency
+  })
 
   // Filter & collect proxy groups:
   // 1. In 'rule' mode, gather only selectors/groups actively referenced in rules (and their sub-groups).
@@ -184,8 +163,6 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
     })
   }, [groupNames])
 
-  const [testingGroup, setTestingGroup] = useState<string | null>(null)
-  const [testingAll, setTestingAll] = useState(false)
   const [query, setQuery] = useState('')
   const [sortMode, setSortMode] = useState<ProxySortMode>('default')
 
@@ -220,70 +197,6 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
       setExpandedGroups(new Set())
     } else {
       setExpandedGroups(new Set(groupNames))
-    }
-  }
-
-  // Keep the configured number of latency requests in flight with batched UI updates.
-  const runConcurrentLatencyTests = async (
-    nodeNames: string[],
-    concurrency = testConcurrency
-  ): Promise<void> => {
-    if (!running || !window.api || nodeNames.length === 0) return
-    let index = 0
-    const batch: Record<string, number> = {}
-    let flushTimer: ReturnType<typeof setTimeout> | null = null
-
-    const flushBatch = () => {
-      if (Object.keys(batch).length > 0) {
-        setBatchDelays({ ...batch })
-      }
-    }
-
-    const scheduleFlush = () => {
-      if (!flushTimer) {
-        flushTimer = setTimeout(() => {
-          flushTimer = null
-          flushBatch()
-        }, 200)
-      }
-    }
-
-    const workers = Array.from({ length: Math.min(concurrency, nodeNames.length) }, async () => {
-      while (index < nodeNames.length) {
-        const currentIndex = index++
-        const nodeName = nodeNames[currentIndex]
-        try {
-          const delay = await window.api.mihomo.testDelay(nodeName)
-          batch[nodeName] = delay
-        } catch {
-          batch[nodeName] = -1
-        }
-        scheduleFlush()
-      }
-    })
-
-    await Promise.all(workers)
-    if (flushTimer) clearTimeout(flushTimer)
-    flushBatch()
-  }
-
-  const handleTestGroupLatency = async (groupName: string, nodes: string[]) => {
-    if (testingGroup || testingAll || nodes.length === 0) return
-    setTestingGroup(groupName)
-    try {
-      await runConcurrentLatencyTests(nodes)
-    } finally {
-      setTestingGroup(null)
-    }
-  }
-
-  const handleTestAllLatency = async () => {
-    if (testingAll || testingGroup || allNodes.length === 0) return
-    setTestingAll(true)
-    try {
-      await runConcurrentLatencyTests(allNodes)
-    } finally {
-      setTestingAll(false)
     }
   }
 
@@ -401,7 +314,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
           )}
 
           <Button
-            onClick={handleTestAllLatency}
+            onClick={() => testAll(allNodes)}
             disabled={!running || testingAll || !!testingGroup || allNodes.length === 0}
             title={!running ? t('latencyRequiresConnection') : undefined}
             variant="outline"
@@ -520,7 +433,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
                       disabled={!running || isGroupTesting || testingAll || nodes.length === 0}
                       onClick={(e) => {
                         e.stopPropagation()
-                        handleTestGroupLatency(groupName, nodes)
+                        testGroup(groupName, nodes)
                       }}
                       className="h-8 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
                       title={t('testGroup')}
