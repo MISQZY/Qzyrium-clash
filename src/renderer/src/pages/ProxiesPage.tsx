@@ -217,7 +217,16 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
       }
     }
 
-    return list
+    // GLOBAL.all follows the provider's configured group order. Rule traversal
+    // determines visibility only; neither rule order nor nested selectors should
+    // rearrange the cards. Keep API order for groups missing from GLOBAL.
+    const configuredOrder = [...new Set([
+      ...((proxies.GLOBAL as ProxyGroup | undefined)?.all ?? []),
+      ...Object.keys(proxies)
+    ])]
+    const order = new Map(configuredOrder.map((name, index) => [name, index]))
+    if (mode === 'global') order.set('GLOBAL', -1)
+    return list.sort((a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity))
   }, [proxies, rules, mode])
 
   // By default, expand only the first group to avoid cognitive overload with 100+ nodes

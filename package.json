@@ -24,6 +24,7 @@
     "test:startup:ui": "electron scripts/verify-startup-theme-ui.cjs",
     "test:proxies:offline": "node scripts/verify-offline-proxies.cjs",
     "test:proxies:offline:ui": "electron scripts/verify-offline-proxies-ui.cjs",
+    "test:proxies:order:ui": "electron scripts/verify-proxy-order-ui.cjs",
     "test:updates": "node scripts/verify-updates.cjs",
     "test:updates:ui": "electron scripts/verify-updater-ui.cjs",
     "test:i18n": "node scripts/verify-i18n.cjs",
