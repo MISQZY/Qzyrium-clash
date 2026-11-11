@@ -13,6 +13,7 @@ app.whenReady().then(async () => {
   for (const [channel, handler] of Object.entries({
     'app:get-boot-snapshot': pending, 'app:get-settings': pending, 'theme:get-custom-themes': pending,
     'kernel:get-status': () => 'stopped', 'kernel:get-session-started-at': () => null,
+    'kernel:get-rule-warning': () => null,
     'sysproxy:get-status': () => ({ enabled: false, mode: 'manual', port: 7895 }),
     'profile:get-list': () => [], 'profile:get-active': () => null,
     'app:get-updater-status': () => ({ state: 'unsupported' }), 'app:get-whats-new': () => null,
