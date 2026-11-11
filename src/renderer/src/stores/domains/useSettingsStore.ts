@@ -14,7 +14,7 @@ export interface SettingsStore {
   toggleSysProxy: () => Promise<boolean>
 }
 
-export function useSettingsStore(coord: StoreCoordinator): SettingsStore {
+export function useSettingsStore(coord: Pick<StoreCoordinator, 'perform'>): SettingsStore {
   const [settings, setSettings] = useState<AppConfig>(() => {
     const boot = window.api?.bootAppearance
     return boot
