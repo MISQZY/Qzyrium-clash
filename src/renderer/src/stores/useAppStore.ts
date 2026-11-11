@@ -301,7 +301,8 @@ export function useAppStoreInternal(): {
     }
     void request.then(clear, clear)
     return request
-  }, [])
+  }, [mounted, pendingRefresh, refreshSequence, statusRevision, setLoading, setDataRevision,
+    setProfiles, setActiveProfile, setCoreStatus, setSessionStartedAt, setSettings, setSysProxy])
 
   refreshAllRef.current = refreshAll
 
@@ -380,7 +381,7 @@ export function useAppStoreInternal(): {
       unsubTunError?.()
       unsubVisibility?.()
     }
-  }, [refreshAll, reportError])
+  }, [refreshAll, reportError, actionInProgress, mounted, statusRevision, setCoreStatus, setSessionStartedAt, setVisible])
 
   const refreshWorkspace = useCallback(() => perform(async () => {}), [perform])
 

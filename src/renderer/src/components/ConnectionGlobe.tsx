@@ -238,8 +238,8 @@ export function ConnectionGlobe({
       const initialTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
       const initialDormant = getCssColorRgb('--muted-foreground', initialTheme === 'dark' ? DORMANT_COLOR_DARK : DORMANT_COLOR_LIGHT)
       const initialActive = getCssColorRgb('--primary', initialTheme === 'dark' ? [0.48, 0.74, 0.57] : [0.78, 0.88, 0.8])
-      const initialColor = running ? initialActive : initialDormant
-      const initialBrightness = running ? (initialTheme === 'dark' ? 2.6 : 2.2) : 1.8
+      const initialColor = runningRef.current ? initialActive : initialDormant
+      const initialBrightness = runningRef.current ? (initialTheme === 'dark' ? 2.6 : 2.2) : 1.8
 
       globe = createGlobe(canvas, {
         width: 1, height: 1, offset: [0, 0],

@@ -159,7 +159,7 @@ function Workspace() {
     if (!themes.some((theme) => theme.id === settings.general.theme)) {
       void saveSettingsRef.current({ general: { ...settings.general, theme: 'dark' } }).catch(() => {})
     }
-  }, [settings.general.theme, themes])
+  }, [settings.general, themes])
 
   return <div className="app-shell">
     <TitleBar />

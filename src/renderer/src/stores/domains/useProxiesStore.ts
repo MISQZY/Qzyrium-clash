@@ -17,6 +17,7 @@ export function useProxiesStore(
   refreshing: boolean,
   loading: boolean
 ): ProxiesStore {
+  const { perform, coreStatus, statusRevision, actionInProgress, reportError, dataRevision } = coord
   const [proxies, setProxies] = useState<Record<string, ProxyNode>>({})
   const [delays, setDelays] = useState<Record<string, number>>({})
 
@@ -26,18 +27,18 @@ export function useProxiesStore(
 
   const selectProxyNode = useCallback(
     (group: string, node: string) => {
-      return coord.perform(() => window.api.mihomo.selectProxy(group, node))
+      return perform(() => window.api.mihomo.selectProxy(group, node))
     },
-    [coord]
+    [perform]
   )
 
   useEffect(() => {
-    if (!window.api || coord.coreStatus === 'starting' || busy || refreshing || loading) return
+    if (!window.api || coreStatus === 'starting' || busy || refreshing || loading) return
     let disposed = false
     const timers = new Set<ReturnType<typeof setTimeout>>()
-    const revision = coord.statusRevision.current
+    const revision = statusRevision.current
     const current = () =>
-      !disposed && !coord.actionInProgress.current && revision === coord.statusRevision.current
+      !disposed && !actionInProgress.current && revision === statusRevision.current
 
     const load = async (attempt = 0): Promise<void> => {
       try {
@@ -55,7 +56,7 @@ export function useProxiesStore(
           )
           timers.add(timer)
         } else {
-          coord.reportError(err)
+          reportError(err)
         }
       }
     }
@@ -66,14 +67,14 @@ export function useProxiesStore(
       timers.forEach(clearTimeout)
     }
   }, [
-    coord.coreStatus,
+    coreStatus,
     busy,
     refreshing,
     loading,
-    coord.dataRevision,
-    coord.reportError,
-    coord.statusRevision,
-    coord.actionInProgress
+    dataRevision,
+    reportError,
+    statusRevision,
+    actionInProgress
   ])
 
   return useMemo(() => ({

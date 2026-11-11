@@ -13,22 +13,23 @@ export function useRulesStore(
   refreshing: boolean,
   loading: boolean
 ): RulesStore {
+  const { visible, activeTab, settings, coreStatus, statusRevision, actionInProgress, reportError, dataRevision } = coord
   const [rules, setRules] = useState<MihomoRule[]>([])
-  const needsRules = coord.visible && (coord.activeTab === 'rules' || (
-    coord.activeTab === 'dashboard' && !coord.settings.general.liteDashboard
+  const needsRules = visible && (activeTab === 'rules' || (
+    activeTab === 'dashboard' && !settings.general.liteDashboard
   ))
-  const scope = coord.activeTab === 'rules' ? undefined : 'summary'
+  const scope = activeTab === 'rules' ? undefined : 'summary'
 
   useEffect(() => {
     // Drop the full dataset immediately when leaving its page, including while
     // a replacement request is pending. Old responses cannot restore it.
     setRules([])
-    if (!window.api || !needsRules || coord.coreStatus === 'starting' || busy || refreshing || loading) return
+    if (!window.api || !needsRules || coreStatus === 'starting' || busy || refreshing || loading) return
     let disposed = false
     const timers = new Set<ReturnType<typeof setTimeout>>()
-    const revision = coord.statusRevision.current
+    const revision = statusRevision.current
     const current = () =>
-      !disposed && !coord.actionInProgress.current && revision === coord.statusRevision.current
+      !disposed && !actionInProgress.current && revision === statusRevision.current
 
     const load = async (attempt = 0): Promise<void> => {
       try {
@@ -46,7 +47,7 @@ export function useRulesStore(
           )
           timers.add(timer)
         } else {
-          coord.reportError(err)
+          reportError(err)
         }
       }
     }
@@ -57,16 +58,16 @@ export function useRulesStore(
       timers.forEach(clearTimeout)
     }
   }, [
-    coord.coreStatus,
+    coreStatus,
     needsRules,
     scope,
     busy,
     refreshing,
     loading,
-    coord.dataRevision,
-    coord.reportError,
-    coord.statusRevision,
-    coord.actionInProgress
+    dataRevision,
+    reportError,
+    statusRevision,
+    actionInProgress
   ])
 
   return useMemo(() => ({

@@ -306,7 +306,6 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
     activeMode,
     rules,
     rulesYamlContent,
-    parseYamlToVisualRules,
     onSaved,
     onOpenChange,
     t
