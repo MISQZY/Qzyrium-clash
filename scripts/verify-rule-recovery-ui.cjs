@@ -150,7 +150,33 @@ if (process.type === 'renderer') {
       assert.ok(await evaluate(`Array.from(document.querySelectorAll('[role="alert"]')).find(el => el.textContent.includes('Some user rules')).className.includes('border-warning')`), 'warning uses the app notification with warning styling')
       await evaluate(`Array.from(document.querySelectorAll('[role="alert"]')).find(el => el.textContent.includes('Some user rules')).querySelector('button').click()`)
       await waitFor(`!Array.from(document.querySelectorAll('[role="alert"]')).some(el => el.textContent.includes('Some user rules'))`)
-      console.log('PASS: rule ordering persists across YAML and saving, inline validation, styled selects, equal heights, and dismissible in-app warning')
+      await evaluate(`document.querySelector('[aria-label="Edit rules"]').click()`)
+      await waitFor(`document.querySelector('[role="dialog"] [role="combobox"][aria-label="Rule Type"]')`)
+      const syntaxCases = [
+        ['DOMAIN', 'пример123.рф'], ['DOMAIN', 'example.123'], ['DOMAIN-SUFFIX', 'рф'],
+        ['DOMAIN-REGEX', '(?i)^пример[0-9]+\\.рф$'], ['DST-PORT', '80/443/8000-9000'],
+        ['IP-CIDR6', '::ffff:192.0.2.1/128']
+      ]
+      for (const [type, payload] of syntaxCases) {
+        await evaluate(`document.querySelector('[role="dialog"] [role="combobox"][aria-label="Rule Type"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, ctrlKey: false, pointerType: 'mouse' }))`)
+        await waitFor(`document.querySelector('[role="listbox"]')`)
+        await evaluate(`Array.from(document.querySelectorAll('[role="option"]')).find(option => option.textContent.trim() === ${JSON.stringify(type)}).click()`)
+        await evaluate(`{ const input = document.querySelector('[role="dialog"] input[placeholder]:not([aria-label])'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(payload)}); input.dispatchEvent(new Event('input', { bubbles: true })); }`)
+        await waitFor(`Array.from(document.querySelectorAll('[role="dialog"] button')).some(button => button.textContent.trim() === 'Prepend' && !button.disabled)`)
+        await click('Prepend')
+        await waitFor(`Array.from(document.querySelectorAll('[role="dialog"] div.group')).some(row => row.querySelector('p')?.textContent === ${JSON.stringify(payload)})`)
+      }
+      const editRow = row('пример123.рф')
+      await evaluate(`${editRow}.click()`)
+      await evaluate(`{ const input = document.querySelector('fieldset input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'пример456.рф'); input.dispatchEvent(new Event('input', { bubbles: true })); }`)
+      await click('Save')
+      await waitFor(`!!(${row('пример456.рф')})`)
+      await click('Save & Apply')
+      await waitFor(`!document.querySelector('[role="dialog"]')`)
+      const syntaxSaved = await evaluate(`window.api.profiles.getCustomRules('remote')`)
+      assert.ok(syntaxSaved.some(rule => rule.payload === 'пример456.рф'), 'Unicode domain edits are saved')
+      assert.ok(syntaxSaved.some(rule => rule.payload === '(?i)^пример[0-9]+\\.рф$'), 'core regex syntax can be added and saved')
+      console.log('PASS: valid Unicode/numeric domains, core regexes, port ranges and mapped IPv6 can be added; inline editing, rule ordering and warnings work')
     } finally { win.destroy(); app.quit() }
   }).catch(error => { console.error(error); app.exit(1) })
 }

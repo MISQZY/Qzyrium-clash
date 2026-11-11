@@ -29,6 +29,43 @@ async function main() {
   const settings = structuredClone(DEFAULT_APP_CONFIG)
   settings.kernel.tun.enable = false
   const profile = 'proxies: []\nproxy-groups:\n  - name: Available\n    type: select\n    proxies: [DIRECT]\nrules:\n  - DOMAIN,base.example,DIRECT\n  - MATCH,DIRECT\n'
+  const { validateRulePayload } = load('src/shared/rule-validation.ts')
+  const accepted = [
+    ['DOMAIN', '123.example'], ['DOMAIN', 'example.123'], ['DOMAIN', 'пример123.рф'],
+    ['DOMAIN', 'xn--e1afmkfd.xn--p1ai'], ['DOMAIN', 'router'], ['DOMAIN', 'a.b'],
+    ['DOMAIN', '_service.local.'], ['DOMAIN-SUFFIX', 'рф'], ['DOMAIN-SUFFIX', '.пример.рф'],
+    ['DOMAIN-SUFFIX', 'example.123'], ['DOMAIN-KEYWORD', 'сервис42'],
+    ['DOMAIN-REGEX', '(?i)^пример[0-9]+\\.рф$'], ['DOMAIN-REGEX', '(?i:example).*'],
+    ['DOMAIN-REGEX', '\\Aexample\\z'], ['PROCESS-NAME-REGEX', '(?i).*torrent.*'],
+    ['PROCESS-PATH-REGEX', '(?i).*Application\\\\chrome.*'],
+    ['PROCESS-PATH', 'C:\\Программы\\Браузер 123\\browser.exe'],
+    ['IP-CIDR', '0.0.0.0/0'], ['IP-CIDR', '255.255.255.255/32'],
+    ['IP-CIDR', '2001:db8::/32'], ['IP-CIDR6', '::/0'], ['IP-CIDR6', '::1/128'],
+    ['IP-CIDR6', '::ffff:192.0.2.1/128'], ['SRC-IP-CIDR', '2001:db8::1/64'],
+    ['IP-SUFFIX', '192.168.1.2/24'], ['SRC-IP-SUFFIX', '2001:db8::1/64'],
+    ['DST-PORT', '0'], ['DST-PORT', '65535'], ['SRC-PORT', '80/443/8000-9000'],
+    ['IN-PORT', '100-80'], ['DST-PORT', '[80-90]/443'],
+    ['DSCP', '0'], ['DSCP', '0-10/63'], ['DSCP', '*'], ['NETWORK', 'UDP'],
+    ['AND', '((DOMAIN,пример.рф))'], ['OR', '((DST-PORT,80))'],
+    ['NOT', '((DOMAIN,пример.рф))']
+  ]
+  for (const [type, payload] of [...accepted, ['UID', '0'], ['UID', '1000-2000/4294967295'], ['IP-ASN', '0'], ['SRC-IP-ASN', '4294967295']]) {
+    assert.ok(validateRulePayload(type, payload), `editor accepts ${type}: ${payload}`)
+  }
+  const acceptedByCore = await prepareProfileContent(profile, settings, accepted.map(([type, payload], index) =>
+    ({ id: `syntax-${index}`, type, payload, proxy: 'DIRECT' })))
+  assert.deepEqual(acceptedByCore.rules.filter(rule => rule.validationError), [], 'valid editor cases are accepted by bundled Mihomo')
+  for (const [type, payload] of [
+    ['DOMAIN', 'https://example.com'], ['DOMAIN-SUFFIX', 'пример .рф'], ['DOMAIN-KEYWORD', 'one,two'],
+    ['IP-CIDR', '256.1.1.1/24'], ['IP-CIDR', '01.2.3.4/24'], ['IP-CIDR', '1.2.3.4/33'],
+    ['IP-CIDR6', '2001:::1/64'], ['IP-CIDR6', '1:2:3:4:5:6:7/64'], ['IP-CIDR6', '::/129'],
+    ['IP-CIDR6', '::ffff:999.0.0.1/128'], ['IP-CIDR6', 'fe80::1%eth0/64'],
+    ['DST-PORT', '65536'], ['SRC-PORT', '-1'], ['IN-PORT', '1.5'], ['DST-PORT', '1e3'],
+    ['DSCP', '64'], ['DSCP', '-1'], ['UID', '4294967296'], ['IP-ASN', '1.5'],
+    ['SRC-IP-ASN', '-1'], ['IP-ASN', '1e3'], ['NETWORK', 'icmp']
+  ]) assert.equal(validateRulePayload(type, payload), false, `editor rejects ${type}: ${payload}`)
+  const badRegex = await prepareProfileContent(profile, settings, [{ id: 'regex', type: 'DOMAIN-REGEX', payload: '[', proxy: 'DIRECT' }])
+  assert.ok(badRegex.rules[0].validationError, 'invalid regex is still rejected by Mihomo at save time')
   const rules = [
     { id: 'missing', type: 'DOMAIN', payload: 'one.example', proxy: 'Missing' },
     { id: 'valid', type: 'DOMAIN', payload: 'two.example', proxy: 'Available' },
