@@ -33,6 +33,7 @@ if (appearance) {
 const api: IElectronApi = {
   bootAppearance: appearance,
   kernel: {
+    getRuleWarning: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_RULE_WARNING),
     getSessionStartedAt: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_SESSION_STARTED_AT),
     getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_STATUS),
     start: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_START),
@@ -65,6 +66,8 @@ const api: IElectronApi = {
       ipcRenderer.invoke(IPC_CHANNELS.PROFILE_GET_CUSTOM_RULES, profileId),
     saveCustomRules: (profileId, rules) =>
       ipcRenderer.invoke(IPC_CHANNELS.PROFILE_SAVE_CUSTOM_RULES, profileId, rules),
+    validateCustomRules: (profileId, rules) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PROFILE_VALIDATE_CUSTOM_RULES, profileId, rules),
     getRawConfig: (profileId) =>
       ipcRenderer.invoke(IPC_CHANNELS.PROFILE_GET_RAW_CONFIG, profileId),
     saveRawConfig: (profileId, content) =>
@@ -113,6 +116,11 @@ const api: IElectronApi = {
     getBootSnapshot: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_BOOT_SNAPSHOT)
   },
   events: {
+    onWarning: (callback) => {
+      const listener = (_: IpcRendererEvent, message: string): void => callback(message)
+      ipcRenderer.on(IPC_CHANNELS.EVENT_WARNING, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.EVENT_WARNING, listener)
+    },
     onUpdaterStatus: (callback) => {
       const listener = (_: IpcRendererEvent, status: Parameters<typeof callback>[0]): void => callback(status)
       ipcRenderer.on(IPC_CHANNELS.EVENT_UPDATER_STATUS, listener)

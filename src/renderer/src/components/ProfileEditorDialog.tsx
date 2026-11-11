@@ -1,5 +1,7 @@
 import React, { lazy, Suspense, useEffect, useState, useCallback, useRef, useMemo, startTransition } from 'react'
 import yaml from 'yaml'
+import { insertRuleOverrides } from '@shared/rules'
+import { Tooltip } from 'radix-ui'
 import {
   CodeXml,
   Check,
@@ -34,6 +36,7 @@ import { Badge } from './ui/badge'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Switch } from './ui/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { cn } from '../lib/utils'
 import { useIsDarkTheme } from '../lib/theme'
 
@@ -56,6 +59,48 @@ export interface RuleItem {
   isCustom?: boolean
   isDeleted?: boolean
   offset?: number
+  sourceRule?: string
+  sourceOccurrence?: number
+  sourceIndex?: number
+  isMoved?: boolean
+  enabled?: boolean
+  validationError?: string
+}
+
+function toCustomRules(ruleItems: RuleItem[]): CustomRuleItem[] {
+  return ruleItems.flatMap((rule, index): CustomRuleItem[] => {
+    if (rule.sourceRule !== undefined && !rule.isMoved && !rule.isDeleted) return []
+    if (rule.sourceRule === undefined && !rule.isCustom && !rule.isDeleted) return []
+    const position = rule.sourceRule !== undefined ? 'top' : rule.position || 'top'
+    return [{
+      id: rule.id, type: rule.type, payload: rule.payload, proxy: rule.proxy,
+      additionalParams: rule.additionalParams, position,
+      offset: position === 'bottom' ? ruleItems.length - 1 - index : index,
+      sourceRule: rule.sourceRule, sourceOccurrence: rule.sourceOccurrence,
+      isDeleted: rule.isDeleted, enabled: rule.enabled !== false,
+      validationError: rule.validationError
+    }]
+  })
+}
+
+function mergeRuleOverrides(baseRules: RuleItem[], overrides: CustomRuleItem[]): RuleItem[] {
+  const sources = new Map(overrides.filter((rule) => rule.sourceRule !== undefined)
+    .map((rule) => [JSON.stringify([rule.sourceRule, rule.sourceOccurrence ?? 0]), rule]))
+  const deleted = overrides.filter((rule) => rule.sourceRule === undefined && rule.isDeleted && rule.enabled !== false)
+  const base: RuleItem[] = []
+  const inserts: RuleItem[] = overrides.filter((rule) => rule.sourceRule === undefined && !rule.isDeleted)
+    .map((rule) => ({ ...rule, isCustom: true }))
+  for (const rule of baseRules) {
+    const source = sources.get(JSON.stringify([rule.sourceRule, rule.sourceOccurrence ?? 0]))
+    if (source) {
+      inserts.push({ ...rule, ...source, position: 'top', isCustom: false, isMoved: true })
+    } else {
+      base.push({ ...rule, offset: undefined, isMoved: false, isDeleted: deleted.some((item) =>
+        item.type === rule.type && item.payload === rule.payload && (!item.proxy || item.proxy === rule.proxy)) })
+    }
+  }
+  const match = base.findLastIndex((rule) => rule.type === 'MATCH')
+  return insertRuleOverrides(base, inserts, match === -1 ? base.length : match)
 }
 
 type RuleDraft = Omit<RuleItem, 'id'>
@@ -283,7 +328,7 @@ export const parseRuleStringToItem = (ruleStr: string, isCustom = false): RuleIt
       payload: '',
       proxy: payload || proxy || 'DIRECT',
       isCustom,
-      offset: offset && offset > 0 ? offset : undefined
+      offset: Number.isSafeInteger(offset) && offset! >= 0 ? offset : undefined
     }
   }
 
@@ -294,7 +339,7 @@ export const parseRuleStringToItem = (ruleStr: string, isCustom = false): RuleIt
     proxy: proxy || 'DIRECT',
     additionalParams: additionalParamsRaw.filter(Boolean),
     isCustom,
-    offset: offset && offset > 0 ? offset : undefined
+    offset: Number.isSafeInteger(offset) && offset! >= 0 ? offset : undefined
   }
 }
 
@@ -338,6 +383,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
   onSaved
 }) => {
   const t = useTranslations('profiles')
+  const common = useTranslations('common')
   const locale = useLocale()
   const customLocalization = useCustomLocalization()
 
@@ -361,6 +407,12 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
   // Inline editing state (right column)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingDraft, setEditingDraft] = useState<RuleItem | null>(null)
+  const [validatingRule, setValidatingRule] = useState(false)
+  const ruleValidationRequest = useRef(0)
+  useEffect(() => {
+    ruleValidationRequest.current++
+    setValidatingRule(false)
+  }, [open, profile?.id])
 
   // Drag-and-drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
@@ -386,20 +438,27 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
   const yamlMessages = useRef(t)
   yamlMessages.current = t
   const serializeRulesToYaml = useCallback((ruleList: RuleItem[]): string => {
-    const prepend: string[] = []
-    const append: string[] = []
-    const deleted: string[] = []
+    type Entry = string | { rule: string; sourceOccurrence: number }
+    const prepend: Entry[] = []
+    const append: Entry[] = []
+    const deleted: Entry[] = []
+    const inactive: { rule: string; position: 'top' | 'bottom'; enabled?: boolean; validationError?: string; sourceOccurrence?: number }[] = []
 
-    for (const r of ruleList) {
-      if (r.isCustom && !r.isDeleted) {
-        if (r.position === 'bottom') {
-          append.push(convertRuleToString(r))
-        } else {
-          prepend.push(convertRuleToString(r))
-        }
-      } else if (!r.isCustom && r.isDeleted) {
-        deleted.push(convertRuleToString(r))
+    for (const rule of toCustomRules(ruleList)) {
+      const value = convertRuleToString(rule)
+      const indexed = rule.offset === undefined ? value : `${rule.offset},${value}`
+      const entry: Entry = rule.sourceRule === undefined ? indexed : {
+        rule: indexed, sourceOccurrence: rule.sourceOccurrence ?? 0
       }
+      if (rule.isDeleted) {
+        deleted.push(rule.sourceRule === undefined ? value : entry)
+        continue
+      }
+      if (rule.enabled === false || rule.validationError) {
+        inactive.push({ rule: indexed, position: rule.position || 'top', enabled: rule.enabled, validationError: rule.validationError,
+          sourceOccurrence: rule.sourceRule === undefined ? undefined : rule.sourceOccurrence ?? 0 })
+      } else if (rule.position === 'bottom') append.push(entry)
+      else prepend.push(entry)
     }
 
     const doc = [
@@ -410,7 +469,8 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
       ''
     ]
 
-    const obj: Record<string, string[]> = {}
+    const obj: Record<string, unknown> = {}
+    if (inactive.length > 0) obj['disabled'] = inactive
     if (prepend.length > 0) obj['prepend'] = prepend
     if (append.length > 0) obj['append'] = append
     if (deleted.length > 0) obj['delete'] = deleted
@@ -433,68 +493,44 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
     return doc.join('\n') + yaml.stringify(obj)
   }, [])
 
-  // Parse YAML back into visual rules
-  const parseYamlToVisualRules = useCallback(
-    (yamlStr: string, baseRuleList: RuleItem[]): RuleItem[] => {
-      const parsed = yaml.parse(yamlStr) as Record<string, unknown> | null
-      const baseClean = baseRuleList.map((r) => ({ ...r, isDeleted: false }))
-
-      if (!parsed || typeof parsed !== 'object') {
-        return baseClean
-      }
-
-      const toStrings = (val: unknown): string[] => {
-        if (!Array.isArray(val)) return []
-        return val.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-      }
-
-      const prependStrs = toStrings(parsed['prepend'])
-      const appendStrs = toStrings(parsed['append'])
-      const deleteStrs = toStrings(parsed['delete'])
-
-      // Also support legacy/simple `rules:` array
-      const directRules = toStrings(parsed['rules'])
-      if (directRules.length > 0 && prependStrs.length === 0 && appendStrs.length === 0) {
-        return [
-          ...directRules.map((str) => ({ ...parseRuleStringToItem(str, true), position: 'top' as const })),
-          ...baseClean
-        ]
-      }
-
-      // Mark deleted
-      const updated: RuleItem[] = baseClean.map((rule) => {
-        const isDel = deleteStrs.some((delStr) => {
-          const dItem = parseRuleStringToItem(delStr)
-          return (
-            dItem.type === rule.type &&
-            dItem.payload === rule.payload &&
-            (!dItem.proxy || dItem.proxy === rule.proxy)
-          )
+  // Numbered entries use the same prepend/append format as Koala Clash.
+  const parseYamlToVisualRules = useCallback((yamlStr: string, baseRuleList: RuleItem[]): RuleItem[] => {
+    const parsed = yaml.parse(yamlStr) as Record<string, unknown> | null
+    const base = baseRuleList.map((rule) => ({ ...rule, isMoved: false, isDeleted: false, offset: undefined }))
+      .sort((a, b) => (a.sourceIndex ?? 0) - (b.sourceIndex ?? 0))
+    if (!parsed || typeof parsed !== 'object') return base
+    const entries = (value: unknown): { rule: string; sourceRule?: string; sourceOccurrence?: number }[] => !Array.isArray(value) ? [] : value.flatMap((item) => {
+      if (typeof item === 'string' && item.trim()) return [{ rule: item }]
+      if (item && typeof item === 'object' && typeof item.rule === 'string') return [{
+        rule: item.rule,
+        sourceRule: typeof item.sourceRule === 'string' ? item.sourceRule : undefined,
+        sourceOccurrence: Number.isSafeInteger(item.sourceOccurrence) && item.sourceOccurrence >= 0 ? item.sourceOccurrence : undefined
+      }]
+      return []
+    })
+    const overrides: CustomRuleItem[] = []
+    const add = (entry: { rule: string; sourceRule?: string; sourceOccurrence?: number }, position: 'top' | 'bottom', extra: Partial<CustomRuleItem> = {}) => {
+      const rule = parseRuleStringToItem(entry.rule, true)
+      const occurrence = Number.isSafeInteger(entry.sourceOccurrence) && entry.sourceOccurrence! >= 0 ? entry.sourceOccurrence : undefined
+      // A source occurrence marks a subscription row; older YAML also included its full sourceRule.
+      const sourceRule = typeof entry.sourceRule === 'string' ? entry.sourceRule : occurrence === undefined ? undefined :
+        base.find((item) => item.sourceOccurrence === occurrence && convertRuleToString(item) === convertRuleToString(rule))?.sourceRule ?? convertRuleToString(rule)
+      overrides.push({ ...rule, position, sourceRule, sourceOccurrence: occurrence, ...extra })
+    }
+    const prepend = entries(parsed.prepend)
+    const append = entries(parsed.append)
+    for (const value of prepend.length || append.length ? prepend : entries(parsed.rules)) add(value, 'top')
+    for (const value of append) add(value, 'bottom')
+    if (Array.isArray(parsed.disabled)) for (const value of parsed.disabled) {
+      if (value && typeof value === 'object' && typeof value.rule === 'string') add(value,
+        value.position === 'bottom' ? 'bottom' : 'top', {
+          enabled: value.enabled !== false,
+          validationError: typeof value.validationError === 'string' ? value.validationError : undefined
         })
-        return isDel ? { ...rule, isDeleted: true } : { ...rule }
-      })
-
-      const topItems: RuleItem[] = prependStrs.map((str) => ({
-        ...parseRuleStringToItem(str, true),
-        position: 'top'
-      }))
-
-      const bottomItems: RuleItem[] = appendStrs.map((str) => ({
-        ...parseRuleStringToItem(str, true),
-        position: 'bottom'
-      }))
-
-      const lastMatchIdx = updated.findLastIndex((r) => r.type === 'MATCH')
-      if (lastMatchIdx !== -1 && bottomItems.length > 0) {
-        updated.splice(lastMatchIdx, 0, ...bottomItems)
-      } else {
-        updated.push(...bottomItems)
-      }
-
-      return [...topItems, ...updated]
-    },
-    []
-  )
+    }
+    for (const value of entries(parsed.delete)) add(value, 'top', { isDeleted: true })
+    return mergeRuleOverrides(base, overrides)
+  }, [])
 
   // Load profile data when dialog opens
   useEffect(() => {
@@ -531,56 +567,14 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
         }
       }
 
-      const parsedBase: RuleItem[] = baseRawRules.map((str) => parseRuleStringToItem(str, false))
-      setInitialBaseRulesCount(parsedBase.length)
-
-      // Merge user custom rules
-      const cRules = (customRules || []) as CustomRuleItem[]
-      const topItems: RuleItem[] = []
-      const bottomItems: RuleItem[] = []
-      const deletedSignatures = new Set<string>()
-
-      for (const cr of cRules) {
-        if (cr.isDeleted) {
-          deletedSignatures.add(`${(cr.type || '').toUpperCase()}|${cr.payload || ''}|${cr.proxy || ''}`)
-        } else if (cr.enabled !== false) {
-          const item: RuleItem = {
-            id: cr.id || createRuleId(),
-            type: (cr.type || 'DOMAIN-SUFFIX').toUpperCase(),
-            payload: cr.payload || '',
-            proxy: cr.proxy || 'DIRECT',
-            additionalParams: cr.additionalParams || [],
-            position: cr.position === 'bottom' ? 'bottom' : 'top',
-            isCustom: true,
-            isDeleted: false
-          }
-          if (cr.position === 'bottom') {
-            bottomItems.push(item)
-          } else {
-            topItems.push(item)
-          }
-        }
-      }
-
-      // Mark base rules deleted if in deleted signatures
-      const updatedBase = parsedBase.map((r) => {
-        const sigExact = `${r.type}|${r.payload}|${r.proxy}`
-        const sigAnyProxy = `${r.type}|${r.payload}|`
-        if (deletedSignatures.has(sigExact) || deletedSignatures.has(sigAnyProxy)) {
-          return { ...r, isDeleted: true }
-        }
-        return r
+      const occurrences = new Map<string, number>()
+      const parsedBase: RuleItem[] = baseRawRules.map((str, sourceIndex) => {
+        const occurrence = occurrences.get(str) ?? 0
+        occurrences.set(str, occurrence + 1)
+        return { ...parseRuleStringToItem(str, false), sourceRule: str, sourceOccurrence: occurrence, sourceIndex }
       })
-
-      // Insert bottom rules before MATCH
-      const lastMatch = updatedBase.findLastIndex((r) => r.type === 'MATCH')
-      if (lastMatch !== -1 && bottomItems.length > 0) {
-        updatedBase.splice(lastMatch, 0, ...bottomItems)
-      } else {
-        updatedBase.push(...bottomItems)
-      }
-
-      const mergedRules = [...topItems, ...updatedBase]
+      setInitialBaseRulesCount(parsedBase.length)
+      const mergedRules = mergeRuleOverrides(parsedBase, customRules || [])
       setRules(mergedRules)
       setRulesYamlContent(serializeRulesToYaml(mergedRules))
       setLoading(false)
@@ -694,7 +688,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
     setRules((prev) => {
       const copy = [...prev]
       const [item] = copy.splice(index, 1)
-      copy.splice(targetIndex, 0, item)
+      copy.splice(targetIndex, 0, item.sourceRule === undefined ? item : { ...item, isMoved: true })
       return copy
     })
   }
@@ -711,7 +705,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
     setRules((prev) => {
       const copy = [...prev]
       const [dragged] = copy.splice(draggedIndex, 1)
-      copy.splice(index, 0, dragged)
+      copy.splice(index, 0, dragged.sourceRule === undefined ? dragged : { ...dragged, isMoved: true })
       return copy
     })
     setDraggedIndex(index)
@@ -733,19 +727,34 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
     setEditingDraft(null)
   }
 
-  const saveInlineEdit = () => {
-    if (!editingDraft) return
+  const saveInlineEdit = async () => {
+    if (!editingDraft || !profile || !window.api || validatingRule) return
     if (editingDraft.type !== 'MATCH' && editingDraft.payload.trim() && !validatePayload(editingDraft.type, editingDraft.payload)) {
       setError(`${t('invalidPayload')}: ${getRuleExample(editingDraft.type)}`)
       return
     }
-
-    setRules((prev) =>
-      prev.map((r) => (r.id === editingDraft.id ? { ...editingDraft, payload: editingDraft.payload.trim() } : r))
-    )
-    setEditingId(null)
-    setEditingDraft(null)
+    const request = ++ruleValidationRequest.current
+    const draft = { ...editingDraft, payload: editingDraft.payload.trim() }
+    setValidatingRule(true)
     setError(null)
+    try {
+      const candidates = toCustomRules(rules.filter((rule) => rule.id !== draft.id))
+      // Validate the draft even when it was manually disabled, without enabling it.
+      candidates.unshift({ ...draft, sourceRule: undefined, sourceOccurrence: undefined, enabled: true, isDeleted: false })
+      const checked = await window.api.profiles.validateCustomRules(profile.id, candidates)
+      if (request !== ruleValidationRequest.current) return
+      const result = checked.find((rule) => rule.id === draft.id)
+      if (!result) throw new Error('Rule validation returned no result')
+      setRules((prev) => prev.map((rule) => rule.id === draft.id
+        ? { ...draft, validationError: result.validationError }
+        : rule))
+      setEditingId(null)
+      setEditingDraft(null)
+    } catch (err) {
+      if (request === ruleValidationRequest.current) setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      if (request === ruleValidationRequest.current) setValidatingRule(false)
+    }
   }
 
   // Save changes to backend
@@ -773,29 +782,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
       }
 
       // Convert rules to CustomRuleItem[]
-      const customItems: CustomRuleItem[] = []
-      for (const r of rulesToSave) {
-        if (r.isCustom && !r.isDeleted) {
-          customItems.push({
-            id: r.id,
-            type: r.type,
-            payload: r.payload,
-            proxy: r.proxy,
-            position: r.position || 'top',
-            additionalParams: r.additionalParams,
-            enabled: true
-          })
-        } else if (!r.isCustom && r.isDeleted) {
-          customItems.push({
-            id: r.id,
-            type: r.type,
-            payload: r.payload,
-            proxy: r.proxy,
-            isDeleted: true,
-            enabled: true
-          })
-        }
-      }
+      const customItems = toCustomRules(rulesToSave)
 
       await window.api.profiles.saveCustomRules(profile.id, customItems)
 
@@ -917,23 +904,24 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                 {/* Rule Type */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-medium text-foreground">{t('ruleType')}</label>
-                  <select
+                  <Select
                     value={newRule.type}
-                    onChange={(e) => {
-                      const sel = e.target.value
+                    onValueChange={(sel) => {
                       let extra = [...(newRule.additionalParams || [])]
                       if (!isRuleSupportsNoResolve(sel)) extra = extra.filter((p) => p !== 'no-resolve')
                       if (!isRuleSupportsSrc(sel)) extra = extra.filter((p) => p !== 'src')
                       setNewRule({ ...newRule, type: sel, additionalParams: extra })
                     }}
-                    className="h-8.5 rounded-md border border-input bg-card px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-mono"
                   >
-                    {ruleTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger aria-label={t('ruleType')} className="w-full min-w-0 font-mono"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {ruleTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Payload */}
@@ -995,17 +983,19 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                 {/* Proxy / Target Selector */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-medium text-foreground">{t('proxyTarget')}</label>
-                  <select
+                  <Select
                     value={newRule.proxy}
-                    onChange={(e) => setNewRule({ ...newRule, proxy: e.target.value })}
-                    className="h-8.5 rounded-md border border-input bg-card px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-mono"
+                    onValueChange={(proxy) => setNewRule({ ...newRule, proxy })}
                   >
-                    {proxyGroups.map((group) => (
-                      <option key={group} value={group}>
-                        {group}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger aria-label={t('proxyTarget')} className="w-full min-w-0 font-mono"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {proxyGroups.map((group) => (
+                        <SelectItem key={group} value={group}>
+                          {group}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Additional Options (Switches) */}
@@ -1167,29 +1157,33 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                       const isLogical = isLogicalRuleType(editingDraft.type)
 
                       return (
-                        <div
+                        <fieldset
+                          disabled={validatingRule}
                           key={rule.id}
                           className="p-3 rounded-lg border-2 border-primary/60 bg-primary/5 flex flex-col gap-2.5 shadow-xs min-w-0"
                         >
                           <div className="grid grid-cols-1 sm:grid-cols-[130px_1fr_140px] gap-2 items-start min-w-0">
                             {/* Type */}
-                            <select
+                            <Select
                               value={editingDraft.type}
-                              onChange={(e) => {
-                                const sel = e.target.value
+                              onValueChange={(sel) => {
                                 let extra = [...(editingDraft.additionalParams || [])]
                                 if (!isRuleSupportsNoResolve(sel)) extra = extra.filter((p) => p !== 'no-resolve')
                                 if (!isRuleSupportsSrc(sel)) extra = extra.filter((p) => p !== 'src')
                                 setEditingDraft({ ...editingDraft, type: sel, additionalParams: extra })
                               }}
-                              className="h-8 rounded-md border border-input bg-card px-2 text-xs font-mono w-full"
+                              disabled={validatingRule}
                             >
-                              {ruleTypes.map((t) => (
-                                <option key={t} value={t}>
-                                  {t}
-                                </option>
-                              ))}
-                            </select>
+                              <SelectTrigger aria-label={t('ruleType')} className="w-full min-w-0 font-mono"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {!ruleTypes.includes(editingDraft.type) && <SelectItem value={editingDraft.type}>{editingDraft.type}</SelectItem>}
+                                {ruleTypes.map((t) => (
+                                  <SelectItem key={t} value={t}>
+                                    {t}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
 
                             {/* Payload */}
                             {isLogical ? (
@@ -1212,17 +1206,21 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                             )}
 
                             {/* Proxy */}
-                            <select
+                            <Select
                               value={editingDraft.proxy}
-                              onChange={(e) => setEditingDraft({ ...editingDraft, proxy: e.target.value })}
-                              className="h-8 rounded-md border border-input bg-card px-2 text-xs font-mono w-full"
+                              onValueChange={(proxy) => setEditingDraft({ ...editingDraft, proxy })}
+                              disabled={validatingRule}
                             >
-                              {proxyGroups.map((g) => (
-                                <option key={g} value={g}>
-                                  {g}
-                                </option>
-                              ))}
-                            </select>
+                              <SelectTrigger aria-label={t('proxyTarget')} className="w-full min-w-0 font-mono"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {!proxyGroups.includes(editingDraft.proxy) && <SelectItem value={editingDraft.proxy}>{editingDraft.proxy}</SelectItem>}
+                                {proxyGroups.map((g) => (
+                                  <SelectItem key={g} value={g}>
+                                    {g}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
 
                           {/* Options & Action buttons */}
@@ -1273,12 +1271,12 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                                 <span>{t('cancel')}</span>
                               </Button>
                               <Button size="sm" variant="glow" onClick={saveInlineEdit} className="h-7 text-xs">
-                                <Check className="size-3.5" />
-                                <span>{t('saveSubscription')}</span>
+                                <LoaderCircle className={cn("size-3.5", validatingRule ? "animate-spin" : "hidden")} />
+                                <span>{validatingRule ? t('saving') : common('save')}</span>
                               </Button>
                             </div>
                           </div>
-                        </div>
+                        </fieldset>
                       )
                     }
 
@@ -1287,14 +1285,16 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                       <div
                         key={rule.id}
                         draggable={!searchQuery && !isDeleted}
-                        onDragStart={() => handleDragStart(idx)}
-                        onDragOver={(e) => handleDragOver(e, idx)}
+                        onDragStart={() => handleDragStart(rules.indexOf(rule))}
+                        onDragOver={(e) => handleDragOver(e, rules.indexOf(rule))}
                         onDragEnd={handleDragEnd}
                         onClick={() => !isDeleted && startInlineEdit(rule)}
                         className={cn(
-                          'group flex items-start gap-2.5 px-3 py-2 rounded-lg border transition-all cursor-pointer min-w-0',
+                          'group flex h-12 items-center gap-2.5 px-3 py-2 rounded-lg border transition-all cursor-pointer min-w-0',
+                          (rule.validationError || rule.enabled === false) && 'grayscale opacity-60 text-muted-foreground',
                           isDeleted && 'bg-destructive/10 opacity-60 border-destructive/20 cursor-not-allowed',
-                          !isDeleted &&
+                          (rule.validationError || rule.enabled === false) && 'bg-muted/50 border-border',
+                          !isDeleted && !rule.validationError && rule.enabled !== false &&
                             rule.isCustom &&
                             'bg-success/8 border-success/25 hover:border-success/50 hover:bg-success/12',
                           !isDeleted &&
@@ -1321,7 +1321,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                           >
                             <button
                               type="button"
-                              onClick={() => handleMoveRule(idx, 'up')}
+                              onClick={() => handleMoveRule(rules.indexOf(rule), 'up')}
                               disabled={idx === 0}
                               className="text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
                             >
@@ -1329,7 +1329,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleMoveRule(idx, 'down')}
+                              onClick={() => handleMoveRule(rules.indexOf(rule), 'down')}
                               disabled={idx === rules.length - 1}
                               className="text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
                             >
@@ -1339,12 +1339,12 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                         )}
 
                         {/* Type badge + parameters */}
-                        <div className="flex flex-wrap items-center gap-1 shrink-0 pt-0.5 max-w-[140px]">
+                        <div className="flex items-center gap-1 shrink-0 max-w-[140px] overflow-hidden" title={[rule.type, ...(rule.additionalParams ?? [])].join(', ')}>
                           <Badge
                             variant="secondary"
                             className={cn(
                               'text-[10px] font-mono font-medium px-1.5 py-0.5',
-                              rule.isCustom && 'bg-success/15 text-success border-transparent'
+                              rule.isCustom && !rule.validationError && rule.enabled !== false && 'bg-success/15 text-success border-transparent'
                             )}
                           >
                             {rule.type}
@@ -1357,16 +1357,39 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
                         </div>
 
                         {/* Payload */}
-                        <div className="flex-1 min-w-0 py-0.5">
+                        <div className="flex flex-1 items-center gap-1.5 min-w-0">
                           <p
                             className={cn(
-                              'text-xs font-mono font-medium break-all whitespace-normal leading-relaxed',
+                              'text-xs font-mono font-medium truncate leading-relaxed',
                               isDeleted && 'line-through text-muted-foreground'
                             )}
                             title={rule.payload || (rule.type === 'MATCH' ? rule.proxy : '')}
                           >
                             {rule.type === 'MATCH' ? rule.proxy : rule.payload || '*'}
                           </p>
+                          {rule.validationError && (
+                            <Tooltip.Provider delayDuration={150}>
+                              <Tooltip.Root>
+                                <Tooltip.Trigger asChild>
+                                  <button
+                                    type="button"
+                                    className="inline-flex shrink-0 items-center justify-center text-muted-foreground/60 hover:text-foreground transition-colors cursor-help rounded-full focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    aria-label={t('ruleValidationError')}
+                                    onClick={(event) => event.stopPropagation()}
+                                  >
+                                    <HelpCircle className="size-3 shrink-0" />
+                                  </button>
+                                </Tooltip.Trigger>
+                                <Tooltip.Portal>
+                                  <Tooltip.Content side="top" sideOffset={6} className="sidebar-tooltip max-w-80 break-words">
+                                    <p className="text-[11px] leading-snug">{t('ruleValidationError')}</p>
+                                    <p className="mt-1 text-[11px] leading-snug font-mono">{rule.validationError}</p>
+                                    <Tooltip.Arrow className="fill-popover" />
+                                  </Tooltip.Content>
+                                </Tooltip.Portal>
+                              </Tooltip.Root>
+                            </Tooltip.Provider>
+                          )}
                         </div>
 
                         {/* Proxy target */}
@@ -1460,7 +1483,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
               variant="glow"
               size="sm"
               onClick={handleSave}
-              disabled={loading || saving}
+              disabled={loading || saving || validatingRule}
               className="gap-1.5"
             >
               {saving ? (

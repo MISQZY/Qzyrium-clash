@@ -14,7 +14,10 @@ function load(file, dependencies, runtime = process) {
     exports, name => {
       if (dependencies[name]) return dependencies[name]
       if (name === '../utils/atomicWrite' && dependencies.fs) return { writeFileAtomicAsync: (...args) => dependencies.fs.promises.writeFile(...args) }
-      if (name === '../utils/profile-validator') return { validateProfileContent: async () => {} }
+      if (name === '../utils/profile-validator') return {
+        validateProfileContent: async () => {},
+        prepareProfileContent: async (content, _settings, rules) => ({ config: content, rules })
+      }
     if (name.endsWith('.json') && name.startsWith('.')) return require(path.resolve(path.dirname(file), name))
       const target = name.startsWith('@shared/') ? path.resolve('src/shared', name.slice(8) + '.ts') : name.startsWith('.') ? path.resolve(path.dirname(file), name + '.ts') : null
       return target && fs.existsSync(target) ? load(target, {}) : require(name)
@@ -199,6 +202,10 @@ async function verifyProfiles() {
   await invoke('PROFILE_SAVE_CUSTOM_RULES', 'a', structuredClone(rules))
   await invoke('PROFILE_SET_ACTIVE', 'a')
   assert.equal(restarts, 1, 'unchanged content, rules and selection must not restart')
+  const beforeValidation = structuredClone(profiles.getCustomRules('a'))
+  assert.deepEqual(await invoke('PROFILE_VALIDATE_CUSTOM_RULES', 'a', rules), rules)
+  assert.deepEqual(profiles.getCustomRules('a'), beforeValidation, 'draft validation must not persist changes')
+  assert.equal(restarts, 1, 'draft validation must not restart the core')
   const added = await invoke('PROFILE_ADD', { name: 'Local', type: 'local', content: 'local' })
   assert.equal(profiles.getActiveProfile().id, 'a', 'adding a profile must preserve the active profile')
   await invoke('PROFILE_DELETE', added.id)

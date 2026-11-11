@@ -19,5 +19,7 @@
   "modeRule": "Rule",
   "modeGlobal": "Global",
   "modeDirect": "Direct",
-  "coreOnlyMode": "Core only"
+  "coreOnlyMode": "Core only",
+  "invalidUserRulesTitle": "Some rules were disabled",
+  "invalidUserRulesMessage": "Some user rules could not be processed. VPN has started without them: they are commented out in YAML and shown in gray in the profile rule editor. Open the profile rules to see the error and fix them."
 }

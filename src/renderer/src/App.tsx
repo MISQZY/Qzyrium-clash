@@ -1,7 +1,7 @@
 import { I18nProvider, useTranslations } from './i18n'
 import { selectedLocalization } from '@shared/custom-localization'
 import { useEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
-import { ChevronRight, FileText, LoaderCircle, RefreshCw, X } from 'lucide-react'
+import { AlertTriangle, ChevronRight, FileText, LoaderCircle, RefreshCw, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { Alert } from './components/ui/alert'
 import { Button } from './components/ui/button'
@@ -97,6 +97,19 @@ function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
     }
   }
   const [pendingImport, setPendingImport] = useState<{ url: string; name?: string } | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
+  useEffect(() => {
+    let active = true
+    let received = false
+    const unsubscribe = window.api?.events.onWarning?.((message) => {
+      received = true
+      setWarning(message)
+    })
+    void window.api?.kernel.getRuleWarning?.().then((message) => {
+      if (active && !received) setWarning(message)
+    }).catch(() => {})
+    return () => { active = false; unsubscribe?.() }
+  }, [])
   const [restartingAdmin, setRestartingAdmin] = useState(false)
   const [adminRestartFailed, setAdminRestartFailed] = useState(false)
   const adminRestartPending = useRef(false)
@@ -168,6 +181,13 @@ function Workspace({ store }: { store: ReturnType<typeof useAppStore> }) {
           <nav aria-label={common('breadcrumb')} className="min-w-0"><ol className="flex min-w-0 items-center gap-2 text-xs"><li className="min-w-0 text-muted-foreground"><span className="truncate">{common(group.id)}</span></li><li aria-hidden="true"><ChevronRight className="size-3 shrink-0 text-muted-foreground/60" /></li><li aria-current="page" className="flex min-w-0 items-center gap-2 font-medium"><Icon className="size-3.5 shrink-0" /><span className="truncate">{common(activeTab)}</span></li></ol></nav>
           <div className="flex min-w-0 max-w-[45%] items-center gap-2 text-[11px] text-muted-foreground">{busy ? <LoaderCircle className="size-3.5 shrink-0 animate-spin" /> : <ProfileLogo url={activeProfile?.profileLogo} className="size-3.5 shrink-0 rounded-xs object-contain" fallback={<FileText className="size-3.5 shrink-0" />} />}<span className="truncate"><EmojiText text={busy ? t('applyingChanges') : activeProfile ? profileName(activeProfile, settings.general.language, selectedLocalization(settings.general)) : t('noActiveProfile')} /></span><Button type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label={profileT('updateSubscription')} title={profileT('updateSubscription')} disabled={!activeProfile?.url || busy || updatingProfile || !window.api} aria-busy={updatingProfile} onClick={() => void updateActiveProfile()}><RefreshCw className={`size-3.5 ${updatingProfile ? 'animate-spin' : ''}`} /></Button></div>
         </header>
+        {warning && !error && createPortal(
+          <Alert variant="warning" className="fixed right-4 bottom-4 z-[100] flex max-h-[calc(100dvh-96px)] w-[calc(100%-32px)] max-w-md items-start gap-3 overflow-y-auto text-xs shadow-xl">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            <p className="min-w-0 flex-1 whitespace-pre-wrap [overflow-wrap:anywhere] leading-relaxed font-medium text-foreground">{warning}</p>
+            <button type="button" aria-label={common('close')} onClick={() => setWarning(null)} className="shrink-0 rounded-md p-1 hover:bg-warning/10 transition-colors cursor-pointer"><X className="size-4" /></button>
+          </Alert>, document.body
+        )}
         {error && createPortal(
           <Alert
             variant="destructive"

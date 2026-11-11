@@ -12,7 +12,7 @@ import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import type { SettingService } from './SettingService'
 import { DEFAULT_APP_CONFIG, subscriptionUserAgent } from '@shared/app-config'
 import { writeFileAtomicAsync } from '../utils/atomicWrite'
-import { validateProfileContent } from '../utils/profile-validator'
+import { prepareProfileContent, validateProfileContent } from '../utils/profile-validator'
 
 function parseUserInfo(header?: unknown): ProfileUserInfo | undefined {
   if (!header || typeof header !== 'string') return undefined
@@ -282,14 +282,28 @@ export class ProfileService implements BaseService {
     return found?.customRules || []
   }
 
+  async setRuleValidation(id: string, rules: CustomRuleItem[]): Promise<void> {
+    const found = this.profiles.find((profile) => profile.id === id)
+    if (!found || isDeepStrictEqual(found.customRules || [], rules)) return
+    const previous = found.customRules
+    found.customRules = rules
+    try { await this.saveProfilesList() }
+    catch (error) { found.customRules = previous; throw error }
+  }
+
+  async validateCustomRules(id: string, rules: CustomRuleItem[]): Promise<CustomRuleItem[]> {
+    const content = await this.getProfileContent(id)
+    if (content === null) throw new Error(`Profile file is missing: ${id}`)
+    return (await prepareProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG, rules)).rules
+  }
+
   async saveCustomRules(id: string, rules: CustomRuleItem[]): Promise<boolean> {
     const found = this.profiles.find((p) => p.id === id)
     if (!found) throw new Error(`Profile ${id} not found`)
     if (isDeepStrictEqual(found.customRules || [], rules)) return false
     const content = await this.getProfileContent(id)
     if (content === null) throw new Error(`Profile file is missing: ${id}`)
-    await validateProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG, rules)
-    found.customRules = rules
+    found.customRules = (await prepareProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG, rules)).rules
     found.updatedAt = Date.now()
     await this.saveProfilesList()
     logger.info(`Saved ${rules.length} custom rules for profile ${found.name} (${id})`)

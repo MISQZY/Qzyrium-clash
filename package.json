@@ -33,6 +33,8 @@
     "test:profiles": "node scripts/verify-profile-loading.cjs",
     "test:loading": "node scripts/verify-data-loading.cjs",
     "test:rules:ui": "electron scripts/verify-rules-ui.cjs",
+    "test:rules": "node scripts/verify-rule-recovery.cjs",
+    "test:rules:recovery:ui": "electron scripts/verify-rule-recovery-ui.cjs",
     "test:settings": "node scripts/verify-settings.cjs",
     "test:themes": "node scripts/verify-themes.cjs",
     "test:themes:ui": "electron scripts/verify-theme-contrast-ui.cjs",
