@@ -1,3 +1,4 @@
+import { filterConnections, groupConnections, sortConnections, type ConnectionProtocol, type ConnectionSort } from '../lib/connection-selectors'
 import { ProcessIcon, getAppCategoryIcon } from '../components/ProcessIcon'
 import { ConnectionDetailsDialog } from '../components/ConnectionDetailsDialog'
 import { extractProcessName, formatChain, type ProcessGroup } from '../lib/connections'
@@ -17,7 +18,6 @@ import { copyToClipboard } from '../lib/clipboard'
 import { formatDuration } from '../lib/format'
 import { EmojiText } from '../components/EmojiText'
 import { TrafficValue } from '../components/TrafficValue'
-import druseSvg from '../assets/brand/druse.svg'
 
 export function ConnectionsPage({
   connections,
@@ -36,8 +36,8 @@ export function ConnectionsPage({
   const [query, setQuery] = useState('')
   const [flatLimit, setFlatLimit] = useState(100)
   const [processLimit, setProcessLimit] = useState(100)
-  const [protocolFilter, setProtocolFilter] = useState<'all' | 'tcp' | 'udp'>('all')
-  const [sortBy, setSortBy] = useState<'traffic' | 'time' | 'process'>('traffic')
+  const [protocolFilter, setProtocolFilter] = useState<ConnectionProtocol>('all')
+  const [sortBy, setSortBy] = useState<ConnectionSort>('traffic')
   const [selectedConnection, setSelectedConnection] = useState<ConnectionItem | null>(null)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
@@ -92,99 +92,12 @@ export function ConnectionsPage({
     }
   }
 
-  // Filter individual connections by protocol and search query
-  const matchesConnectionFilters = useCallback(
-    (item: ConnectionItem, q: string) => {
-      if (protocolFilter !== 'all' && item.metadata.network.toLowerCase() !== protocolFilter) {
-        return false
-      }
-      if (!q) return true
-      const proc = extractProcessName(item.metadata.processPath) || item.metadata.process || ''
-      const str = `${proc} ${item.metadata.host || ''} ${item.metadata.destinationIP || ''} ${item.metadata.processPath || ''} ${item.rule || ''} ${item.chains.join(' ')}`.toLowerCase()
-      return str.includes(q)
-    },
-    [protocolFilter]
-  )
-
-  // Construct Process Groups
-  const processGroups = useMemo(() => {
-    const q = query.toLowerCase().trim()
-    const groupMap = new Map<string, ProcessGroup>()
-
-    for (const item of connections.connections) {
-      if (!matchesConnectionFilters(item, q)) continue
-
-      const rawPath = item.metadata.processPath || item.metadata.process || ''
-      const procName =
-        item.metadata.process ||
-        extractProcessName(item.metadata.processPath) ||
-        (item.metadata.sourceIP ? `IP: ${item.metadata.sourceIP}` : '') ||
-        t('system')
-
-      const groupKey = rawPath || item.metadata.process || procName || 'system'
-      const startTime = new Date(item.start).getTime()
-
-      const existing = groupMap.get(groupKey)
-      if (existing) {
-        existing.connections.push(item)
-        existing.activeCount++
-        existing.totalUpload += item.upload
-        existing.totalDownload += item.download
-        if (startTime > existing.latestStart) {
-          existing.latestStart = startTime
-        }
-      } else {
-        groupMap.set(groupKey, {
-          key: groupKey,
-          name: procName,
-          path: rawPath,
-          connections: [item],
-          activeCount: 1,
-          totalUpload: item.upload,
-          totalDownload: item.download,
-          latestStart: startTime
-        })
-      }
-    }
-
-    const groups = Array.from(groupMap.values())
-
-    groups.sort((a, b) => {
-      if (sortBy === 'traffic') {
-        return b.totalDownload + b.totalUpload - (a.totalDownload + a.totalUpload)
-      }
-      if (sortBy === 'time') {
-        return b.latestStart - a.latestStart
-      }
-      if (sortBy === 'process') {
-        return a.name.localeCompare(b.name)
-      }
-      return 0
-    })
-
-    return groups
-  }, [connections.connections, query, matchesConnectionFilters, sortBy, t])
-
-  // Flat list of connections
-  const filteredAndSortedList = useMemo(() => {
-    const q = query.toLowerCase().trim()
-    return connections.connections
-      .filter((item) => matchesConnectionFilters(item, q))
-      .sort((a, b) => {
-        if (sortBy === 'traffic') {
-          return b.download + b.upload - (a.download + a.upload)
-        }
-        if (sortBy === 'time') {
-          return new Date(b.start).getTime() - new Date(a.start).getTime()
-        }
-        if (sortBy === 'process') {
-          const nameA = extractProcessName(a.metadata.processPath) || a.metadata.process || t('system')
-          const nameB = extractProcessName(b.metadata.processPath) || b.metadata.process || t('system')
-          return nameA.localeCompare(nameB)
-        }
-        return 0
-      })
-  }, [connections.connections, query, matchesConnectionFilters, sortBy, t])
+  const matchingConnections = useMemo(() => filterConnections(connections.connections, query, protocolFilter),
+    [connections.connections, query, protocolFilter])
+  const processGroups = useMemo(() => groupConnections(matchingConnections, sortBy, t('system')),
+    [matchingConnections, sortBy, t])
+  const filteredAndSortedList = useMemo(() => sortConnections(matchingConnections, sortBy, t('system')),
+    [matchingConnections, sortBy, t])
 
   // Active selected group in drilldown view
   const activeProcessGroup = useMemo(() => {
