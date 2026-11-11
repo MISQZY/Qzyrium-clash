@@ -12,7 +12,9 @@ if (process.type === 'renderer') {
       { id: 'disabled', type: 'DOMAIN', payload: 'disabled.example', proxy: 'DIRECT', enabled: false },
       { id: 'long', type: 'DOMAIN-SUFFIX', payload: `${'long-hostname.'.repeat(30)}example`, proxy: 'DIRECT' }
     ]
-    api.profiles.getCustomRules = async () => rules
+    let failRead = false
+    api.uiTest.failRuleRead = async value => { failRead = value }
+    api.profiles.getCustomRules = async () => { if (failRead) throw new Error('fixture rule read failed'); return rules }
     let warningListener
     api.events.onWarning = callback => { warningListener = callback; return () => { warningListener = undefined } }
     api.kernel.getRuleWarning = async () => null
@@ -176,7 +178,16 @@ if (process.type === 'renderer') {
       const syntaxSaved = await evaluate(`window.api.profiles.getCustomRules('remote')`)
       assert.ok(syntaxSaved.some(rule => rule.payload === 'пример456.рф'), 'Unicode domain edits are saved')
       assert.ok(syntaxSaved.some(rule => rule.payload === '(?i)^пример[0-9]+\\.рф$'), 'core regex syntax can be added and saved')
-      console.log('PASS: valid Unicode/numeric domains, core regexes, port ranges and mapped IPv6 can be added; inline editing, rule ordering and warnings work')
+      await evaluate(`window.api.uiTest.failRuleRead(true)`)
+      await evaluate(`document.querySelector('[aria-label="Edit rules"]').click()`)
+      await waitFor(`document.querySelector('[role="dialog"]').textContent.includes('fixture rule read failed')`)
+      assert.ok(await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(button => button.textContent.trim() === 'Save & Apply').disabled`), 'failed read blocks destructive save')
+      await click('Cancel')
+      await waitFor(`!document.querySelector('[role="dialog"]')`)
+      await evaluate(`window.api.uiTest.failRuleRead(false)`)
+      await evaluate(`document.querySelector('[aria-label="Edit rules"]').click()`)
+      await waitFor(`Array.from(document.querySelectorAll('[role="dialog"] button')).some(button => button.textContent.trim() === 'Save & Apply' && !button.disabled)`)
+      console.log('PASS: rule edits, YAML order, warnings and safe recovery from failed reads')
     } finally { win.destroy(); app.quit() }
   }).catch(error => { console.error(error); app.exit(1) })
 }

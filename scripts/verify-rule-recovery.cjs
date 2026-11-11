@@ -113,6 +113,11 @@ async function main() {
   const { MihomoConfigFactory } = load('src/main/core/MihomoConfigFactory.ts')
   const { toCustomRules, mergeRuleOverrides } = load('src/shared/rule-editor.ts')
   const { serializeRulesToYaml, parseYamlToVisualRules } = load('src/shared/rule-editor-yaml.ts')
+  const { loadRuleEditorSession } = load('src/shared/rule-editor-session.ts')
+  await assert.rejects(loadRuleEditorSession({ getCustomRules: async () => { throw new Error('read failed') }, getRawConfig: async () => layoutProfile }, 'test'), /read failed/, 'failed reads never become empty overrides')
+  await assert.rejects(loadRuleEditorSession({ getCustomRules: async () => [], getRawConfig: async () => null }, 'test'), /missing/, 'missing raw config blocks the editor session')
+  const session = await loadRuleEditorSession({ getCustomRules: async () => [], getRawConfig: async () => layoutProfile }, 'test')
+  assert.equal(session.baseCount, 3)
   const originalRow = { id: 'edited-source', type: 'DOMAIN', payload: 'a.example', proxy: 'DIRECT', sourceRule: 'DOMAIN,a.example,DIRECT', sourceOccurrence: 0, sourceIndex: 0 }
   for (const isMoved of [false, true]) {
     const edited = toCustomRules([{ ...originalRow, proxy: 'REJECT', isMoved }])

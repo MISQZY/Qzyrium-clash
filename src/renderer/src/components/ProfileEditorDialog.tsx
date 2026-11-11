@@ -1,7 +1,8 @@
 import React, { lazy, Suspense, useEffect, useState, useCallback, useRef, useMemo, startTransition } from 'react'
 import yaml from 'yaml'
-import { toCustomRules, mergeRuleOverrides, createRuleId, isLogicalRuleType, getLogicalRuleClauses, formatLogicalRuleClause, ruleTypes, isRuleSupportsNoResolve, isRuleSupportsSrc, getRuleExample, parseRuleStringToItem, convertRuleToString, builtinProxyTargets, collectProxyGroups, type RuleItem, type RuleDraft } from '@shared/rule-editor'
+import { toCustomRules, createRuleId, isLogicalRuleType, getLogicalRuleClauses, formatLogicalRuleClause, ruleTypes, isRuleSupportsNoResolve, isRuleSupportsSrc, getRuleExample, builtinProxyTargets, type RuleItem, type RuleDraft } from '@shared/rule-editor'
 import { serializeRulesToYaml, parseYamlToVisualRules } from '@shared/rule-editor-yaml'
+import { loadRuleEditorSession } from '@shared/rule-editor-session'
 import { validateRulePayload } from '@shared/rule-validation'
 import { Tooltip } from 'radix-ui'
 import {
@@ -22,7 +23,7 @@ import {
   HelpCircle,
   X
 } from 'lucide-react'
-import type { ProfileItem, CustomRuleItem } from '@shared/profile'
+import type { ProfileItem } from '@shared/profile'
 import { useLocale, useTranslations, useCustomLocalization } from '../i18n'
 import { EmojiText } from './EmojiText'
 import { profileName } from '../lib/profile-name'
@@ -67,7 +68,6 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
 
   // Rules state
   const [rules, setRules] = useState<RuleItem[]>([])
-  const [initialBaseRulesCount, setInitialBaseRulesCount] = useState(0)
   const [proxyGroups, setProxyGroups] = useState<string[]>([...builtinProxyTargets])
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -96,14 +96,12 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
   const [instructionsOpen, setInstructionsOpen] = useState(false)
 
   // Raw file editor & Diff mode switches
-  const [originalRawConfig, setOriginalRawConfig] = useState('')
-  const [rawConfigContent, setRawConfigContent] = useState('')
   const [rulesYamlContent, setRulesYamlContent] = useState('')
   const [isDiff, setIsDiff] = useState(false)
-  const [sideBySide, setSideBySide] = useState(true)
 
   // Loading & error state
   const [loading, setLoading] = useState(false)
+  const [loadedProfileId, setLoadedProfileId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -122,43 +120,17 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
     setError(null)
     setActiveMode('visual')
 
-    Promise.all([
-      window.api.profiles.getCustomRules(profile.id).catch(() => []),
-      window.api.profiles.getRawConfig(profile.id).catch(() => '')
-    ]).then(([customRules, rawConfig]) => {
+    setLoadedProfileId(null)
+    loadRuleEditorSession(window.api.profiles, profile.id).then((session) => {
       if (cancelled) return
-
-
-      let parsedProfileYaml: Record<string, unknown> | null
-      try {
-        parsedProfileYaml = yaml.parse(rawConfig || '') as Record<string, unknown>
-      } catch {
-        parsedProfileYaml = null
-      }
-
-      // Collect proxy groups
-      const groups = collectProxyGroups(parsedProfileYaml)
-      setProxyGroups(groups)
-
-      // Parse base rules
-      const baseRawRules: string[] = []
-      if (parsedProfileYaml && Array.isArray(parsedProfileYaml['rules'])) {
-        for (const item of parsedProfileYaml['rules']) {
-          if (typeof item === 'string' && item.trim()) baseRawRules.push(item.trim())
-        }
-      }
-
-      const occurrences = new Map<string, number>()
-      const parsedBase: RuleItem[] = baseRawRules.map((str, sourceIndex) => {
-        const occurrence = occurrences.get(str) ?? 0
-        occurrences.set(str, occurrence + 1)
-        return { ...parseRuleStringToItem(str, false), sourceRule: str, sourceOccurrence: occurrence, sourceIndex }
-      })
-      setInitialBaseRulesCount(parsedBase.length)
-      const mergedRules = mergeRuleOverrides(parsedBase, customRules || [])
-      setRules(mergedRules)
-      setRulesYamlContent(serializeRules(mergedRules))
-      setLoading(false)
+      setProxyGroups(session.groups)
+      setRules(session.rules)
+      setRulesYamlContent(serializeRules(session.rules))
+      setLoadedProfileId(profile.id)
+    }).catch((error) => {
+      if (!cancelled) setError(error instanceof Error ? error.message : String(error))
+    }).finally(() => {
+      if (!cancelled) setLoading(false)
     })
 
     return () => {
@@ -332,7 +304,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
 
   // Save changes to backend
   const handleSave = useCallback(async () => {
-    if (!profile || !window.api || saving) return
+    if (!profile || !window.api || saving || loading || loadedProfileId !== profile.id) return
 
     setError(null)
     setSaving(true)
@@ -369,6 +341,8 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
   }, [
     profile,
     saving,
+    loading,
+    loadedProfileId,
     activeMode,
     rules,
     rulesYamlContent,
@@ -1056,7 +1030,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
               variant="glow"
               size="sm"
               onClick={handleSave}
-              disabled={loading || saving || validatingRule}
+              disabled={loading || saving || validatingRule || loadedProfileId !== profile.id}
               className="gap-1.5"
             >
               {saving ? (
