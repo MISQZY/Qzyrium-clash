@@ -64,7 +64,13 @@ export function serializeRulesToYaml(ruleList: RuleItem[], messages: (key: YamlC
 
 export function parseYamlToVisualRules(yamlStr: string, baseRuleList: RuleItem[]): RuleItem[] {
     const parsed = yaml.parse(yamlStr) as Record<string, unknown> | null
-    const base = baseRuleList.map((rule) => ({ ...rule, isMoved: false, isDeleted: false, offset: undefined }))
+    const base = baseRuleList.map((rule) => ({
+      ...rule,
+      ...(rule.sourceRule === undefined ? {} : parseRuleStringToItem(rule.sourceRule)),
+      id: rule.id,
+      isMoved: false, isDeleted: false, offset: undefined, replacementRule: undefined,
+      enabled: true, validationError: undefined
+    }))
       .sort((a, b) => (a.sourceIndex ?? 0) - (b.sourceIndex ?? 0))
     if (!parsed || typeof parsed !== 'object') return base
     const entries = (value: unknown): { rule: string; sourceRule?: string; sourceOccurrence?: number }[] => !Array.isArray(value) ? [] : value.flatMap((item) => {

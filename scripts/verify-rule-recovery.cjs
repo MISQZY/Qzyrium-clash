@@ -129,6 +129,9 @@ async function main() {
     const roundTrip = parseYamlToVisualRules(serializeRulesToYaml(reopened, key => key), [originalRow])
     assert.equal(roundTrip[0].proxy, 'REJECT', 'YAML preserves replacement target')
     assert.equal(roundTrip[0].sourceRule, originalRow.sourceRule, 'YAML preserves original source identity')
+    const cleared = parseYamlToVisualRules('prepend: []\nappend: []', reopened)
+    assert.equal(cleared[0].proxy, 'DIRECT', 'removing YAML overrides restores the original subscription target')
+    assert.deepEqual(toCustomRules(cleared), [], 'removed overrides cannot be silently recreated from edited visual rows')
   }
   const invalidReplacement = await prepareProfileContent(layoutProfile, settings, toCustomRules([{ ...originalRow, proxy: 'Missing' }]))
   assert.ok(invalidReplacement.rules[0].validationError, 'invalid replacement is quarantined by its own id')
