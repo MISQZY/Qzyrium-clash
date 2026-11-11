@@ -1,8 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, createElement, type ReactNode } from 'react'
-import { selectedLocalization } from '@shared/custom-localization'
+import { useWorkspaceRefresh } from './useWorkspaceRefresh'
+import { useWorkspaceEvents } from './useWorkspaceEvents'
+import { createContext, useContext, useState, useCallback, useRef, useMemo, createElement, type ReactNode } from 'react'
 
 import type { NavTab } from '../lib/navigation'
-import { translate } from '../i18n/catalogs'
 
 import { StoreCoordinator, NavigationStore, useNavigationStore, KernelStore, useKernelStore, TrafficStore, useTrafficStore, ProfilesStore, useProfilesStore, SettingsStore, useSettingsStore, ProxiesStore, useProxiesStore, RulesStore, useRulesStore, ConnectionsStore, useConnectionsStore, LogsStore, useLogsStore } from './domains'
 
@@ -86,26 +86,7 @@ export function useAppStoreInternal(): {
   refreshAll: () => Promise<boolean>
 } {
   const nav = useNavigationStore()
-  const {
-    activeTab,
-    visible,
-    loading,
-    setLoading,
-    busy,
-    error,
-    dismissError,
-    reportError,
-    dataRevision,
-    setDataRevision,
-    actionInProgress,
-    refreshSequence,
-    pendingRefresh,
-    statusRevision,
-    mounted,
-    createPerform,
-    setActiveTab,
-    setVisible
-  } = nav
+  const { activeTab, visible, loading, busy, reportError, dataRevision, actionInProgress, statusRevision, mounted, createPerform } = nav
 
   const [refreshing, setRefreshing] = useState(false)
 
@@ -153,166 +134,11 @@ export function useAppStoreInternal(): {
   const connections = useConnectionsStore(coord, busy, refreshing, loading)
   const logs = useLogsStore(coord)
 
-  const preferences = useRef(settingsStore.settings.general)
-  preferences.current = settingsStore.settings.general
-
-  const { setSettings, setSysProxy } = settingsStore
-  const { setProfiles, setActiveProfile } = profiles
-  const { setCoreStatus, setSessionStartedAt } = kernel
-
-  const refreshAll = useCallback((): Promise<void> => {
-    if (!window.api) {
-      setLoading(false)
-      return Promise.resolve()
-    }
-    if (pendingRefresh.current) return pendingRefresh.current
-    setRefreshing(true)
-    const sequence = ++refreshSequence.current
-    const revision = statusRevision.current
-    const current = () => mounted.current && sequence === refreshSequence.current
-    const apply = async <T,>(request: Promise<T>, update: (value: T) => void) => {
-      const value = await request
-      if (current()) update(value)
-    }
-
-    const request = (async () => {
-      if (window.api?.app?.getBootSnapshot) {
-        try {
-          const boot = await window.api.app.getBootSnapshot()
-          if (!current()) return
-          setSettings(boot.settings)
-          setProfiles(boot.profiles)
-          setActiveProfile(boot.activeProfile)
-          if (revision === statusRevision.current) {
-            setCoreStatus(boot.coreStatus)
-            setSessionStartedAt(boot.sessionStartedAt)
-          }
-          setSysProxy(boot.sysProxy)
-          setLoading(false)
-          setDataRevision((value) => value + 1)
-          return
-        } catch {
-          // Fall back to individual requests if batched snapshot fails
-        }
-      }
-
-      const proxyResult = Promise.allSettled([
-        apply(window.api.sysproxy.getStatus(), setSysProxy)
-      ])
-      const results = await Promise.allSettled([
-        apply(window.api.kernel.getStatus(), (status) => {
-          if (revision !== statusRevision.current) return
-          setCoreStatus(status)
-        }),
-        apply(
-          window.api.kernel.getSessionStartedAt?.() ?? Promise.resolve(null),
-          (startedAt) => {
-            if (revision === statusRevision.current) setSessionStartedAt(startedAt)
-          }
-        ),
-        apply(window.api.profiles.getList(), setProfiles),
-        apply(window.api.profiles.getActive(), setActiveProfile),
-        apply(window.api.settings.get(), setSettings)
-      ])
-      if (!current()) return
-      setLoading(false)
-      results.push(...(await proxyResult))
-      if (!current()) return
-      setDataRevision((value) => value + 1)
-      const failure = results.find((result) => result.status === 'rejected')
-      if (failure?.status === 'rejected') throw failure.reason
-    })()
-
-    pendingRefresh.current = request
-    const clear = () => {
-      if (pendingRefresh.current === request) {
-        pendingRefresh.current = null
-        if (mounted.current) setRefreshing(false)
-      }
-    }
-    void request.then(clear, clear)
-    return request
-  }, [mounted, pendingRefresh, refreshSequence, statusRevision, setLoading, setDataRevision,
-    setProfiles, setActiveProfile, setCoreStatus, setSessionStartedAt, setSettings, setSysProxy])
+  const refreshAll = useWorkspaceRefresh(nav, settingsStore, profiles, kernel, setRefreshing)
 
   refreshAllRef.current = refreshAll
 
-  useEffect(() => {
-    mounted.current = true
-    const visibility = () => setVisible(document.visibilityState !== 'hidden')
-    document.addEventListener('visibilitychange', visibility)
-    void refreshAll().catch((err) => {
-      if (mounted.current) reportError(err)
-    })
-    if (!window.api) {
-      return () => {
-        mounted.current = false
-        document.removeEventListener('visibilitychange', visibility)
-      }
-    }
-
-    const unsubStatus = window.api.events.onCoreStatus((status) => {
-      statusRevision.current++
-      setCoreStatus(status)
-      if (status === 'error') {
-        reportError(
-          translate(
-            preferences.current.language,
-            'app',
-            'coreUnexpectedError',
-            {},
-            selectedLocalization(preferences.current)
-          )
-        )
-      }
-      if (status !== 'running') setSessionStartedAt(null)
-      else {
-        const revision = statusRevision.current
-        void (window.api.kernel.getSessionStartedAt?.() ?? Promise.resolve(Date.now()))
-          .then((startedAt) => {
-            if (mounted.current && revision === statusRevision.current) {
-              setSessionStartedAt(startedAt)
-            }
-          })
-          .catch(reportError)
-      }
-      if (status === 'running' && !actionInProgress.current) {
-        void refreshAll().catch(reportError)
-      }
-    })
-
-    const unsubSettings = window.api.events.onSettingsChanged?.(() => {
-      void refreshAll().catch(reportError)
-    })
-
-    const unsubTunError = window.api.events.onTunError?.(() => {
-      reportError(
-        translate(
-          preferences.current.language,
-          'app',
-          'tunStartRequiresAdmin',
-          {},
-          selectedLocalization(preferences.current)
-        )
-      )
-    })
-
-    const unsubVisibility = window.api.events.onWindowVisibility?.((isWinVisible) => {
-      setVisible(isWinVisible)
-      if (isWinVisible) {
-        void refreshAll().catch(reportError)
-      }
-    })
-
-    return () => {
-      mounted.current = false
-      document.removeEventListener('visibilitychange', visibility)
-      unsubStatus()
-      unsubSettings?.()
-      unsubTunError?.()
-      unsubVisibility?.()
-    }
-  }, [refreshAll, reportError, actionInProgress, mounted, statusRevision, setCoreStatus, setSessionStartedAt, setVisible])
+  useWorkspaceEvents(nav, kernel, settingsStore.settings.general, refreshAll)
 
   const refreshWorkspace = useCallback(() => perform(async () => {}), [perform])
 
