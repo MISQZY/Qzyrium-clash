@@ -193,16 +193,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.SYSPROXY_SET, async (_, enable: boolean) => {
-    if (enable) {
-      const current = services.settingService.getSettings()
-      if (current.kernel.tun.enable) {
-        await services.settingService.updateSettings({ kernel: { ...current.kernel, tun: { ...current.kernel.tun, enable: false } } })
-        if (['running', 'starting'].includes(services.kernelService.getStatus())) {
-          await services.kernelService.restart()
-        }
-      }
-    }
-    await services.sysProxyService.setSysProxy(enable)
+    await services.networkModeController.setSystemProxy(enable)
     services.trayService.updateContextMenu()
   })
 
@@ -229,47 +220,7 @@ export function registerIpcHandlers(services: ServiceManager): void {
 
   ipcMain.handle(IPC_CHANNELS.APP_UPDATE_SETTINGS, async (_, patch: Partial<AppConfig>) => {
     finishShortcutRecording?.()
-    const previous = services.settingService.getSettings()
-    const nextKernel = { ...previous.kernel, ...patch.kernel }
-    const candidate = mergeSettings(previous, patch)
-    if (candidate.sysProxy.mode === 'pac') pacScript(candidate)
-
-    if (patch.kernel?.tun?.enable && !isProcessElevated()) {
-      throw new Error(nativeMessage(candidate.general.language, 'tunRequiresAdmin', candidate.general))
-    }
-    if (patch.kernel?.tun?.enable) {
-      if (previous.sysProxy.enable || services.sysProxyService.getStatus().enabled) {
-        await services.sysProxyService.setSysProxy(false)
-      }
-    }
-    const kernelChanged = !isDeepStrictEqual(previous.kernel, nextKernel)
-    const modeOnly = kernelChanged && isDeepStrictEqual({ ...previous.kernel, mode: nextKernel.mode }, nextKernel)
-    // Routing mode is a live setting. Apply it before persisting so an API
-    // rejection leaves the saved mode and the renderer's selection unchanged.
-    if (modeOnly && services.kernelService.getStatus() === 'running') {
-      await services.kernelService.patchConfigs({ mode: nextKernel.mode })
-    }
-    if (patch.general) await services.desktopService?.applySettings(candidate)
-    let updated: AppConfig
-    try { updated = await services.settingService.updateSettings(patch) }
-    catch (err) {
-      if (modeOnly && services.kernelService.getStatus() === 'running') {
-        await services.kernelService.patchConfigs({ mode: previous.kernel.mode }).catch((error) => logger.error('Failed to restore routing mode', error))
-      }
-      if (patch.kernel?.tun?.enable && previous.sysProxy.enable) await services.sysProxyService.setSysProxy(true)
-      if (patch.general) await services.desktopService?.applySettings(previous)
-      throw err
-    }
-    if (kernelChanged && !modeOnly && ['running', 'starting'].includes(services.kernelService.getStatus())) {
-      await services.kernelService.restart()
-    }
-    if (patch.sysProxy || (previous.kernel.mixedPort !== updated.kernel.mixedPort && updated.sysProxy.enable)) {
-      // Reapply changed bypass rules/port to Windows as well as the saved config.
-      await services.sysProxyService.setSysProxy(updated.sysProxy.enable)
-    }
-    if (patch.general) services.windowService.updateTheme()
-    services.trayService.updateContextMenu()
-    return updated
+    return services.networkModeController.updateSettings(patch)
   })
 
   ipcMain.handle(IPC_CHANNELS.APP_MINIMIZE, () => {

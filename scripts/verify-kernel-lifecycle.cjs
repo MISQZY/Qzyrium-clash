@@ -129,6 +129,8 @@ async function verifyModeUpdates() {
     sysProxyService: { setSysProxy: async () => { calls.push('system-proxy') } },
     trayService: { updateContextMenu() {} }, windowService: { updateTheme() {} }
   }
+  const { NetworkModeController } = load('src/main/services/NetworkModeController.ts', { '../utils/logger': { logger } })
+  services.networkModeController = new NetworkModeController(services.settingService, services.kernelService, services.sysProxyService)
   registerIpcHandlers(services)
   const update = () => handlers.get('APP_UPDATE_SETTINGS')
   reset()
@@ -156,6 +158,25 @@ async function verifyModeUpdates() {
   reset()
   await update()(null, { kernel: structuredClone(settings.kernel) })
   assert.deepEqual(calls, ['save'], 'unchanged settings must not restart')
+  reset()
+  services.sysProxyService.getStatus = () => ({ enabled: settings.sysProxy.enable })
+  services.sysProxyService.setSysProxy = async enable => { calls.push(`proxy:${enable}`); settings.sysProxy.enable = enable }
+  const commands = new NetworkModeController(services.settingService, services.kernelService, services.sysProxyService, async () => {}, () => {}, () => true)
+  await commands.setTunEnabled(true)
+  assert.equal(settings.kernel.tun.enable, true)
+  assert.equal(settings.sysProxy.enable, false)
+  await commands.setSystemProxy(true)
+  assert.equal(settings.kernel.tun.enable, false, 'all proxy commands disable conflicting TUN mode')
+  assert.equal(settings.sysProxy.enable, true)
+  reset()
+  rejectSave = true
+  await assert.rejects(commands.setTunEnabled(true), /disk full/)
+  assert.equal(settings.kernel.tun.enable, false, 'failed transition preserves saved TUN mode')
+  assert.equal(settings.sysProxy.enable, true, 'failed transition restores system proxy')
+  reset()
+  await Promise.all([commands.setTunEnabled(true), commands.setSystemProxy(true)])
+  assert.equal(settings.kernel.tun.enable, false, 'concurrent commands execute in order')
+  assert.equal(settings.sysProxy.enable, true)
 }
 
 Promise.resolve().then(verifyRestart).then(verifyModeUpdates).then(() => console.log('PASS: process exit ordering, stale probes, API readiness retries/deadline, stop failures, live Rules/Global and port updates')).catch(error => { console.error(error); process.exitCode = 1 })

@@ -1,3 +1,4 @@
+import { NetworkModeController } from './NetworkModeController'
 import { BaseService } from './BaseService'
 import { KernelService } from './KernelService'
 import { ProfileService } from './ProfileService'
@@ -23,6 +24,7 @@ export class ServiceManager {
   public desktopService: DesktopService
   public themeStore: ThemeStore
   public updateService: UpdateService
+  public networkModeController: NetworkModeController
 
   private services: BaseService[] = []
 
@@ -34,16 +36,24 @@ export class ServiceManager {
     this.profileService.setCoreStatusProvider?.(() => this.kernelService.getStatus() === 'running')
     this.themeStore = new ThemeStore(getAppPaths().userData)
     this.windowService = new WindowService(this.settingService, this.themeStore)
+    this.networkModeController = new NetworkModeController(this.settingService, this.kernelService, this.sysProxyService,
+      async settings => { await this.desktopService?.applySettings(settings) },
+      general => {
+        if (general) this.windowService.updateTheme()
+        this.windowService.broadcast('event:settings-changed', null)
+        this.trayService?.updateContextMenu()
+      })
     this.trayService = new TrayService(
       this.windowService,
       this.kernelService,
       this.sysProxyService,
-      this.settingService
+      this.settingService,
+      this.networkModeController
     )
     this.desktopService = new DesktopService(this.settingService, this.profileService, this.kernelService, this.sysProxyService, this.windowService, () => {
       this.windowService.broadcast('event:settings-changed', null)
       this.trayService.updateContextMenu()
-    })
+    }, this.networkModeController)
     this.updateService = new UpdateService((channel, payload) => this.windowService.broadcast(channel, payload), async () => {
       const window = this.windowService.getMainWindow()
       saveRestartState({ running: ['running', 'starting'].includes(this.kernelService.getStatus()), visible: !!window?.isVisible() && !window.isMinimized(), elevated: isProcessElevated(), coreOnly: this.windowService.isCoreOnlyMode() })

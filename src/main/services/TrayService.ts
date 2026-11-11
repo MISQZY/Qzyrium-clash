@@ -1,3 +1,4 @@
+import type { NetworkModeController } from './NetworkModeController'
 import { app, Menu, nativeImage, Tray, NativeImage } from 'electron'
 import type { MenuItemConstructorOptions } from 'electron'
 import path from 'path'
@@ -25,7 +26,8 @@ export class TrayService implements BaseService {
     windowService: WindowService,
     kernelService: KernelService,
     sysProxyService: SysProxyService,
-    private settingService: SettingService
+    private settingService: SettingService,
+    private commands: NetworkModeController
   ) {
     this.windowService = windowService
     this.kernelService = kernelService
@@ -89,15 +91,7 @@ export class TrayService implements BaseService {
 
   private async setRoutingMode(mode: TunnelMode): Promise<void> {
     try {
-      if (this.kernelService.getStatus() === 'running' && typeof this.kernelService.patchConfigs === 'function') {
-        await this.kernelService.patchConfigs({ mode })
-      }
-      const settings = this.settingService.getSettings()
-      if (typeof this.settingService.updateSettings === 'function') {
-        await this.settingService.updateSettings({
-          kernel: { ...settings.kernel, mode }
-        })
-      }
+      await this.commands.setRoutingMode(mode)
       this.windowService.broadcast?.('event:settings-changed', null)
       if (this.kernelService.getStatus() === 'running') {
         await this.refreshProxies()
@@ -300,7 +294,7 @@ export class TrayService implements BaseService {
       {
         label: `${messages.proxy} (${sysProxyStatus.enabled ? messages.on : messages.off})`,
         click: async () => {
-          await this.sysProxyService.setSysProxy(!sysProxyStatus.enabled)
+          await this.commands.setSystemProxy(!sysProxyStatus.enabled)
           this.updateContextMenu()
         }
       },

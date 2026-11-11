@@ -65,7 +65,7 @@ app.whenReady().then(async () => {
   })
   let coreOnly = false
   const windowService = { isCoreOnlyMode: () => coreOnly, setCoreOnlyMode: value => { coreOnly = value; service.updateContextMenu() }, show: () => { coreOnly = false; service.updateContextMenu() } }
-  const service = new TrayService(windowService, { getStatus: () => core }, { getStatus: () => ({ enabled: proxy }), setSysProxy: async enabled => { proxy = enabled } }, { getSettings: () => settings })
+  const service = new TrayService(windowService, { getStatus: () => core }, { getStatus: () => ({ enabled: proxy }), setSysProxy: async enabled => { proxy = enabled } }, { getSettings: () => settings }, { setSystemProxy: async enabled => { proxy = enabled } })
   await service.initialize()
   currentTray.menu.find(item => item.label === 'Core only').click()
   assert.equal(currentTray.menu.find(item => item.label === 'Core only').checked, true)
@@ -127,7 +127,7 @@ app.whenReady().then(async () => {
     show: () => {},
     setQuitting: () => {}
   }
-  const fullService = new TrayService(testWinService, testKernel, { getStatus: () => ({ enabled: false }), setSysProxy: async () => {} }, testSettingService)
+  const fullService = new TrayService(testWinService, testKernel, { getStatus: () => ({ enabled: false }), setSysProxy: async () => {} }, testSettingService, { setRoutingMode: async mode => { await testKernel.patchConfigs({ mode }); await testSettingService.updateSettings({ kernel: { ...testSettingService.getSettings().kernel, mode } }) } })
   await fullService.initialize()
 
   // When stopped: no selectors or proxy groups in tray menu

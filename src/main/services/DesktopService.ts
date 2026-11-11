@@ -7,7 +7,7 @@ import type { KernelService } from './KernelService'
 import type { SysProxyService } from './SysProxyService'
 import type { WindowService } from './WindowService'
 import { logger } from '../utils/logger'
-import { isProcessElevated } from '../utils/elevation'
+import type { NetworkModeController } from './NetworkModeController'
 import { applyWindowsStartup } from '../utils/windows-startup'
 
 export class DesktopService implements BaseService {
@@ -20,7 +20,7 @@ export class DesktopService implements BaseService {
   private profileUpdateTimes = new Map<string, number>()
   private startupApplied: string | null = null
 
-  constructor(private settings: SettingService, private profiles: ProfileService, private kernel: KernelService, private proxy: SysProxyService, private window: WindowService, private changed: () => void) {}
+  constructor(private settings: SettingService, private profiles: ProfileService, private kernel: KernelService, private proxy: SysProxyService, private window: WindowService, private changed: () => void, private commands: NetworkModeController) {}
 
   async initialize(): Promise<void> {
     this.disposed = false
@@ -78,35 +78,10 @@ export class DesktopService implements BaseService {
 
   private async runAction(action: string): Promise<void> {
     const settings = this.settings.getSettings()
-    if (action === 'sysProxy') {
-      const next = !this.proxy.getStatus().enabled
-      if (next && settings.kernel.tun.enable) {
-        await this.settings.updateSettings({ kernel: { ...settings.kernel, tun: { ...settings.kernel.tun, enable: false } } })
-        if (['running', 'starting'].includes(this.kernel.getStatus())) await this.kernel.restart()
-      }
-      await this.proxy.setSysProxy(next)
-      return
-    }
-    if (action === 'tun') {
-      const next = !settings.kernel.tun.enable
-      if (next) {
-        if (!isProcessElevated()) {
-          logger.warn('Shortcut cannot enable TUN: Administrator privileges required')
-          return
-        }
-        if (settings.sysProxy.enable || this.proxy.getStatus().enabled) {
-          await this.proxy.setSysProxy(false)
-        }
-      }
-      await this.settings.updateSettings({ kernel: { ...settings.kernel, tun: { ...settings.kernel.tun, enable: next } } })
-      if (['running', 'starting'].includes(this.kernel.getStatus())) await this.kernel.restart()
-      return
-    }
+    if (action === 'sysProxy') return this.commands.setSystemProxy(!this.proxy.getStatus().enabled)
+    if (action === 'tun') return this.commands.setTunEnabled(!settings.kernel.tun.enable)
     const mode = action === 'ruleMode' ? 'rule' : action === 'globalMode' ? 'global' : action === 'directMode' ? 'direct' : undefined
-    if (mode) {
-      if (this.kernel.getStatus() === 'running') await this.kernel.patchConfigs({ mode })
-      await this.settings.updateSettings({ kernel: { ...settings.kernel, mode } })
-    }
+    if (mode) await this.commands.setRoutingMode(mode)
   }
 
   private schedule(config = this.settings.getSettings()): void {

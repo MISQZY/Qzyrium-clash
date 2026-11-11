@@ -291,7 +291,7 @@ async function verifySystemProxy() {
     '@shared/ipc': { IPC_CHANNELS: new Proxy({}, { get: (_, key) => key }) },
     '../utils/logger': { logger }
   })
-  registerIpcHandlers({ sysProxyService: proxy })
+  registerIpcHandlers({ sysProxyService: proxy, networkModeController: { setSystemProxy: enable => proxy.setSysProxy(enable) } })
   await proxy.setCoreRunning(true)
   const enabling = proxy.setSysProxy(true)
   let statusRead = false

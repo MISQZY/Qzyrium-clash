@@ -147,11 +147,13 @@ async function verifyDesktop() {
     '../utils/elevation': { isProcessElevated: () => true },
     '../utils/windows-startup': { applyWindowsStartup: async general => login.push(general.autoStart) }
   }, { process: { platform: 'win32' }, setTimeout: (fn, ms) => { const timer = { fn, ms, unref() {} }; timers.add(timer); return timer }, clearTimeout: timer => timers.delete(timer) })
-  const desktop = new DesktopService(
-    { getSettings: () => config, updateSettings: async patch => { Object.assign(config, patch); calls.push('save') } },
+  const { NetworkModeController } = load('src/main/services/NetworkModeController.ts', { '../utils/elevation': { isProcessElevated: () => true }, '../utils/logger': { logger } })
+  const desktopArgs = [
+    { getSettings: () => structuredClone(config), updateSettings: async patch => { Object.assign(config, patch); calls.push('save'); return structuredClone(config) } },
     { getProfiles: () => [{ id: 'active', type: 'remote' }, { id: 'other', type: 'remote' }, { id: 'local', type: 'local' }, { id: 'disabled', type: 'remote', autoUpdate: false }, { id: 'recent', type: 'remote', interval: 15, updatedAt: Date.now() }], getActiveProfile: () => ({ id: 'active' }), updateProfile: async id => { calls.push('update:' + id); return true } },
     { getStatus: () => 'running', restart: async () => calls.push('restart'), patchConfigs: async patch => calls.push('mode:' + patch.mode) },
-    { getStatus: () => ({ enabled: config.sysProxy.enable }), setSysProxy: async enable => { config.sysProxy.enable = enable; calls.push('proxy:' + enable) } }, { show: () => calls.push('show') }, () => calls.push('notify'))
+    { getStatus: () => ({ enabled: config.sysProxy.enable }), setSysProxy: async enable => { config.sysProxy.enable = enable; calls.push('proxy:' + enable) } }, { show: () => calls.push('show') }, () => calls.push('notify')]
+  const desktop = new DesktopService(...desktopArgs, new NetworkModeController(desktopArgs[0], desktopArgs[2], desktopArgs[3], async () => {}, () => {}, () => true))
   await desktop.initialize()
   assert.deepEqual(login, [true])
   const previousShow = bindings.get('Ctrl+Alt+Q')
