@@ -1,17 +1,16 @@
+import { DeleteProfileDialog } from '../components/profiles/DeleteProfileDialog'
+import { useProfileActions } from '../hooks/useProfileActions'
 import { AddProfileDialog } from '../components/profiles/AddProfileDialog'
 import { useProfileImport } from '../hooks/useProfileImport'
 import { ProfileCard } from '../components/profiles/ProfileCard'
-import { useLocale, useTranslations, useCustomLocalization } from '../i18n'
-import React, { lazy, Suspense, useRef, useState } from 'react'
+import { useTranslations } from '../i18n'
+import React, { lazy, Suspense, useState } from 'react'
 import { Plus, Globe } from 'lucide-react'
 
 import { ProfileItem } from '@shared/profile'
 
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
-
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog'
-import { profileName as displayName } from '../lib/profile-name'
 
 const ProfileEditorDialog = lazy(() => import('../components/ProfileEditorDialog').then((module) => ({ default: module.ProfileEditorDialog })))
 const ProfileFileEditorDialog = lazy(() => import('../components/ProfileFileEditorDialog').then((module) => ({ default: module.ProfileFileEditorDialog })))
@@ -35,47 +34,13 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
   onClearImportRequest
 }) => {
   const t = useTranslations('profiles')
-  const locale = useLocale()
-  const customLocalization = useCustomLocalization()
 
   const [editingProfile, setEditingProfile] = useState<ProfileItem | null>(null)
   const [editingFileProfile, setEditingFileProfile] = useState<ProfileItem | null>(null)
   const [editingInfoProfile, setEditingInfoProfile] = useState<ProfileItem | null>(null)
-  const [error, setError] = useState('')
+  const { error, setError, updating, profileToDelete, setProfileToDelete, confirmDelete, handleUpdate } = useProfileActions(onRefreshAll)
   const importDraft = useProfileImport({ importRequest, onClearImportRequest, onRefreshAll, error, setError })
   const { showAddModal, setShowAddModal } = importDraft
-  const pendingUpdates = useRef(new Set<string>())
-  const [updating, setUpdating] = useState<Set<string>>(new Set())
-  const [profileToDelete, setProfileToDelete] = useState<ProfileItem | null>(null)
-
-  const confirmDelete = async () => {
-    if (!window.api || !profileToDelete) return
-    const id = profileToDelete.id
-    setProfileToDelete(null)
-    setError('')
-    try {
-      await window.api.profiles.delete(id)
-      onRefreshAll()
-    } catch (err) {
-      setError(t('deleteFailed', { error: err instanceof Error ? err.message : String(err) }))
-    }
-  }
-
-  const handleUpdate = async (id: string) => {
-    if (!window.api || pendingUpdates.current.has(id)) return
-    pendingUpdates.current.add(id)
-    setUpdating(new Set(pendingUpdates.current))
-    setError('')
-    try {
-      await window.api.profiles.update(id)
-      onRefreshAll()
-    } catch (err) {
-      setError(t('updateFailed', { error: err instanceof Error ? err.message : String(err) }))
-    } finally {
-      pendingUpdates.current.delete(id)
-      setUpdating(new Set(pendingUpdates.current))
-    }
-  }
 
   return (
     <div className="page-scroll">
@@ -153,25 +118,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
         </Suspense>
       )}
 
-      <AlertDialog open={!!profileToDelete} onOpenChange={(open) => !open && setProfileToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('areYouSureYouWantToDeleteThisProfile')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {profileToDelete ? displayName(profileToDelete, locale, customLocalization) : ''}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {t('delete')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteProfileDialog profile={profileToDelete} onCancel={() => setProfileToDelete(null)} onConfirm={confirmDelete} />
     </div>
   )
 }
