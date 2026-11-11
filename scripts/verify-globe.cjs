@@ -159,6 +159,16 @@ async function main() {
     { chains: ['fallback'], metadata: {} },
     { chains: ['unknown'], metadata: { destinationIP: 'website-ip' } }
   ] })
+  const { KernelGlobeResolver } = load('src/main/core/KernelGlobeResolver.ts', {})
+  kernel.globeResolver = new KernelGlobeResolver({
+    profiles: kernel.profileService,
+    geoIp: kernel.geoIp,
+    status: () => kernel.getStatus(),
+    settings: () => kernel.settingService.getSettings(),
+    connections: () => kernel.getConnections(),
+    proxies: () => kernel.getProxies(),
+    resolveHost: host => kernel.apiClient.resolveHost(host)
+  })
   const result = await kernel.getGlobeLocations()
   assert.deepEqual(hosts, ['1.1.1.1', '2606:4700:4700::1111', 'fallback.example.com'])
   assert.equal(result.routes.length, 3, 'direct, groups and unknown server locations are excluded')
@@ -179,7 +189,6 @@ async function main() {
   kernel.settingService.getSettings = () => ({ kernel: { mode: 'rule', tun: { enable: false } } })
   kernel.geoIp.captureOrigin = async () => { kernel.geoIp.getOrigin = () => a }
   assert.equal((await kernel.getGlobeLocations()).status, 'ready', 'missing origin retries safely without TUN')
-  kernel.geoGeneration = 0
   kernel.profileService.getProfileContent = async () => ''
   kernel.getProxies = async () => ({})
   let activeRequests = 0, maximumRequests = 0, locationRequests = 0, snapshots = 0
@@ -230,7 +239,7 @@ async function main() {
   const lifecycle = Object.create(LifecycleKernel.prototype)
   lifecycle.trafficAccounting = new (load('src/main/core/TrafficAccounting.ts', {}).TrafficAccounting)()
   lifecycle.lifecycle = Promise.resolve()
-  lifecycle.geoGeneration = 0
+  lifecycle.globeResolver = { invalidate() {} }
   lifecycle.settingService = { getSettings: () => ({ kernel: { tun: { enable: true } } }) }
   lifecycle.geoIp = { captureOrigin: () => originRead }
   lifecycle.profileService = { getActiveProfile: () => ({ id: 'fixture' }), getProfileContent: async () => { await profileRead; return raw }, getCustomRules: () => customRules,
