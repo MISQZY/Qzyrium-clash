@@ -85,7 +85,7 @@
   "trafficCaptureIsEnabled": "Перехват трафика включён",
   "trafficBreakdown": "Детализация",
   "trafficExplanationAll": "Отражает весь трафик текущей сессии.",
-  "trafficExplanationVpn": "Отражает трафик текущей сессии через VPN.",
+  "trafficExplanationVpn": "Нижняя граница трафика, наблюдавшегося в VPN-соединениях. Передачи, завершившиеся между обновлениями или при скрытом окне, могут не учитываться. Скорость включает весь трафик.",
   "trafficTotal": "Всего",
   "trafficVpn": "VPN",
   "trafficAll": "Все",

@@ -11,6 +11,8 @@ export const EMPTY_CONNECTIONS: ConnectionsSnapshot = {
   uploadTotal: 0,
   directDownloadTotal: 0,
   directUploadTotal: 0,
+  vpnDownloadTotal: 0,
+  vpnUploadTotal: 0,
   connections: []
 }
 

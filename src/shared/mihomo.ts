@@ -72,5 +72,8 @@ export interface ConnectionsSnapshot {
   uploadTotal: number
   directDownloadTotal?: number
   directUploadTotal?: number
+  vpnDownloadTotal?: number
+  vpnUploadTotal?: number
+  vpnTrafficIsLowerBound?: boolean
   connections: ConnectionItem[]
 }

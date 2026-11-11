@@ -85,7 +85,7 @@
   "trafficCaptureIsEnabled": "Traffic capture is enabled",
   "trafficBreakdown": "Breakdown",
   "trafficExplanationAll": "Reflects all current session traffic.",
-  "trafficExplanationVpn": "Reflects current session traffic routed through VPN.",
+  "trafficExplanationVpn": "At least this much traffic was observed on VPN connections. Transfers completed between updates or while the window was hidden may be missing. Rates include all traffic.",
   "trafficTotal": "Total",
   "trafficVpn": "VPN",
   "trafficAll": "All",
