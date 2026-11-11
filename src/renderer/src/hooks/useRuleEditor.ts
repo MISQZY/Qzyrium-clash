@@ -330,3 +330,5 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
 
   return { t, common, locale, customLocalization, activeMode, rules, proxyGroups, searchQuery, setSearchQuery, newRule, setNewRule, editingId, editingDraft, setEditingDraft, validatingRule, draggedIndex, instructionsOpen, setInstructionsOpen, rulesYamlContent, setRulesYamlContent, loading, loadedProfileId, saving, error, setError, isDark, handleModeChange, isNewPayloadValid, isNewRuleLogical, newRuleLogicalSummary, handleAddRule, handleToggleDelete, handleMoveRule, handleDragStart, handleDragOver, handleDragEnd, startInlineEdit, cancelInlineEdit, saveInlineEdit, handleSave, filteredRules, customRulesCount, deletedRulesCount }
 }
+
+export type RuleEditorState = ReturnType<typeof useRuleEditor>

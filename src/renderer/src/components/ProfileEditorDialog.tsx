@@ -1,10 +1,11 @@
+import { RuleCreatePanel } from './rules/RuleCreatePanel'
 import { useRuleEditor, type RuleEditorProps } from '../hooks/useRuleEditor'
 import React, { lazy, Suspense } from 'react'
-import yaml from 'yaml'
-import { isLogicalRuleType, ruleTypes, isRuleSupportsNoResolve, isRuleSupportsSrc, getRuleExample } from '@shared/rule-editor'
+
+import { isLogicalRuleType, ruleTypes, isRuleSupportsNoResolve, isRuleSupportsSrc } from '@shared/rule-editor'
 
 import { Tooltip } from 'radix-ui'
-import { CodeXml, Check, AlertCircle, LoaderCircle, Code, ListTree, ArrowUpToLine, ArrowDownToLine, Trash2, Undo2, Search, ChevronDown, ChevronUp, GripVertical, HelpCircle, X } from 'lucide-react'
+import { CodeXml, Check, AlertCircle, LoaderCircle, Code, ListTree, Trash2, Undo2, Search, ChevronDown, ChevronUp, GripVertical, HelpCircle, X } from 'lucide-react'
 
 import { EmojiText } from './EmojiText'
 import { profileName } from '../lib/profile-name'
@@ -27,7 +28,8 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
   profile,
   onSaved
 }) => {
-  const { t, common, locale, customLocalization, activeMode, rules, proxyGroups, searchQuery, setSearchQuery, newRule, setNewRule, editingId, editingDraft, setEditingDraft, validatingRule, draggedIndex, instructionsOpen, setInstructionsOpen, rulesYamlContent, setRulesYamlContent, loading, loadedProfileId, saving, error, setError, isDark, handleModeChange, isNewPayloadValid, isNewRuleLogical, newRuleLogicalSummary, handleAddRule, handleToggleDelete, handleMoveRule, handleDragStart, handleDragOver, handleDragEnd, startInlineEdit, cancelInlineEdit, saveInlineEdit, handleSave, filteredRules, customRulesCount, deletedRulesCount } = useRuleEditor({ open, profile, onSaved, onOpenChange })
+  const editor = useRuleEditor({ open, profile, onSaved, onOpenChange })
+  const { t, common, locale, customLocalization, activeMode, rules, proxyGroups, searchQuery, setSearchQuery, editingId, editingDraft, setEditingDraft, validatingRule, draggedIndex, rulesYamlContent, setRulesYamlContent, loading, loadedProfileId, saving, error, setError, isDark, handleModeChange, handleToggleDelete, handleMoveRule, handleDragStart, handleDragOver, handleDragEnd, startInlineEdit, cancelInlineEdit, saveInlineEdit, handleSave, filteredRules, customRulesCount, deletedRulesCount } = editor
 
   if (!profile) return null
 
@@ -107,196 +109,7 @@ export const ProfileEditorDialog: React.FC<ProfileEditorDialogProps> = ({
           {/* Visual Rules Editor */}
           <div className={cn("flex flex-col md:flex-row gap-4 h-full min-h-0", activeMode !== 'visual' && "hidden")}>
             {/* Left Panel: Create & Configure Rule */}
-            <div className="w-full md:w-[360px] lg:w-[390px] shrink-0 flex flex-col gap-3 overflow-y-auto pr-1 min-h-0">
-              <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card/60 p-3.5 shadow-xs">
-                {/* Rule Type */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-foreground">{t('ruleType')}</label>
-                  <Select
-                    value={newRule.type}
-                    onValueChange={(sel) => {
-                      let extra = [...(newRule.additionalParams || [])]
-                      if (!isRuleSupportsNoResolve(sel)) extra = extra.filter((p) => p !== 'no-resolve')
-                      if (!isRuleSupportsSrc(sel)) extra = extra.filter((p) => p !== 'src')
-                      setNewRule({ ...newRule, type: sel, additionalParams: extra })
-                    }}
-                  >
-                    <SelectTrigger aria-label={t('ruleType')} className="w-full min-w-0 font-mono"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {ruleTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Payload */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-foreground">{t('payload')}</label>
-                  {isNewRuleLogical ? (
-                    <Textarea
-                      placeholder={getRuleExample(newRule.type) || t('payloadPlaceholder')}
-                      value={newRule.payload}
-                      onChange={(e) => setNewRule({ ...newRule, payload: e.target.value })}
-                      disabled={newRule.type === 'MATCH'}
-                      rows={3}
-                      className={cn(
-                        'text-xs font-mono resize-y',
-                        newRule.payload && newRule.type !== 'MATCH' && !isNewPayloadValid
-                          ? 'border-destructive focus-visible:ring-destructive'
-                          : ''
-                      )}
-                    />
-                  ) : (
-                    <Input
-                      placeholder={getRuleExample(newRule.type) || t('payloadPlaceholder')}
-                      value={newRule.payload}
-                      onChange={(e) => setNewRule({ ...newRule, payload: e.target.value })}
-                      disabled={newRule.type === 'MATCH'}
-                      className={cn(
-                        'h-8.5 text-xs font-mono',
-                        newRule.payload && newRule.type !== 'MATCH' && !isNewPayloadValid
-                          ? 'border-destructive focus-visible:ring-destructive'
-                          : ''
-                      )}
-                    />
-                  )}
-
-                  {/* Logical clauses previews */}
-                  {isNewRuleLogical && newRuleLogicalSummary.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {newRuleLogicalSummary.slice(0, 3).map((clause, idx) => (
-                        <Badge key={idx} variant="outline" className="text-[10px] truncate max-w-[180px]">
-                          {clause}
-                        </Badge>
-                      ))}
-                      {newRuleLogicalSummary.length > 3 && (
-                        <Badge variant="outline" className="text-[10px]">
-                          +{newRuleLogicalSummary.length - 3}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Format error hint */}
-                  {newRule.payload && newRule.type !== 'MATCH' && !isNewPayloadValid && (
-                    <p className="text-[11px] text-destructive">
-                      {t('expectedFormat')}: {getRuleExample(newRule.type)}
-                    </p>
-                  )}
-                </div>
-
-                {/* Proxy / Target Selector */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-foreground">{t('proxyTarget')}</label>
-                  <Select
-                    value={newRule.proxy}
-                    onValueChange={(proxy) => setNewRule({ ...newRule, proxy })}
-                  >
-                    <SelectTrigger aria-label={t('proxyTarget')} className="w-full min-w-0 font-mono"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {proxyGroups.map((group) => (
-                        <SelectItem key={group} value={group}>
-                          {group}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Additional Options (Switches) */}
-                {(isRuleSupportsNoResolve(newRule.type) || isRuleSupportsSrc(newRule.type)) && (
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 border-t border-border/50">
-                    {isRuleSupportsNoResolve(newRule.type) && (
-                      <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
-                        <Switch
-                          checked={newRule.additionalParams?.includes('no-resolve') || false}
-                          onCheckedChange={(checked) => {
-                            let params = [...(newRule.additionalParams || [])]
-                            if (checked) {
-                              if (!params.includes('no-resolve')) params.push('no-resolve')
-                            } else {
-                              params = params.filter((p) => p !== 'no-resolve')
-                            }
-                            setNewRule({ ...newRule, additionalParams: params })
-                          }}
-                        />
-                        <span>no-resolve</span>
-                      </label>
-                    )}
-                    {isRuleSupportsSrc(newRule.type) && (
-                      <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
-                        <Switch
-                          checked={newRule.additionalParams?.includes('src') || false}
-                          onCheckedChange={(checked) => {
-                            let params = [...(newRule.additionalParams || [])]
-                            if (checked) {
-                              if (!params.includes('src')) params.push('src')
-                            } else {
-                              params = params.filter((p) => p !== 'src')
-                            }
-                            setNewRule({ ...newRule, additionalParams: params })
-                          }}
-                        />
-                        <span>src</span>
-                      </label>
-                    )}
-                  </div>
-                )}
-
-                {/* Action Buttons: Add Prepend / Add Append */}
-                <div className="flex items-center gap-2 pt-1">
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    onClick={() => handleAddRule('top')}
-                    disabled={newRule.type !== 'MATCH' && (!newRule.payload.trim() || !isNewPayloadValid)}
-                    className="flex-1 gap-1.5"
-                  >
-                    <ArrowUpToLine className="size-3.5" />
-                    <span className="truncate">{t('addRulePrepend')}</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleAddRule('bottom')}
-                    disabled={newRule.type !== 'MATCH' && (!newRule.payload.trim() || !isNewPayloadValid)}
-                    className="flex-1 gap-1.5"
-                  >
-                    <ArrowDownToLine className="size-3.5" />
-                    <span className="truncate">{t('addRuleAppend')}</span>
-                  </Button>
-                </div>
-              </div>
-
-              {/* Collapsible Rules Guide Accordion */}
-              <div className="rounded-lg border border-border/50 bg-muted/20 p-2.5">
-                <button
-                  type="button"
-                  onClick={() => setInstructionsOpen(!instructionsOpen)}
-                  className="flex w-full items-center justify-between text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <HelpCircle className="size-3.5 text-primary" />
-                    <span>{t('instructions')}</span>
-                  </div>
-                  <ChevronDown
-                    className={cn('size-3.5 transition-transform duration-200', instructionsOpen && 'rotate-180')}
-                  />
-                </button>
-                {instructionsOpen && (
-                  <div className="mt-2 text-[11px] text-muted-foreground space-y-1.5 leading-relaxed pt-2 border-t border-border/40">
-                    <p>• {t('instructions1')}</p>
-                    <p>• {t('instructions2')}</p>
-                    <p>• {t('instructions3')}</p>
-                  </div>
-                )}
-              </div>
-            </div>
+            <RuleCreatePanel editor={editor} />
 
             {/* Right Panel: Current Rules List */}
             <div className="flex-1 min-w-0 border-t md:border-t-0 md:border-l border-border/60 md:pl-4 pt-3 md:pt-0 flex flex-col min-h-0">
