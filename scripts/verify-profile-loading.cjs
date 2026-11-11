@@ -159,6 +159,9 @@ async function verifyProfiles() {
       async unlink(file) { files.delete(file) }
     } },
     axios: { async get(_url, options) {
+      if (_url.endsWith('/dns/query')) return {
+        data: { Answer: options.params.type === 'A' ? [{ type: 1, data: '203.0.113.1' }] : [] }, headers: {}
+      }
       requestAgents.push(options?.headers?.['User-Agent']); requestProxies.push(options?.proxy)
       fetches++; await nextTurn()
       if (failFetch) throw Object.assign(new Error('Failed https://user:password@fixture/private-path?Token=private-token'), {
@@ -166,6 +169,7 @@ async function verifyProfiles() {
       })
       return { data: content, headers: responseHeaders }
     } },
+    'node:dns/promises': { lookup: async () => [{ address: '203.0.113.1', family: 4 }] },
     '../utils/subscription-name': { subscriptionName },
     '../utils/paths': { getAppPaths: () => ({ profilesFilePath: 'profiles.json', profilesDir: 'profiles' }) },
     '../utils/logger': { logger }
@@ -272,7 +276,7 @@ async function verifyProfiles() {
   await profiles.updateProfile('a')
   assert.equal(requestAgents.at(-1), 'Custom profile client', 'explicit per-profile User-Agent is preserved')
   profiles.setCoreStatusProvider(() => true)
-  assert.equal(requestProxies.at(-1), undefined, 'updates without updateViaProxy do not route through proxy tunnel')
+  assert.equal(requestProxies.at(-1), false, 'direct updates explicitly bypass environment proxies')
   await profiles.updateProfileInfo('a', { updateViaProxy: true })
   assert.equal(profiles.getProfiles().find(item => item.id === 'a').updateViaProxy, true)
   await profiles.updateProfile('a')
@@ -290,7 +294,7 @@ async function verifyProfiles() {
     assert.equal(fetches, beforeOffline, 'stopped core must not send a subscription request')
   await profiles.updateProfileInfo('a', { updateViaProxy: false })
   await profiles.updateProfile('a')
-  assert.equal(requestProxies.at(-1), undefined, 'updates with updateViaProxy false route directly')
+  assert.equal(requestProxies.at(-1), false, 'updates with updateViaProxy false route directly')
   await profiles.dispose()
 }
 

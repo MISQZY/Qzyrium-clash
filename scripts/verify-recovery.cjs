@@ -72,7 +72,10 @@ async function verifyPersistenceAndProfiles() {
   assert.match(MihomoConfigFactory.synthesize(null, fresh()), /MATCH,DIRECT/)
 
   let response = 'rules:\n  - MATCH,DIRECT\n'
-  const { ProfileService } = load('src/main/services/ProfileService.ts', { ...deps, axios: { get: async () => ({ data: response, headers: {} }) } })
+  const { ProfileService } = load('src/main/services/ProfileService.ts', { ...deps,
+    axios: { get: async () => ({ data: response, headers: {} }) },
+    'node:dns/promises': { lookup: async () => [{ address: '203.0.113.1', family: 4 }] }
+  })
   const profiles = new ProfileService(settings)
   await profiles.initialize()
   const profile = await profiles.addProfile({ type: 'remote', url: 'https://fixture.invalid/sub', name: 'Working' })
