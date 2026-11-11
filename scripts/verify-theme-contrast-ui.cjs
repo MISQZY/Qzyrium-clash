@@ -13,8 +13,14 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 app.whenReady().then(async () => {
   const win = new BrowserWindow({ show: false, width: 1040, height: 720,
     webPreferences: { preload: path.resolve(__dirname, 'verify-ui.cjs'), sandbox: false, contextIsolation: true, backgroundThrottling: false } })
-  win.showInactive()
+  // Let capturePage acquire its own visible surface; showInactive can leave a
+  // window occluded and produce UnknownVizError on the Windows test desktop.
   const evaluate = code => win.webContents.executeJavaScript(code)
+  const screenshot = async name => {
+    const image = await win.webContents.capturePage()
+    assert.ok(!image.isEmpty(), `${name}: screenshot must contain pixels`)
+    fs.writeFileSync(path.join(output, `${name}.png`), image.toPNG())
+  }
   const waitFor = async code => {
     for (let i = 0; i < 120; i++) {
       if (await evaluate(code)) return
@@ -71,7 +77,7 @@ app.whenReady().then(async () => {
         probe.remove(); return { pairs: result, samples };
       })()`)
       for (const pair of ratios.pairs) assert.ok(pair.ratio >= 4.5, `${id}: ${pair.fg} on ${pair.bg}: ${pair.ratio}; samples: ${JSON.stringify(ratios.samples)}`)
-      fs.writeFileSync(path.join(output, `${id}-settings.png`), (await win.webContents.capturePage()).toPNG())
+      await screenshot(`${id}-settings`)
       await evaluate(`document.querySelector('.sidebar-link[aria-label="Home"]').click()`)
       await waitFor(`document.querySelector('.globe-canvas')?.dataset.globeReady === 'true'`)
       for (const running of [true, false]) {
@@ -86,7 +92,7 @@ app.whenReady().then(async () => {
           let max = 0; for (let i = 3; i < data.length; i += 4) max = Math.max(max,data[i]); return max;
         })()`)
         assert.ok(maxAlpha >= 200, `${id} ${running}: globe land must remain visible`)
-        fs.writeFileSync(path.join(output, `${id}-${running ? 'connected' : 'disconnected'}.png`), (await win.webContents.capturePage()).toPNG())
+        await screenshot(`${id}-${running ? 'connected' : 'disconnected'}`)
       }
     }
     console.log('PASS: light/dark and low-contrast custom themes: readable text, tinted badges, theme switching, connected/disconnected globe')
