@@ -163,18 +163,19 @@ async function verifyElevationRecovery() {
     }
     const { restartAsAdmin, isProcessElevated } = load('src/main/utils/elevation.ts', {
       electron: { app },
+      './elevate-task': { checkElevateTask: () => false, tryRunElevateTask: () => false },
       child_process: {
-        execFileSync: (file, args) => {
-          assert.equal(file, 'powershell.exe')
-          assert.match(args.join(' '), /WindowsPrincipal/)
+        execFileSync: (file) => {
+          assert.ok(file.includes('fltmc') || file.includes('whoami'))
         },
         execFile: (file, args, options, callback) => {
-          assert.equal(file, 'powershell.exe')
+          assert.equal(file, 'wscript.exe')
           assert.equal(options.windowsHide, true)
-          const script = Buffer.from(args.at(-1), 'base64').toString('utf16le')
-          assert.match(script, /\$ErrorActionPreference = 'Stop'/)
-          assert.match(script, /-Verb RunAs.*-ErrorAction Stop/)
-          assert.ok(script.includes("C:\\VPN test''s\\app"))
+          const vbsFile = args[1]
+          const script = fs.readFileSync(vbsFile, 'utf8')
+          assert.match(script, /Shell\.Application/)
+          assert.match(script, /runas/)
+          assert.ok(script.includes("C:\\VPN test's\\app") || script.includes("C:\\VPN test''s\\app"))
           assert.ok(script.includes('--admin-restart=123'))
           assert.ok(!script.includes('--admin-restart=999'))
           if (outcome === 'throw') throw new Error('spawn failed')

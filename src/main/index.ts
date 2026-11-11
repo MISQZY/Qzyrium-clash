@@ -10,6 +10,7 @@ import { IPC_CHANNELS } from '@shared/ipc'
 import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import { clearRestartState, readRestartState } from './utils/restart-state'
 import { isProcessElevated, restartAsAdmin } from './utils/elevation'
+import { createElevateTaskSync, tryRunElevateTask } from './utils/elevate-task'
 
 app.setName('Qzyrium-clash')
 electronApp.setAppUserModelId('com.qzyrium.vpn')
@@ -87,6 +88,32 @@ if (adminRestartPid) {
       sleepSync(100)
     } catch {
       break
+    }
+  }
+}
+
+// Seamless UAC bypass via Windows Task Scheduler (koala-clash approach)
+if (
+  process.platform === 'win32' &&
+  app.isPackaged &&
+  !process.argv.includes('--noadmin') &&
+  !process.argv.includes('--no-admin-task') &&
+  !adminRestartPid
+) {
+  if (isProcessElevated()) {
+    try {
+      createElevateTaskSync()
+    } catch {
+      // Ignore background task creation errors
+    }
+  } else {
+    try {
+      if (tryRunElevateTask(process.argv.slice(1))) {
+        app.exit(0)
+        process.exit(0)
+      }
+    } catch {
+      // First unprivileged launch before task is created, continue normal execution
     }
   }
 }

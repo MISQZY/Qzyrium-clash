@@ -146,11 +146,34 @@ async function prepareGeoFiles() {
   }
 }
 
+async function prepareRunner() {
+  if (platform !== 'win32') return
+  const runnerDest = path.join(FILES_DIR, 'qzyrium-run.exe')
+  const runnerSource = path.join(cwd, 'scripts', 'runner', 'Program.cs')
+  if (fs.existsSync(runnerDest) && fs.statSync(runnerDest).size > 0) {
+    console.log(`[INFO] Runner executable already exists at: ${runnerDest}`)
+    return
+  }
+  if (!fs.existsSync(runnerSource)) {
+    console.log('[WARN] Runner source Program.cs not found, skipping compile')
+    return
+  }
+  const cscPath = 'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe'
+  if (!fs.existsSync(cscPath)) {
+    console.log('[WARN] Framework csc.exe not found, skipping compile')
+    return
+  }
+  const { execFileSync } = await import('node:child_process')
+  execFileSync(cscPath, ['/target:winexe', '/optimize+', '/platform:anycpu', `/out:${runnerDest}`, runnerSource], { stdio: 'ignore' })
+  console.log(`[SUCCESS] Runner executable compiled to: ${runnerDest}`)
+}
+
 async function main() {
   console.log('=== QzyriumVPN Resources Preparation ===')
   try {
     await prepareMihomo()
     await prepareGeoFiles()
+    await prepareRunner()
     console.log('[SUCCESS] All resources ready!')
   } catch (e) {
     console.error('[FATAL] Failed to prepare resources:', e)

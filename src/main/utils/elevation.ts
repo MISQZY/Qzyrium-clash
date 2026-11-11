@@ -1,7 +1,10 @@
 import { execFileSync, execFile } from 'child_process'
 import path from 'path'
+import os from 'os'
+import { writeFileSync, unlinkSync } from 'fs'
 import { app } from 'electron'
 import { logger } from './logger'
+import { checkElevateTask, tryRunElevateTask } from './elevate-task'
 
 let cachedElevated: boolean | null = null
 
@@ -14,11 +17,24 @@ export function isProcessElevated(): boolean {
   }
 
   try {
-    // Check the process token; `net session` also fails when the Server service is stopped.
-    execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-      '$principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()); if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { exit 0 } else { exit 1 }'
-    ], { stdio: 'ignore', windowsHide: true })
+    const systemRoot = process.env?.SystemRoot
+    const fltmc = systemRoot
+      ? path.join(systemRoot, 'System32', 'fltmc.exe')
+      : 'fltmc.exe'
+    execFileSync(fltmc, [], { stdio: 'ignore', windowsHide: true })
     cachedElevated = true
+    return true
+  } catch {
+    // fltmc fails with exit code 1 when not elevated
+  }
+
+  try {
+    const systemRoot = process.env?.SystemRoot
+    const whoami = systemRoot
+      ? path.join(systemRoot, 'System32', 'whoami.exe')
+      : 'whoami.exe'
+    const out = execFileSync(whoami, ['/groups'], { encoding: 'utf8', windowsHide: true })
+    cachedElevated = out.includes('S-1-16-12288') || out.includes('S-1-16-16384')
   } catch {
     cachedElevated = false
   }
@@ -50,37 +66,55 @@ export function restartAsAdmin(): Promise<boolean> {
         : [electronApp.getAppPath(), ...process.argv.slice(2).filter((a: string) => !a.startsWith('--admin-restart'))]
       const args = [...rawArgs, `--admin-restart=${process.pid}`]
 
-      const escapedExecPath = execPath.replace(/'/g, "''")
-      const escapedWorkingDir = workingDir.replace(/'/g, "''")
-      const escapedArgs = args
-        .map((a: string) => {
-          const esc = a.replace(/'/g, "''")
-          return /[\s"]/.test(a) ? `'"${esc}"'` : `'${esc}'`
-        })
-        .join(', ')
-
-      const script = `
-$ErrorActionPreference = 'Stop'
-$filePath = '${escapedExecPath}'
-$workingDir = '${escapedWorkingDir}'
-$argList = @(${escapedArgs})
-Start-Process -FilePath $filePath -WorkingDirectory $workingDir -ArgumentList $argList -Verb RunAs -WindowStyle Normal -ErrorAction Stop
-`
-      const encoded = Buffer.from(script, 'utf16le').toString('base64')
-
       // Release single-instance lock before launching elevated instance to avoid collision
       if (typeof electronApp.releaseSingleInstanceLock === 'function') {
         electronApp.releaseSingleInstanceLock()
       }
 
+      // Try launching via the Task Scheduler bypass task first (no UAC prompt, no PowerShell)
+      try {
+        if (checkElevateTask() && tryRunElevateTask(args)) {
+          electronApp.exit(0)
+          resolve(true)
+          return
+        }
+      } catch (taskErr) {
+        logger.warn(`Elevate task launch attempt failed, falling back to direct UAC elevation: ${String(taskErr)}`)
+      }
+
+      // Native UAC elevation via Windows Script Host (prompts UAC for the executable itself, not PowerShell)
+      const tempDir = (typeof electronApp.getPath === 'function' && electronApp.getPath('temp')) || process.env?.TEMP || os.tmpdir()
+      const vbsPath = path.join(tempDir, `elevate_${process.pid}_${Date.now()}.vbs`)
+      const escapedTarget = execPath.replace(/"/g, '""')
+      const escapedDir = workingDir.replace(/"/g, '""')
+      const escapedArgs = args
+        .map((a: string) => {
+          const esc = a.replace(/"/g, '""')
+          return /[\s"]/.test(a) ? `""${esc}""` : esc
+        })
+        .join(' ')
+
+      const vbsScript = `Set s = CreateObject("Shell.Application")\ns.ShellExecute "${escapedTarget}", "${escapedArgs}", "${escapedDir}", "runas", 1\n`
+
+      try {
+        writeFileSync(vbsPath, vbsScript, 'utf8')
+      } catch (writeErr) {
+        logger.error('Failed to create elevation script', writeErr)
+        if (typeof electronApp.requestSingleInstanceLock === 'function') {
+          electronApp.requestSingleInstanceLock()
+        }
+        resolve(false)
+        return
+      }
+
       execFile(
-        'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand', encoded],
+        'wscript.exe',
+        ['//nologo', vbsPath],
         { windowsHide: true },
         (err) => {
+          try { unlinkSync(vbsPath) } catch { /* ignore */ }
           if (err) {
             logger.warn(`Failed to relaunch process as Administrator or UAC was declined: ${String(err)}`)
-            // Restore single instance lock if elevation failed or was canceled by user
             if (typeof electronApp.requestSingleInstanceLock === 'function') {
               electronApp.requestSingleInstanceLock()
             }
@@ -93,7 +127,9 @@ Start-Process -FilePath $filePath -WorkingDirectory $workingDir -ArgumentList $a
         }
       )
     } catch (err) {
-      if (app) app.requestSingleInstanceLock()
+      if (app && typeof app.requestSingleInstanceLock === 'function') {
+        app.requestSingleInstanceLock()
+      }
       logger.error('Failed to relaunch process as Administrator', err)
       resolve(false)
     }
