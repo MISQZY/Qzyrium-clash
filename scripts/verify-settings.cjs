@@ -214,12 +214,11 @@ function verifySession() {
   Object.assign(api, { startTrafficStream() {}, startLogStream() {}, stopAllStreams() {} })
   const { KernelService } = load('src/main/services/KernelService.ts', {
     '../utils/elevation': { isProcessElevated: () => false },
-    '../core/MihomoConfigFactory': { MihomoConfigFactory },
-    '../core/MihomoProcessManager': { MihomoProcessManager: class { constructor() { return manager } } },
-    '../core/MihomoApiClient': { MihomoApiClient: class { constructor() { return api } } },
-    './GeoIpService': { GeoIpService: class {} }, '../utils/local-geoip': { LocalGeoIp: class {} }, '../utils/logger': { logger }
+    '../utils/logger': { logger }
   }, { Date: class extends Date { static now() { return time } } })
-  const kernel = new KernelService({ getSettings: fresh }, {})
+  const kernel = new KernelService({ getSettings: fresh }, {}, {
+    processManager: manager, apiClient: api, geoIp: {}, configBuilder: {}, trafficAccounting: {}
+  })
   const messages = []
   kernel.setBroadcaster((channel, data) => messages.push({ channel, data }))
   const entry = { type: 'info', payload: 'Ready', time: '12:00:00' }
