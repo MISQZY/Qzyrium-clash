@@ -28,7 +28,7 @@ if (process.type === 'renderer') {
   app.whenReady().then(async () => {
     const win = new BrowserWindow({ show: false, width: 1040, height: 720, webPreferences: { preload: __filename, sandbox: false, contextIsolation: true, backgroundThrottling: false } })
     const errors = []
-    win.webContents.on('console-message', (_, level, message) => { if (level >= 3) errors.push(message) })
+    win.webContents.on('console-message', (event) => { const level = event.level; const message = event.message; if (level === 'error' || level >= 3) errors.push(message) })
     const evaluate = code => win.webContents.executeJavaScript(code)
     const waitFor = async code => {
       for (let attempt = 0; attempt < 100; attempt++) {

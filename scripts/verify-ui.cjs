@@ -64,7 +64,7 @@ if (process.type === 'renderer') {
     win.webContents.session.protocol.handle('https', request => request.url.startsWith('https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/')
       ? new Response(emojiFixture, { headers: { 'Content-Type': 'image/svg+xml' } })
       : new Response('', { status: 404 }))
-    win.webContents.on('console-message', (_event, level, message) => { if (level >= 3 || message.includes('Insecure Content-Security-Policy')) result.errors.push(message) })
+    win.webContents.on('console-message', (event) => { const level = event.level; const message = event.message; if (level === 'error' || level >= 3 || message.includes('Insecure Content-Security-Policy')) result.errors.push(message) })
     win.webContents.on('render-process-gone', (_event, details) => result.errors.push(details.reason))
     const evaluate = (code) => win.webContents.executeJavaScript(code)
     const setControl = (selector, value) => evaluate(`(() => { const input = document.querySelector(${JSON.stringify(selector)}); if (input instanceof HTMLSelectElement) { input.value = ${JSON.stringify(value)}; input.dispatchEvent(new Event('change', { bubbles: true })); } else { const prototype = input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event('input', { bubbles: true })); } })()`)
