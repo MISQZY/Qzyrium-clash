@@ -27,6 +27,7 @@ import { globeProfile, globeProxies } from '../utils/globe-profile'
 import { isProcessElevated } from '../utils/elevation'
 import type { ProxyGroup } from '@shared/mihomo'
 import { offlineProxies } from '../utils/offline-proxies'
+import { flushSystemDns } from '../utils/network-transition'
 
 export class KernelService implements BaseService {
   private processManager: MihomoProcessManager
@@ -250,7 +251,25 @@ export class KernelService implements BaseService {
 
   private async stopCore(): Promise<void> {
     this.apiClient.stopAllStreams()
+    if (this.getStatus() === 'running') {
+      try {
+        // Gracefully request Mihomo to teardown TUN adapter before process termination
+        await Promise.race([
+          this.apiClient.patchConfigs({ tun: { enable: false } }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))
+        ]).catch(() => {})
+
+        // Gracefully close active proxy streams in Mihomo engine
+        await Promise.race([
+          this.apiClient.closeAllConnections(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 500))
+        ]).catch(() => {})
+      } catch {
+        // Fallback silently if API is unreachable
+      }
+    }
     await this.processManager.stop()
+    flushSystemDns()
   }
 
   restart(): Promise<void> {

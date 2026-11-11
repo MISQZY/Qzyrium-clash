@@ -70,7 +70,7 @@ export class MihomoConfigFactory {
         stack: appConfig.kernel.tun.stack || 'gvisor',
         'auto-route': appConfig.kernel.tun.autoRoute ?? true,
         'auto-detect-interface': true,
-        'strict-route': appConfig.kernel.tun.strictRoute ?? true,
+        'strict-route': appConfig.kernel.tun.strictRoute ?? false,
         'dns-hijack': appConfig.kernel.tun.dnsHijack && appConfig.kernel.tun.dnsHijack.length > 0
           ? appConfig.kernel.tun.dnsHijack
           : ['any:53', 'tcp://any:53']
