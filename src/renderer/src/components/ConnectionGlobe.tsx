@@ -1,53 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import createGlobe, { landPoints, type Globe } from '../lib/canvas-globe'
+import { useGlobeRenderer } from '../hooks/useGlobeRenderer'
+import { measureGlobeLabel } from '../lib/globe-palette'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+
 import { useTranslations } from '../i18n'
 import { EmojiText } from './EmojiText'
 import type { GlobeRoute } from '../lib/globe'
-import { defaultCamera, globeLayout, projectRoutes, groupProjectedEndpoints, layoutEndpointLabels, type ProjectedRoute, type Viewport } from '../lib/cobe-globe'
-
-let cachedCanvas: HTMLCanvasElement | null = null
-let cachedCtx: CanvasRenderingContext2D | null = null
-
-function getCssColorRgb(cssVar: string, fallback: [number, number, number]): [number, number, number] {
-  if (typeof document === 'undefined') return fallback
-  try {
-    const val = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
-    if (!val) return fallback
-    const probe = document.createElement('span')
-    probe.style.color = `var(${cssVar})`
-    probe.style.display = 'none'
-    document.documentElement.append(probe)
-    const resolved = getComputedStyle(probe).color
-    probe.remove()
-    const match = /^rgba?\((\d+),\s*(\d+),\s*(\d+)/i.exec(resolved)
-    if (match) {
-      return [
-        Number((parseInt(match[1], 10) / 255).toFixed(3)),
-        Number((parseInt(match[2], 10) / 255).toFixed(3)),
-        Number((parseInt(match[3], 10) / 255).toFixed(3))
-      ]
-    }
-    if (!cachedCanvas) {
-      cachedCanvas = document.createElement('canvas')
-      cachedCanvas.width = 1
-      cachedCanvas.height = 1
-      cachedCtx = cachedCanvas.getContext('2d', { willReadFrequently: true })
-    }
-    if (!cachedCtx) return fallback
-    cachedCtx.clearRect(0, 0, 1, 1)
-    cachedCtx.fillStyle = '#000000'
-    cachedCtx.fillStyle = resolved
-    cachedCtx.fillRect(0, 0, 1, 1)
-    const data = cachedCtx.getImageData(0, 0, 1, 1).data
-    return [Number((data[0] / 255).toFixed(3)), Number((data[1] / 255).toFixed(3)), Number((data[2] / 255).toFixed(3))]
-  } catch {
-    return fallback
-  }
-}
-
-const DORMANT_COLOR_DARK: [number, number, number] = [0.72, 0.74, 0.78]
-const DORMANT_COLOR_LIGHT: [number, number, number] = [0.30, 0.34, 0.37]
-const IGNITION_DURATION = 950
+import { groupProjectedEndpoints, layoutEndpointLabels, type ProjectedRoute } from '../lib/cobe-globe'
 
 function getLinkedRouteIds(
   activeId: string | null,
@@ -72,26 +30,11 @@ export function ConnectionGlobe({
   pendingNodes?: string[]
 }) {
   const t = useTranslations('dashboard')
-  const hostRef = useRef<HTMLDivElement>(null)
-  const sceneRef = useRef<HTMLDivElement>(null)
-
-  // Camera orientation is maintained permanently; user rotations are never overridden by routes or tunnels.
-  const camera = useRef(defaultCamera())
-  const viewport = useRef<Viewport>({ width: 1, height: 1, reserved: 0 })
-  const surface = useRef<Float32Array | undefined>(undefined)
-  const routesRef = useRef(routes)
-  routesRef.current = routes
-  const runningRef = useRef(running)
-  runningRef.current = running
-  const prevRunning = useRef(running)
-  const ignitionStart = useRef(0)
-  const invalidate = useRef(() => {})
+  const { hostRef, sceneRef, camera, viewport, projected, unavailable, invalidate } = useGlobeRenderer(running, routes)
   const drag = useRef<{ x: number; y: number } | null>(null)
 
   const [hovered, setHovered] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [projected, setProjected] = useState<ProjectedRoute[]>([])
-  const [unavailable, setUnavailable] = useState(false)
 
   const previewRoute = (id: string) => {
     if (!drag.current) setHovered(id)
@@ -101,211 +44,8 @@ export function ConnectionGlobe({
     setHovered(null)
   }
 
-  // Detect running transition to trigger smooth 950ms globe ignition light-up
-  useEffect(() => {
-    if (running && !prevRunning.current) {
-      ignitionStart.current = performance.now()
-    } else if (!running) {
-      ignitionStart.current = 0
-    }
-    prevRunning.current = running
-    invalidate.current()
-  }, [running])
-
   // Active selection: hovered takes precedence for instant preview, then expanded
   const activeId = hovered || expandedId
-
-  const geometryKey = JSON.stringify(routes.map(({ id, from, to }) => [id, from, to]))
-
-  useEffect(() => {
-    const host = hostRef.current
-    const scene = sceneRef.current
-    if (!host || !scene) return
-    const canvas = document.createElement('canvas')
-    canvas.className = 'globe-canvas'
-    canvas.setAttribute('aria-hidden', 'true')
-    host.append(canvas)
-
-    let globe: Globe | undefined, rAfId: number | null = null, disposed = false, frames = 0
-    let sizedWidth = 0, sizedHeight = 0, lastDpr = 0, lastTheme = ''
-    let lastPhi = -999, lastTheta = -999, lastScale = -999
-    let lastColor: [number, number, number] | null = null
-    let lastBrightness = -1
-    let cachedActiveColor: [number, number, number] | null = null
-    let cachedDormantColor: [number, number, number] | null = null
-
-    const draw = () => {
-      rAfId = null
-      if (disposed || !globe) return
-      const view = viewport.current
-      if (view.width < 2 || view.height < 2) return
-      const layout = globeLayout(camera.current, view)
-      const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-      const palette = `${theme}:${document.documentElement.dataset.theme}:${document.documentElement.style.cssText}`
-      const resized = sizedWidth !== view.width || sizedHeight !== view.height || lastDpr !== window.devicePixelRatio
-      const cameraChanged = Math.abs(lastPhi - camera.current.phi) > 0.0001 || Math.abs(lastTheta - camera.current.theta) > 0.0001 || Math.abs(lastScale - layout.scale) > 0.0001
-      const themeChanged = lastTheme !== palette
-
-      // Determine colors and brightness based on running state and smooth ignition transition
-      if (themeChanged || !cachedActiveColor) {
-        cachedActiveColor = getCssColorRgb('--primary', theme === 'dark' ? [0.42, 0.65, 0.5] : [0.78, 0.88, 0.8])
-        cachedDormantColor = getCssColorRgb('--muted-foreground', theme === 'dark' ? DORMANT_COLOR_DARK : DORMANT_COLOR_LIGHT)
-      }
-      const dormantColor = cachedDormantColor!
-      const activeColor = cachedActiveColor
-
-      let targetColor: [number, number, number]
-      let targetBrightness: number
-
-      const isCurrentRunning = runningRef.current
-      if (!isCurrentRunning) {
-        // Neutral land remains visible against the surface in every theme.
-        targetColor = dormantColor
-        targetBrightness = 1.8
-      } else {
-        const elapsed = performance.now() - ignitionStart.current
-        if (ignitionStart.current > 0 && elapsed < IGNITION_DURATION) {
-          // Smooth 950ms ignition wave: transitions color and flares brightness softly before settling
-          const p = Math.min(1, elapsed / IGNITION_DURATION)
-          const ease = 1 - Math.pow(1 - p, 3)
-          targetColor = [
-            Number((dormantColor[0] + (activeColor[0] - dormantColor[0]) * ease).toFixed(3)),
-            Number((dormantColor[1] + (activeColor[1] - dormantColor[1]) * ease).toFixed(3)),
-            Number((dormantColor[2] + (activeColor[2] - dormantColor[2]) * ease).toFixed(3))
-          ]
-          const flare = Math.sin(p * Math.PI) * 1.4
-          targetBrightness = (theme === 'dark' ? 2.6 : 2.2) + flare
-          schedule()
-        } else {
-          targetColor = activeColor
-          targetBrightness = theme === 'dark' ? 2.6 : 2.2
-        }
-      }
-
-      const colorChanged = !lastColor ||
-        Math.hypot(lastColor[0] - targetColor[0], lastColor[1] - targetColor[1], lastColor[2] - targetColor[2]) > 0.005 ||
-        Math.abs(lastBrightness - targetBrightness) > 0.02
-
-      if (frames < 4 || resized || cameraChanged || themeChanged || colorChanged) {
-        globe.update({
-          phi: camera.current.phi,
-          theta: camera.current.theta,
-          scale: layout.scale,
-          offset: layout.offset,
-          baseColor: targetColor,
-          mapBrightness: targetBrightness,
-          dark: theme === 'dark' ? 0.94 : 0.1,
-          ...(resized || frames < 4 ? { width: view.width, height: view.height } : {})
-        })
-        sizedWidth = view.width
-        sizedHeight = view.height
-        lastDpr = window.devicePixelRatio
-        lastTheme = palette
-        lastPhi = camera.current.phi
-        lastTheta = camera.current.theta
-        lastScale = layout.scale
-        lastColor = targetColor
-        lastBrightness = targetBrightness
-
-        canvas.style.clipPath = `circle(${layout.radius}px at ${layout.cx}px ${layout.cy}px)`
-        scene.style.setProperty('--globe-cx', `${layout.cx}px`)
-        scene.style.setProperty('--globe-cy', `${layout.cy}px`)
-        scene.style.setProperty('--globe-radius', `${layout.radius}px`)
-        canvas.dataset.globeReady = 'true'
-        canvas.dataset.frameCount = String(++frames)
-      }
-
-      if (frames < 4 || resized || cameraChanged) {
-        setProjected(surface.current ? projectRoutes(routesRef.current, camera.current, view, surface.current) : [])
-      }
-    }
-
-    const schedule = () => {
-      if (!disposed && rAfId === null) {
-        rAfId = requestAnimationFrame(draw)
-      }
-    }
-    invalidate.current = schedule
-    void landPoints().then((points) => {
-      if (disposed) return
-      surface.current = points
-      setProjected(projectRoutes(routesRef.current, camera.current, viewport.current, points))
-      schedule()
-    }).catch(() => {})
-
-
-    try {
-      const initialTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-      const initialDormant = getCssColorRgb('--muted-foreground', initialTheme === 'dark' ? DORMANT_COLOR_DARK : DORMANT_COLOR_LIGHT)
-      const initialActive = getCssColorRgb('--primary', initialTheme === 'dark' ? [0.48, 0.74, 0.57] : [0.78, 0.88, 0.8])
-      const initialColor = runningRef.current ? initialActive : initialDormant
-      const initialBrightness = runningRef.current ? (initialTheme === 'dark' ? 2.6 : 2.2) : 1.8
-
-      globe = createGlobe(canvas, {
-        width: 1, height: 1, offset: [0, 0],
-        phi: camera.current.phi, theta: camera.current.theta, scale: camera.current.scale,
-        dark: initialTheme === 'dark' ? 0.94 : 0.1,
-        mapBrightness: initialBrightness,
-        baseColor: initialColor
-      })
-      lastColor = initialColor
-      lastBrightness = initialBrightness
-      setUnavailable(false)
-    } catch { setUnavailable(true) }
-
-    const measure = (width: number, height: number) => {
-      const reserved = parseFloat(getComputedStyle(scene).getPropertyValue('--overview-reserved')) || 0
-      width = Math.round(width); height = Math.round(height)
-      if (viewport.current.width === width && viewport.current.height === height && viewport.current.reserved === reserved) return
-      viewport.current = { width, height, reserved }
-      if (rAfId !== null) cancelAnimationFrame(rAfId)
-      rAfId = null
-      draw()
-    }
-    const resize = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height))
-    resize.observe(scene)
-    const measureScene = () => {
-      const bounds = scene.getBoundingClientRect()
-      measure(bounds.width, bounds.height)
-      schedule()
-    }
-    window.addEventListener('resize', measureScene)
-    measureScene()
-
-    void document.fonts.ready.then(schedule)
-    const t1 = setTimeout(schedule, 40)
-    const t2 = setTimeout(schedule, 120)
-    const t3 = setTimeout(schedule, 300)
-
-    const theme = new MutationObserver(schedule)
-    theme.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] })
-    const onVisibilityChange = () => {
-      if (document.visibilityState !== 'hidden') schedule()
-    }
-    document.addEventListener('visibilitychange', onVisibilityChange)
-
-    return () => {
-      disposed = true; invalidate.current = () => {}
-      if (rAfId !== null) cancelAnimationFrame(rAfId)
-      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3)
-      resize.disconnect(); theme.disconnect()
-      window.removeEventListener('resize', measureScene)
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-      globe?.destroy()
-      host.replaceChildren()
-    }
-  }, [])
-
-  // When routes update, redraw SVG projection without resetting camera orientation
-  useEffect(() => {
-    invalidate.current()
-  }, [geometryKey])
-
-  useEffect(() => {
-    if (viewport.current.width > 1 && viewport.current.height > 1) {
-      setProjected(surface.current ? projectRoutes(routesRef.current, camera.current, viewport.current, surface.current) : [])
-    }
-  }, [routes])
 
   const routesContainerRef = useRef<HTMLDivElement>(null)
   const [hasScroll, setHasScroll] = useState(false)
@@ -340,11 +80,7 @@ export function ConnectionGlobe({
     [projected]
   )
   const family = sceneRef.current ? getComputedStyle(sceneRef.current).fontFamily : 'sans-serif'
-  const labels = layoutEndpointLabels(endpoints, viewport.current, activeId, (text) => {
-    if (!cachedCtx) return text.length * 9
-    cachedCtx.font = `700 10px ${family}`
-    return cachedCtx.measureText(text).width + text.length * 0.2
-  })
+  const labels = layoutEndpointLabels(endpoints, viewport.current, activeId, text => measureGlobeLabel(text, family))
   const toggleEndpoint = (ids: string[]) => {
     setExpandedId((current) => current !== null && ids.includes(current) ? null : ids[0])
   }
