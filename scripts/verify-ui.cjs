@@ -194,7 +194,7 @@ if (process.type === 'renderer') {
       await delay(400)
       assert.equal(await evaluate(`${journal}.scrollTop`), scrollBefore, 'disabled autoscroll keeps its offset when the buffer rolls over')
       await evaluate(`Array.from(document.querySelectorAll('button')).find(el => el.textContent.trim() === 'Autoscroll').click(); window.api.uiTest.emitLogs(5)`)
-      await delay(400)
+      await waitFor(`${journal}.scrollHeight - ${journal}.clientHeight - ${journal}.scrollTop < 2`)
       assert.ok(await evaluate(`${journal}.scrollHeight - ${journal}.clientHeight - ${journal}.scrollTop < 2`), 'enabled autoscroll follows new entries')
       result.checks.push('Journal filter and autoscroll persist across navigation; scrolling stays off through buffer rollover')
 
