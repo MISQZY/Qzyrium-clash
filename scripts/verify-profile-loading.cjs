@@ -4,6 +4,7 @@ const path = require('node:path')
 const vm = require('node:vm')
 const ts = require('typescript')
 const { setImmediate: nextTurn } = require('node:timers/promises')
+const { createIpcFixture } = require('./fixtures/ipc.cjs')
 
 function load(file, dependencies, runtime = process) {
   const output = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
@@ -194,10 +195,11 @@ async function verifyProfiles() {
     '@shared/ipc': { IPC_CHANNELS: new Proxy({}, { get: (_, key) => key }) },
     '../utils/logger': { logger }
   })
-  registerIpcHandlers({ profileService: profiles, kernelService: {
+  const ipc = createIpcFixture()
+  registerIpcHandlers({ windowService: ipc.windowService, profileService: profiles, kernelService: {
     getStatus: () => status, async restart() { restarts++; await nextTurn() }
   } })
-  const invoke = (channel, ...args) => handlers.get(channel)(null, ...args)
+  const invoke = (channel, ...args) => handlers.get(channel)(ipc.event, ...args)
   const first = invoke('PROFILE_UPDATE', 'a')
   await Promise.all([first, invoke('PROFILE_UPDATE', 'a'), invoke('PROFILE_UPDATE', 'a')])
   assert.equal(fetches, 1, 'concurrent subscription updates must share one download')
@@ -299,11 +301,12 @@ async function verifySystemProxy() {
     '@shared/ipc': { IPC_CHANNELS: new Proxy({}, { get: (_, key) => key }) },
     '../utils/logger': { logger }
   })
-  registerIpcHandlers({ sysProxyService: proxy, networkModeController: { setSystemProxy: enable => proxy.setSysProxy(enable) } })
+  const ipc = createIpcFixture()
+  registerIpcHandlers({ windowService: ipc.windowService, sysProxyService: proxy, networkModeController: { setSystemProxy: enable => proxy.setSysProxy(enable) } })
   await proxy.setCoreRunning(true)
   const enabling = proxy.setSysProxy(true)
   let statusRead = false
-  const initialRead = handlers.get('SYSPROXY_GET_STATUS')().then(status => { statusRead = true; return status })
+  const initialRead = handlers.get('SYSPROXY_GET_STATUS')(ipc.event).then(status => { statusRead = true; return status })
   await Promise.resolve()
   assert.equal(statusRead, false, 'initial status read must wait for proxy restoration')
   assert.equal((await initialRead).enabled, true)

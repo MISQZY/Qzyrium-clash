@@ -4,6 +4,7 @@ const path = require('node:path')
 const vm = require('node:vm')
 const { EventEmitter } = require('node:events')
 const ts = require('typescript')
+const { createIpcFixture } = require('./fixtures/ipc.cjs')
 const logger = { info() {}, warn() {}, error() {}, debug() {} }
 const flush = () => new Promise(resolve => setImmediate(resolve))
 
@@ -237,6 +238,7 @@ async function verifyElevationRecovery() {
     assert.deepEqual(calls, ['release', outcome === 'success' ? 'exit' : 'restore'])
   }
   for (const running of [false, true]) {
+    const ipc = createIpcFixture()
     const handlers = new Map(), calls = []
     let state = running ? 'running' : 'stopped'
     const { registerIpcHandlers } = load('src/main/ipc/registerHandlers.ts', {
@@ -246,11 +248,12 @@ async function verifyElevationRecovery() {
       '../utils/restart-state': { saveRestartState: state => { assert.equal(state.running, running); assert.equal(state.visible, true) }, clearRestartState() {} }
     })
     registerIpcHandlers({
+      windowService: ipc.windowService,
       sysProxyService: { setCoreRunning: async value => calls.push('proxy:' + value) },
       kernelService: { getStatus: () => state, stop: async () => { state = 'stopped' }, start: async () => { state = 'running'; calls.push('start') } },
       desktopService: { dispose: async () => calls.push('dispose'), initialize: async () => calls.push('resume') }
     })
-    assert.equal(await handlers.get('APP_RESTART_AS_ADMIN')(), false)
+    assert.equal(await handlers.get('APP_RESTART_AS_ADMIN')(ipc.event), false)
     assert.ok(calls.includes('resume'))
     assert.equal(calls.includes('start'), running)
     assert.equal(state, running ? 'running' : 'stopped')

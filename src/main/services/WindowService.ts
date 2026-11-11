@@ -1,6 +1,6 @@
 import { app, BrowserWindow, nativeTheme, shell } from 'electron'
 import path from 'path'
-import { fileURLToPath } from 'url'
+import { fileURLToPath, pathToFileURL } from 'url'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 import { BaseService } from './BaseService'
@@ -12,6 +12,12 @@ import { watchWindowScale } from '../utils/window-scale'
 import { trimProcessMemory } from '../utils/memory'
 
 export class WindowService implements BaseService {
+  getRendererUrl(): string {
+    return !app.isPackaged && process.env.ELECTRON_RENDERER_URL
+      ? process.env.ELECTRON_RENDERER_URL
+      : pathToFileURL(path.join(__dirname, '../renderer/index.html')).href
+  }
+
   private mainWindow: BrowserWindow | null = null
   private settingService: SettingService
   private isQuitting = false
@@ -149,7 +155,7 @@ export class WindowService implements BaseService {
 
     // Navigation security guards: block navigating the top frame or subframes away from app
     this.mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
-      const devUrl = process.env.ELECTRON_RENDERER_URL
+      const devUrl = !app.isPackaged && process.env.ELECTRON_RENDERER_URL
       if (devUrl) {
         if (!navigationUrl.startsWith(devUrl)) {
           event.preventDefault()
@@ -199,7 +205,7 @@ export class WindowService implements BaseService {
 
     this.mainWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
       logger.error(`Main window did-fail-load: ${errorCode} ${errorDescription} (${validatedURL})`)
-      if (process.env.ELECTRON_RENDERER_URL) {
+      if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
         setTimeout(() => {
           this.mainWindow?.loadURL(process.env.ELECTRON_RENDERER_URL!)
         }, 500)
@@ -249,7 +255,7 @@ export class WindowService implements BaseService {
     })
 
     logger.info(`Loading renderer: ELECTRON_RENDERER_URL=${process.env.ELECTRON_RENDERER_URL}`)
-    if (process.env.ELECTRON_RENDERER_URL) {
+    if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
       this.mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
     } else {
       this.mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))

@@ -4,6 +4,7 @@ const path = require('node:path')
 const vm = require('node:vm')
 const { EventEmitter } = require('node:events')
 const ts = require('typescript')
+const { createIpcFixture } = require('./fixtures/ipc.cjs')
 
 function load(file, dependencies, overrides = {}) {
   const output = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
@@ -113,6 +114,7 @@ async function verifyRestart() {
 }
 
 async function verifyModeUpdates() {
+  const ipc = createIpcFixture()
   const handlers = new Map(), calls = []
   const { registerIpcHandlers } = load('src/main/ipc/registerHandlers.ts', {
     '../utils/elevation': { isProcessElevated: () => false, restartAsAdmin: async () => false },
@@ -127,36 +129,36 @@ async function verifyModeUpdates() {
     settingService: { getSettings: () => settings, updateSettings: async patch => { calls.push('save'); if (rejectSave) throw new Error('disk full'); settings = { ...settings, ...patch, kernel: { ...settings.kernel, ...patch.kernel } }; return settings } },
     kernelService: { getStatus: () => status, patchConfigs: async patch => { calls.push(`mode:${patch.mode}`); if (rejectMode) throw new Error('API unavailable') }, restart: async () => { calls.push('restart') } },
     sysProxyService: { setSysProxy: async () => { calls.push('system-proxy') } },
-    trayService: { updateContextMenu() {} }, windowService: { updateTheme() {} }
+    trayService: { updateContextMenu() {} }, windowService: { ...ipc.windowService, updateTheme() {} }
   }
   const { NetworkModeController } = load('src/main/services/NetworkModeController.ts', { '../utils/logger': { logger } })
   services.networkModeController = new NetworkModeController(services.settingService, services.kernelService, services.sysProxyService)
   registerIpcHandlers(services)
   const update = () => handlers.get('APP_UPDATE_SETTINGS')
   reset()
-  await update()(null, { kernel: { ...settings.kernel, mode: 'global' } })
+  await update()(ipc.event, { kernel: { ...settings.kernel, mode: 'global' } })
   assert.deepEqual(calls, ['mode:global', 'save'], 'live mode change must not restart or touch OS proxy')
   assert.equal(settings.kernel.mode, 'global')
   calls.length = 0
-  await update()(null, { kernel: { ...settings.kernel, mode: 'rule' } })
+  await update()(ipc.event, { kernel: { ...settings.kernel, mode: 'rule' } })
   assert.deepEqual(calls, ['mode:rule', 'save'])
   reset('stopped')
-  await update()(null, { kernel: { ...settings.kernel, mode: 'global' } })
+  await update()(ipc.event, { kernel: { ...settings.kernel, mode: 'global' } })
   assert.deepEqual(calls, ['save'], 'changing a stopped core mode must not start it')
   reset()
   rejectMode = true
-  await assert.rejects(update()(null, { kernel: { ...settings.kernel, mode: 'global' } }), /API unavailable/)
+  await assert.rejects(update()(ipc.event, { kernel: { ...settings.kernel, mode: 'global' } }), /API unavailable/)
   assert.equal(settings.kernel.mode, 'rule', 'API failure must preserve saved mode')
   reset()
   rejectSave = true
-  await assert.rejects(update()(null, { kernel: { ...settings.kernel, mode: 'global' } }), /disk full/)
+  await assert.rejects(update()(ipc.event, { kernel: { ...settings.kernel, mode: 'global' } }), /disk full/)
   assert.deepEqual(calls, ['mode:global', 'save', 'mode:rule'], 'failed persistence rolls the live core back to the saved routing mode')
   assert.equal(settings.kernel.mode, 'rule')
   reset()
-  await update()(null, { kernel: { ...settings.kernel, mixedPort: 7896 } })
+  await update()(ipc.event, { kernel: { ...settings.kernel, mixedPort: 7896 } })
   assert.deepEqual(calls, ['save', 'restart', 'system-proxy'], 'port change still restarts and reapplies OS proxy')
   reset()
-  await update()(null, { kernel: structuredClone(settings.kernel) })
+  await update()(ipc.event, { kernel: structuredClone(settings.kernel) })
   assert.deepEqual(calls, ['save'], 'unchanged settings must not restart')
   reset()
   services.sysProxyService.getStatus = () => ({ enabled: settings.sysProxy.enable })
