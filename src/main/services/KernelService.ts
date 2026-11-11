@@ -1,11 +1,11 @@
+import { createKernelRuntime } from './createKernelRuntime'
+import { installGeoResources } from '../core/installGeoResources'
 import { KernelGlobeResolver } from '../core/KernelGlobeResolver'
-import { ActiveConfigBuilder } from '../core/ActiveConfigBuilder'
+import type { ActiveConfigBuilder } from '../core/ActiveConfigBuilder'
 import { restoreProxySelection } from '../core/ProxySelection'
-import { TrafficAccounting } from '../core/TrafficAccounting'
+import type { TrafficAccounting } from '../core/TrafficAccounting'
 import { nativeMessage } from '@shared/localization'
 import { IPC_CHANNELS } from '@shared/ipc'
-import fs from 'fs'
-import path from 'path'
 import yaml from 'yaml'
 import {
   ConnectionsSnapshot,
@@ -14,15 +14,14 @@ import {
 } from '@shared/mihomo'
 import type { GlobeLocations } from '@shared/geo'
 import { CoreState, LogEntry, MihomoVersion, TrafficStats } from '@shared/types'
-import { MihomoApiClient } from '../core/MihomoApiClient'
-import { MihomoProcessManager } from '../core/MihomoProcessManager'
+import type { MihomoApiClient } from '../core/MihomoApiClient'
+import type { MihomoProcessManager } from '../core/MihomoProcessManager'
 import { logger } from '../utils/logger'
 import { getAppPaths } from '../utils/paths'
 import { BaseService } from './BaseService'
 import { ProfileService } from './ProfileService'
 import { SettingService } from './SettingService'
-import { GeoIpService } from './GeoIpService'
-import { LocalGeoIp } from '../utils/local-geoip'
+import type { GeoIpService } from './GeoIpService'
 import { isProcessElevated } from '../utils/elevation'
 import type { ProxyGroup } from '@shared/mihomo'
 import { offlineProxies } from '../utils/offline-proxies'
@@ -45,7 +44,7 @@ export class KernelService implements BaseService {
   private sessionStartedAt: number | null = null
   private streamsPaused = false
   private startupRunning?: boolean
-  private trafficAccounting = new TrafficAccounting()
+  private trafficAccounting: TrafficAccounting
 
   private resetDirectTraffic(): void {
     this.trafficAccounting.reset()
@@ -53,37 +52,15 @@ export class KernelService implements BaseService {
 
   setStartupRunning(running: boolean): void { this.startupRunning = running }
 
-  constructor(settingService: SettingService, profileService: ProfileService) {
+  constructor(settingService: SettingService, profileService: ProfileService,
+    runtime = createKernelRuntime(settingService.getSettings(), profileService)) {
     this.settingService = settingService
     this.profileService = profileService
-    this.configBuilder = new ActiveConfigBuilder(profileService)
-    this.processManager = new MihomoProcessManager()
-
-    const settings = this.settingService.getSettings()
-    this.apiClient = new MihomoApiClient(
-      '127.0.0.1',
-      settings.kernel.controllerPort,
-      settings.kernel.controllerSecret
-    )
-    this.geoIp = new GeoIpService(
-      new LocalGeoIp(() => {
-        try {
-          return path.resolve(getAppPaths().geoFilesDir, 'geoip.dat')
-        } catch {
-          return undefined
-        }
-      }),
-      async (host: string) => {
-        if (this.getStatus() === 'running') {
-          try {
-            return await this.apiClient.resolveHost(host)
-          } catch {
-            return null
-          }
-        }
-        return null
-      }
-    )
+    this.configBuilder = runtime.configBuilder
+    this.processManager = runtime.processManager
+    this.apiClient = runtime.apiClient
+    this.geoIp = runtime.geoIp
+    this.trafficAccounting = runtime.trafficAccounting
 
     this.globeResolver = new KernelGlobeResolver({
       profiles: profileService,
@@ -184,30 +161,7 @@ export class KernelService implements BaseService {
     const origin = this.geoIp.captureOrigin(true).catch(() => {})
     if (settings.kernel.tun.enable) await origin
 
-    // Ensure geo database files are present in mihomoDir and up to date with bundled assets
-    const geoFiles = ['country.mmdb', 'geosite.dat', 'geoip.dat']
-    await Promise.all(geoFiles.map(async (file) => {
-      const src = path.join(paths.geoFilesDir, file)
-      const dst = path.join(paths.mihomoDir, file)
-      try {
-        if (fs.existsSync(src)) {
-          let shouldCopy = !fs.existsSync(dst)
-          if (!shouldCopy) {
-            const srcStat = await fs.promises.stat(src)
-            const dstStat = await fs.promises.stat(dst)
-            if (srcStat.mtimeMs > dstStat.mtimeMs && srcStat.size !== dstStat.size) {
-              shouldCopy = true
-            }
-          }
-          if (shouldCopy) {
-            await fs.promises.copyFile(src, dst)
-            logger.info(`Updated geo resource ${file} in ${dst}`)
-          }
-        }
-      } catch {
-        // Existing resources and absent optional databases need no copy.
-      }
-    }))
+    await installGeoResources(paths)
 
     const activeProfile = await this.configBuilder.build(settings)
 
