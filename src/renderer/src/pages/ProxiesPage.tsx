@@ -1,18 +1,18 @@
+import { ProxyGroupCard } from '../components/ProxyGroupCard'
 import { useProxyLatency } from '../hooks/useProxyLatency'
 import { useTranslations } from '../i18n'
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { ArrowUpDown, ChevronDown, ChevronsUpDown, Search, X } from 'lucide-react'
-import { LatencyIcon, ProxiesIcon } from '../lib/icons'
+import React, { useState, useEffect, useMemo } from 'react'
+import { ArrowUpDown, ChevronsUpDown, Search, X } from 'lucide-react'
+import { LatencyIcon } from '../lib/icons'
 import type { ProxyGroup, ProxyNode, MihomoRule } from '@shared/mihomo'
 import type { TunnelMode } from '@shared/types'
 import { Button } from '../components/ui/button'
-import { Badge } from '../components/ui/badge'
+
 import { Card } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { cn } from '../lib/utils'
-import { EmojiText } from '../components/EmojiText'
 
-import { visibleProxyGroups, sortProxyNodes, type ProxySortMode } from '../lib/proxies'
+import { visibleProxyGroups, type ProxySortMode } from '../lib/proxies'
 export type { ProxySortMode } from '../lib/proxies'
 
 interface ProxiesPageProps {
@@ -24,105 +24,6 @@ interface ProxiesPageProps {
   onUpdateDelays?: (delays: Record<string, number>) => void
   onSelectNode: (group: string, node: string) => void
   testConcurrency?: number
-}
-
-const GroupIcon: React.FC<{ icon?: string; name: string }> = ({ icon, name }) => {
-  const [hasError, setHasError] = useState(false)
-
-  useEffect(() => {
-    setHasError(false)
-  }, [icon])
-
-  if (icon && !hasError) {
-    return (
-      <div className="flex items-center justify-center size-8 rounded-lg bg-muted/60 shrink-0 border border-border/70 overflow-hidden p-1">
-        <img
-          src={icon}
-          alt={name}
-          className="size-full object-contain"
-          onError={() => setHasError(true)}
-          loading="lazy"
-        />
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary shrink-0 border border-primary/20">
-      <ProxiesIcon className="size-4" />
-    </div>
-  )
-}
-
-const NodeIcon: React.FC<{ icon?: string; name: string; isSelected: boolean }> = ({
-  icon,
-  name,
-  isSelected
-}) => {
-  const [hasError, setHasError] = useState(false)
-
-  useEffect(() => {
-    setHasError(false)
-  }, [icon])
-
-  if (icon && !hasError) {
-    return (
-      <img
-        src={icon}
-        alt={name}
-        className="size-3.5 object-contain shrink-0 rounded-xs"
-        onError={() => setHasError(true)}
-        loading="lazy"
-      />
-    )
-  }
-
-  return (
-    <div
-      className={cn(
-        'size-2 rounded-full shrink-0 transition-colors',
-        isSelected ? 'bg-primary shadow-xs shadow-primary' : 'bg-muted-foreground/30'
-      )}
-    />
-  )
-}
-
-const getGroupTypeStyle = (type?: string): { label: string; className: string } => {
-  const raw = (type || '').toLowerCase().replace(/[-_]/g, '')
-  if (raw === 'urltest') {
-    return {
-      label: 'AUTO',
-      className: 'border-success/40 bg-success/10 text-success'
-    }
-  }
-  if (raw === 'selector' || raw === 'select') {
-    return {
-      label: 'SELECTOR',
-      className: 'border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400'
-    }
-  }
-  if (raw === 'fallback') {
-    return {
-      label: 'FALLBACK',
-      className: 'border-warning/40 bg-warning/10 text-warning'
-    }
-  }
-  if (raw === 'loadbalance') {
-    return {
-      label: 'LOAD-BALANCE',
-      className: 'border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-400'
-    }
-  }
-  if (raw === 'relay') {
-    return {
-      label: 'RELAY',
-      className: 'border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
-    }
-  }
-  return {
-    label: (type || 'GROUP').toUpperCase(),
-    className: 'border-border/80 bg-muted/50 text-muted-foreground'
-  }
 }
 
 export const ProxiesPage: React.FC<ProxiesPageProps> = ({
@@ -199,39 +100,6 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
       setExpandedGroups(new Set(groupNames))
     }
   }
-
-  const renderDelayBadge = (delay?: number) => {
-    if (delay === undefined) return null
-    if (delay === -1) {
-      return (
-        <Badge variant="destructive" className="text-[10px] py-0 px-1.5 font-mono">
-          {t('timeout')}
-        </Badge>
-      )
-    }
-    if (delay < 200) {
-      return (
-        <Badge variant="success" className="text-[10px] py-0 px-1.5 font-mono">
-          {t('latency', { delay })}
-        </Badge>
-      )
-    }
-    if (delay < 500) {
-      return (
-        <Badge variant="warning" className="text-[10px] py-0 px-1.5 font-mono">
-          {t('latency', { delay })}
-        </Badge>
-      )
-    }
-    return (
-      <Badge variant="destructive" className="text-[10px] py-0 px-1.5 font-mono">
-        {t('latency', { delay })}
-      </Badge>
-    )
-  }
-
-  // Node sorting within a group
-  const sortNodes = useCallback((nodes: string[]) => sortProxyNodes(nodes, sortMode, proxies, delays), [sortMode, proxies, delays])
 
   const trimmedQuery = query.trim().toLowerCase()
 
@@ -358,170 +226,11 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
       {/* List of Expandable Group Cards */}
       {filteredGroups.length > 0 ? (
         <div className="flex flex-col gap-3">
-          {filteredGroups.map((groupName) => {
-            const group = proxies[groupName] as unknown as ProxyGroup
-            const nodes = group?.all || []
-            const activeNow = group?.now || ''
-            const isExpanded = trimmedQuery ? true : expandedGroups.has(groupName)
-            const isGroupTesting = testingGroup === groupName
-
-            const matchingNodes = trimmedQuery
-              ? nodes.filter(
-                  (n) =>
-                    n.toLowerCase().includes(trimmedQuery) ||
-                    groupName.toLowerCase().includes(trimmedQuery)
-                )
-              : nodes
-
-            const sortedNodes = sortNodes(matchingNodes)
-            const typeMeta = getGroupTypeStyle(group?.type)
-
-            return (
-              <Card
-                key={groupName}
-                className="overflow-hidden border border-border/70 bg-card transition-colors"
-              >
-                {/* Clickable Card Header */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={isExpanded}
-                  onClick={() => toggleGroup(groupName)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      toggleGroup(groupName)
-                    }
-                  }}
-                  className="flex items-center justify-between gap-3 p-3.5 sm:px-4 cursor-pointer select-none hover:bg-muted/30 transition-colors"
-                >
-                  {/* Left: Group identity & active selection */}
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <GroupIcon icon={group?.icon} name={groupName} />
-
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm text-foreground truncate">
-                          <EmojiText text={groupName} />
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'text-[10px] font-mono font-semibold tracking-wider uppercase px-2 py-0.5 rounded-md shrink-0 transition-colors',
-                            typeMeta.className
-                          )}
-                        >
-                          {typeMeta.label}
-                        </Badge>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground min-w-0">
-                        <span className="text-[11px] shrink-0">{t('activeNode')}:</span>
-                        <span className="font-medium text-foreground text-[11px] truncate" title={activeNow || '—'}>
-                          <EmojiText text={activeNow || '—'} />
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: Actions & Chevron */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={!running || isGroupTesting || testingAll || nodes.length === 0}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        testGroup(groupName, nodes)
-                      }}
-                      className="h-8 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
-                      title={t('testGroup')}
-                    >
-                      <LatencyIcon
-                        className={`size-3.5 ${
-                          isGroupTesting ? 'animate-pulse text-warning' : 'text-primary'
-                        }`}
-                      />
-                      <span className="hidden sm:inline">
-                        {isGroupTesting ? t('testing') : t('testGroup')}
-                      </span>
-                    </Button>
-
-                    <div className="size-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-                      <ChevronDown
-                        className={cn(
-                          'size-4 transition-transform duration-200',
-                          isExpanded && 'rotate-180'
-                        )}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expanded Content: Node Options Grid */}
-                {isExpanded && (
-                  <div className="px-3.5 sm:px-4 pb-4 pt-1 border-t border-border/50 bg-background/30">
-                    {sortedNodes.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3">
-                        {sortedNodes.map((nodeName) => {
-                          const isSelected = activeNow === nodeName
-                          const nodeData = proxies[nodeName]
-                          const nodeType = nodeData?.type || 'direct'
-                          const delay =
-                            delays[nodeName] ??
-                            nodeData?.history?.[nodeData.history.length - 1]?.delay
-
-                          return (
-                            <button
-                              key={nodeName}
-                              type="button"
-                              role="button"
-                              tabIndex={0}
-                              aria-label={t('selectNode', { name: nodeName })}
-                              aria-pressed={isSelected}
-                              onClick={() => onSelectNode(groupName, nodeName)}
-                              className={cn(
-                                'relative flex items-center justify-between gap-2.5 p-2.5 rounded-lg border text-left text-xs transition-colors cursor-pointer [content-visibility:auto] [contain-intrinsic-size:auto_54px]',
-                                isSelected
-                                  ? 'border-primary bg-primary/10 text-foreground font-medium shadow-xs shadow-primary/15 ring-1 ring-primary/40'
-                                  : 'border-border/70 bg-card hover:bg-muted/60 hover:border-border text-foreground/85 hover:text-foreground'
-                              )}
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                <NodeIcon
-                                  icon={nodeData?.icon}
-                                  name={nodeName}
-                                  isSelected={isSelected}
-                                />
-                                <div className="flex flex-col min-w-0 flex-1">
-                                  <span
-                                    className="text-xs font-medium break-words [overflow-wrap:anywhere] leading-snug"
-                                    title={nodeName}
-                                  >
-                                    <EmojiText text={nodeName} />
-                                  </span>
-                                  <span className="text-[10px] font-mono text-muted-foreground uppercase mt-0.5">
-                                    {nodeType}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                {renderDelayBadge(delay)}
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <p className="empty-state py-6">{t(!running && nodes.length === 0 ? 'noCachedNodes' : 'noProxyNodesMatchYourSearch')}</p>
-                    )}
-                  </div>
-                )}
-              </Card>
-            )
-          })}
+          {filteredGroups.map(groupName => <ProxyGroupCard key={groupName} groupName={groupName}
+            group={proxies[groupName] as ProxyGroup} proxies={proxies} delays={delays}
+            isExpanded={!!trimmedQuery || expandedGroups.has(groupName)} trimmedQuery={trimmedQuery} sortMode={sortMode}
+            running={running} testingGroup={testingGroup} testingAll={testingAll}
+            onToggle={toggleGroup} onTest={testGroup} onSelect={onSelectNode} />)}
         </div>
       ) : groupNames.length > 0 ? (
         <p className="empty-state">{t('noProxyNodesMatchYourSearch')}</p>
