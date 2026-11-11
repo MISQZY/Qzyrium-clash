@@ -70,5 +70,7 @@ export interface ConnectionItem {
 export interface ConnectionsSnapshot {
   downloadTotal: number
   uploadTotal: number
+  directDownloadTotal?: number
+  directUploadTotal?: number
   connections: ConnectionItem[]
 }

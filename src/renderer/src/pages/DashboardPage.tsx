@@ -13,6 +13,7 @@ import { formatBytes, formatDuration } from '../lib/format'
 import { connectionRoutes } from '../lib/globe'
 import { ConnectionGlobe } from '../components/ConnectionGlobe'
 import { Button } from '../components/ui/button'
+import { Tooltip } from 'radix-ui'
 
 interface DashboardPageProps {
   visible?: boolean
@@ -24,6 +25,7 @@ interface DashboardPageProps {
   onRestart: () => void; onToggleKernel: () => void; onToggleSysProxy: () => void
   onToggleTun: () => void; onUpdateMode: (mode: TunnelMode) => void; onNavigate?: (tab: NavTab) => void
   onSwitchProfile: (id: string) => unknown; onUpdateDelays: (delays: Record<string, number>) => void
+  onToggleOnlyVpn?: () => void
 }
 const EMPTY_LOCATIONS: GlobeLocations = { origin: null, routes: [] }
 
@@ -63,7 +65,6 @@ function AutoFitTrafficText({ text }: { text: string }) {
     <p
       className="mt-2 w-full font-medium tabular-nums tracking-tight text-center whitespace-nowrap overflow-hidden text-ellipsis select-text"
       style={{ fontSize: `${fontSize}px`, minHeight: '1.75rem', lineHeight: '1.75rem' }}
-      title={text}
     >
       {text}
     </p>
@@ -84,6 +85,7 @@ export function DashboardPage({
   onToggleKernel,
   onUpdateDelays,
   onNavigate,
+  onToggleOnlyVpn,
   visible = true
 }: DashboardPageProps) {
   const t = useTranslations('dashboard')
@@ -201,26 +203,98 @@ export function DashboardPage({
             </div>
           </div>
 
-          <div className="overview-panel-section text-center">
-            <h3 className="overview-eyebrow text-center">{t('sessionTraffic')}</h3>
-            <div className="overview-traffic text-center">
-              {[
-                { label: t('download'), value: connections.downloadTotal, rate: traffic.down, icon: ArrowDown },
-                { label: t('upload'), value: connections.uploadTotal, rate: traffic.up, icon: ArrowUp }
-              ].map(({ label, value, rate, icon: Icon }) => (
-                <div key={label} className="flex flex-col items-center text-center min-w-0">
-                  <span className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-                    <Icon className="size-3 text-primary shrink-0" />
-                    {label}
-                  </span>
-                  <AutoFitTrafficText text={formatBytes(value, locale)} />
-                  <p className="mt-1 text-[10px] text-muted-foreground tabular-nums text-center whitespace-nowrap overflow-hidden text-ellipsis w-full">
-                    {t('rate', { value: formatBytes(rate, locale) })}
-                  </p>
+          {(() => {
+            const onlyVpn = settings.general.onlyVpnTraffic !== false
+            const directDownload = connections.directDownloadTotal ?? 0
+            const directUpload = connections.directUploadTotal ?? 0
+            const vpnDownload = Math.max(0, connections.downloadTotal - directDownload)
+            const vpnUpload = Math.max(0, connections.uploadTotal - directUpload)
+            const trafficMetrics = [
+              {
+                label: t('download'),
+                value: onlyVpn ? vpnDownload : connections.downloadTotal,
+                vpnValue: vpnDownload,
+                totalValue: connections.downloadTotal,
+                rate: traffic.down,
+                icon: ArrowDown
+              },
+              {
+                label: t('upload'),
+                value: onlyVpn ? vpnUpload : connections.uploadTotal,
+                vpnValue: vpnUpload,
+                totalValue: connections.uploadTotal,
+                rate: traffic.up,
+                icon: ArrowUp
+              }
+            ]
+
+            return (
+              <Tooltip.Provider delayDuration={150}>
+                <div className="overview-panel-section text-center">
+                  <div className="flex items-center justify-center gap-1.5 mb-2">
+                    <h3 className="overview-eyebrow !mb-0 text-center">{t('sessionTraffic')}</h3>
+                    <Tooltip.Root>
+                      <Tooltip.Trigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center text-muted-foreground/60 hover:text-foreground transition-colors cursor-help rounded-full focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          aria-label={onlyVpn ? t('trafficExplanationVpn') : t('trafficExplanationAll')}
+                        >
+                          <HelpCircle className="size-3 shrink-0" />
+                        </button>
+                      </Tooltip.Trigger>
+                      <Tooltip.Portal>
+                        <Tooltip.Content side="top" sideOffset={6} className="sidebar-tooltip max-w-56 text-center">
+                          <p className="text-[11px] leading-snug">
+                            {onlyVpn ? t('trafficExplanationVpn') : t('trafficExplanationAll')}
+                          </p>
+                          <Tooltip.Arrow className="fill-popover" />
+                        </Tooltip.Content>
+                      </Tooltip.Portal>
+                    </Tooltip.Root>
+                  </div>
+                  <div className="overview-traffic text-center">
+                    {trafficMetrics.map(({ label, value, vpnValue, totalValue, rate, icon: Icon }) => (
+                      <Tooltip.Root key={label}>
+                        <Tooltip.Trigger asChild>
+                          <div className="flex flex-col items-center text-center min-w-0 cursor-help select-none">
+                            <span className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                              <Icon className="size-3 text-primary shrink-0" />
+                              {label}
+                            </span>
+                            <AutoFitTrafficText text={formatBytes(value, locale)} />
+                            <p className="mt-1 text-[10px] text-muted-foreground tabular-nums text-center whitespace-nowrap overflow-hidden text-ellipsis w-full">
+                              {t('rate', { value: formatBytes(rate, locale) })}
+                            </p>
+                          </div>
+                        </Tooltip.Trigger>
+                        <Tooltip.Portal>
+                          <Tooltip.Content side="top" sideOffset={8} className="sidebar-tooltip">
+                            <div className="flex flex-col gap-1 text-[11px] min-w-36 text-left">
+                              <div className="flex items-center gap-1 font-semibold text-foreground/90 border-b border-border/50 pb-1">
+                                <span>{label}</span>
+                                <span>·</span>
+                                <span>{t('trafficBreakdown')}</span>
+                              </div>
+                              <div className="flex justify-between gap-3 text-muted-foreground">
+                                <span>{t('trafficVpn')}</span>
+                                <span className="font-mono text-foreground font-medium">{formatBytes(vpnValue, locale)}</span>
+                              </div>
+                              <div className="flex justify-between gap-3 text-muted-foreground">
+                                <span>{t('trafficTotal')}</span>
+                                <span className="font-mono text-foreground font-medium">{formatBytes(totalValue, locale)}</span>
+                              </div>
+                            </div>
+                            <Tooltip.Arrow className="fill-popover" />
+                          </Tooltip.Content>
+                        </Tooltip.Portal>
+                      </Tooltip.Root>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
+              </Tooltip.Provider>
+            )
+          })()}
           {activeProfile?.supportUrl?.startsWith('https://') && (
             <div className="overview-panel-section overview-support-section p-3">
               <Button

@@ -6,6 +6,7 @@ import { isIP } from 'node:net'
 import { createHash } from 'node:crypto'
 import yaml from 'yaml'
 import {
+  ConnectionItem,
   ConnectionsSnapshot,
   MihomoRule,
   ProxyNode
@@ -45,6 +46,21 @@ export class KernelService implements BaseService {
   private sessionStartedAt: number | null = null
   private streamsPaused = false
   private startupRunning?: boolean
+  private directDownloadTotal = 0
+  private directUploadTotal = 0
+  private lastSeenDownloadTotal = 0
+  private activeTrackedConns = new Map<string, { download: number; upload: number; isDirect: boolean }>()
+
+  private resetDirectTraffic(): void {
+    this.directDownloadTotal = 0
+    this.directUploadTotal = 0
+    this.lastSeenDownloadTotal = 0
+    if (this.activeTrackedConns) {
+      this.activeTrackedConns.clear()
+    } else {
+      this.activeTrackedConns = new Map()
+    }
+  }
 
   setStartupRunning(running: boolean): void { this.startupRunning = running }
 
@@ -155,6 +171,7 @@ export class KernelService implements BaseService {
 
   private async startCore(): Promise<void> {
     if (this.getStatus() === 'running' || this.getStatus() === 'starting') return
+    this.resetDirectTraffic()
     this.invalidateGlobe()
     const paths = getAppPaths()
     const settings = this.settingService.getSettings()
@@ -269,6 +286,7 @@ export class KernelService implements BaseService {
       }
     }
     await this.processManager.stop()
+    this.resetDirectTraffic()
     flushSystemDns()
   }
 
@@ -364,7 +382,66 @@ export class KernelService implements BaseService {
   }
 
   async getConnections(): Promise<ConnectionsSnapshot> {
-    return this.apiClient.getConnections()
+    const snapshot = await this.apiClient.getConnections()
+
+    if (snapshot.downloadTotal < this.lastSeenDownloadTotal) {
+      this.resetDirectTraffic()
+    }
+    this.lastSeenDownloadTotal = snapshot.downloadTotal
+
+    const settings = this.settingService.getSettings()
+    if (settings.kernel.mode === 'direct') {
+      return {
+        ...snapshot,
+        directDownloadTotal: snapshot.downloadTotal,
+        directUploadTotal: snapshot.uploadTotal
+      }
+    }
+
+    if (!this.activeTrackedConns) this.activeTrackedConns = new Map()
+    const currentIds = new Set<string>()
+    for (const conn of snapshot.connections) {
+      currentIds.add(conn.id)
+      const isDirect = this.isDirectConnection(conn)
+      const prev = this.activeTrackedConns.get(conn.id)
+      if (isDirect) {
+        const dlDelta = prev ? Math.max(0, conn.download - prev.download) : conn.download
+        const ulDelta = prev ? Math.max(0, conn.upload - prev.upload) : conn.upload
+        this.directDownloadTotal += dlDelta
+        this.directUploadTotal += ulDelta
+      }
+      this.activeTrackedConns.set(conn.id, {
+        download: conn.download,
+        upload: conn.upload,
+        isDirect
+      })
+    }
+
+    for (const id of this.activeTrackedConns.keys()) {
+      if (!currentIds.has(id)) {
+        this.activeTrackedConns.delete(id)
+      }
+    }
+
+    const directDownloadTotal = Math.min(this.directDownloadTotal, snapshot.downloadTotal)
+    const directUploadTotal = Math.min(this.directUploadTotal, snapshot.uploadTotal)
+
+    return {
+      ...snapshot,
+      directDownloadTotal,
+      directUploadTotal
+    }
+  }
+
+  private isDirectConnection(conn: ConnectionItem): boolean {
+    if (conn.rule?.toUpperCase() === 'DIRECT' || conn.rulePayload?.toUpperCase() === 'DIRECT') {
+      return true
+    }
+    if (!conn.chains || conn.chains.length === 0) {
+      return true
+    }
+    const upperChains = conn.chains.map((c) => c.toUpperCase())
+    return upperChains.every((c) => c === 'DIRECT' || c === 'REJECT')
   }
 
   private invalidateGlobe(): void {
