@@ -1,120 +1,26 @@
-import { NetworkModeController } from './NetworkModeController'
-import { BaseService } from './BaseService'
-import { KernelService } from './KernelService'
-import { ProfileService } from './ProfileService'
-import { SettingService } from './SettingService'
-import { SysProxyService } from './SysProxyService'
-import { TrayService } from './TrayService'
-import { WindowService } from './WindowService'
-import { DesktopService } from './DesktopService'
-import { ThemeStore } from './ThemeStore'
-import { UpdateService } from './UpdateService'
-import { getAppPaths } from '../utils/paths'
+import { createApplicationServices, type ApplicationServices } from './createApplicationServices'
 import { logger } from '../utils/logger'
-import { isProcessElevated } from '../utils/elevation'
-import { saveRestartState, readRestartState, clearRestartState } from '../utils/restart-state'
 
 export class ServiceManager {
-  public settingService: SettingService
-  public profileService: ProfileService
-  public sysProxyService: SysProxyService
-  public kernelService: KernelService
-  public windowService: WindowService
-  public trayService: TrayService
-  public desktopService: DesktopService
-  public themeStore: ThemeStore
-  public updateService: UpdateService
-  public networkModeController: NetworkModeController
-
-  private services: BaseService[] = []
-
-  constructor() {
-    this.settingService = new SettingService()
-    this.profileService = new ProfileService(this.settingService)
-    this.sysProxyService = new SysProxyService(this.settingService)
-    this.kernelService = new KernelService(this.settingService, this.profileService)
-    this.profileService.setCoreStatusProvider?.(() => this.kernelService.getStatus() === 'running')
-    this.themeStore = new ThemeStore(getAppPaths().userData)
-    this.windowService = new WindowService(this.settingService, this.themeStore)
-    this.networkModeController = new NetworkModeController(this.settingService, this.kernelService, this.sysProxyService,
-      async settings => { await this.desktopService?.applySettings(settings) },
-      general => {
-        if (general) this.windowService.updateTheme()
-        this.windowService.broadcast('event:settings-changed', null)
-        this.trayService?.updateContextMenu()
-      })
-    this.trayService = new TrayService(
-      this.windowService,
-      this.kernelService,
-      this.sysProxyService,
-      this.settingService,
-      this.networkModeController
-    )
-    this.desktopService = new DesktopService(this.settingService, this.profileService, this.kernelService, this.sysProxyService, this.windowService, () => {
-      this.windowService.broadcast('event:settings-changed', null)
-      this.trayService.updateContextMenu()
-    }, this.networkModeController)
-    this.updateService = new UpdateService((channel, payload) => this.windowService.broadcast(channel, payload), async () => {
-      const window = this.windowService.getMainWindow()
-      saveRestartState({ running: ['running', 'starting'].includes(this.kernelService.getStatus()), visible: !!window?.isVisible() && !window.isMinimized(), elevated: isProcessElevated(), coreOnly: this.windowService.isCoreOnlyMode() })
-      await this.desktopService.dispose()
-      await this.kernelService.stop()
-      await this.sysProxyService.setCoreRunning(false)
-    }, () => this.settingService.getSettings().general.autoCheckUpdates !== false, async () => {
-      const state = readRestartState()
-      clearRestartState()
-      await this.desktopService.initialize()
-      if (state?.running) await this.kernelService.start()
-      await this.sysProxyService.setCoreRunning(this.kernelService.getStatus() === 'running')
-    })
-
-    // Route kernel broadcasts to renderer via WindowService
-    this.kernelService.setBroadcaster((channel, data) => {
-      this.windowService.broadcast(channel, data)
-      if (channel === 'event:core-status') {
-        if (data === 'running') {
-          void this.trayService.refreshProxies().then(() => {
-            this.trayService.updateContextMenu()
-          })
-        } else if (data === 'error' || data === 'stopped') {
-          this.trayService.clearProxies()
-        }
-        this.trayService.updateContextMenu()
-        if (data === 'running' || data === 'error' || data === 'stopped') {
-          void this.sysProxyService.setCoreRunning(data === 'running').then(() => {
-            this.windowService.broadcast('event:settings-changed', null)
-            this.trayService.updateContextMenu()
-          }).catch((error) => logger.error('Failed to synchronize system proxy with the core', error))
-        }
-      }
-    })
-
-    // Pause network streams while the interface is hidden.
-    this.windowService.setVisibilityHandler((visible: boolean) => {
-      if (visible) {
-        this.kernelService.resumeStreams()
-      } else {
-        this.kernelService.pauseStreams()
-      }
-    })
-    this.windowService.setModeChangedHandler(() => this.trayService.updateContextMenu())
-
-    // Ordered lifecycle array: window is created early for instant UI presentation
-    this.services = [
-      this.settingService,
-      this.profileService,
-      this.windowService,
-      this.updateService,
-      this.sysProxyService,
-      this.trayService,
-      this.kernelService,
-      this.desktopService
-    ]
+  private readonly application: ApplicationServices
+  constructor(create: () => ApplicationServices = createApplicationServices) {
+    this.application = create()
   }
+
+  get settingService() { return this.application.settingService }
+  get profileService() { return this.application.profileService }
+  get sysProxyService() { return this.application.sysProxyService }
+  get kernelService() { return this.application.kernelService }
+  get windowService() { return this.application.windowService }
+  get trayService() { return this.application.trayService }
+  get desktopService() { return this.application.desktopService }
+  get themeStore() { return this.application.themeStore }
+  get updateService() { return this.application.updateService }
+  get networkModeController() { return this.application.networkModeController }
 
   async initialize(): Promise<void> {
     logger.info('Initializing application service container...')
-    for (const service of this.services) {
+    for (const service of this.application.services) {
       try {
         await service.initialize()
       } catch (err) {
@@ -127,7 +33,7 @@ export class ServiceManager {
   async dispose(): Promise<void> {
     logger.info('Disposing application services...')
     // Dispose in reverse order
-    for (const service of [...this.services].reverse()) {
+    for (const service of [...this.application.services].reverse()) {
       try {
         await service.dispose()
       } catch (err) {
