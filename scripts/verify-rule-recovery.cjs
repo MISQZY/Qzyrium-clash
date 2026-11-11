@@ -112,6 +112,7 @@ async function main() {
   assert.equal(yaml.parse(duplicate.config).rules.filter(rule => rule === 'DOMAIN,a.example,DIRECT').length, 1, 'duplicate source rows are addressed by occurrence')
   const { MihomoConfigFactory } = load('src/main/core/MihomoConfigFactory.ts')
   const { toCustomRules, mergeRuleOverrides } = load('src/shared/rule-editor.ts')
+  const { serializeRulesToYaml, parseYamlToVisualRules } = load('src/shared/rule-editor-yaml.ts')
   const originalRow = { id: 'edited-source', type: 'DOMAIN', payload: 'a.example', proxy: 'DIRECT', sourceRule: 'DOMAIN,a.example,DIRECT', sourceOccurrence: 0, sourceIndex: 0 }
   for (const isMoved of [false, true]) {
     const edited = toCustomRules([{ ...originalRow, proxy: 'REJECT', isMoved }])
@@ -120,6 +121,9 @@ async function main() {
     assert.deepEqual(yaml.parse(compiled.config).rules, ['DOMAIN,a.example,REJECT', 'DOMAIN,b.example,DIRECT', 'MATCH,DIRECT'])
     const reopened = mergeRuleOverrides([originalRow], compiled.rules)
     assert.equal(reopened[0].proxy, 'REJECT', 'edited subscription target survives reload')
+    const roundTrip = parseYamlToVisualRules(serializeRulesToYaml(reopened, key => key), [originalRow])
+    assert.equal(roundTrip[0].proxy, 'REJECT', 'YAML preserves replacement target')
+    assert.equal(roundTrip[0].sourceRule, originalRow.sourceRule, 'YAML preserves original source identity')
   }
   const invalidReplacement = await prepareProfileContent(layoutProfile, settings, toCustomRules([{ ...originalRow, proxy: 'Missing' }]))
   assert.ok(invalidReplacement.rules[0].validationError, 'invalid replacement is quarantined by its own id')
