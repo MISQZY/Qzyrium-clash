@@ -207,7 +207,7 @@ async function main() {
 
   let state = 'stopped', starts = 0, stops = 0, syntheses = 0, originFinished = false
   let releaseProfile, releaseOrigin
-  let raw = 'proxies: []', customRules = [{ type: 'MATCH', proxy: 'DIRECT', enabled: true }]
+  let raw = 'proxies: []', customRules = []
   let profileRead = new Promise(resolve => { releaseProfile = resolve })
   let originRead = new Promise(resolve => { releaseOrigin = () => { originFinished = true; resolve() } })
   const { KernelService: LifecycleKernel } = load('src/main/services/KernelService.ts', {
@@ -217,6 +217,11 @@ async function main() {
     fs: { constants: { COPYFILE_EXCL: 1 }, promises: { copyFile: async () => {}, writeFile: async () => {} } },
     '../core/MihomoApiClient': {}, '../core/MihomoProcessManager': {},
     '../core/MihomoConfigFactory': { MihomoConfigFactory: { synthesize: (_raw, _settings, rules) => { syntheses++; assert.deepEqual(rules, customRules); return 'fixture' } } },
+    '../utils/profile-validator': { prepareProfileContent: async (_raw, _settings, rules) => {
+      syntheses++
+      assert.deepEqual(rules, customRules)
+      return { config: 'fixture', rules }
+    } },
     '../utils/logger': { logger: { info() {} } },
     '../utils/paths': { getAppPaths: () => ({ geoFilesDir: 'geo', mihomoDir: 'mihomo', activeConfigPath: 'config.yaml' }) },
     './GeoIpService': {}, '../utils/local-geoip': {}, '../utils/globe-routes': helpers
@@ -226,7 +231,8 @@ async function main() {
   lifecycle.geoGeneration = 0
   lifecycle.settingService = { getSettings: () => ({ kernel: { tun: { enable: true } } }) }
   lifecycle.geoIp = { captureOrigin: () => originRead }
-  lifecycle.profileService = { getActiveProfile: () => ({ id: 'fixture' }), getProfileContent: async () => { await profileRead; return raw }, getCustomRules: () => customRules }
+  lifecycle.profileService = { getActiveProfile: () => ({ id: 'fixture' }), getProfileContent: async () => { await profileRead; return raw }, getCustomRules: () => customRules,
+    setRuleValidation: async (_id, rules) => { assert.deepEqual(rules, customRules) } }
   lifecycle.apiClient = { reconfigure() {}, stopAllStreams() {} }
   lifecycle.processManager = { getState: () => state, start: async () => { assert.ok(originFinished, 'TUN waits for physical origin capture'); starts++; state = 'running' }, stop: async () => { stops++; state = 'stopped' } }
   const pendingStart = lifecycle.start(), duplicateStart = lifecycle.start(), pendingStop = lifecycle.stop()
@@ -240,7 +246,7 @@ async function main() {
   profileRead = Promise.resolve(); originRead = Promise.resolve()
   await lifecycle.start()
   await lifecycle.restart()
-  assert.equal(syntheses, 1, 'unchanged restart reuses synthesized YAML')
+  assert.equal(syntheses, 1, 'unchanged restart without active overrides reuses synthesized YAML')
   customRules = [...customRules, { type: 'DOMAIN', payload: 'example.com', proxy: 'DIRECT' }]
   await lifecycle.restart()
   assert.equal(syntheses, 2, 'custom rule changes invalidate synthesized YAML')
