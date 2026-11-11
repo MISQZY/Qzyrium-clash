@@ -47,6 +47,42 @@ assert.ok(!calls.some(call => call.args.includes('/create')), 'writable installa
 assert.equal(exportsObject.tryRunElevateTask(['--inspect=9229', '--admin-restart=123', 'qzyrium://install-config?url=a%20b', 'bad\nargument']), true)
 assert.equal(files.get(path.join('tasks', 'param.txt')), '--admin-restart=123\nqzyrium://install-config?url=a%20b')
 
+const startupCode = ts.transpileModule(fs.readFileSync('src/main/index.ts', 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true }
+}).outputText
+for (const elevated of [true, false]) {
+  for (const restarted of [true, false]) {
+    let registrations = 0, launches = 0
+    const startupDeps = {
+      electron: { app: {
+        isPackaged: true, setName() {}, getPath: () => 'fixture',
+        commandLine: { appendSwitch() {} }, requestSingleInstanceLock: () => false, quit() {}
+      } },
+      '@electron-toolkit/utils': { electronApp: { setAppUserModelId() {} } },
+      'node:fs': { existsSync: () => false, readFileSync: () => '{}' }, 'node:path': path,
+      './utils/elevation': { isProcessElevated: () => elevated },
+      './utils/elevate-task': {
+        createElevateTaskSync: () => { registrations++; return true },
+        tryRunElevateTask: () => { launches++; return false }
+      }
+    }
+    let lockCalls = 0
+    startupDeps.electron.app.requestSingleInstanceLock = () => { lockCalls++; return true }
+    // Stop immediately after initialization of the single-instance lock, before
+    // any services or Electron windows are created.
+    const stop = new Error('startup inspected')
+    startupDeps.electron.app.requestSingleInstanceLock = () => { lockCalls++; throw stop }
+    assert.throws(() => new Function('exports', 'require', 'process', 'console', startupCode)(
+      {}, name => startupDeps[name] ?? {},
+      { platform: 'win32', argv: restarted ? ['app', '--admin-restart=123'] : ['app'], kill() { throw new Error('old process exited') } },
+      { info() {} }
+    ), error => error === stop)
+    assert.equal(lockCalls, 1)
+    assert.equal(registrations, elevated ? 1 : 0, 'admin restart must register the protected task too')
+    assert.equal(launches, !elevated && !restarted ? 1 : 0, 'an unelevated admin restart must not loop through tasks')
+  }
+}
+
 if (process.platform === 'win32') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qzyrium-runner-test-'))
   const csc = path.join(process.env.SystemRoot, 'Microsoft.NET', 'Framework64', 'v4.0.30319', 'csc.exe')

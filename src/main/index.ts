@@ -97,8 +97,7 @@ if (
   process.platform === 'win32' &&
   app.isPackaged &&
   !process.argv.includes('--noadmin') &&
-  !process.argv.includes('--no-admin-task') &&
-  !adminRestartPid
+  !process.argv.includes('--no-admin-task')
 ) {
   if (isProcessElevated()) {
     try {
@@ -106,7 +105,7 @@ if (
     } catch {
       // Ignore background task creation errors
     }
-  } else {
+  } else if (!adminRestartPid) {
     try {
       if (tryRunElevateTask(process.argv.slice(1))) {
         app.exit(0)
