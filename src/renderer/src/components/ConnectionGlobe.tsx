@@ -421,6 +421,12 @@ export function ConnectionGlobe({
                   <path
                     d={route.path}
                     pathLength={100}
+                    className={`globe-route-glow ${isGroupActive ? 'is-group-active' : ''}`}
+                    style={{ stroke: strokeColor }}
+                  />
+                  <path
+                    d={route.path}
+                    pathLength={100}
                     className="globe-route-track is-active"
                     style={{ stroke: strokeColor }}
                   />

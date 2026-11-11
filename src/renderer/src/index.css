@@ -328,17 +328,18 @@ html, body, #root { width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .sidebar-vpn-dot-wrapper { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex-shrink: 0; }
 .sidebar-vpn-dot { width: 10px; height: 10px; flex-shrink: 0; border-radius: 50%; background: var(--muted-foreground); }
 .sidebar-vpn-badge[data-state=on] .sidebar-vpn-dot {
-  --pulse-glow: color-mix(in oklch, var(--success) 10%, transparent);
+  --pulse-glow: color-mix(in oklch, var(--success) 25%, transparent);
   background: var(--success);
   animation: sidebar-vpn-pulse 2.8s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 .sidebar-vpn-badge[data-state=on][data-mode=sysproxy] .sidebar-vpn-dot {
-  --pulse-glow: color-mix(in oklch, var(--info) 20%, transparent);
+  --pulse-glow: color-mix(in oklch, var(--info) 25%, transparent);
   background: var(--info);
 }
 @keyframes sidebar-vpn-pulse {
-  0%, 100% { opacity: 0.6; transform: scale(0.92); box-shadow: 0 0 0 0 transparent; }
-  50% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 4px var(--pulse-glow, color-mix(in oklch, var(--success) 10%, transparent)); }
+  0%, 100% { opacity: 0.65; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.08); }
 }
 @media (prefers-reduced-motion: reduce) {
   .sidebar-vpn-badge[data-state=on] .sidebar-vpn-dot { animation: none; }
@@ -564,21 +565,28 @@ input, textarea, pre { user-select: text; }
     opacity: 0.1;
   }
 }
+.globe-route-glow {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  opacity: 0.28;
+  pointer-events: none;
+}
+.globe-route-glow.is-group-active {
+  opacity: 0.38;
+}
 .globe-route-dash {
   fill: none;
   stroke-width: 2.2;
   stroke-linecap: round;
   stroke-dasharray: 10 10;
   pointer-events: none;
-  animation: globe-dash-fade 0.8s ease-out 1.7s both, globe-dash-flow 1.6s linear infinite;
+  animation: globe-dash-fade 0.8s ease-out 1.7s both;
 }
 .globe-route-dash.is-active {
   stroke-width: 3.2;
   stroke-dasharray: 12 8;
-  filter: drop-shadow(0 0 5px currentColor);
-}
-.globe-route-dash.is-group-active {
-  filter: drop-shadow(0 0 6px var(--warning));
+  animation: globe-dash-fade 0.8s ease-out 1.7s both, globe-dash-flow 1.6s linear infinite;
 }
 .globe-route-dash.is-connecting {
   stroke-dasharray: 10 10;
@@ -600,10 +608,25 @@ input, textarea, pre { user-select: text; }
 
 .globe-route-hit { fill: none; stroke: transparent; stroke-width: 20; pointer-events: stroke; cursor: pointer; }
 .globe-route-origin { fill: var(--muted-foreground); opacity: 0.6; pointer-events: none; }
-.globe-route-pulse { fill: none; stroke-width: 1.5; pointer-events: none; animation: globe-pulse 1.5s ease-out infinite; }
+.globe-route-pulse {
+  fill: none;
+  stroke-width: 1.5;
+  pointer-events: none;
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: globe-pulse 1.8s ease-out infinite;
+}
 @keyframes globe-pulse {
-  0% { r: 4px; opacity: 0.9; }
-  100% { r: 14px; opacity: 0; }
+  0% { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+:root[data-window-focused="false"] .sidebar-vpn-dot::after,
+:root[data-window-focused="false"] .globe-route-dash.is-active,
+:root[data-window-focused="false"] .globe-route-dash.is-connecting,
+:root[data-window-focused="false"] .globe-route-pulse,
+:root[data-window-focused="false"] .globe-connecting-stream {
+  animation-play-state: paused !important;
 }
 .globe-endpoint-text {
   fill: var(--foreground);
