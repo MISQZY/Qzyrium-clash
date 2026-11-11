@@ -256,12 +256,9 @@ export class ProfileService implements BaseService {
   }
 
   async setSelectedProxy(id: string, group: string, node: string): Promise<void> {
-    const profile = this.profiles.find(item => item.id === id)
-    if (!profile) throw new Error(`Profile ${id} not found`)
-    const previous = profile.selectedGroupProxies
-    profile.selectedGroupProxies = { ...previous, [group]: node }
-    try { await this.saveProfilesList() }
-    catch (error) { profile.selectedGroupProxies = previous; throw error }
+    await this.updateProfileMetadata(id, profile => {
+      profile.selectedGroupProxies = { ...profile.selectedGroupProxies, [group]: node }
+    })
   }
 
   async getProfileContent(id: string): Promise<string | null> {
@@ -282,10 +279,7 @@ export class ProfileService implements BaseService {
   async setRuleValidation(id: string, rules: CustomRuleItem[]): Promise<void> {
     const found = this.profiles.find((profile) => profile.id === id)
     if (!found || isDeepStrictEqual(found.customRules || [], rules)) return
-    const previous = found.customRules
-    found.customRules = rules
-    try { await this.saveProfilesList() }
-    catch (error) { found.customRules = previous; throw error }
+    await this.updateProfileMetadata(id, profile => { profile.customRules = structuredClone(rules) })
   }
 
   async validateCustomRules(id: string, rules: CustomRuleItem[]): Promise<CustomRuleItem[]> {
@@ -300,9 +294,11 @@ export class ProfileService implements BaseService {
     if (isDeepStrictEqual(found.customRules || [], rules)) return false
     const content = await this.getProfileContent(id)
     if (content === null) throw new Error(`Profile file is missing: ${id}`)
-    found.customRules = (await prepareProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG, rules)).rules
-    found.updatedAt = Date.now()
-    await this.saveProfilesList()
+    const prepared = await prepareProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG, rules)
+    await this.updateProfileMetadata(id, profile => {
+      profile.customRules = prepared.rules
+      profile.updatedAt = Date.now()
+    })
     logger.info(`Saved ${rules.length} custom rules for profile ${found.name} (${id})`)
     return true
   }
@@ -322,32 +318,31 @@ export class ProfileService implements BaseService {
   }
 
   async updateProfileInfo(id: string, patch: Partial<ProfileItem>): Promise<ProfileItem> {
-    const found = this.profiles.find((p) => p.id === id)
-    if (!found) throw new Error(`Profile ${id} not found`)
-    if (patch.interval !== undefined && (!Number.isInteger(patch.interval) || patch.interval < 15 || patch.interval > 43200)) throw new Error('Profile update interval must be between 15 and 43200 minutes')
-    if (patch.name !== undefined) {
-      found.name = patch.name.trim()
-      found.nameSource = 'manual'
-    }
-    if (patch.url !== undefined) {
-      found.url = patch.url.trim()
-    }
-    if (patch.autoUpdate !== undefined) {
-      found.autoUpdate = patch.autoUpdate
-    }
-    if (patch.interval !== undefined) {
-      found.interval = patch.interval
-    }
-    if (patch.customUA !== undefined) {
-      found.customUA = patch.customUA.trim() || undefined
-    }
-    if (patch.updateViaProxy !== undefined) {
-      found.updateViaProxy = Boolean(patch.updateViaProxy)
-    }
-    found.updatedAt = Date.now()
-    await this.saveProfilesList()
-    logger.info(`Updated info for profile ${found.name} (${id})`)
-    return found
+    const updated = await this.updateProfileMetadata(id, found => {
+      if (patch.interval !== undefined && (!Number.isInteger(patch.interval) || patch.interval < 15 || patch.interval > 43200)) throw new Error('Profile update interval must be between 15 and 43200 minutes')
+      if (patch.name !== undefined) {
+        found.name = patch.name.trim()
+        found.nameSource = 'manual'
+      }
+      if (patch.url !== undefined) {
+        found.url = patch.url.trim()
+      }
+      if (patch.autoUpdate !== undefined) {
+        found.autoUpdate = patch.autoUpdate
+      }
+      if (patch.interval !== undefined) {
+        found.interval = patch.interval
+      }
+      if (patch.customUA !== undefined) {
+        found.customUA = patch.customUA.trim() || undefined
+      }
+      if (patch.updateViaProxy !== undefined) {
+        found.updateViaProxy = Boolean(patch.updateViaProxy)
+      }
+      found.updatedAt = Date.now()
+    })
+    logger.info(`Updated info for profile ${updated.name} (${id})`)
+    return updated
   }
 
   async addProfile(dto: AddProfileDto): Promise<ProfileItem> {
@@ -485,10 +480,23 @@ export class ProfileService implements BaseService {
     logger.info(`Deleted profile: ${id}`)
   }
 
+  private updateProfileMetadata(id: string, mutate: (profile: ProfileItem) => void): Promise<ProfileItem> {
+    const update = this.metadataSave.then(async () => {
+      const current = this.profiles.find(profile => profile.id === id)
+      if (!current) throw new Error(`Profile ${id} not found`)
+      const candidate = structuredClone(current)
+      mutate(candidate)
+      const next = this.profiles.map(profile => profile === current ? candidate : profile)
+      await writeFileAtomicAsync(this.profilesFilePath, JSON.stringify(next, null, 2), 'utf-8', true)
+      Object.assign(current, candidate)
+      return structuredClone(candidate)
+    })
+    this.metadataSave = update.then(() => {}, error => logger.error('Failed to save profile metadata', error))
+    return update
+  }
+
   private saveProfilesList(): Promise<void> {
-    const content = JSON.stringify(this.profiles, null, 2)
-    // Preserve write order so a slower earlier save cannot overwrite newer metadata.
-    const save = this.metadataSave.then(() => writeFileAtomicAsync(this.profilesFilePath, content, 'utf-8', true))
+    const save = this.metadataSave.then(() => writeFileAtomicAsync(this.profilesFilePath, JSON.stringify(this.profiles, null, 2), 'utf-8', true))
     this.metadataSave = save.catch((err) => logger.error('Failed to save profiles list', err))
     return save
   }

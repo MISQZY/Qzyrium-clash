@@ -140,7 +140,7 @@ async function verifyProfiles() {
     ])],
     [path.resolve('profiles', 'a.yaml'), 'old'], [path.resolve('profiles', 'b.yaml'), 'old']
   ])
-  let metadataWrites = 0, maxMetadataWrites = 0, fetches = 0, content = 'new', failFetch = false, responseHeaders = {}
+  let metadataWrites = 0, maxMetadataWrites = 0, fetches = 0, content = 'new', failFetch = false, failMetadata = false, responseHeaders = {}
   const requestAgents = []
   const requestProxies = []
   const missing = () => Object.assign(new Error('missing'), { code: 'ENOENT' })
@@ -148,6 +148,7 @@ async function verifyProfiles() {
     fs: { promises: {
       async readFile(file) { if (!files.has(file)) throw missing(); return files.get(file) },
       async writeFile(file, value) {
+        if (file === 'profiles.json' && failMetadata) throw new Error('metadata disk full')
         if (file === 'profiles.json') maxMetadataWrites = Math.max(maxMetadataWrites, ++metadataWrites)
         await nextTurn()
         files.set(file, value)
@@ -167,6 +168,13 @@ async function verifyProfiles() {
   assert.equal(maxMetadataWrites, 1, 'metadata saves must never overlap')
   assert.equal(JSON.parse(files.get('profiles.json'))[1].customRules.length, 1, 'latest metadata must survive concurrent saves')
   assert.equal(await profiles.saveCustomRules('a', structuredClone(rules)), false, 'unchanged rules need no rewrite')
+  const beforeFailure = structuredClone(profiles.getProfiles())
+  failMetadata = true
+  await assert.rejects(profiles.updateProfileInfo('a', { name: 'Unsaved' }), /metadata disk full/)
+  await assert.rejects(profiles.saveCustomRules('a', [{ type: 'MATCH', payload: '', proxy: 'REJECT' }]), /metadata disk full/)
+  assert.deepEqual(profiles.getProfiles(), beforeFailure, 'rejected metadata and rule saves leave memory unchanged')
+  failMetadata = false
+  await profiles.updateProfileInfo('a', { name: beforeFailure[0].name })
   failFetch = true
   const failedUpdate = profiles.updateProfile('a')
   assert.equal(profiles.updateProfile('a'), failedUpdate, 'service consumers must share pending updates too')
