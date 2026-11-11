@@ -1,7 +1,7 @@
 import { selectedLocalization } from '@shared/custom-localization'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocale, useTranslations } from '../i18n'
-import { ArrowDown, ArrowUp, ExternalLink, HelpCircle, LoaderCircle, Megaphone, Power } from 'lucide-react'
+import { ArrowDown, ArrowUp, ExternalLink, HelpCircle, LoaderCircle, Power } from 'lucide-react'
 import type { CoreState, TrafficStats, TunnelMode } from '@shared/types'
 import type { ProfileItem } from '@shared/profile'
 import type { AppConfig } from '@shared/app-config'
@@ -164,16 +164,18 @@ export function DashboardPage({
       ? t('connectedState')
       : t('disconnectedState')
 
+  const announcePill = activeProfile?.announce ? (
+    <div className={`overview-announce-pill${liteMode ? ' is-lite' : ''}`} role="status">
+      <span className="overview-announce-text">
+        {activeProfile.announce}
+      </span>
+    </div>
+  ) : null
+
   return <section className="page-scroll overview-page">
     <header className="page-heading">
       <h1 className="text-xl font-semibold tracking-tight">{t('overview')}</h1>
-      {activeProfile?.announce && (
-        <div className="overview-announce-pill" role="status">
-          <span className="overview-announce-text">
-            {activeProfile.announce}
-          </span>
-        </div>
-      )}
+      {!liteMode && announcePill}
     </header>
     <div className={`overview-layout${liteMode ? ' is-lite' : ''}`}>
       {!liteMode && visible && (
@@ -184,6 +186,7 @@ export function DashboardPage({
         />
       )}
       <div className="overview-panel-column">
+        {liteMode && announcePill}
         <aside className="overview-panel" aria-label={t('connectionControls')}>
           <div className="overview-power-section">
             <p className={`text-sm font-medium ${coreStatus === 'error' ? 'text-destructive' : ''}`} role="status">
