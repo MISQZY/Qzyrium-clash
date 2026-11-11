@@ -49,7 +49,7 @@ for (const [saved, expected] of [
 }
 
 function verifyConfiguration() {
-  const { resetSettingsSection, mergeSettings } = load('src/shared/settings-config.ts')
+  const { resetSettingsSection, mergeSettings, createSettingsSectionPatch } = load('src/shared/settings-config.ts')
   const { createInitialSettings, restoreSettings } = load('src/main/core/SettingsFactory.ts')
   const initial = createInitialSettings(() => 'fixture-unique-secret')
   assert.equal(resetSettingsSection(initial, 'mihomo').kernel.controllerSecret, 'fixture-unique-secret', 'reset preserves authentication identity')
@@ -57,6 +57,18 @@ function verifyConfiguration() {
   assert.equal(restoreSettings({ kernel: { controllerSecret: DEFAULT_APP_CONFIG.kernel.controllerSecret } }, initial).kernel.controllerSecret, 'fixture-unique-secret', 'shared legacy secret is migrated')
   assert.equal(restoreSettings({ kernel: { controllerSecret: 'custom' } }, initial).kernel.controllerSecret, 'custom')
   assert.equal(mergeSettings(initial, { kernel: { tun: { enable: true } } }).kernel.tun.stack, initial.kernel.tun.stack, 'nested patches retain TUN preferences')
+  const draft = { form: structuredClone(initial), bypass: ' localhost \r\n\n 10.* ', dnsHijack: ' any:53\n tcp://any:53 ' }
+  draft.form.kernel.mixedPort = 1234
+  draft.form.kernel.tun.enable = true
+  draft.form.sysProxy.enable = true
+  const tunPatch = createSettingsSectionPatch('tun', draft, initial)
+  assert.equal(tunPatch.kernel.mixedPort, initial.kernel.mixedPort, 'TUN save preserves saved ports')
+  assert.deepEqual(tunPatch.kernel.tun.dnsHijack, ['any:53', 'tcp://any:53'])
+  const corePatch = createSettingsSectionPatch('mihomo', draft, initial)
+  assert.equal(corePatch.kernel.tun.enable, false, 'core save preserves saved capture preference')
+  const proxyPatch = createSettingsSectionPatch('sysproxy', draft, initial)
+  assert.equal(proxyPatch.sysProxy.enable, false)
+  assert.deepEqual(proxyPatch.sysProxy.bypass, ['localhost', '10.*'])
   const config = fresh()
   config.kernel.options = { ipv6: false, 'tcp-concurrent': true, 'unified-delay': true, 'socks-port': 0, 'find-process-mode': 'strict' }
   config.kernel.dns = { enable: true, nameserver: ['1.1.1.1'], 'enhanced-mode': 'fake-ip', 'nameserver-policy': { '+.example.com': '8.8.8.8' } }

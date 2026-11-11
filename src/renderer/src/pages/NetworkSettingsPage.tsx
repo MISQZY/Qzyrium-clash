@@ -1,4 +1,5 @@
-import { resetSettingsSection } from '@shared/settings-config'
+import { createSettingsSectionPatch, resetSettingsSection, type SettingsSection } from '@shared/settings-config'
+import { SETTINGS_SECTIONS } from '../lib/settings-sections'
 import { useTranslations } from '../i18n'
 import { useState, useEffect, type FormEvent, type ReactNode } from 'react'
 import { Save, Folder, ArrowLeft, ChevronRight, Download, Upload, Trash2, RefreshCw, Palette, Power, Gauge, Keyboard, FileText } from 'lucide-react'
@@ -33,7 +34,7 @@ import {
 import { coreFields, generalFields, tunFields } from '@shared/settings-fields'
 import { DEFAULT_APP_CONFIG } from '@shared/app-config'
 
-type Section = 'tun' | 'sysproxy' | 'mihomo' | 'settings'
+type Section = SettingsSection
 
 interface Props {
   section: Section; settings: AppConfig; sysProxy: SysProxyStatus; busy: boolean
@@ -56,12 +57,6 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
   const t = useTranslations('networksettings')
   const common = useTranslations('common')
 
-  const meta = {
-    tun: { title: t('tUNInterface'), icon: TunIcon },
-    sysproxy: { title: t('systemProxy'), icon: SystemProxyIcon },
-    mihomo: { title: t('mihomoCore'), icon: CoreIcon },
-    settings: { title: t('settings'), icon: SettingsIcon }
-  }
   const [form, setForm] = useState(settings)
   const [bypass, setBypass] = useState(settings.sysProxy.bypass.join('\n'))
   const [dnsHijack, setDnsHijack] = useState(settings.kernel.tun.dnsHijack.join('\n'))
@@ -163,7 +158,8 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
     setForm((prev) => ({ ...prev, general: { ...prev.general, language: settings.general.language, theme: settings.general.theme, customLocalization: settings.general.customLocalization } }))
   }, [settings.general.language, settings.general.theme, settings.general.customLocalization])
   useEffect(() => { if (!dirty) setForm(settings) }, [settings, dirty])
-  const { title, icon: Icon } = meta[section]
+  const { title: titleKey, icon: Icon } = SETTINGS_SECTIONS[section]
+  const title = t(titleKey)
   const updateKernel = (patch: Partial<AppConfig['kernel']>) => { setDirty(true); setMessage(''); setForm((prev) => ({ ...prev, kernel: { ...prev.kernel, ...patch } })) }
   const updateTun = (patch: Partial<AppConfig['kernel']['tun']>) => updateKernel({ tun: { ...form.kernel.tun, ...patch } })
   const updateGeneral = (patch: Partial<AppConfig['general']>) => { setDirty(true); setMessage(''); setForm((prev) => ({ ...prev, general: { ...prev.general, ...patch } })) }
@@ -176,9 +172,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
         setMessage('mixedAndControllerPortsMustBeDifferent')
         return
       }
-      if (section === 'settings') await onSaveSettings({ general: Object.fromEntries(Object.entries({ ...DEFAULT_APP_CONFIG.general, ...form.general }).map(([key, value]) => [key, value === undefined ? DEFAULT_APP_CONFIG.general[key as keyof AppConfig['general']] : value])) as AppConfig['general'] })
-      else if (section === 'sysproxy') await onSaveSettings({ sysProxy: { ...form.sysProxy, host: form.sysProxy.host?.trim() || '127.0.0.1', enable: settings.sysProxy.enable, bypass: bypass.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) } })
-      else await onSaveSettings({ kernel: section === 'tun' ? { ...settings.kernel, tun: { ...form.kernel.tun, dnsHijack: dnsHijack.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) } } : { ...form.kernel, tun: settings.kernel.tun } })
+      await onSaveSettings(createSettingsSectionPatch(section, { form, bypass, dnsHijack }, settings))
       setDirty(false)
       setMessage('changesSaved')
     } catch { setMessage('changesCouldNotBeAppliedCheckTheErrorAbove') }
