@@ -148,6 +148,7 @@ function render() {
 }
 
 async function run() {
+  await verifyDatasetRetries()
   render()
   events.status('running')
   await flush()
@@ -297,5 +298,52 @@ async function run() {
   assert.equal(view.connections.downloadTotal, 0, 'unexpected core exit releases connections')
   assert.equal([...timers].filter(t => t.ms === 2000).length, 0, 'unexpected core exit stops polling')
   console.log('PASS renderer store: progressive loading, independent retry, single snapshot owner, buffered logs, relevant traffic, visibility pause, stale result protection')
+}
+
+async function verifyDatasetRetries() {
+  const { loadDataset } = createResolver(path.resolve(__dirname, '../src/renderer/src/stores/domains'))('./loadDataset')
+  const statusRevision = { current: 0 }, actionInProgress = { current: false }
+  const errors = [], values = []
+  const coord = { statusRevision, actionInProgress, reportError: error => errors.push(error) }
+  const failure = Error('dataset unavailable')
+  let attempts = 0
+  const stop = loadDataset(coord, async () => { attempts++; throw failure }, value => values.push(value))
+  await flush()
+  for (const delay of [1000, 2000]) {
+    assert.equal(errors.length, 0, 'dataset errors remain silent until retries are exhausted')
+    assert.equal(timers.size, 1, 'each failure schedules one retry')
+    const retry = [...timers][0]
+    assert.equal(retry.ms, delay, 'dataset retries use exponential backoff')
+    timers.delete(retry)
+    retry.fn()
+    await flush()
+  }
+  assert.equal(attempts, 3, 'dataset requests stop after two retries')
+  assert.deepEqual(errors, [failure], 'final failure is reported once')
+  assert.equal(timers.size, 0, 'exhausted retries leave no timers')
+  stop()
+
+  const cancel = loadDataset(coord, async () => { throw failure }, value => values.push(value))
+  await flush()
+  assert.equal(timers.size, 1)
+  cancel()
+  assert.equal(timers.size, 0, 'cleanup cancels pending retries')
+
+  for (const invalidate of ['cleanup', 'revision', 'action']) {
+    for (const outcome of ['resolve', 'reject']) {
+      const pending = deferred()
+      const cleanup = loadDataset(coord, () => pending.promise, value => values.push(value))
+      if (invalidate === 'cleanup') cleanup()
+      if (invalidate === 'revision') statusRevision.current++
+      if (invalidate === 'action') actionInProgress.current = true
+      pending[outcome](outcome === 'resolve' ? 'stale' : failure)
+      await flush()
+      assert.equal(values.length, 0, `${invalidate} discards stale dataset results`)
+      assert.equal(errors.length, 1, `${invalidate} discards stale dataset errors`)
+      assert.equal(timers.size, 0, `${invalidate} prevents retries of stale requests`)
+      cleanup()
+      actionInProgress.current = false
+    }
+  }
 }
 run().catch(error => { console.error(error); process.exitCode = 1 })
