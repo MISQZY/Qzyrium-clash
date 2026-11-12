@@ -99,8 +99,17 @@ app.whenReady().then(async () => {
     await waitFor(`document.querySelector('h1')?.textContent === 'Settings'`)
     assert.ok(await evaluate(`(() => {
       const rows = Array.from(document.querySelectorAll('.setting-row'));
-      return rows.length > 1 && rows.every(el => getComputedStyle(el).borderBottomWidth === (el.matches(':last-child') ? '0px' : '1px'));
+      return rows.length > 1 && rows.every(el => {
+        const fieldsContinue = el.parentElement.matches('.settings-fields') && el.parentElement.nextElementSibling;
+        const groupEnd = el.matches(':last-child') && !fieldsContinue;
+        return getComputedStyle(el).borderBottomWidth === (groupEnd ? '0px' : '1px');
+      });
     })()`), 'settings rows have dividers except at the end of each group')
+    assert.ok(await evaluate(`(() => {
+      const row = id => document.getElementById(id).closest('.setting-row');
+      return getComputedStyle(row('general-autoStartAsAdmin')).borderBottomWidth === '1px'
+        && getComputedStyle(row('general-silentStart')).borderBottomWidth === '0px';
+    })()`), 'startup dividers continue past nested fields and stop after the final preference')
     assert.ok(await evaluate(`[
       ['.app-titlebar', 'borderBottomWidth'],
       ['.workspace-header', 'borderBottomWidth'],
