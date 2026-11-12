@@ -42,7 +42,7 @@ export function CopyableCodeLine({
         <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
       )}
       <div
-        className="group/codeline relative flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-border/70 bg-muted/40 dark:bg-zinc-950/40 font-mono text-xs text-foreground/90 transition-all hover:border-primary/40 hover:bg-muted/60"
+        className="group/codeline relative flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-border/70 bg-muted/40 dark:bg-zinc-950/40 font-mono text-xs text-foreground/90 transition-colors hover:border-primary/40 hover:bg-muted/60"
         onClick={(e) => handleCopy(textToCopy, e)}
         title={value}
       >
@@ -89,7 +89,7 @@ export function CopyableCodeLine({
             onClick={(e) => handleCopy(textToCopy, e)}
             title={copied ? t('copied') : t('copy')}
             aria-label={copied ? t('copied') : t('copy')}
-            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-background/80 transition-all focus:outline-none focus:ring-1 focus:ring-primary/40"
+            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors focus:outline-none focus:ring-1 focus:ring-primary/40"
           >
             {copied ? (
               <Check className="size-3.5 text-success animate-in zoom-in-75 duration-150" />

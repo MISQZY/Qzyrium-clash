@@ -29,7 +29,7 @@ export function ProcessGroupCard({ group, onSelect }: ProcessGroupCardProps) {
                 <div className="flex items-center justify-between gap-3">
                   {/* Left: Process icon & Details */}
                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 group-hover:scale-105 transition-transform overflow-hidden p-1.5">
+                    <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 overflow-hidden p-1.5">
                       <ProcessIcon
                         processPath={group.path}
                         processName={group.name}

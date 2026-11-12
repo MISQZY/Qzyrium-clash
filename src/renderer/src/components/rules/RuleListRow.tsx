@@ -28,7 +28,7 @@ export function RuleListRow({ editor, rule, idx }: RuleListRowProps) {
                         onDragEnd={handleDragEnd}
                         onClick={() => !isDeleted && startInlineEdit(rule)}
                         className={cn(
-                          'group flex h-12 items-center gap-2.5 px-3 py-2 rounded-lg border transition-all cursor-pointer min-w-0',
+                          'group flex h-12 items-center gap-2.5 px-3 py-2 rounded-lg border transition-colors cursor-pointer min-w-0',
                           (rule.validationError || rule.enabled === false) && 'grayscale opacity-60 text-muted-foreground',
                           isDeleted && 'bg-destructive/10 opacity-60 border-destructive/20 cursor-not-allowed',
                           (rule.validationError || rule.enabled === false) && 'bg-muted/50 border-border',

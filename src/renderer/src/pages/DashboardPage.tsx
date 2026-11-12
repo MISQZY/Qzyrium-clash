@@ -301,7 +301,7 @@ export function DashboardPage({
             <div className="overview-panel-section overview-support-section p-3">
               <Button
                 variant="secondary"
-                className="w-full gap-2.5 text-xs font-semibold h-10 rounded-xl bg-secondary/80 hover:bg-secondary text-secondary-foreground border border-border/80 shadow-xs hover:shadow transition-all active:scale-[0.98] cursor-pointer"
+                className="w-full gap-2.5 text-xs font-semibold h-10 rounded-xl bg-secondary/80 hover:bg-secondary text-secondary-foreground border border-border/80 transition-[color,background-color,border-color,transform] active:scale-[0.98] cursor-pointer"
                 onClick={() => {
                   if (window.api?.app?.openUrl) {
                     void window.api.app.openUrl(activeProfile.supportUrl!)

@@ -47,7 +47,7 @@ export function RuleEditorHeader({ editor, profile }: RuleEditorHeaderProps) {
                 type="button"
                 onClick={() => handleModeChange('visual')}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer',
+                  'flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer',
                   activeMode === 'visual'
                     ? 'bg-background text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'
@@ -60,7 +60,7 @@ export function RuleEditorHeader({ editor, profile }: RuleEditorHeaderProps) {
                 type="button"
                 onClick={() => handleModeChange('yaml')}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer',
+                  'flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer',
                   activeMode === 'yaml'
                     ? 'bg-background text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'

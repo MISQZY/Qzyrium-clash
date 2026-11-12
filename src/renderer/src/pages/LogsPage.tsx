@@ -117,7 +117,7 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
                 key={lvl}
                 onClick={() => setLevelFilter(lvl)}
                 aria-pressed={levelFilter === lvl}
-                className={`px-2.5 py-1 rounded-md capitalize font-medium transition-all cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md capitalize font-medium transition-colors cursor-pointer ${
                   levelFilter === lvl
                     ? 'bg-card text-primary shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'

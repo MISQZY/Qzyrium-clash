@@ -173,7 +173,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
                 disabled={busy}
                 aria-pressed={activeCaptureMode === 'off'}
                 onClick={() => void handleSelectCaptureMode('off')}
-                className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer ${
+                className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
                   activeCaptureMode === 'off'
                     ? 'bg-background text-foreground shadow-sm font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
@@ -186,7 +186,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
                 disabled={busy}
                 aria-pressed={activeCaptureMode === 'sysproxy'}
                 onClick={() => void handleSelectCaptureMode('sysproxy')}
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
                   activeCaptureMode === 'sysproxy'
                     ? 'bg-background text-foreground shadow-sm text-primary font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
@@ -200,7 +200,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
                 disabled={busy}
                 aria-pressed={activeCaptureMode === 'tun'}
                 onClick={() => void handleSelectCaptureMode('tun')}
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
                   activeCaptureMode === 'tun'
                     ? 'bg-background text-foreground shadow-sm text-primary font-semibold'
                     : 'text-muted-foreground hover:text-foreground'

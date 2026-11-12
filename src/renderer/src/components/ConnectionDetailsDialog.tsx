@@ -349,7 +349,7 @@ export function ConnectionDetailsDialog({ activeDetail, setSelectedConnection, h
                     <div className="sm:col-span-2 flex flex-col gap-1 w-full min-w-0">
                       <span className="text-[11px] font-medium text-muted-foreground">{t('chains')}</span>
                       <div
-                        className="group/chainline relative flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-border/70 bg-muted/30 text-xs text-foreground transition-all hover:border-primary/40 hover:bg-muted/50 cursor-pointer"
+                        className="group/chainline relative flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-border/70 bg-muted/30 text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-muted/50 cursor-pointer"
                         onClick={() => {
                           const chainVal = formatChain(activeDetail.chains)
                           handleCopy(chainVal, `chain-${activeDetail.id}`)
@@ -369,7 +369,7 @@ export function ConnectionDetailsDialog({ activeDetail, setSelectedConnection, h
                           }}
                           title={copiedKey === `chain-${activeDetail.id}` ? t('copied') : t('copy')}
                           aria-label={copiedKey === `chain-${activeDetail.id}` ? t('copied') : t('copy')}
-                          className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-background/80 transition-all focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-background/80 transition-colors focus:outline-none focus:ring-1 focus:ring-primary/40"
                         >
                           {copiedKey === `chain-${activeDetail.id}` ? (
                             <Check className="size-3.5 text-success animate-in zoom-in-75 duration-150" />
