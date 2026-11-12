@@ -302,11 +302,14 @@ export class WindowService implements BaseService {
     this.mainWindow.focus()
   }
 
-  async openFolder(target: 'logs' | 'data' | 'profiles'): Promise<void> {
+  async openFolder(target: 'logs' | 'appLogs' | 'connectionLogs' | 'data' | 'profiles'): Promise<void> {
     const paths = getAppPaths()
     let folder = paths.userData
     if (target === 'logs') folder = paths.logsDir
+    if (target === 'appLogs') folder = path.join(paths.logsDir, 'app')
+    if (target === 'connectionLogs') folder = path.join(paths.logsDir, 'connections')
     if (target === 'profiles') folder = paths.profilesDir
-    await shell.openPath(folder)
+    const error = await shell.openPath(folder)
+    if (error) throw new Error(error)
   }
 }

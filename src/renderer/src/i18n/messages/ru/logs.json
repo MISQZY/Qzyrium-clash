@@ -5,5 +5,8 @@
   "clearLogs": "Очистить журнал",
   "noLogEntriesRecordedYet": "В журнале пока нет записей.",
   "searchLogs": "Поиск по сообщениям",
-  "noMatchingEntries": "Нет записей, соответствующих фильтру."
+  "noMatchingEntries": "Нет записей, соответствующих фильтру.",
+  "logSource": "Тип журнала",
+  "applicationLogs": "Приложение",
+  "connectionLogs": "Подключения"
 }

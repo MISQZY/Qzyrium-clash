@@ -162,5 +162,7 @@
   "updatesGroup": "Обновления приложения",
   "updatesDescription": "Автоматическая проверка новых версий приложения.",
   "advancedTun": "Расширенные настройки TUN",
-  "advancedCore": "Расширенные настройки ядра"
+  "advancedCore": "Расширенные настройки ядра",
+  "appLogsFolder": "Логи приложения",
+  "connectionLogsFolder": "Логи подключений"
 }

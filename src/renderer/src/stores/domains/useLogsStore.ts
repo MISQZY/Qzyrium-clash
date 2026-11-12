@@ -5,7 +5,13 @@ import type { StoreCoordinator } from './types'
 export interface LogsStore {
   logs: LogEntry[]
   setLogs: React.Dispatch<React.SetStateAction<LogEntry[]>>
-  clearLogs: () => void
+  clearLogs: (source?: 'app' | 'mihomo') => void
+}
+
+function trimLogs(buffer: LogEntry[], limit: number): LogEntry[] {
+  const counts = { app: 0, mihomo: 0 }
+  for (const log of buffer) counts[log.source ?? 'app']++
+  return buffer.filter(log => counts[log.source ?? 'app']-- <= limit)
 }
 
 export function useLogsStore(coord: StoreCoordinator): LogsStore {
@@ -18,8 +24,7 @@ export function useLogsStore(coord: StoreCoordinator): LogsStore {
 
   useEffect(() => {
     const limit = coord.settings.general.maxLogs ?? 300
-    if (logBuffer.current.length <= limit) return
-    logBuffer.current.splice(0, logBuffer.current.length - limit)
+    logBuffer.current = trimLogs(logBuffer.current, limit)
     if (activeView.current.activeTab === 'logs' && activeView.current.visible) {
       setLogs([...logBuffer.current])
     }
@@ -30,9 +35,7 @@ export function useLogsStore(coord: StoreCoordinator): LogsStore {
     const unsub = window.api.events.onLog((log) => {
       logBuffer.current.push(log)
       const limit = maxLogsRef.current ?? 300
-      if (logBuffer.current.length > limit) {
-        logBuffer.current.splice(0, logBuffer.current.length - limit)
-      }
+      logBuffer.current = trimLogs(logBuffer.current, limit)
     })
     return unsub
   }, [])
@@ -56,9 +59,9 @@ export function useLogsStore(coord: StoreCoordinator): LogsStore {
     return () => clearInterval(timer)
   }, [coord.activeTab, coord.visible])
 
-  const clearLogs = useCallback(() => {
-    logBuffer.current = []
-    setLogs([])
+  const clearLogs = useCallback((source?: 'app' | 'mihomo') => {
+    logBuffer.current = source ? logBuffer.current.filter(log => (log.source ?? 'app') !== source) : []
+    setLogs([...logBuffer.current])
   }, [])
 
   return useMemo(() => ({

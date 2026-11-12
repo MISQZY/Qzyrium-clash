@@ -9,7 +9,7 @@ const MAX_ARCHIVES = 20
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 const ARCHIVE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z(?:-\d+)?\.log$/
 
-export class Logger {
+class LogFile {
   private logFilePath = ''
   private bytes = 0
   private day = ''
@@ -113,6 +113,31 @@ export class Logger {
     this.write('error', `${msg}${detail}`)
   }
   debug(msg: string): void { this.write('debug', msg) }
+}
+
+export class Logger extends LogFile {
+  private readonly connections = new LogFile()
+  private appLogHandler?: (entry: LogEntry) => void
+
+  override initialize(directory = getAppPaths().logsDir): void {
+    // Existing mixed logs remain in the root directory for reference.
+    super.initialize(path.join(directory, 'app'))
+    this.connections.initialize(path.join(directory, 'connections'))
+  }
+
+  setAppLogHandler(handler: (entry: LogEntry) => void): void {
+    this.appLogHandler = handler
+  }
+
+  override writeEntry(entry: LogEntry): void {
+    if (entry.source === 'mihomo') {
+      this.connections.writeEntry(entry)
+    } else {
+      const sanitized = { ...entry, source: 'app' as const, payload: cleanLogMessage(entry.payload) }
+      super.writeEntry(sanitized)
+      this.appLogHandler?.(sanitized)
+    }
+  }
 }
 
 export const logger = new Logger()

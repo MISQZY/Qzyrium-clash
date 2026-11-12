@@ -9,7 +9,7 @@ import { cleanLogMessage, normalizeLogLevel } from '@shared/logs'
 
 interface LogsPageProps {
   logs: LogEntry[]
-  onClear: () => void
+  onClear: (source: 'app' | 'mihomo') => void
 }
 
 const logLevels = ['all', 'debug', 'info', 'warning', 'error'] as const
@@ -22,6 +22,7 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
   const t = useTranslations('logs')
   const common = useTranslations('common')
   const locale = useLocale()
+  const [source, setSource] = useState<'app' | 'mihomo'>(() => readPreference('logs_source') === 'app' ? 'app' : 'mihomo')
 
   const [levelFilter, setLevelFilter] = useState<string>(() => {
     const saved = readPreference('logs_level_filter')
@@ -36,8 +37,9 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
     try {
       localStorage.setItem('logs_level_filter', levelFilter)
       localStorage.setItem('logs_auto_scroll', String(autoScroll))
+      localStorage.setItem('logs_source', source)
     } catch { /* Keep the controls usable when storage is unavailable. */ }
-  }, [levelFilter, autoScroll])
+  }, [levelFilter, autoScroll, source])
   const timeFormatter = useMemo(() => new Intl.DateTimeFormat(locale, {
     hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false
   }), [locale])
@@ -46,12 +48,13 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
     return Number.isNaN(date.getTime()) ? time : timeFormatter.format(date)
   }
 
+  const sourceLogs = useMemo(() => logs.filter(log => (log.source ?? 'app') === source), [logs, source])
   const filteredLogs = useMemo(() => {
-    return logs.filter((l) => {
+    return sourceLogs.filter((l) => {
       return (levelFilter === 'all' || normalizeLogLevel(l.type) === levelFilter)
         && cleanLogMessage(l.payload).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
     })
-  }, [logs, levelFilter, search])
+  }, [sourceLogs, levelFilter, search])
 
   useLayoutEffect(() => {
     const el = scrollRef.current
@@ -137,7 +140,7 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
           </Button>
 
           <Button
-            onClick={onClear}
+            onClick={() => onClear(source)}
             variant="outline"
             size="icon-sm"
             title={t('clearLogs')}
@@ -148,10 +151,18 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex flex-wrap items-center gap-3 shrink-0">
+        <div className="flex items-center gap-1" role="group" aria-label={t('logSource')}>
+          {(['mihomo', 'app'] as const).map(value => (
+            <Button key={value} size="sm" variant={source === value ? 'default' : 'outline'}
+              aria-pressed={source === value} onClick={() => { scrollPosition.current = 0; setSource(value) }}>
+              {t(value === 'app' ? 'applicationLogs' : 'connectionLogs')}
+            </Button>
+          ))}
+        </div>
         <Input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
           placeholder={t('searchLogs')} aria-label={t('searchLogs')} className="max-w-sm" />
-        <span className="text-xs text-muted-foreground tabular-nums shrink-0">{filteredLogs.length} / {logs.length}</span>
+        <span className="text-xs text-muted-foreground tabular-nums shrink-0">{filteredLogs.length} / {sourceLogs.length}</span>
       </div>
 
       {/* Terminal View Container */}
@@ -168,7 +179,7 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
           ))
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground font-mono text-xs select-none">
-            {t(logs.length ? 'noMatchingEntries' : 'noLogEntriesRecordedYet')}
+            {t(sourceLogs.length ? 'noMatchingEntries' : 'noLogEntriesRecordedYet')}
           </div>
         )}
       </div>

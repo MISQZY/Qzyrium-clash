@@ -179,6 +179,7 @@ if (!gotTheLock) {
     }
     clearRestartState()
     services = new ServiceManager()
+    logger.setAppLogHandler(entry => services?.windowService.broadcast(IPC_CHANNELS.EVENT_LOG, entry))
     if (restartState) {
       services.windowService.setStartupVisibility(restartState.visible)
       services.kernelService.setStartupRunning(restartState.running)

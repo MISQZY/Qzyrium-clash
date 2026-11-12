@@ -162,5 +162,7 @@
   "updatesGroup": "Application updates",
   "updatesDescription": "Automatic checks for new application versions.",
   "advancedTun": "Advanced TUN settings",
-  "advancedCore": "Advanced core settings"
+  "advancedCore": "Advanced core settings",
+  "appLogsFolder": "Application logs",
+  "connectionLogsFolder": "Connection logs"
 }

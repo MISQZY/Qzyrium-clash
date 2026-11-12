@@ -153,7 +153,7 @@ export function SettingsOverview({ draft, onNavigate }: {
           <CardContent className="p-5">
             <h2 className="mb-4 text-sm font-semibold">{t('applicationFiles')}</h2>
             <div className="flex flex-wrap gap-2">
-              {(['data', 'profiles', 'logs'] as const).map((target) => (
+              {(['data', 'profiles', 'appLogs', 'connectionLogs'] as const).map((target) => (
                 <Button
                   key={target}
                   variant="outline"

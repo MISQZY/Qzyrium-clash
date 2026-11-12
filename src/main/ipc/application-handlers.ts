@@ -42,7 +42,7 @@ export function registerApplicationHandlers(
     services.windowService.close()
   })
 
-  handle(IPC_CHANNELS.APP_OPEN_FOLDER, async (_, target: 'logs' | 'data' | 'profiles') => {
+  handle(IPC_CHANNELS.APP_OPEN_FOLDER, async (_, target: 'logs' | 'appLogs' | 'connectionLogs' | 'data' | 'profiles') => {
     await services.windowService.openFolder(target)
   })
 

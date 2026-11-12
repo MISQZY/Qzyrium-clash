@@ -166,7 +166,7 @@ export interface IElectronApi {
     minimize: () => Promise<void>
     maximize: () => Promise<void>
     close: () => Promise<void>
-    openFolder: (target: 'logs' | 'data' | 'profiles') => Promise<void>
+    openFolder: (target: 'logs' | 'appLogs' | 'connectionLogs' | 'data' | 'profiles') => Promise<void>
     setTitleBarOverlay: (overlay: { color?: string; symbolColor?: string }) => Promise<void>
   }
   theme: {

@@ -5,5 +5,8 @@
   "clearLogs": "Clear logs",
   "noLogEntriesRecordedYet": "No log entries recorded yet.",
   "searchLogs": "Search messages",
-  "noMatchingEntries": "No matching log entries."
+  "noMatchingEntries": "No matching log entries.",
+  "logSource": "Log type",
+  "applicationLogs": "Application",
+  "connectionLogs": "Connections"
 }
