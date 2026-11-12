@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
-import CodeMirror, { EditorView } from '@uiw/react-codemirror'
-import { yaml } from '@codemirror/lang-yaml'
-import { createEditorTheme } from '../lib/codemirror-theme'
+import CodeMirror from '@uiw/react-codemirror'
+import { createYamlEditorExtensions, yamlEditorBasicSetup } from '../lib/yaml-editor-extensions'
 import { useIsDarkTheme } from '../lib/theme'
 
 export interface YamlEditorProps {
@@ -22,11 +21,7 @@ export default function YamlEditor({
   const activeIsDark = useIsDarkTheme()
   const isDark = theme ? theme.includes('dark') : activeIsDark
 
-  const extensions = useMemo(() => [
-    yaml(),
-    EditorView.lineWrapping,
-    ...createEditorTheme(isDark)
-  ], [isDark])
+  const extensions = useMemo(() => createYamlEditorExtensions(isDark), [isDark])
 
   return (
     <div className={`monaco-editor cm-editor-wrapper h-full w-full flex-1 min-h-0 overflow-hidden ${className || ''}`}>
@@ -38,15 +33,7 @@ export default function YamlEditor({
         className="h-full w-full flex-1 min-h-0"
         extensions={extensions}
         onChange={(val) => onChange?.(val)}
-        basicSetup={{
-          lineNumbers: true,
-          highlightActiveLineGutter: true,
-          foldGutter: true,
-          indentOnInput: true,
-          bracketMatching: true,
-          closeBrackets: true,
-          highlightActiveLine: true
-        }}
+        basicSetup={yamlEditorBasicSetup}
       />
     </div>
   )

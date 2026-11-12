@@ -1,7 +1,6 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react'
 import CodeMirror, { ReactCodeMirrorRef, EditorView } from '@uiw/react-codemirror'
-import { yaml } from '@codemirror/lang-yaml'
-import { createEditorTheme } from '../lib/codemirror-theme'
+import { createYamlEditorExtensions, yamlEditorBasicSetup } from '../lib/yaml-editor-extensions'
 import { useIsDarkTheme } from '../lib/theme'
 import { CodeMirrorDiffEditor } from './CodeMirrorDiffEditor'
 import yamlParser from 'yaml'
@@ -67,11 +66,7 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
 
   const isDark = useIsDarkTheme()
 
-  const extensions = useMemo(() => [
-    yaml(),
-    EditorView.lineWrapping,
-    ...createEditorTheme(isDark)
-  ], [isDark])
+  const extensions = useMemo(() => createYamlEditorExtensions(isDark), [isDark])
 
   useLayoutEffect(() => () => {
     activeViewRef.current = null
@@ -205,15 +200,7 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
                   contentRef.current = value || ''
                   if (error) setError(null)
                 }}
-                basicSetup={{
-                  lineNumbers: true,
-                  highlightActiveLineGutter: true,
-                  foldGutter: true,
-                  indentOnInput: true,
-                  bracketMatching: true,
-                  closeBrackets: true,
-                  highlightActiveLine: true
-                }}
+                basicSetup={yamlEditorBasicSetup}
               />
             </div>
           )}
