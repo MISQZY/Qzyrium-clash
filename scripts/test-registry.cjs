@@ -19,6 +19,11 @@ const checks = Object.freeze([
     id: args.length ? 'packaged-silent' : 'packaged-normal', suite: 'packaged-ui', runtime: 'node',
     file: path.join(__dirname, 'check-packaged-ui.cjs'), args: Object.freeze(args), timeoutMs: 180_000
   })),
+  ...[[], ['--silent'], ['--portable'], ['--portable', '--silent'], ['--installer-payload']].map(args => Object.freeze({
+    id: `runtime-${args.includes('--portable') ? 'portable' : args.includes('--installer-payload') ? 'installer' : 'unpacked'}-${args.includes('--silent') ? 'silent' : 'normal'}`,
+    suite: 'packaged-runtime', runtime: 'node', file: path.join(__dirname, 'check-packaged-ui.cjs'),
+    args: Object.freeze(['--lifecycle-only', ...args]), timeoutMs: 180_000
+  })),
   Object.freeze({ id: 'resize-stress', suite: 'resize-ui', runtime: 'node',
     file: path.join(__dirname, 'check-packaged-ui.cjs'), args: Object.freeze(['--resize-stress', '--stress-ms=120000']), timeoutMs: 300_000 }),
   check('bundle', 'build', 'node'),

@@ -2,6 +2,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const yaml = require('yaml')
+const { createHash } = require('node:crypto')
 const { verifyRuntimeResources } = require('./resource-integrity.cjs')
 const { version } = require('../package.json')
 
@@ -28,6 +29,15 @@ if (stage === 'version') {
   const latest = yaml.parse(fs.readFileSync('dist/latest.yml', 'utf8'))
   assert.equal(latest.version, version, 'Updater metadata must match the application version')
   assert.ok(latest.files?.some(file => decodeURIComponent(file.url) === installer), 'Updater metadata must reference the NSIS installer')
+  assert.equal(decodeURIComponent(latest.path), installer, 'Legacy updater path must reference the same installer')
+  assert.equal(latest.sha512, latest.files.find(file => decodeURIComponent(file.url) === installer).sha512, 'Legacy updater digest must match the installer entry')
+  for (const file of latest.files) {
+    const filename = decodeURIComponent(file.url)
+    assert.equal(path.basename(filename), filename, 'Updater assets must be local filenames')
+    const bytes = fs.readFileSync(path.join('dist', filename))
+    assert.equal(file.size, bytes.length, `Updater size does not match ${filename}`)
+    assert.equal(file.sha512, createHash('sha512').update(bytes).digest('base64'), `Updater SHA-512 does not match ${filename}`)
+  }
 } else {
   throw new Error('Usage: node scripts/verify-release.cjs <version|resources|assets>')
 }

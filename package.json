@@ -62,6 +62,7 @@
     "test:processes": "electron scripts/verify-process-model.cjs",
     "test:native:ui": "electron scripts/verify-native-window-ui.cjs",
     "test:packaged:ui": "node scripts/test-runner.cjs packaged-ui",
+    "test:packaged:runtime": "node scripts/test-runner.cjs packaged-runtime",
     "test:resize:ui": "node scripts/test-runner.cjs resize-ui",
     "prepare:resources": "node scripts/prepare-resources.mjs",
     "prepare:icons": "electron scripts/prepare-app-icon.cjs"

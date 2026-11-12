@@ -101,6 +101,18 @@ jobs:
         run: pnpm build:win
       - name: Verify release assets
         run: node scripts/verify-release.cjs assets
+      - name: Verify packaged startup, portable and installer payload
+        run: pnpm test:packaged:runtime
+      - name: Upload packaged runtime diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: packaged-runtime-failure-${{ github.run_id }}
+          path: |
+            artifacts/test-results/packaged-runtime/**
+            artifacts/packaged-ui/**/report.json
+            artifacts/packaged-ui/**/isolation.json
+          if-no-files-found: ignore
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v7
         with:
