@@ -127,7 +127,8 @@ const api: IElectronApi = {
     getWhatsNew: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_WHATS_NEW),
     openUrl: (url: string) => ipcRenderer.invoke(IPC_CHANNELS.APP_OPEN_URL, url),
     copyToClipboard: (text: string) => ipcRenderer.invoke(IPC_CHANNELS.APP_COPY_TO_CLIPBOARD, text),
-    getBootSnapshot: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_BOOT_SNAPSHOT)
+    getBootSnapshot: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_BOOT_SNAPSHOT),
+    completeProfileImport: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.APP_COMPLETE_PROFILE_IMPORT, id)
   },
   events: {
     onWarning: (callback) => {
@@ -180,8 +181,9 @@ const api: IElectronApi = {
       }
     },
     onImportProfile: (callback) => {
-      const listener = (_: IpcRendererEvent, data: { url: string; name?: string }) => callback(data)
+      const listener = (_: IpcRendererEvent, data: { id?: string; url: string; name?: string }) => callback(data)
       ipcRenderer.on(IPC_CHANNELS.EVENT_IMPORT_PROFILE, listener)
+      void ipcRenderer.invoke(IPC_CHANNELS.APP_IMPORT_RENDERER_READY).catch(() => {})
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.EVENT_IMPORT_PROFILE, listener)
       }

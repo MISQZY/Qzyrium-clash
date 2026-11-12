@@ -57,7 +57,7 @@ let socket
   const injection = await call('Debugger.evaluateOnCallFrame', { callFrameId: state.callFrames[0].callFrameId,
     expression: `(() => { globalThis.smokeRequire=require; const {app}=require('electron'); app.setPath('userData', ${JSON.stringify(output)}); Object.defineProperty(app,'isPackaged',{value:false}); app.setAsDefaultProtocolClient=()=>false; return app.getPath('userData'); })()`, returnByValue: true })
   assert.equal(injection.result?.result?.value, output)
-  const line = fs.readFileSync('out/main/index.js', 'utf8').split('\n').findIndex(line => line.includes('const initialProto = extractProtocolUrl(process.argv)'))
+  const line = fs.readFileSync('out/main/index.js', 'utf8').split('\n').findIndex(line => line.includes('servicesReady = true'))
   assert.ok(line > 0)
   await call('Debugger.setBreakpointByUrl', { lineNumber: line, urlRegex: regex })
   paused = new Promise(resolve => { pauseResolve = resolve }); await call('Debugger.resume'); state = await paused

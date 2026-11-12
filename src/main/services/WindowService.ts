@@ -10,8 +10,20 @@ import type { ThemeStore } from './ThemeStore'
 import { bootAppearance } from '@shared/appearance'
 import { watchWindowScale } from '../utils/window-scale'
 import { trimProcessMemory } from '../utils/memory'
+import { ProfileImportQueue } from '../utils/profile-import-queue'
 
 export class WindowService implements BaseService {
+  private imports = new ProfileImportQueue(request => this.broadcast(IPC_CHANNELS.EVENT_IMPORT_PROFILE, request))
+
+  queueProfileImport(rawUrl: string): void {
+    // Create/reveal the window before allowing the queue to deliver.
+    this.show()
+    this.imports.add(rawUrl)
+  }
+
+  importRendererReady(): void { this.imports.rendererReady() }
+  completeProfileImport(id: string): void { this.imports.complete(id) }
+
   getRendererUrl(): string {
     return !app.isPackaged && process.env.ELECTRON_RENDERER_URL
       ? process.env.ELECTRON_RENDERER_URL
@@ -46,6 +58,7 @@ export class WindowService implements BaseService {
     if (this.isQuitting || this.coreOnly === enabled) return
     this.coreOnly = enabled
     if (enabled) {
+      this.imports.resetRenderer()
       this.ready = false
       this.visibilityHandler?.(false)
       const window = this.mainWindow
@@ -115,6 +128,7 @@ export class WindowService implements BaseService {
   }
 
   async createWindow(): Promise<BrowserWindow> {
+    this.imports.resetRenderer()
     this.ready = false
     const { theme, language } = this.settingService.getSettings().general
     const appearance = bootAppearance(theme, language, this.themeStore?.listThemes() ?? [], nativeTheme.shouldUseDarkColors)
@@ -146,6 +160,7 @@ export class WindowService implements BaseService {
     })
 
     watchWindowScale(this.mainWindow)
+    this.mainWindow.webContents.on('did-start-loading', () => this.imports.resetRenderer())
 
     // Deny all unsolicited web API permissions
     this.mainWindow.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => {

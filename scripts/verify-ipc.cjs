@@ -90,6 +90,7 @@ function verifyArgumentContracts() {
     'theme:delete-custom-theme': ['theme-1'], 'config:save-text-file': ['config.json', ''],
     'window:set-titlebar-overlay': [{ symbolColor: '#ffffff' }],
     'app:get-process-icon': ['C:\\Program Files\\Example\\app.exe'],
+    'app:complete-profile-import': ['import-1'],
     'app:open-url': ['https://example.com/'], 'app:copy-to-clipboard': ['']
   }
   for (const channel of Object.values(IPC_CHANNELS).filter(channel => !channel.startsWith('event:'))) {

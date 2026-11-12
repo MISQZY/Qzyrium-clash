@@ -9,7 +9,6 @@ import path from 'node:path'
 import { IPC_CHANNELS } from '@shared/ipc'
 import { normalizeSettings } from '@shared/settings-config'
 import { applyPendingBackup } from './utils/backup'
-import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import { clearRestartState, readRestartState } from './utils/restart-state'
 import { isProcessElevated, restartAsAdmin } from './utils/elevation'
 import { createElevateTaskSync, tryRunElevateTask } from './utils/elevate-task'
@@ -33,18 +32,9 @@ function extractProtocolUrl(args: string[]): string | undefined {
   return args.find((arg) => /^(clash|qzyrium|mihomo):\/\//i.test(arg.trim()))
 }
 
-function notifyImportProfile(services: ServiceManager, rawUrl: string): void {
-  const parsed = parseSubscriptionImportUrl(rawUrl)
-  if (parsed.url) {
-    const win = services.windowService.getMainWindow()
-    if (win) {
-      if (win.isMinimized()) win.restore()
-      win.show()
-      win.focus()
-      win.webContents.send(IPC_CHANNELS.EVENT_IMPORT_PROFILE, parsed)
-    }
-  }
-}
+const pendingProtocolUrls: string[] = []
+const initialProtocolUrl = extractProtocolUrl(process.argv)
+if (initialProtocolUrl) pendingProtocolUrls.push(initialProtocolUrl)
 
 // Memory optimization and acceleration switches must be applied before app.ready.
 let lowMemoryMode = false
@@ -64,6 +54,7 @@ for (const [name, value] of renderingSwitches(process.platform, lowMemoryMode)) 
 }
 
 let services: ServiceManager | null = null
+let servicesReady = false
 let shuttingDown = false
 
 function extractAdminRestartPid(): number | null {
@@ -151,13 +142,11 @@ if (!gotTheLock) {
   }
   logger.initialize()
   app.on('second-instance', (_, commandLine) => {
-    if (services) {
-      services.windowService.show()
-      const proto = extractProtocolUrl(commandLine)
-      if (proto) {
-        notifyImportProfile(services, proto)
-      }
-    }
+    const proto = extractProtocolUrl(commandLine)
+    if (proto) pendingProtocolUrls.push(proto)
+    if (!services || !servicesReady) return
+    services.windowService.show()
+    for (const url of pendingProtocolUrls.splice(0)) services.windowService.queueProfileImport(url)
   })
 
   app.whenReady().then(async () => {
@@ -216,13 +205,9 @@ if (!gotTheLock) {
     }
     registerIpcHandlers(services)
     await services.initialize()
+    servicesReady = true
 
-    const initialProto = extractProtocolUrl(process.argv)
-    if (initialProto && services) {
-      setTimeout(() => {
-        if (services) notifyImportProfile(services, initialProto)
-      }, 1500)
-    }
+    for (const url of pendingProtocolUrls.splice(0)) services.windowService.queueProfileImport(url)
 
     app.on('activate', () => {
       if (services?.windowService.isCoreOnlyMode()) return

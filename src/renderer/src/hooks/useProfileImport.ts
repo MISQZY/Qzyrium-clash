@@ -12,7 +12,11 @@ export function useProfileImport({ importRequest, onClearImportRequest, onRefres
   setError: (error: string) => void
 }) {
   const t = useTranslations('profiles')
-  const [showAddModal, setShowAddModal] = useState(false)
+  const [showAddModal, setAddModalOpen] = useState(false)
+  const setShowAddModal = (open: boolean) => {
+    setAddModalOpen(open)
+    if (!open && importRequest) onClearImportRequest?.()
+  }
   const [profileName, setProfileName] = useState('')
   const [profileUrl, setProfileUrl] = useState('')
   const [profileType, setProfileType] = useState<'remote' | 'local'>('remote')
@@ -27,10 +31,9 @@ export function useProfileImport({ importRequest, onClearImportRequest, onRefres
       setProfileUrl(parsed.url)
       setProfileName(importRequest.name || parsed.name || '')
       setUpdateViaProxy(false)
-      setShowAddModal(true)
-      onClearImportRequest?.()
+      setAddModalOpen(true)
     }
-  }, [importRequest, onClearImportRequest])
+  }, [importRequest])
 
   const handleUrlChange = (value: string) => {
     const parsed = parseSubscriptionImportUrl(value)

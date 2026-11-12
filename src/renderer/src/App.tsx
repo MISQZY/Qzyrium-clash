@@ -92,7 +92,7 @@ function Workspace() {
       setUpdatingProfile(false)
     }
   }
-  const [pendingImport, setPendingImport] = useState<{ url: string; name?: string } | null>(null)
+  const [pendingImport, setPendingImport] = useState<{ id?: string; url: string; name?: string } | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
   useEffect(() => {
     let active = true
@@ -213,7 +213,10 @@ function Workspace() {
         )}
         {!window.api && <div className="shrink-0 border-b border-border bg-muted/40 px-5 py-2 text-xs text-muted-foreground">{t('interfacePreviewOpenQzyriumInElectronToConnectToMihomo')}</div>}
         <div className="page-viewport" key={activeTab}>
-          <PageContent importRequest={pendingImport} onClearImportRequest={() => setPendingImport(null)} />
+          <PageContent importRequest={pendingImport} onClearImportRequest={() => {
+            setPendingImport(null)
+            if (pendingImport?.id) void window.api?.app.completeProfileImport?.(pendingImport.id).catch(() => {})
+          }} />
         </div>
       </main>
     </div>

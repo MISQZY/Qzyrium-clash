@@ -57,10 +57,11 @@ const dependencies = {
   '@electron-toolkit/utils': { is: { dev: false } },
   '../utils/paths': {},
   '../utils/logger': { logger: { info() {}, warn() {}, error() {} } },
-  '@shared/ipc': { IPC_CHANNELS: { EVENT_WINDOW_VISIBILITY: 'visibility' } },
+  '@shared/ipc': { IPC_CHANNELS: { EVENT_WINDOW_VISIBILITY: 'visibility', EVENT_IMPORT_PROFILE: 'import' } },
   '@shared/appearance': { bootAppearance },
   '../utils/window-scale': windowScale,
-  '../utils/memory': { trimProcessMemory: async () => {} }
+  '../utils/memory': { trimProcessMemory: async () => {} },
+  '../utils/profile-import-queue': require('./fixtures/typescript.cjs').loadTypeScript('src/main/utils/profile-import-queue.ts')
 }
 const code = ts.transpileModule(fs.readFileSync('src/main/services/WindowService.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
@@ -179,5 +180,19 @@ vm.runInNewContext(code, {
     service.show()
     assert.equal(win.isVisible(), true)
   }
-  console.log('PASS: first-paint window presentation, custom theme backgrounds, silent startup, minimize, restore and close in all routing modes')
+  const imports = new exportsObject.WindowService({ getSettings: () => ({ general: {} }) })
+  imports.queueProfileImport('qzyrium://install-config?url=https%3A%2F%2Fexample.com%2Fsub')
+  let current = imports.getMainWindow()
+  assert.equal(current.webContents.messages.filter(message => message.channel === 'import').length, 0, 'new window does not receive imports before subscription')
+  imports.importRendererReady()
+  const request = current.webContents.messages.find(message => message.channel === 'import').args[0]
+  imports.setCoreOnlyMode(true)
+  imports.queueProfileImport('clash://install-config?url=https%3A%2F%2Fexample.com%2Fsecond')
+  current = imports.getMainWindow()
+  assert.equal(current.webContents.messages.filter(message => message.channel === 'import').length, 0, 'core-only replacement waits for its listener')
+  imports.importRendererReady()
+  assert.equal(current.webContents.messages.find(message => message.channel === 'import').args[0].id, request.id)
+  imports.completeProfileImport(request.id)
+  assert.equal(current.webContents.messages.filter(message => message.channel === 'import').length, 2)
+  console.log('PASS: window presentation, close modes and queued imports across core-only renderer recreation')
 })().catch(error => { console.error(error); process.exitCode = 1 })

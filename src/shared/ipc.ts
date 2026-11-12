@@ -81,6 +81,8 @@ export const IPC_CHANNELS = {
   APP_OPEN_URL: 'app:open-url',
   APP_COPY_TO_CLIPBOARD: 'app:copy-to-clipboard',
   APP_GET_BOOT_SNAPSHOT: 'app:get-boot-snapshot',
+  APP_IMPORT_RENDERER_READY: 'app:import-renderer-ready',
+  APP_COMPLETE_PROFILE_IMPORT: 'app:complete-profile-import',
 
   // Streaming events
   EVENT_TRAFFIC: 'event:traffic',
@@ -196,6 +198,7 @@ export interface IElectronApi {
     openUrl: (url: string) => Promise<void>
     copyToClipboard: (text: string) => Promise<boolean>
     getBootSnapshot?: () => Promise<BootSnapshot>
+    completeProfileImport?: (id: string) => Promise<void>
   }
   events: {
     onUpdaterStatus: (callback: (status: AppUpdaterStatus) => void) => () => void
@@ -205,7 +208,7 @@ export interface IElectronApi {
     onCoreStatus: (callback: (status: CoreState) => void) => () => void
     onTunError: (callback: (errorText: string) => void) => () => void
     onWarning: (callback: (message: string) => void) => () => void
-    onImportProfile: (callback: (data: { url: string; name?: string }) => void) => () => void
+    onImportProfile: (callback: (data: { id?: string; url: string; name?: string }) => void) => () => void
     onWindowVisibility: (callback: (visible: boolean) => void) => () => void
   }
 }

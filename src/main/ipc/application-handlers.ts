@@ -13,6 +13,8 @@ export function registerApplicationHandlers(
   services: Pick<ServiceManager, 'windowService' | 'kernelService' | 'sysProxyService' | 'desktopService' | 'updateService' | 'settingService' | 'profileService'>
 ): void {
   const MAX_ICON_CACHE = 80
+  handle(IPC_CHANNELS.APP_IMPORT_RENDERER_READY, () => services.windowService.importRendererReady())
+  handle(IPC_CHANNELS.APP_COMPLETE_PROFILE_IMPORT, (_, id: string) => services.windowService.completeProfileImport(id))
 
   const iconCache = new Map<string, string>()
 
