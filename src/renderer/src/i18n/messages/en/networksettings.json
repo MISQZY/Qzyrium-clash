@@ -75,6 +75,8 @@
   "overridden": "Custom override",
   "overrideProfile": "Override subscription settings",
   "overrideProfileHint": "Apply these values to all subscriptions. Unspecified fields keep the subscription value.",
+  "overrideSection": "Override {name} settings",
+  "subscriptionSettingsHint": "Settings are taken from the subscription. Enable the override to customize them.",
   "pacScript": "Custom PAC script",
   "pacScriptHint": "Leave empty for the built-in script. Variables: {{host}}, {{port}}.",
   "profilesFolder": "Profiles folder",

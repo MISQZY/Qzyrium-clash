@@ -4,11 +4,9 @@ import type { AppConfig } from '@shared/app-config'
 import { dnsFields, resourceFields, snifferFields, type ConfigValues } from '@shared/settings-fields'
 import type { NavTab } from '../lib/navigation'
 import { useTranslations } from '../i18n'
-import { Page, SettingRow } from '../components/Page'
+import { Page } from '../components/Page'
 import { SettingsFields } from '../components/SettingsFields'
-import { Card, CardContent } from '../components/ui/card'
 import { Button } from '../components/ui/button'
-import { Switch } from '../components/ui/switch'
 
 export function ProfileConfigPage({
   section,
@@ -25,12 +23,12 @@ export function ProfileConfigPage({
 }) {
   const common = useTranslations('common')
   const t = useTranslations('networksettings')
-  const [enabled, setEnabled] = useState(!!settings.kernel[section])
+  const enabled = settings.kernel[section] != null
   const [value, setValue] = useState<ConfigValues>(settings.kernel[section] ?? {})
   const [dirty, setDirty] = useState(false)
   const [message, setMessage] = useState('')
   useEffect(() => {
-    if (!dirty) { setEnabled(!!settings.kernel[section]); setValue(settings.kernel[section] ?? {}) }
+    if (!dirty) setValue(settings.kernel[section] ?? {})
   }, [settings, section, dirty])
   const fields = section === 'dns' ? dnsFields : section === 'sniffer' ? snifferFields : resourceFields
   return <Page title={common(section)} actions={
@@ -47,7 +45,7 @@ export function ProfileConfigPage({
           <span>{t('backToSettings')}</span>
         </Button>
       )}
-      <Button type="submit" form={`override-${section}`} disabled={busy || !dirty} size="sm">
+      <Button type="submit" form={`override-${section}`} disabled={busy || !dirty || !enabled} size="sm">
         <Save className="size-3.5" />
         {busy ? t('saving') : t('saveChanges')}
       </Button>
@@ -55,17 +53,12 @@ export function ProfileConfigPage({
   }>
     <form id={`override-${section}`} className="relative flex flex-col gap-4" onSubmit={(event) => {
       event.preventDefault()
+      if (busy || !enabled) return
       setMessage('')
-      void onSaveSettings({ kernel: { ...settings.kernel, [section]: enabled ? value : null } }).then(() => { setDirty(false); setMessage(t('changesSaved')) }).catch(() => setMessage(t('changesCouldNotBeAppliedCheckTheErrorAbove')))
+      void onSaveSettings({ kernel: { ...settings.kernel, [section]: value } }).then(() => { setDirty(false); setMessage(t('changesSaved')) }).catch(() => setMessage(t('changesCouldNotBeAppliedCheckTheErrorAbove')))
     }}>
-      <Card>
-        <CardContent className="p-4 sm:p-5">
-          <SettingRow title={t('overrideProfile')} description={t('overrideProfileHint')}>
-            <Switch aria-label={t('overrideProfile')} checked={enabled} onCheckedChange={(next) => { setEnabled(next); setDirty(true); setMessage('') }} />
-          </SettingRow>
-          {enabled && <div className="mt-4"><SettingsFields prefix={section} fields={fields} value={value} onChange={(next) => { setValue(next); setDirty(true); setMessage('') }} /></div>}
-        </CardContent>
-      </Card>
+      {enabled ? <SettingsFields prefix={section} fields={fields} value={value} onChange={(next) => { setValue(next); setDirty(true); setMessage('') }} />
+        : <p className="text-xs text-muted-foreground">{t('subscriptionSettingsHint')}</p>}
       {message && <p role="status" className="text-xs text-muted-foreground">{message}</p>}
     </form>
   </Page>

@@ -73,6 +73,10 @@ app.whenReady().then(async () => {
       }
       for (const id of ['sysproxy', 'tun', 'dns', 'sniffer', 'resources', 'mihomo']) {
         await navigate(locale, 'settings')
+        if (['dns', 'sniffer', 'resources'].includes(id) && await evaluate(`document.querySelector('[data-nav-target="${id}"]').disabled`)) {
+          await evaluate(`document.querySelector('[data-override-section="${id}"]').click()`)
+          await waitFor(`!document.querySelector('[data-nav-target="${id}"]').disabled`)
+        }
         await evaluate(`document.querySelector('[data-nav-target="${id}"]').click()`)
         await waitFor(`document.querySelector('h1')?.textContent === ${JSON.stringify(catalogs[locale].common[id])}`)
       }

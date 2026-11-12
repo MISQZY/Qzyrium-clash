@@ -88,6 +88,10 @@ if (process.type === 'renderer') {
           await delay(70)
           await waitFor(`document.querySelector('h1')?.textContent === 'Settings' || document.querySelector('h1')?.textContent === 'Настройки'`)
         }
+        if (['dns', 'sniffer', 'resources'].includes(target) && await evaluate(`document.querySelector('[data-nav-target="${target}"]').disabled`)) {
+          await evaluate(`document.querySelector('[data-override-section="${target}"]').click()`)
+          await waitFor(`!document.querySelector('[data-nav-target="${target}"]').disabled`)
+        }
         await evaluate(`document.querySelector('[data-nav-target="${target}"]')?.click()`)
       } else {
         await evaluate(`Array.from(document.querySelectorAll('nav button')).find(el => el.textContent.trim() === ${JSON.stringify(label)} || el.getAttribute('aria-label') === ${JSON.stringify(label)})?.click()`)
@@ -223,6 +227,16 @@ if (process.type === 'renderer') {
       assert.equal(await evaluate(`document.querySelector('[class*="group/chainline"] span').textContent`), chain)
       await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(el => el.textContent.trim() === 'Close').click()`)
       result.checks.push('Traffic highlights only increasing counters and fades; connection details show group-to-node chain')
+      await navigate('Settings')
+      for (const section of ['dns', 'sniffer', 'resources']) {
+        assert.equal(await evaluate(`document.querySelector('[data-nav-target="${section}"]').disabled`), true, 'inherited settings cannot be opened')
+        assert.equal(await evaluate(`document.querySelector('[data-override-section="${section}"]').getAttribute('aria-checked')`), 'false')
+        assert.ok(await evaluate(`document.querySelector('[data-inherit-hint="${section}"]').getAttribute('aria-label').includes('subscription')`))
+      }
+      await evaluate(`document.querySelector('[data-inherit-hint="dns"]').dispatchEvent(new FocusEvent('focusin', { bubbles: true }))`)
+      await waitFor(`document.querySelector('[role="tooltip"]')?.textContent.includes('Settings are taken from the subscription')`)
+      await evaluate(`document.querySelector('[data-inherit-hint="dns"]').blur()`)
+      result.checks.push('Network overrides are disabled by default with accessible subscription hints')
       const pages = ['Home', 'Proxy groups', 'Profiles', 'Connections', 'Rules', 'Logs', 'System proxy', 'TUN interface', 'DNS', 'Sniffer', 'Resources', 'Mihomo core', 'Settings']
       for (const [width, height] of [[840, 560], [1040, 720], [1440, 900], [900, 600], [840, 560]]) {
         win.setSize(width, height)
@@ -247,7 +261,6 @@ if (process.type === 'renderer') {
         if (width === 840 || width === 1440) await screenshot(`overview-${width}`)
       }
       await navigate('DNS')
-      await evaluate(`document.querySelector('[aria-label="Override subscription settings"]').click()`)
       await setControl('#dns-enable', 'true')
       await setControl('#dns-nameserver', 'https://1.1.1.1/dns-query\nhttps://dns.google/dns-query')
       await setControl('#dns-nameserver-policy', '[1, 2]')
@@ -259,20 +272,19 @@ if (process.type === 'renderer') {
       await navigate('Sniffer')
       await navigate('DNS')
       assert.equal(await evaluate(`document.querySelector('#dns-enable').value`), 'true', 'DNS values survive page changes')
-      await evaluate(`document.querySelector('[aria-label="Override subscription settings"]').click()`)
-      await evaluate(`document.querySelector('button[form="override-dns"]').click()`)
-      await waitFor(`document.querySelector('button[form="override-dns"]').disabled`)
+      assert.equal(await evaluate(`document.querySelector('[aria-label="Override subscription settings"]')`), null, 'editor contains only settings fields')
+      await navigate('Settings')
+      await evaluate(`document.querySelector('[data-override-section="dns"]').click()`)
+      await waitFor(`document.querySelector('[data-nav-target="dns"]').disabled && !document.querySelector('[data-override-section="dns"]').disabled`)
       assert.equal(await evaluate(`window.api.settings.get().then(s => s.kernel.dns)`), null, 'turning off an override returns control to the subscription')
       result.checks.push('DNS editing validates YAML, persists values and restores subscription inheritance')
       await navigate('Sniffer')
-      await evaluate(`document.querySelector('[aria-label="Override subscription settings"]').click()`)
       await setControl('#sniffer-enable', 'true')
       await setControl('#sniffer-sniff', 'TLS:\n  ports: [443]\nQUIC:\n  ports: [443]')
       await evaluate(`document.querySelector('button[form="override-sniffer"]').click()`)
       await waitFor(`document.querySelector('button[form="override-sniffer"]').disabled`)
       assert.deepEqual(await evaluate(`window.api.settings.get().then(s => s.kernel.sniffer.sniff.TLS.ports)`), [443])
       await navigate('Resources')
-      await evaluate(`document.querySelector('[aria-label="Override subscription settings"]').click()`)
       await setControl('#resources-geo-auto-update', 'true')
       await setControl('#resources-geo-update-interval', '48')
       await setControl('#resources-profile', 'store-selected: true\nstore-fake-ip: true')
