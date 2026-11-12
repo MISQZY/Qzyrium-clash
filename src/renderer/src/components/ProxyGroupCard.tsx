@@ -14,14 +14,14 @@ import { DelayBadge } from './DelayBadge'
 interface Props {
   groupName: string; group: ProxyGroup; proxies: Record<string, ProxyNode>; delays: Record<string, number>
   isExpanded: boolean; trimmedQuery: string; sortMode: ProxySortMode; running: boolean
-  testingGroup: string | null; testingAll: boolean
+  testingGroup: string | null; testingAll: boolean; testingNodes: ReadonlySet<string>
   onToggle: (name: string) => void
   onTest: (name: string, nodes: string[]) => Promise<void>
   onSelect: (group: string, node: string) => void
 }
 
 export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, trimmedQuery, sortMode,
-  running, testingGroup, testingAll, onToggle, onTest, onSelect }: Props) {
+  running, testingGroup, testingAll, testingNodes, onToggle, onTest, onSelect }: Props) {
   const t = useTranslations('proxies')
 
               const nodes = group?.all || []
@@ -98,16 +98,21 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
               e.stopPropagation()
               onTest(groupName, nodes)
             }}
-            className="h-8 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+            className={cn('h-8 px-2.5 text-xs gap-1.5 border-border/70 text-muted-foreground hover:border-border hover:text-foreground',
+              (isGroupTesting || testingAll) && 'latency-testing-button')}
+            aria-busy={isGroupTesting || testingAll}
             title={t('testGroup')}
           >
             <LatencyIcon
-              className={`size-3.5 ${
-                isGroupTesting ? 'animate-pulse text-warning' : 'text-primary'
-              }`}
+              className="size-3.5 text-primary"
             />
-            <span className="hidden sm:inline">
-              {isGroupTesting ? t('testing') : t('testGroup')}
+            <span className="hidden sm:grid whitespace-nowrap">
+              <span className={cn('col-start-1 row-start-1', (isGroupTesting || testingAll) && 'invisible')} aria-hidden={isGroupTesting || testingAll}>
+                {t('testGroup')}
+              </span>
+              <span className={cn('col-start-1 row-start-1', !(isGroupTesting || testingAll) && 'invisible')} aria-hidden={!(isGroupTesting || testingAll)}>
+                {t('testing')}
+              </span>
             </span>
           </Button>
 
@@ -170,8 +175,8 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <DelayBadge delay={delay} />
+                    <div className="flex w-24 items-center justify-center shrink-0 whitespace-nowrap">
+                      <DelayBadge delay={delay} loading={testingNodes.has(nodeName)} />
                     </div>
                   </button>
                 )

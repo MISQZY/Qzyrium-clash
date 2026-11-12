@@ -38,7 +38,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 }) => {
   const t = useTranslations('proxies')
 
-  const { delays, testingGroup, testingAll, testGroup, testAll } = useProxyLatency({
+  const { delays, testingGroup, testingAll, testingNodes, testGroup, testAll } = useProxyLatency({
     running, proxies, delays: externalDelays, onUpdateDelays, concurrency: testConcurrency
   })
 
@@ -187,12 +187,20 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
             title={!running ? t('latencyRequiresConnection') : undefined}
             variant="outline"
             size="sm"
-            className="gap-2"
+            className={cn('gap-2', testingAll && 'latency-testing-button')}
+            aria-busy={testingAll}
           >
             <LatencyIcon
-              className={`size-3.5 ${testingAll ? 'animate-pulse text-warning' : 'text-primary'}`}
+              className="size-3.5 text-primary"
             />
-            <span>{testingAll ? t('testing') : t('testLatency')}</span>
+            <span className="grid whitespace-nowrap">
+              <span className={cn('col-start-1 row-start-1', testingAll && 'invisible')} aria-hidden={testingAll}>
+                {t('testLatency')}
+              </span>
+              <span className={cn('col-start-1 row-start-1', !testingAll && 'invisible')} aria-hidden={!testingAll}>
+                {t('testing')}
+              </span>
+            </span>
           </Button>
         </div>
       </div>
@@ -229,7 +237,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
           {filteredGroups.map(groupName => <ProxyGroupCard key={groupName} groupName={groupName}
             group={proxies[groupName] as ProxyGroup} proxies={proxies} delays={delays}
             isExpanded={!!trimmedQuery || expandedGroups.has(groupName)} trimmedQuery={trimmedQuery} sortMode={sortMode}
-            running={running} testingGroup={testingGroup} testingAll={testingAll}
+            running={running} testingGroup={testingGroup} testingAll={testingAll} testingNodes={testingNodes}
             onToggle={toggleGroup} onTest={testGroup} onSelect={onSelectNode} />)}
         </div>
       ) : groupNames.length > 0 ? (
