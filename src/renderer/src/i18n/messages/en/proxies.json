@@ -7,7 +7,7 @@
   "selectActiveExitNodeAndTestLatency": "Select active exit node and test latency across proxy groups",
   "testing": "Testing...",
   "testLatency": "Test Latency",
-  "searchProxyNodes": "Search groups or nodes…",
+  "searchProxyNodes": "Search groups or nodes",
   "noProxyNodesAvailable": "No proxy groups or nodes available",
   "importASubscriptionInTheProfilesTabToPopulateProxyNodes": "Import a subscription in the Profiles tab to populate proxy groups.",
   "noProxyNodesMatchYourSearch": "No proxy nodes match your search.",

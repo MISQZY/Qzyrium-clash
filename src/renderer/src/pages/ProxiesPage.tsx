@@ -176,7 +176,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
               onClick={toggleExpandAll}
               className="text-xs gap-1.5"
             >
-              <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+              <ChevronsUpDown className="size-4 text-muted-foreground" />
               <span>{allExpanded ? t('collapseAll') : t('expandAll')}</span>
             </Button>
           )}
@@ -191,7 +191,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
             aria-busy={testingAll}
           >
             <LatencyIcon
-              className="size-3.5 text-primary"
+              className="size-4 text-muted-foreground"
             />
             <span className="grid whitespace-nowrap">
               <span className={cn('col-start-1 row-start-1', testingAll && 'invisible')} aria-hidden={testingAll}>
@@ -210,7 +210,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
       {/* Search Input with Clear Button */}
       {groupNames.length > 0 && (
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
           <Input
             aria-label={t('searchProxyNodes')}
             placeholder={t('searchProxyNodes')}
@@ -225,7 +225,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
               aria-label={t('clearSearch')}
             >
-              <X className="size-3.5" />
+              <X className="size-4" />
             </button>
           )}
         </div>

@@ -6,7 +6,6 @@ import { sortProxyNodes, type ProxySortMode } from '../lib/proxies'
 import { cn } from '../lib/utils'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
-import { Badge } from './ui/badge'
 import { EmojiText } from './EmojiText'
 import { GroupIcon, NodeIcon, getGroupTypeStyle } from './ProxyIcons'
 import { DelayBadge } from './DelayBadge'
@@ -56,7 +55,7 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
             onToggle(groupName)
           }
         }}
-        className="flex items-center justify-between gap-3 p-3.5 sm:px-4 cursor-pointer select-none hover:bg-muted/30 transition-colors"
+        className="flex items-center justify-between gap-3 p-4 cursor-pointer select-none hover:bg-muted/30 transition-colors"
       >
         {/* Left: Group identity & active selection */}
         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -67,15 +66,14 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
               <span className="font-semibold text-sm text-foreground truncate">
                 <EmojiText text={groupName} />
               </span>
-              <Badge
-                variant="outline"
+              <span
                 className={cn(
-                  'text-[10px] font-mono font-semibold tracking-wider uppercase px-2 py-0.5 rounded-md shrink-0 transition-colors',
+                  'text-xs font-mono shrink-0',
                   typeMeta.className
                 )}
               >
                 {typeMeta.label}
-              </Badge>
+              </span>
             </div>
 
             <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground min-w-0">
@@ -104,7 +102,7 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
             title={t('testGroup')}
           >
             <LatencyIcon
-              className="size-3.5 text-primary"
+              className="size-4 text-muted-foreground"
             />
             <span className="hidden sm:grid whitespace-nowrap">
               <span className={cn('col-start-1 row-start-1', (isGroupTesting || testingAll) && 'invisible')} aria-hidden={isGroupTesting || testingAll}>
@@ -129,7 +127,7 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
 
       {/* Expanded Content: Node Options Grid */}
       {isExpanded && (
-        <div className="px-3.5 sm:px-4 pb-4 pt-1 border-t border-border/50 bg-background/30">
+        <div className="px-4 pb-4 pt-1 border-t border-border/50 bg-background/30">
           {sortedNodes.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3">
               {sortedNodes.map((nodeName) => {
@@ -152,7 +150,7 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
                     className={cn(
                       'relative flex items-center justify-between gap-2.5 p-2.5 rounded-lg border text-left text-xs transition-colors cursor-pointer [content-visibility:auto] [contain-intrinsic-size:auto_54px]',
                       isSelected
-                        ? 'border-primary bg-primary/10 text-foreground font-medium shadow-xs shadow-primary/15 ring-1 ring-primary/40'
+                        ? 'border-border bg-muted text-foreground font-medium'
                         : 'border-border/70 bg-card hover:bg-muted/60 hover:border-border text-foreground/85 hover:text-foreground'
                     )}
                   >
@@ -169,7 +167,7 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
                         >
                           <EmojiText text={nodeName} />
                         </span>
-                        <span className="text-[10px] font-mono text-muted-foreground uppercase mt-0.5">
+                        <span className="text-[11px] font-mono text-muted-foreground uppercase mt-0.5">
                           {nodeType}
                         </span>
                       </div>

@@ -24,7 +24,7 @@ export const GroupIcon: React.FC<{ icon?: string; name: string }> = ({ icon, nam
   }
 
   return (
-    <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary shrink-0 border border-primary/20">
+    <div className="flex items-center justify-center size-8 rounded-lg bg-muted/60 text-muted-foreground shrink-0 border border-border/70">
       <ProxiesIcon className="size-4" />
     </div>
   )
@@ -57,7 +57,7 @@ export const NodeIcon: React.FC<{ icon?: string; name: string; isSelected: boole
     <div
       className={cn(
         'size-2 rounded-full shrink-0 transition-colors',
-        isSelected ? 'bg-primary shadow-xs shadow-primary' : 'bg-muted-foreground/30'
+        isSelected ? 'bg-primary' : 'bg-muted-foreground/30'
       )}
     />
   )
@@ -68,36 +68,36 @@ export const getGroupTypeStyle = (type?: string): { label: string; className: st
   if (raw === 'urltest') {
     return {
       label: 'AUTO',
-      className: 'border-success/40 bg-success/10 text-success'
+      className: 'text-muted-foreground'
     }
   }
   if (raw === 'selector' || raw === 'select') {
     return {
       label: 'SELECTOR',
-      className: 'border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400'
+      className: 'text-muted-foreground'
     }
   }
   if (raw === 'fallback') {
     return {
       label: 'FALLBACK',
-      className: 'border-warning/40 bg-warning/10 text-warning'
+      className: 'text-muted-foreground'
     }
   }
   if (raw === 'loadbalance') {
     return {
       label: 'LOAD-BALANCE',
-      className: 'border-purple-500/40 bg-purple-500/10 text-purple-600 dark:text-purple-400'
+      className: 'text-muted-foreground'
     }
   }
   if (raw === 'relay') {
     return {
       label: 'RELAY',
-      className: 'border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+      className: 'text-muted-foreground'
     }
   }
   return {
     label: (type || 'GROUP').toUpperCase(),
-    className: 'border-border/80 bg-muted/50 text-muted-foreground'
+    className: 'text-muted-foreground'
   }
 }
 

@@ -7,7 +7,7 @@
   "selectActiveExitNodeAndTestLatency": "Выбор активного узла и проверка задержки в группах прокси",
   "testing": "Проверка…",
   "testLatency": "Проверить задержку",
-  "searchProxyNodes": "Поиск групп или узлов…",
+  "searchProxyNodes": "Поиск групп и узлов",
   "noProxyNodesAvailable": "Нет доступных групп или узлов",
   "importASubscriptionInTheProfilesTabToPopulateProxyNodes": "Добавьте подписку на вкладке «Профили», чтобы загрузить группы прокси.",
   "noProxyNodesMatchYourSearch": "По вашему запросу узлов не найдено.",
