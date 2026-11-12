@@ -163,7 +163,7 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
           {renderGeneralFields(['delayTestUrl', 'delayTestTimeout', 'delayTestConcurrency'])}
         </SettingsGroup>
         <SettingsGroup title={t('performanceGroup')} description={t('performanceDescription')} icon={<Gauge />} collapsible>
-          {renderGeneralFields(['disableGpu', 'liteDashboard', 'connectionInterval', 'maxLogs'])}
+          {renderGeneralFields(['lowMemoryMode', 'disableGpu', 'liteDashboard', 'connectionInterval', 'maxLogs'])}
           <SettingRow title={t('coreOnlyMode')} description={t('coreOnlyDescription')}>
             <Button type="button" variant="outline" disabled={busy || dirty} onClick={() => { void window.api.app.enterCoreOnly() }}>{t('enableCoreOnly')}</Button>
           </SettingRow>

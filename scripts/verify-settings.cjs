@@ -29,12 +29,29 @@ const flush = () => new Promise(resolve => setImmediate(resolve))
 
 // Exercise the real pre-ready startup block without starting desktop services.
 const startup = fs.readFileSync('src/main/index.ts', 'utf8')
+assert.ok(!/appendSwitch\(['"]disable-gpu-compositing['"]/.test(startup),
+  'normal startup must not disable GPU compositing: it breaks interactive Windows resizing')
+const { renderingSwitches } = load('src/shared/rendering-policy.ts')
+assert.ok([false, true].every(lowMemory => renderingSwitches('win32', lowMemory).every(([name]) =>
+  !['disable-gpu-compositing', 'disable-gpu', 'disable-gpu-rasterization'].includes(name))),
+  'the shared rendering policy must preserve hardware composition in normal mode')
+for (const lowMemory of [false, true]) {
+  assert.ok(renderingSwitches('win32', lowMemory).some(([name]) => name === 'in-process-gpu'),
+    'Windows must not launch a GPU process that creates a second Task Manager group')
+  assert.ok(renderingSwitches('win32', lowMemory).some(([name]) => name === 'disable-direct-composition'),
+    'in-process GPU needs native presentation without DirectComposition to avoid a gray window')
+  for (const platform of ['linux', 'darwin']) {
+    assert.ok(!renderingSwitches(platform, lowMemory).some(([name]) => name === 'in-process-gpu'),
+      'Windows process grouping must not change other platforms')
+  }
+}
 const startupAst = ts.createSourceFile('index.ts', startup, ts.ScriptTarget.Latest, true)
 const graphicsBoot = startupAst.statements.find(statement =>
   ts.isTryStatement(statement) && statement.getText(startupAst).includes('app.disableHardwareAcceleration()'))
 assert.ok(graphicsBoot, 'startup configures graphics before app.ready')
 for (const [saved, expected] of [
   [null, false], ['{invalid', false], ['{}', false],
+  ['null', false],
   [JSON.stringify({ general: { lowMemoryMode: true } }), false],
   [JSON.stringify({ general: { lowMemoryMode: false } }), false],
   [JSON.stringify({ general: { lowMemoryMode: true, disableGpu: false } }), false],
@@ -43,7 +60,7 @@ for (const [saved, expected] of [
   let disabled = false
   vm.runInNewContext(graphicsBoot.getText(startupAst), {
     app: { getPath: () => 'test', disableHardwareAcceleration: () => { disabled = true } },
-    path, readFileSync: () => { if (saved === null) throw new Error('ENOENT'); return saved }
+    path, lowMemoryMode: false, readFileSync: () => { if (saved === null) throw new Error('ENOENT'); return saved }
   })
   assert.equal(disabled, expected, `GPU startup policy for ${saved}`)
 }

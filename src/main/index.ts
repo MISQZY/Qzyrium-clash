@@ -13,6 +13,7 @@ import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import { clearRestartState, readRestartState } from './utils/restart-state'
 import { isProcessElevated, restartAsAdmin } from './utils/elevation'
 import { createElevateTaskSync, tryRunElevateTask } from './utils/elevate-task'
+import { renderingSwitches } from '@shared/rendering-policy'
 
 app.setName('Qzyrium-clash')
 electronApp.setAppUserModelId('com.qzyrium.vpn')
@@ -45,18 +46,21 @@ function notifyImportProfile(services: ServiceManager, rawUrl: string): void {
 }
 
 // Memory optimization and acceleration switches must be applied before app.ready.
+let lowMemoryMode = false
 try {
   const boot = JSON.parse(readFileSync(path.join(app.getPath('userData'), 'settings.json'), 'utf8'))
-  // Software compositing stalls live Windows resize. Keep GPU acceleration on
-  // unless explicitly disabled, independently of memory-saving preferences.
-  if (boot.general?.disableGpu === true) app.disableHardwareAcceleration()
-} catch { /* First launch uses Electron's normal acceleration settings. */ }
+  lowMemoryMode = boot.general?.lowMemoryMode === true
+  // Memory saving must retain GPU composition for interactive Windows resize.
+  if (boot.general?.disableGpu === true) {
+    app.disableHardwareAcceleration()
+  }
+} catch {
+  // First launch and settings recovery use accelerated rendering by default.
+}
 
-app.commandLine.appendSwitch('gpu-rasterization-msaa-sample-count', '0')
-app.commandLine.appendSwitch('disable-features', 'SpareRendererForSitePerProcess,BackForwardCache,WinUseBrowserSpellChecker')
-app.commandLine.appendSwitch('disable-spellcheck')
-app.commandLine.appendSwitch('js-flags', '--max-old-space-size=128 --optimize_for_size --expose-gc')
-app.commandLine.appendSwitch('renderer-process-limit', '1')
+for (const [name, value] of renderingSwitches(process.platform, lowMemoryMode)) {
+  app.commandLine.appendSwitch(name, value)
+}
 
 let services: ServiceManager | null = null
 let shuttingDown = false

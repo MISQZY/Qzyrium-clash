@@ -299,7 +299,9 @@ export class WindowService implements BaseService {
     }
     if (!this.ready) return
     if (this.mainWindow.isMinimized()) this.mainWindow.restore()
-    this.mainWindow.show()
+    // Reveal before activation: a notification-area click during silent startup
+    // can leave the first activating Show suppressed by the native popup loop.
+    this.mainWindow.showInactive()
     this.mainWindow.focus()
   }
 

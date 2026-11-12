@@ -40,6 +40,8 @@ export function landPoints(): Promise<Float32Array> {
 export interface Globe { update: (patch: Partial<GlobeOptions>) => void; destroy: () => void }
 
 export default function createGlobe(canvas: HTMLCanvasElement, initial: GlobeOptions): Globe {
+  // This canvas only draws. CPU readback backing would require uploading a new
+  // large bitmap during every resize frame, instead of keeping drawing on GPU.
   const context = canvas.getContext('2d', { alpha: true })
   if (!context) throw new Error('Canvas unavailable')
   let options = initial, data: Float32Array | undefined, disposed = false
@@ -48,13 +50,30 @@ export default function createGlobe(canvas: HTMLCanvasElement, initial: GlobeOpt
     if (disposed) return
     const { width, height, phi, theta, scale, offset, baseColor, mapBrightness } = options
     const dpr = Math.min(window.devicePixelRatio || 1, 3)
-    const bufferWidth = Math.max(1, Math.round(width * dpr)), bufferHeight = Math.max(1, Math.round(height * dpr))
-    if (canvas.width !== bufferWidth) canvas.width = bufferWidth
-    if (canvas.height !== bufferHeight) canvas.height = bufferHeight
-    context.setTransform(dpr, 0, 0, dpr, 0, 0)
-    context.clearRect(0, 0, width, height)
     const radius = height * 0.4 * scale
     const cx = width / 2 + offset[0] * scale / 2, cy = height / 2 + offset[1] * scale / 2
+    // Allocate only the visible disk, not a viewport-sized transparent texture.
+    // Keep projection coordinates unchanged so routes and hit testing still align.
+    const left = Math.max(0, Math.floor(cx - radius - 1))
+    const top = Math.max(0, Math.floor(cy - radius - 1))
+    const cropWidth = Math.max(1, Math.min(width, Math.ceil(cx + radius + 1)) - left)
+    const cropHeight = Math.max(1, Math.min(height, Math.ceil(cy + radius + 1)) - top)
+    // Reuse nearby backing sizes while the border is dragged. Exact pixel-sized
+    // buffers otherwise churn large CPU bitmaps and uploaded textures per event.
+    const bufferWidth = Math.max(64, Math.ceil(cropWidth * dpr / 64) * 64)
+    const bufferHeight = Math.max(64, Math.ceil(cropHeight * dpr / 64) * 64)
+    if (canvas.width !== bufferWidth) canvas.width = bufferWidth
+    if (canvas.height !== bufferHeight) canvas.height = bufferHeight
+    canvas.style.position = 'absolute'
+    canvas.style.left = `${left}px`
+    canvas.style.top = `${top}px`
+    canvas.style.width = `${cropWidth}px`
+    canvas.style.height = `${cropHeight}px`
+    canvas.style.clipPath = `circle(${radius}px at ${cx - left}px ${cy - top}px)`
+    // The CSS box retains the exact crop and spherical projection coordinates.
+    const scaleX = bufferWidth / cropWidth, scaleY = bufferHeight / cropHeight
+    context.setTransform(scaleX, 0, 0, scaleY, -left * scaleX, -top * scaleY)
+    context.clearRect(left, top, cropWidth, cropHeight)
     const color = baseColor.map(value => Math.round(value * 255)).join(',')
     // The CSS surface supplies neutral shading. Keep the oceans transparent;
     // adding a colored disk here doubles the atmosphere and lights up the center.

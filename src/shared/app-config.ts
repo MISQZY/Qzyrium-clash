@@ -105,7 +105,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     onlyVpnTraffic: true,
     silentStart: false,
     disableGpu: false,
-    lowMemoryMode: true,
+    lowMemoryMode: false,
     autoCloseConnection: false,
     connectionInterval: 2000,
     maxLogs: 300,

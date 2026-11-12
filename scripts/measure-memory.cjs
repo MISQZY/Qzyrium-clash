@@ -6,6 +6,9 @@ const path = require('node:path')
 if (process.type === 'renderer') {
   const expose = contextBridge.exposeInMainWorld.bind(contextBridge)
   contextBridge.exposeInMainWorld = (name, api) => {
+    api.window.releaseUnusedMemory = () => {
+      require('electron').webFrame.clearCache()
+    }
     const get = api.settings.get
     api.settings.get = async () => {
       const settings = await get()
@@ -26,21 +29,36 @@ if (process.type === 'renderer') {
 } else {
   // Keep the benchmark alive long enough to measure renderer destruction.
   app.on('window-all-closed', () => {})
-  const label = process.argv[2] || 'sample'
+  const scriptIndex = process.argv.findIndex(argument => path.basename(argument) === path.basename(__filename))
+  const label = process.argv.slice(scriptIndex + 1).find(argument => !argument.startsWith('--')) || 'sample'
+  if (!/^[\w.-]+$/.test(label)) throw Error('Benchmark label must be a file name without path separators')
+  const software = process.env.MEMORY_SOFTWARE === '1' || process.argv.includes('--software')
+  const lowMemoryMode = process.argv.includes('--low-memory')
+  const budgetArgument = process.argv.find(argument => argument.startsWith('--budget-mib='))
+  const budgetMiB = budgetArgument ? Number(budgetArgument.slice('--budget-mib='.length)) : null
+  const residentArgument = process.argv.find(argument => argument.startsWith('--budget-resident-mib='))
+  const residentBudgetMiB = residentArgument ? Number(residentArgument.slice('--budget-resident-mib='.length)) : null
+  if (residentBudgetMiB !== null && (!Number.isFinite(residentBudgetMiB) || residentBudgetMiB <= 0)) {
+    throw Error('Resident memory budget must be a positive number of MiB')
+  }
+  if (budgetMiB !== null && (!Number.isFinite(budgetMiB) || budgetMiB <= 0)) {
+    throw Error('Memory budget must be a positive number of MiB')
+  }
   const output = path.resolve(__dirname, '../artifacts/memory')
   fs.mkdirSync(output, { recursive: true })
   app.setPath('userData', path.join(output, `user-data-${label}`))
-  // Match production: acceleration is enabled unless explicitly disabled.
-  if (process.env.MEMORY_SOFTWARE === '1') app.disableHardwareAcceleration()
-  app.commandLine.appendSwitch('gpu-rasterization-msaa-sample-count', '0')
-  app.commandLine.appendSwitch('disable-features', 'SpareRendererForSitePerProcess,BackForwardCache,WinUseBrowserSpellChecker')
-  app.commandLine.appendSwitch('disable-spellcheck')
-  app.commandLine.appendSwitch('js-flags', '--max-old-space-size=128 --optimize_for_size --expose-gc')
-  app.commandLine.appendSwitch('renderer-process-limit', '1')
+  // Match production: memory saving retains acceleration; software is explicit.
+  if (software) app.disableHardwareAcceleration()
+  const { renderingSwitches } = require('./fixtures/rendering.cjs')
+  for (const [name, value] of renderingSwitches(process.platform, lowMemoryMode)) app.commandLine.appendSwitch(name, value)
   app.commandLine.appendSwitch('enable-precise-memory-info')
+  const extraSwitches = JSON.parse(process.env.MEMORY_SWITCHES || '{}')
+  for (const [name, value] of Object.entries(extraSwitches)) app.commandLine.appendSwitch(name, String(value))
   app.whenReady().then(async () => {
     let core
-    if (process.env.MEMORY_CORE === '1') {
+    const watchdog = setTimeout(() => { core?.kill(); app.exit(1) }, 240000)
+    watchdog.unref()
+    if (process.env.MEMORY_CORE === '1' || process.argv.includes('--core')) {
       const { spawn } = require('node:child_process')
       const directory = path.join(output, `core-${label}`)
       fs.mkdirSync(directory, { recursive: true })
@@ -51,7 +69,8 @@ if (process.type === 'renderer') {
       core = spawn(path.resolve('extra/sidecar/mihomo.exe'), ['-d', directory, '-f', filename], { windowsHide: true, stdio: 'ignore' })
       core.on('error', error => console.error(error))
     }
-    const win = new BrowserWindow({ show: false, width: 1040, height: 720, titleBarStyle: 'hidden', titleBarOverlay: { height: 36, color: '#00000000', symbolColor: '#9ca3af' }, webPreferences: { spellcheck: false, preload: __filename, sandbox: false, contextIsolation: true } })
+    const rendererArguments = JSON.parse(process.env.MEMORY_RENDERER_ARGUMENTS || '[]')
+    const win = new BrowserWindow({ show: false, width: 1040, height: 720, titleBarStyle: 'hidden', titleBarOverlay: { height: 36, color: '#00000000', symbolColor: '#9ca3af' }, webPreferences: { additionalArguments: rendererArguments, spellcheck: false, preload: __filename, sandbox: false, contextIsolation: true } })
     const evaluate = code => win.webContents.executeJavaScript(code)
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
     const samples = []
@@ -74,7 +93,11 @@ if (process.type === 'renderer') {
       const privateMB = processes.reduce((sum, p) => sum + (p.privateBytes || 0), 0) / 1024
       const row = { stage, workingSetMB, privateMB, coreMemory, totalWorkingSetMiB: workingSetMB + (coreMemory?.workingSetMiB ?? 0), totalPrivateMiB: privateMB + (coreMemory?.privateMiB ?? 0), totalPrivateWorkingSetMiB: residentProcesses?.reduce((sum, p) => sum + p.privateWorkingSetMiB, 0) ?? null, residentProcesses, processes, heap, mainMemory: process.memoryUsage() }
       samples.push(row)
+      row.gpuFeatures = app.getGPUFeatureStatus()
       console.log(JSON.stringify(row))
+      if (!software && row.gpuFeatures.gpu_compositing !== 'enabled') {
+        throw Error('Normal-mode benchmark requires active GPU compositing; software fallback is not a valid memory result')
+      }
     }
     const waitFor = async code => {
       for (let i = 0; i < 100; i++) {
@@ -89,6 +112,7 @@ if (process.type === 'renderer') {
     }
     try {
       await win.loadFile(process.env.MEMORY_RENDERER_FILE || path.resolve(__dirname, '../out/renderer/index.html'))
+      if (process.env.MEMORY_CSS_FILE) await win.webContents.insertCSS(fs.readFileSync(process.env.MEMORY_CSS_FILE, 'utf8'))
       win.showInactive()
       await waitFor(`document.querySelector('h1')?.textContent === 'Home'`)
       await delay(5000)
@@ -128,9 +152,29 @@ if (process.type === 'renderer') {
       await sample('hidden-after-gc')
       win.destroy(); await delay(3000)
       await sample('renderer-destroyed')
+      if (residentBudgetMiB !== null) {
+        if (process.platform !== 'win32') throw Error('Private resident budget requires Windows process counters')
+        const normal = samples.filter(row => !['hidden-after-gc', 'renderer-destroyed'].includes(row.stage))
+        const peak = Math.max(...normal.map(row => row.totalPrivateWorkingSetMiB))
+        if (peak > residentBudgetMiB) throw Error(`Resident memory budget exceeded: ${peak.toFixed(1)} MiB > ${residentBudgetMiB} MiB`)
+        console.log(`PASS: peak sampled private resident ${peak.toFixed(1)} MiB <= ${residentBudgetMiB} MiB${core ? ' including Mihomo' : ''}`)
+      }
+      if (budgetMiB !== null) {
+        // Private commit includes paged-out allocations: passing cannot be
+        // achieved just by evicting pages from the working set. Check normal
+        // stages before the diagnostic GC, with the core included when requested.
+        const normal = samples.filter(row => !['hidden-after-gc', 'renderer-destroyed'].includes(row.stage))
+        const peak = Math.max(...normal.map(row => row.totalPrivateMiB))
+        if (peak > budgetMiB) throw Error(`Memory budget exceeded: ${peak.toFixed(1)} MiB > ${budgetMiB} MiB`)
+        console.log(`PASS: peak sampled private commit ${peak.toFixed(1)} MiB <= ${budgetMiB} MiB${core ? ' including Mihomo' : ''}`)
+      }
     } finally {
-      fs.writeFileSync(path.join(output, `${label}.json`), JSON.stringify({ label, electron: process.versions.electron, software: process.env.MEMORY_SOFTWARE === '1', lite: process.env.MEMORY_LITE === '1', fixture: true, ruleCount: Number(process.env.MEMORY_RULE_COUNT || 210), rendererFile: process.env.MEMORY_RENDERER_FILE || null, samples }, null, 2))
-      core?.kill(); if (!win.isDestroyed()) win.destroy(); app.quit()
+      clearTimeout(watchdog)
+      try {
+        fs.writeFileSync(path.join(output, `${label}.json`), JSON.stringify({ label, electron: process.versions.electron, chrome: process.versions.chrome, renderingSwitches: renderingSwitches(process.platform, lowMemoryMode), software, lowMemoryMode, budgetMiB, residentBudgetMiB, extraSwitches, rendererArguments, cssFile: process.env.MEMORY_CSS_FILE || null, lite: process.env.MEMORY_LITE === '1', fixture: true, ruleCount: Number(process.env.MEMORY_RULE_COUNT || 210), rendererFile: process.env.MEMORY_RENDERER_FILE || null, samples }, null, 2))
+      } finally {
+        core?.kill(); if (!win.isDestroyed()) win.destroy(); app.quit()
+      }
     }
   }).catch(error => { console.error(error); app.exit(1) })
 }

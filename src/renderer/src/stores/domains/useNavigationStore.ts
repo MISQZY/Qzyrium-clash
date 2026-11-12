@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef } from 'react'
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import type { NavTab } from '../../lib/navigation'
 
 export interface NavigationStore {
@@ -31,6 +31,17 @@ export function useNavigationStore(): NavigationStore {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dataRevision, setDataRevision] = useState(0)
+
+  const previousPage = useRef(activeTab)
+  useEffect(() => {
+    const previous = previousPage.current
+    previousPage.current = activeTab
+    // Release detached page resources after leaving a large view or hiding.
+    // This clears unused Chromium caches, without evicting resident OS pages.
+    if (visible && (previous === activeTab || !['settings', 'rules', 'connections', 'profiles'].includes(previous))) return
+    const timer = setTimeout(() => window.api?.window.releaseUnusedMemory?.(), 150)
+    return () => clearTimeout(timer)
+  }, [activeTab, visible])
 
   const actionInProgress = useRef(false)
   const refreshSequence = useRef(0)

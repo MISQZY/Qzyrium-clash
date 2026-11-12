@@ -5,14 +5,18 @@ const vm = require('node:vm')
 const ts = require('typescript')
 const path = require('node:path')
 
-function loadShared(file) {
+function loadShared(file, globals = {}) {
   const exports = {}
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
-  vm.runInNewContext(code, { exports, require: name => loadShared(path.resolve(path.dirname(file), name + '.ts')) })
+  vm.runInNewContext(code, { exports, require: name => loadShared(path.resolve(path.dirname(file), name + '.ts')), ...globals })
   return exports
 }
 const { bootAppearance } = loadShared(path.resolve('src/shared/appearance.ts'))
-const windowScale = loadShared(path.resolve('src/main/utils/window-scale.ts'))
+let clock = 10000
+let cursor = { x: 0, y: 0 }
+const windowScale = loadShared(path.resolve('src/main/utils/window-scale.ts'), { process: { platform: 'win32' },
+  require: name => name === 'electron' ? { screen: { getCursorScreenPoint: () => ({ ...cursor }) } } : require(name),
+  setTimeout, clearTimeout, Date: class extends Date { static now() { return clock } } })
 
 class FixtureWindow extends EventEmitter {
   constructor(options) { super(); this.visible = options.show ?? true; this.options = options }
@@ -21,10 +25,18 @@ class FixtureWindow extends EventEmitter {
     session: { setPermissionRequestHandler() {}, setPermissionCheckHandler() {} },
     getZoomFactor: () => this.zoomFactor ?? 1,
     setZoomFactor: factor => { this.zoomFactor = factor },
-    send() {}, setWindowOpenHandler() {}
+    messages: [],
+    send(channel, ...args) { this.messages.push({ channel, args }) }, setWindowOpenHandler() {}
   })
   isDestroyed() { return false }
   getContentSize() { return [this.options.width, this.options.height] }
+  nativeHooks = new Map()
+  hookWindowMessage(message, handler) { this.nativeHooks.set(message, handler) }
+  getMinimumSize() { return [0, 0] }
+  getMaximumSize() { return [0, 0] }
+  isMaximized() { return false }
+  getBounds() { return { x: this.options.x ?? 0, y: this.options.y ?? 0, width: this.options.width, height: this.options.height } }
+  setBounds(bounds) { Object.assign(this.options, bounds); this.emit('resize') }
   isVisible() { return this.visible }
   isMinimized() { return this.minimized }
   loadFile() {}
@@ -33,6 +45,7 @@ class FixtureWindow extends EventEmitter {
   hide() { this.visible = false; this.emit('hide') }
   destroy() { this.visible = false; this.destroyed = true }
   show() { this.visible = true; this.emit('show') }
+  showInactive() { this.show() }
   focus() {}
   minimize() { this.minimized = true; this.emit('minimize') }
   restore() { this.minimized = false; this.emit('restore') }
@@ -78,8 +91,46 @@ vm.runInNewContext(code, {
         assert.equal(win.webContents.getZoomFactor(), expected, `responsive zoom at ${width}x${height}`)
       }
       assert.equal(win.isVisible(), false, 'window stays hidden before its first paint')
+      const notifications = win.webContents.messages.length
+      for (let event = 0; event < 1000; event++) win.emit('resize')
+      assert.equal(win.webContents.messages.length, notifications, 'unchanged zoom must not flood preload/style observers during a long resize')
       win.webContents.emit('did-finish-load')
+      assert.equal(win.webContents.messages.length, notifications + 1, 'a new document receives the current zoom even when its value is unchanged')
       assert.equal(win.isVisible(), false, 'document loading alone does not reveal an unpainted window')
+      for (let event = 0; event < 100; event++) win.emit('will-resize')
+      const initialZoom = win.webContents.getZoomFactor()
+      win.options.width = 3840; win.options.height = 2160; win.emit('resize')
+      assert.equal(win.webContents.getZoomFactor(), initialZoom, 'interactive resize defers zoom changes until the border is released')
+      win.emit('resized')
+      assert.equal(win.webContents.getZoomFactor(), 2)
+      win.options.width = 1040; win.options.height = 720; win.emit('resize')
+      clock += 1000
+      let skipped = 0
+      const first = { x: 4, y: 6, width: 990, height: 680 }
+      const final = { x: 8, y: 10, width: 1003, height: 691 }
+      win.emit('will-resize', { preventDefault() { skipped++ } }, first)
+      assert.equal(skipped, 0)
+      win.setBounds(first)
+      clock += 4
+      win.emit('will-resize', { preventDefault() { skipped++ } }, final)
+      assert.equal(skipped, 1, 'rapid native events skip redundant surface allocation')
+      assert.deepEqual(win.getBounds(), first)
+      win.emit('resized')
+      assert.deepEqual(win.getBounds(), final, 'release commits the exact final border position even when its intermediate event was skipped')
+      win.setBounds({ x: 0, y: 0, width: 1040, height: 720 })
+      cursor = { x: 1045, y: 725 }
+      win.nativeHooks.get(0x0231)()
+      clock += 1000
+      cursor = { x: 1049, y: 727 }
+      win.emit('will-resize', { preventDefault() {} }, { x: -6, y: 0, width: 1056, height: 728 }, { edge: 'bottom-right' })
+      win.setBounds({ x: 0, y: 0, width: 1044, height: 722 })
+      clock += 4
+      cursor = { x: 1055, y: 730 }
+      win.emit('will-resize', { preventDefault() {} }, { x: -6, y: 0, width: 1062, height: 731 }, { edge: 'bottom-right' })
+      win.nativeHooks.get(0x0232)()
+      assert.deepEqual(win.getBounds(), { x: 0, y: 0, width: 1050, height: 725 },
+        'Windows invisible DWM borders must not shift the window or inflate its committed size')
+      win.setBounds({ x: 0, y: 0, width: 1040, height: 720 })
       service.show()
       assert.equal(win.isVisible(), false, 'early tray activation waits for the first paint')
       win.emit('ready-to-show')

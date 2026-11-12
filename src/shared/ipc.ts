@@ -166,6 +166,7 @@ export interface IElectronApi {
     update: (patch: Partial<AppConfig>) => Promise<AppConfig>
   }
   window: {
+    releaseUnusedMemory?: () => void
     minimize: () => Promise<void>
     maximize: () => Promise<void>
     close: () => Promise<void>

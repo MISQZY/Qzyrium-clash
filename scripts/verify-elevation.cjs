@@ -59,6 +59,7 @@ for (const elevated of [true, false]) {
         commandLine: { appendSwitch() {} }, requestSingleInstanceLock: () => false, quit() {}
       } },
       '@electron-toolkit/utils': { electronApp: { setAppUserModelId() {} } },
+      '@shared/rendering-policy': require('./fixtures/rendering.cjs'),
       'node:fs': { existsSync: () => false, readFileSync: () => '{}' }, 'node:path': path,
       './utils/elevation': { isProcessElevated: () => elevated },
       './utils/elevate-task': {

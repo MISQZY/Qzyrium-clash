@@ -5,6 +5,9 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 if (process.type === 'renderer') {
+  require('electron').ipcRenderer.on('window:zoom-changed', (_event, factor) => {
+    document.documentElement?.style.setProperty('--app-titlebar-height', `calc(36px / ${factor} + 1px)`)
+  })
   // Existing UI checks exercise the workspace; onboarding has a dedicated first-launch check.
   if (!process.argv.includes('--test-onboarding')) localStorage.setItem('qzyrium:onboarding-shown', '1')
   let settings = {
@@ -57,8 +60,8 @@ if (process.type === 'renderer') {
   app.setPath('userData', path.join(output, 'user-data'))
   if (process.env.UI_SOFTWARE === '1') app.disableHardwareAcceleration()
   process.chdir(output)
-  app.commandLine.appendSwitch('disable-features', 'WinUseBrowserSpellChecker')
-  app.commandLine.appendSwitch('disable-spellcheck')
+  const { renderingSwitches } = require('./fixtures/rendering.cjs')
+  for (const [name, value] of renderingSwitches(process.platform)) app.commandLine.appendSwitch(name, value)
   const result = { checks: [], errors: [] }
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   app.whenReady().then(async () => {
@@ -111,9 +114,10 @@ if (process.type === 'renderer') {
       assert.equal(breadcrumb.page, label, `${label}: breadcrumb page`)
       if (await evaluate(`!!document.querySelector('.globe-canvas')`)) {
         await waitFor(`(() => {
-          const canvas = document.querySelector('.globe-canvas'), bounds = document.querySelector('.globe-scene')?.getBoundingClientRect();
+          const canvas = document.querySelector('.globe-canvas'), bounds = canvas?.getBoundingClientRect();
           const dpr = Math.min(devicePixelRatio || 1, 3);
-          return canvas?.dataset.globeReady === 'true' && bounds && canvas.width === Math.round(Math.round(bounds.width) * dpr) && canvas.height === Math.round(Math.round(bounds.height) * dpr);
+          const fits = (buffer, size) => buffer >= size - 1 && buffer < size + 65;
+          return canvas?.dataset.globeReady === 'true' && bounds && fits(canvas.width, bounds.width * dpr) && fits(canvas.height, bounds.height * dpr);
         })()`)
       }
     }

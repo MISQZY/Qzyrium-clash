@@ -57,6 +57,12 @@
     "test:all": "pnpm build && node scripts/test-runner.cjs",
     "test:ui:all": "node scripts/verify-ui-suite.cjs",
     "test:bundle": "node scripts/verify-bundle.cjs",
+    "test:memory": "electron scripts/measure-memory.cjs normal-budget --core --budget-resident-mib=300",
+    "test:memory:low": "electron scripts/measure-memory.cjs low-budget --core --low-memory --budget-resident-mib=200",
+    "test:processes": "electron scripts/verify-process-model.cjs",
+    "test:native:ui": "electron scripts/verify-native-window-ui.cjs",
+    "test:packaged:ui": "node scripts/test-runner.cjs packaged-ui",
+    "test:resize:ui": "node scripts/test-runner.cjs resize-ui",
     "prepare:resources": "node scripts/prepare-resources.mjs",
     "prepare:icons": "electron scripts/prepare-app-icon.cjs"
   },

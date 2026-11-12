@@ -1,8 +1,18 @@
-import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, IpcRendererEvent, webFrame } from 'electron'
 import { AddProfileDto, IElectronApi, IPC_CHANNELS } from '@shared/ipc'
 import { AppConfig } from '@shared/app-config'
 import { CoreState, LogEntry, TrafficStats } from '@shared/types'
 import type { BootAppearance } from '@shared/appearance'
+
+ipcRenderer.on('window:zoom-changed', (_event, factor: number) => {
+  if (Number.isFinite(factor) && factor > 0) {
+    const style = document.documentElement?.style
+    const height = `calc(36px / ${factor} + 1px)`
+    if (style && style.getPropertyValue('--app-titlebar-height') !== height) {
+      style.setProperty('--app-titlebar-height', height)
+    }
+  }
+})
 
 // No IPC round trip: paint the saved palette before stylesheets or React load.
 let appearance: BootAppearance | undefined
@@ -86,6 +96,7 @@ const api: IElectronApi = {
       ipcRenderer.invoke(IPC_CHANNELS.APP_UPDATE_SETTINGS, patch)
   },
   window: {
+    releaseUnusedMemory: () => webFrame.clearCache(),
     minimize: () => ipcRenderer.invoke(IPC_CHANNELS.APP_MINIMIZE),
     maximize: () => ipcRenderer.invoke(IPC_CHANNELS.APP_MAXIMIZE),
     close: () => ipcRenderer.invoke(IPC_CHANNELS.APP_CLOSE),

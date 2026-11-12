@@ -127,7 +127,6 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
         lastColor = targetColor
         lastBrightness = targetBrightness
 
-        canvas.style.clipPath = `circle(${layout.radius}px at ${layout.cx}px ${layout.cy}px)`
         scene.style.setProperty('--globe-cx', `${layout.cx}px`)
         scene.style.setProperty('--globe-cy', `${layout.cy}px`)
         scene.style.setProperty('--globe-radius', `${layout.radius}px`)
@@ -178,15 +177,15 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
       width = Math.round(width); height = Math.round(height)
       if (viewport.current.width === width && viewport.current.height === height && viewport.current.reserved === reserved) return
       viewport.current = { width, height, reserved }
-      if (rAfId !== null) cancelAnimationFrame(rAfId)
-      rAfId = null
-      draw()
+      // Native resizing can deliver several layouts before one presentation.
+      // Draw only the newest viewport once per animation frame.
+      schedule()
     }
     const resize = new ResizeObserver(([entry]) => measure(entry.contentRect.width, entry.contentRect.height))
     resize.observe(scene)
     const measureScene = () => {
-      const bounds = scene.getBoundingClientRect()
-      measure(bounds.width, bounds.height)
+      // Use layout pixels, matching ResizeObserver and the canvas CSS dimensions.
+      measure(scene.clientWidth, scene.clientHeight)
       schedule()
     }
     window.addEventListener('resize', measureScene)

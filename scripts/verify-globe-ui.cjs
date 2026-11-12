@@ -6,6 +6,8 @@ const path = require('node:path')
 const output = path.resolve(__dirname, '../artifacts/globe-ui-check')
 fs.mkdirSync(output, { recursive: true })
 app.setPath('userData', path.join(output, 'user-data'))
+const { renderingSwitches } = require('./fixtures/rendering.cjs')
+for (const [name, value] of renderingSwitches(process.platform)) app.commandLine.appendSwitch(name, value)
 app.commandLine.appendSwitch('force-device-scale-factor', process.env.UI_DISPLAY_SCALE || '1')
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -30,6 +32,13 @@ app.whenReady().then(async () => {
     await waitFor(`document.querySelector('.globe-route-endpoint') && document.querySelector('.globe-route-origin')`)
     await evaluate('document.fonts.ready')
     await delay(1000)
+    const backing = await evaluate(`(() => {
+      const canvas = document.querySelector('.globe-canvas');
+      const scene = document.querySelector('.globe-scene').getBoundingClientRect();
+      const dpr = Math.min(devicePixelRatio || 1, 3);
+      return { pixels: canvas.width * canvas.height, viewportPixels: scene.width * scene.height * dpr * dpr };
+    })()`)
+    assert.ok(backing.pixels < backing.viewportPixels / 2, 'globe backing buffer excludes unused transparent viewport space')
     const dragStart = await evaluate(`(() => {
       const scene = document.querySelector('.globe-scene'), rect = scene.getBoundingClientRect();
       for (let y = rect.top + 30; y < rect.bottom - 30; y += 30) {
@@ -63,8 +72,10 @@ app.whenReady().then(async () => {
       assert.ok(await evaluate(`(() => {
         const canvas = document.querySelector('.globe-canvas'), ctx = canvas.getContext('2d');
         const sx = canvas.width / canvas.clientWidth, sy = canvas.height / canvas.clientHeight;
+        const canvasRect = canvas.getBoundingClientRect(), overlayRect = document.querySelector('.globe-route-layer').getBoundingClientRect();
         return Array.from(document.querySelectorAll('.globe-route-origin, .globe-route-endpoint')).every(marker => {
-          const x = Number(marker.getAttribute('cx')) * sx, y = Number(marker.getAttribute('cy')) * sy;
+          const x = (Number(marker.getAttribute('cx')) + overlayRect.left - canvasRect.left) * sx;
+          const y = (Number(marker.getAttribute('cy')) + overlayRect.top - canvasRect.top) * sy;
           const pixels = ctx.getImageData(Math.floor(x) - 1, Math.floor(y) - 1, 3, 3).data;
           return Array.from(pixels).some((value, index) => index % 4 === 3 && value > 0);
         });

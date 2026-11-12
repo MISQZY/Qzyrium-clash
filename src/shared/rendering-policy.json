@@ -1,0 +1,18 @@
+{
+  "common": [
+    ["gpu-rasterization-msaa-sample-count", "0"],
+    ["disable-features", "SpareRendererForSitePerProcess,BackForwardCache,WinUseBrowserSpellChecker"],
+    ["disable-spellcheck"],
+    ["js-flags", "--max-old-space-size=128 --max-semi-space-size=1 --optimize_for_size"],
+    ["renderer-process-limit", "1"]
+  ],
+  "win32": [
+    ["in-process-gpu"],
+    ["disable-direct-composition"]
+  ],
+  "compact": [
+    ["enable-low-end-device-mode"],
+    ["disable-rgba-4444-textures"],
+    ["num-raster-threads", "2"]
+  ]
+}

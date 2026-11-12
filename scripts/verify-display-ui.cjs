@@ -6,11 +6,14 @@ const path = require('node:path')
 const ts = require('typescript')
 
 const scale = {}
-new Function('exports', ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../src/main/utils/window-scale.ts'), 'utf8'), {
+new Function('exports', 'require', ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../src/main/utils/window-scale.ts'), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS }
-}).outputText)(scale)
+}).outputText)(scale, require)
 
 const dpi = process.env.UI_DISPLAY_SCALE || '1'
+if (process.env.UI_SOFTWARE === '1') app.disableHardwareAcceleration()
+const { renderingSwitches } = require('./fixtures/rendering.cjs')
+for (const [name, value] of renderingSwitches(process.platform, process.env.UI_LOW_MEMORY === '1')) app.commandLine.appendSwitch(name, value)
 app.commandLine.appendSwitch('force-device-scale-factor', dpi)
 app.setPath('userData', path.resolve(__dirname, `../artifacts/display-ui-check/dpi-${dpi}`))
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -22,8 +25,6 @@ app.whenReady().then(async () => {
     webPreferences: { preload: path.resolve(__dirname, 'verify-ui.cjs'), sandbox: false, contextIsolation: true, backgroundThrottling: false }
   })
   scale.watchWindowScale(win)
-  // Windows needs a composited window to update overlay metrics after resizing.
-  win.showInactive()
   const evaluate = async code => {
     try { return await win.webContents.executeJavaScript(code) }
     catch (error) { throw new Error(`Failed: ${code}`, { cause: error }) }
@@ -38,6 +39,9 @@ app.whenReady().then(async () => {
   const navigate = async tab => {
     await evaluate(`document.querySelector('.sidebar-link[aria-label="${tab}"]').click()`)
     await waitFor(`document.querySelector('.workspace-header [aria-current="page"]').textContent.trim() === '${tab}' && document.querySelector('.page-heading')`)
+    // Allow ResizeObserver and the globe's scheduled layout to finish before
+    // measuring a newly mounted page at the new Chromium zoom.
+    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))')
   }
   const checkDialogBounds = async label => {
     const bounds = await evaluate(`(() => {
@@ -58,9 +62,28 @@ app.whenReady().then(async () => {
     await evaluate(`document.querySelector('[role="dialog"] button .sr-only').parentElement.click()`)
     await waitFor(`!document.querySelector('[role="dialog"]')`)
   }
+  const checkFrame = async label => {
+    const frame = await win.webContents.capturePage()
+    const directory = path.resolve(__dirname, '../artifacts/display-ui-check', `dpi-${dpi}`)
+    fs.mkdirSync(directory, { recursive: true })
+    fs.writeFileSync(path.join(directory, `${label}.png`), frame.toPNG())
+    assert.ok(!frame.isEmpty(), `${label} paints`)
+    const bitmap = frame.toBitmap()
+    // An opaque black frame used to pass the bottom-right alpha check. Sample
+    // the whole surface so missing tiles and black windows cannot pass it.
+    let missing = 0, samples = 0
+    for (let offset = 0; offset < bitmap.length; offset += 4 * 13) {
+      samples++
+      if (bitmap[offset + 3] !== 255 || Math.max(bitmap[offset], bitmap[offset + 1], bitmap[offset + 2]) <= 2) missing++
+    }
+    assert.ok(missing / samples < 0.01, `${label} has black/transparent holes in ${missing}/${samples} sampled pixels`)
+  }
   try {
     await win.loadFile(path.resolve(__dirname, '../out/renderer/index.html'))
     await waitFor(`document.querySelector('.overview-panel')`)
+    // Show only after the UI is ready, avoiding an empty gray test window.
+    // Windows needs a composited window for native titlebar overlay metrics.
+    win.showInactive()
     // Include the CSS viewport of 4K at 200% system scaling and short ultrawide windows.
     for (const [width, height, zoom] of [[1040, 720, 1], [1920, 1080, 1], [2560, 1440, 1.33], [3840, 2160, 2], [3440, 720, 1], [840, 620, 1]]) {
       win.setContentSize(width, height)
@@ -76,7 +99,7 @@ app.whenReady().then(async () => {
             overflow: page.scrollWidth - page.clientWidth, titleHeight: title.height * ${win.webContents.getZoomFactor()} };
         })()`)
         assert.ok(layout.fits, `${tab} fits at ${width}x${height}`)
-        assert.ok(layout.overflow <= 1, `${tab} has no horizontal overflow at ${width}x${height}`)
+        assert.ok(layout.overflow <= 1, `${tab} has no horizontal overflow at ${width}x${height}: ${JSON.stringify(layout)}`)
         assert.ok(layout.titleHeight >= 35 && layout.titleHeight <= 40, `native titlebar retains its DIP height: ${layout.titleHeight} at ${width}x${height}`)
       }
       await navigate('Profiles')
@@ -95,6 +118,34 @@ app.whenReady().then(async () => {
       await checkDialogBounds(`rules editor at ${width}x${height}`)
       await closeDialog()
     }
-    console.log(`PASS: display adaptation, seven pages, dialogs, native titlebar and resize back to 840x620 (system scale ${dpi})`)
+    await navigate('Home')
+    if (process.env.UI_SOFTWARE !== '1') {
+      assert.equal(app.getGPUFeatureStatus().gpu_compositing, 'enabled', 'live resize needs normal GPU compositing')
+    }
+    // Exercise successive native sizes without waiting for the usual 300ms
+    // settling period; inspect frames while growing and shrinking the window.
+    for (let step = 0; step < 24; step++) {
+      const progress = step < 12 ? step : 23 - step
+      win.setContentSize(840 + progress * 64, 620 + progress * 24)
+      await delay(16)
+      if (step % 6 !== 0 && step !== 23) continue
+      await checkFrame(`resize-${step}`)
+      const viewport = await evaluate('({ width: innerWidth, height: innerHeight })')
+      const [width, height] = win.getContentSize()
+      const zoom = win.webContents.getZoomFactor()
+      assert.ok(Math.abs(viewport.width * zoom - width) <= 2, `resize frame ${step} fills native width`)
+      assert.ok(Math.abs(viewport.height * zoom - height) <= 2, `resize frame ${step} fills native height`)
+    }
+    win.maximize(); await delay(300)
+    await checkFrame('maximized')
+    win.unmaximize(); await delay(300)
+    await checkFrame('unmaximized')
+    win.minimize(); await delay(100)
+    win.restore(); await delay(300)
+    await checkFrame('restored')
+    win.hide(); await delay(100)
+    win.showInactive(); await delay(300)
+    await checkFrame('shown-again')
+    console.log(`PASS: display adaptation, seven pages, dialogs, native titlebar, rapid grow/shrink pixels, maximize/restore and hide/show (system scale ${dpi}, compact ${process.env.UI_LOW_MEMORY === '1'})`)
   } finally { win.destroy(); app.quit() }
 }).catch(error => { console.error(error); app.exit(1) })
