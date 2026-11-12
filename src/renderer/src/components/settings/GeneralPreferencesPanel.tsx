@@ -2,8 +2,7 @@ import { NativeSelect } from '../ui/native-select'
 
 import { useTranslations } from '../../i18n'
 import { useState } from 'react'
-import { Download, Upload, Trash2, Palette, Power, Gauge, Keyboard, FileText } from 'lucide-react'
-import druseSvg from '../../assets/brand/druse.svg'
+import { Download, Upload, Trash2, Palette, Power, Gauge, Keyboard, FileText, Activity, RefreshCw } from 'lucide-react'
 
 import type { AppConfig } from '@shared/app-config'
 
@@ -67,10 +66,10 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
               {(form.general.customLocalizations ?? []).map(pack => <option key={pack.id} value={`custom:${pack.id}`}>{pack.name}</option>)}
             </NativeSelect>
           </SettingRow>
-          <CustomLocalizationSettings general={form.general} onChange={updateGeneral} />
           <SettingRow title={t('appearance')} description={t('followYourSystemThemeOrChooseOneExplicitly')}>
             <ThemeSelect value={form.general.theme} onValueChange={(theme) => updateGeneral({ theme })} />
           </SettingRow>
+          <CustomLocalizationSettings general={form.general} onChange={updateGeneral} />
           <SettingsDisclosure title={t('customThemesTitle')}>
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -143,24 +142,32 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
 
         </SettingsGroup>
         <SettingsGroup title={t('startupGroup')} description={t('startupDescription')} icon={<Power />}>
-          {renderGeneralFields(['autoStart', 'autoCheckUpdates'])}
+          {renderGeneralFields(['autoStart', 'autoStartAsAdmin'])}
           <SettingRow title={t('startCoreOnLaunch')} description={t('automaticallyStartMihomoWhenQzyriumOpens')} id="general-autoConnect"><Switch id="general-autoConnect" aria-label={t('startCoreOnLaunch')} checked={form.general.autoConnect} onCheckedChange={(autoConnect) => updateGeneral({ autoConnect })} /></SettingRow>
           <SettingRow title={t('minimizeToTray')} description={t('keepTheApplicationRunningWhenTheWindowIsClosed')} id="general-minimizeToTray"><Switch id="general-minimizeToTray" aria-label={t('minimizeToTray')} checked={form.general.minimizeToTray} onCheckedChange={(minimizeToTray) => updateGeneral({ minimizeToTray })} /></SettingRow>
           <SettingRow title={t('silentStart')} description={t('silentStartDescription')} id="general-silentStart"><Switch id="general-silentStart" aria-label={t('silentStart')} checked={form.general.silentStart} onCheckedChange={(silentStart) => updateGeneral({ silentStart })} /></SettingRow>
 
         </SettingsGroup>
-        <SettingsGroup title={t('performanceGroup')} description={t('performanceDescription')} icon={<Gauge />}>
-          {renderGeneralFields(['disableGpu', 'liteDashboard', 'onlyVpnTraffic', 'connectionInterval', 'maxLogs'])}
+        <SettingsGroup title={t('subscriptionsGroup')} description={t('subscriptionsDescription')} icon={<FileText />}>
+          {renderGeneralFields(['autoUpdateProfiles', 'profileUpdateInterval', 'userAgent'])}
+        </SettingsGroup>
+        <SettingsGroup title={t('connectionGroup')} description={t('connectionDescription')} icon={<Activity />} collapsible>
+          {renderGeneralFields(['onlyVpnTraffic', 'autoCloseConnection'])}
+        </SettingsGroup>
+        <SettingsGroup title={t('latencyGroup')} description={t('latencyDescription')} icon={<Gauge />} collapsible>
+          {renderGeneralFields(['delayTestUrl', 'delayTestTimeout', 'delayTestConcurrency'])}
+        </SettingsGroup>
+        <SettingsGroup title={t('performanceGroup')} description={t('performanceDescription')} icon={<Gauge />} collapsible>
+          {renderGeneralFields(['disableGpu', 'liteDashboard', 'connectionInterval', 'maxLogs'])}
           <SettingRow title={t('coreOnlyMode')} description={t('coreOnlyDescription')}>
             <Button type="button" variant="outline" disabled={busy || dirty} onClick={() => { void window.api.app.enterCoreOnly() }}>{t('enableCoreOnly')}</Button>
           </SettingRow>
 
         </SettingsGroup>
-        <SettingsGroup title={t('subscriptionsGroup')} description={t('subscriptionsDescription')} icon={<FileText />}>
-          {renderGeneralFields(['autoUpdateProfiles', 'profileUpdateInterval', 'userAgent', 'autoCloseConnection', 'delayTestUrl', 'delayTestTimeout', 'delayTestConcurrency'])}
-
+        <SettingsGroup title={t('updatesGroup')} description={t('updatesDescription')} icon={<RefreshCw />} collapsible>
+          {renderGeneralFields(['autoCheckUpdates'])}
         </SettingsGroup>
-        <SettingsGroup title={t('shortcutsGroup')} description={t('shortcutsDescription')} icon={<Keyboard />}>
+        <SettingsGroup title={t('shortcutsGroup')} description={t('shortcutsDescription')} icon={<Keyboard />} collapsible>
           <ShortcutSettings value={form.general.shortcuts ?? {}} disabled={busy} onChange={(shortcuts) => updateGeneral({ shortcuts })} />
 
         </SettingsGroup>

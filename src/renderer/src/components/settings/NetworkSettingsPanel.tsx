@@ -4,7 +4,7 @@ import { type SettingsSection } from '@shared/settings-config'
 import { SETTINGS_SECTIONS } from '../../lib/settings-sections'
 import { useTranslations } from '../../i18n'
 
-import druseSvg from '../../assets/brand/druse.svg'
+import { SettingsDisclosure } from '../SettingsDisclosure'
 
 import type { AppConfig } from '@shared/app-config'
 import type { SysProxyStatus } from '@shared/ipc'
@@ -79,7 +79,7 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
           <SettingRow title={t('automaticRouting')} description={t('createRoutesForTheVirtualInterface')}><Switch aria-label={t('automaticRouting')} checked={form.kernel.tun.autoRoute} onCheckedChange={(autoRoute) => updateTun({ autoRoute })} /></SettingRow>
           <SettingRow title={t('strictRouting')} description={t('restrictTrafficThatCouldBypassTheVirtualInterface')}><Switch aria-label={t('strictRouting')} checked={form.kernel.tun.strictRoute} onCheckedChange={(strictRoute) => updateTun({ strictRoute })} /></SettingRow>
           <label className="mt-4 flex flex-col gap-2 text-xs font-medium">{t('dNSHijackDestinations')}<span className="font-normal text-muted-foreground">{t('oneEntryPerLineForExampleAny53')}</span><Textarea value={dnsHijack} onChange={(event) => { setDnsHijack(event.target.value); setDirty(true) }} rows={3} /></label>
-          <div className="mt-5"><SettingsFields prefix="tun-options" fields={tunFields} value={form.kernel.tun.options ?? {}} onChange={(options) => updateTun({ options })} /></div>
+          <SettingsDisclosure title={t('advancedTun')}><SettingsFields prefix="tun-options" fields={tunFields} value={form.kernel.tun.options ?? {}} onChange={(options) => updateTun({ options })} /></SettingsDisclosure>
         </>}
         {section === 'sysproxy' && <>
           <SettingRow
@@ -112,7 +112,7 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
           <SettingRow title={t('allowLANAccess')} description={t('letOtherDevicesConnectToTheLocalProxy')}><Switch aria-label={t('allowLANAccess')} checked={form.kernel.allowLan} onCheckedChange={(allowLan) => updateKernel({ allowLan })} /></SettingRow>
           <SettingRow title={t('logLevel')} description={t('controlsTheVerbosityOfTheCoreLogStream')}><NativeSelect aria-label={t('logLevel')} value={form.kernel.logLevel} onChange={(event) => updateKernel({ logLevel: event.target.value as LogLevel })}>{['debug', 'info', 'warning', 'error', 'silent'].map((level) => <option key={level} value={level}>{common(level as 'debug' | 'info' | 'warning' | 'error' | 'silent')}</option>)}</NativeSelect></SettingRow>
           <p className="mt-4 text-xs text-muted-foreground">{t('savingCoreSettingsRestartsMihomoExistingSessionsWillReconnect')}</p>
-          <div className="mt-5"><SettingsFields prefix="core-options" fields={coreFields} value={form.kernel.options ?? {}} onChange={(options) => updateKernel({ options })} /></div>
+          <SettingsDisclosure title={t('advancedCore')}><SettingsFields prefix="core-options" fields={coreFields} value={form.kernel.options ?? {}} onChange={(options) => updateKernel({ options })} /></SettingsDisclosure>
         </>}
       </CardContent></Card>
 }

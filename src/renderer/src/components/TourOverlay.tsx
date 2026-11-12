@@ -58,6 +58,11 @@ function TourStep({ index, next, back, stop }: { index: number; next: () => void
       const element = activeTab === step.page ? document.querySelector<HTMLElement>(`[data-tour="${target}"]`) : null
       if (element && element !== found) {
         found = element
+        let disclosure = element.closest('details')
+        while (disclosure) {
+          disclosure.open = true
+          disclosure = disclosure.parentElement?.closest('details') ?? null
+        }
         element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' })
       }
       const bounds = element?.getBoundingClientRect()

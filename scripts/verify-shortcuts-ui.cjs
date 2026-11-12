@@ -55,6 +55,7 @@ if (process.type === 'renderer') {
       await waitFor(`document.querySelector('[aria-label="Settings"]')`)
       await evaluate(`document.querySelector('[aria-label="Settings"]').click()`)
       await waitFor(`document.querySelectorAll('[data-shortcut-action]').length === 6`)
+      await evaluate(`document.querySelector('[data-shortcut-action]').closest('details').querySelector('summary').click()`)
       assert.equal(await evaluate(`document.querySelector('#general-shortcuts') !== null`), false, 'raw YAML editor has been replaced')
       assert.equal(await evaluate(`document.querySelector('${row('showWindow')} button').textContent`), 'Control+Shift+Q')
 

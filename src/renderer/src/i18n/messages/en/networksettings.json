@@ -146,11 +146,19 @@
   "startupDescription": "Automatic startup, connection and system tray behavior.",
   "performanceGroup": "Performance",
   "performanceDescription": "Graphics, data refresh rate and log retention.",
-  "subscriptionsGroup": "Subscriptions and latency tests",
-  "subscriptionsDescription": "Subscription updates, node switching and latency test options.",
+  "subscriptionsGroup": "Subscriptions",
+  "subscriptionsDescription": "Automatic subscription updates and download requests.",
   "shortcutsGroup": "Keyboard shortcuts",
   "shortcutsDescription": "Global shortcuts for controlling the application.",
   "coreOnlyMode": "Core only",
   "coreOnlyDescription": "Close the interface to free memory. The core keeps its current state; control it and restore the interface from the tray. Save pending settings first.",
-  "enableCoreOnly": "Enable core only"
+  "enableCoreOnly": "Enable core only",
+  "connectionGroup": "Connections and traffic",
+  "connectionDescription": "Traffic display and connection behavior when switching nodes.",
+  "latencyGroup": "Latency tests",
+  "latencyDescription": "Test URL, timeout and number of concurrent checks.",
+  "updatesGroup": "Application updates",
+  "updatesDescription": "Automatic checks for new application versions.",
+  "advancedTun": "Advanced TUN settings",
+  "advancedCore": "Advanced core settings"
 }

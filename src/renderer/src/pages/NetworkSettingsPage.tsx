@@ -1,5 +1,5 @@
 import { GeneralPreferencesPanel } from '../components/settings/GeneralPreferencesPanel'
-import { SettingsOverview } from '../components/settings/SettingsOverview'
+import { SettingsOverview, SettingsNetworkLinks } from '../components/settings/SettingsOverview'
 import { NetworkSettingsPanel } from '../components/settings/NetworkSettingsPanel'
 import { useSettingsDraft } from '../hooks/useSettingsDraft'
 import { type SettingsSection } from '@shared/settings-config'
@@ -7,7 +7,6 @@ import { SETTINGS_SECTIONS } from '../lib/settings-sections'
 import { useTranslations } from '../i18n'
 import { useState, useEffect } from 'react'
 import { Save, ArrowLeft } from 'lucide-react'
-import druseSvg from '../assets/brand/druse.svg'
 import { SystemProxyIcon, TunIcon } from '../lib/icons'
 import type { AppConfig } from '@shared/app-config'
 import type { SysProxyStatus } from '@shared/ipc'
@@ -57,7 +56,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
     return () => { active = false }
   }, [])
 
-  const { title: titleKey, icon: Icon } = SETTINGS_SECTIONS[section]
+  const { title: titleKey } = SETTINGS_SECTIONS[section]
   const title = t(titleKey)
 
   const activeCaptureMode: 'off' | 'tun' | 'sysproxy' = form.kernel.tun.enable
@@ -230,14 +229,22 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
         </CardContent>
       </Card>
     )}
-    <form id={`settings-${section}`} onSubmit={save} className="relative flex flex-col gap-4">
+    {section === 'settings' && <SettingsNetworkLinks draft={draft} settings={settings} sysProxy={sysProxy} onNavigate={onNavigate} />}
+    <form onInvalidCapture={(event) => {
+      // Reveal invalid fields before the browser attempts to focus them.
+      let disclosure = (event.target as HTMLElement).closest('details')
+      while (disclosure) {
+        disclosure.open = true
+        disclosure = disclosure.parentElement?.closest('details') ?? null
+      }
+    }} id={`settings-${section}`} onSubmit={save} className="relative flex flex-col gap-4">
       {section !== 'settings' && <NetworkSettingsPanel section={section} draft={draft} settings={settings} sysProxy={sysProxy}
         busy={busy} onToggleSysProxy={onToggleSysProxy} isElevated={isElevated} restartingAdmin={restartingAdmin}
         handleRestartAsAdmin={handleRestartAsAdmin} setTunAdminPrompt={setTunAdminPrompt} />}
       {section === 'settings' && <GeneralPreferencesPanel draft={draft} busy={busy} />}
       {message && <p role="status" className="text-xs text-muted-foreground">{t(message)}</p>}
     </form>
-    {section === 'settings' && <SettingsOverview draft={draft} settings={settings} sysProxy={sysProxy} onNavigate={onNavigate} />}
+    {section === 'settings' && <SettingsOverview draft={draft} onNavigate={onNavigate} />}
 
   </Page>
 }

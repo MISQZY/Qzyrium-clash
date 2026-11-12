@@ -18,14 +18,13 @@ import { DEFAULT_APP_CONFIG } from '@shared/app-config'
 
 import type { SettingsDraft } from '../../hooks/useSettingsDraft'
 
-export function SettingsOverview({ draft, settings, sysProxy, onNavigate }: {
-  draft: SettingsDraft; settings: AppConfig; sysProxy: SysProxyStatus; onNavigate?: (tab: NavTab) => void
+export function SettingsOverview({ draft, onNavigate }: {
+  draft: SettingsDraft; onNavigate?: (tab: NavTab) => void
 }) {
   const t = useTranslations('networksettings')
   const tourT = useTranslations('app')
   const { start: startTour } = useTour()
-  const common = useTranslations('common')
-  const { form, setMessage } = draft
+  const { setMessage } = draft
   const [coreVersion, setCoreVersion] = useState<string>('')
   const [appVersion, setAppVersion] = useState<string>('')
   const [checkingUpdates, setCheckingUpdates] = useState(false)
@@ -69,13 +68,6 @@ export function SettingsOverview({ draft, settings, sysProxy, onNavigate }: {
     return () => { active = false }
   }, [])
 
-  const links = [
-    { target: 'sysproxy', icon: SystemProxyIcon, label: t('systemProxy'), description: `${sysProxy.enabled ? t('enabledValue') : t('disabledValue')} • ${sysProxy.host ?? DEFAULT_APP_CONFIG.sysProxy.host}:${sysProxy.port ?? DEFAULT_APP_CONFIG.kernel.mixedPort}` },
-    { target: 'tun', icon: TunIcon, label: t('tUNInterface'), description: `${form.kernel.tun.enable ? t('enabledValue') : t('disabledValue')} • ${form.kernel.tun.stack}` },
-    { target: 'dns', icon: DnsIcon, label: common('dns'), description: settings.kernel.dns ? t('overridden') : t('fromSubscription') },
-    { target: 'sniffer', icon: SnifferIcon, label: common('sniffer'), description: settings.kernel.sniffer ? t('overridden') : t('fromSubscription') },
-    { target: 'resources', icon: ResourcesIcon, label: common('resources'), description: settings.kernel.resources ? t('overridden') : t('fromSubscription') }
-  ] as const
   return <>
         <Card data-tour="restart-tour">
           <CardContent className="flex flex-wrap items-center gap-4 p-4">
@@ -154,7 +146,44 @@ export function SettingsOverview({ draft, settings, sysProxy, onNavigate }: {
           </Card>
         </div>
 
-        {/* Network Section Card */}
+        {/* Application Files */}
+        <Card>
+          <CardContent className="p-5">
+            <h2 className="mb-4 text-sm font-semibold">{t('applicationFiles')}</h2>
+            <div className="flex flex-wrap gap-2">
+              {(['data', 'profiles', 'logs'] as const).map((target) => (
+                <Button
+                  key={target}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    void window.api?.window.openFolder(target).catch(() => setMessage('couldNotOpenTheFolder'))
+                  }}
+                >
+                  <Folder className="size-3.5" />
+                  {t(`${target}Folder`)}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </>
+}
+
+export function SettingsNetworkLinks({ draft, settings, sysProxy, onNavigate }: {
+  draft: SettingsDraft; settings: AppConfig; sysProxy: SysProxyStatus; onNavigate?: (tab: NavTab) => void
+}) {
+  const t = useTranslations('networksettings')
+  const common = useTranslations('common')
+  const { form } = draft
+  const links = [
+    { target: 'sysproxy', icon: SystemProxyIcon, label: t('systemProxy'), description: `${sysProxy.enabled ? t('enabledValue') : t('disabledValue')} • ${sysProxy.host ?? DEFAULT_APP_CONFIG.sysProxy.host}:${sysProxy.port ?? DEFAULT_APP_CONFIG.kernel.mixedPort}` },
+    { target: 'tun', icon: TunIcon, label: t('tUNInterface'), description: `${form.kernel.tun.enable ? t('enabledValue') : t('disabledValue')} • ${form.kernel.tun.stack}` },
+    { target: 'dns', icon: DnsIcon, label: common('dns'), description: settings.kernel.dns ? t('overridden') : t('fromSubscription') },
+    { target: 'sniffer', icon: SnifferIcon, label: common('sniffer'), description: settings.kernel.sniffer ? t('overridden') : t('fromSubscription') },
+    { target: 'resources', icon: ResourcesIcon, label: common('resources'), description: settings.kernel.resources ? t('overridden') : t('fromSubscription') }
+  ] as const
+  return (
         <Card>
           <CardContent className="p-5 flex flex-col gap-3">
             <div className="flex items-center justify-between pb-2 border-b border-border/60">
@@ -183,26 +212,5 @@ export function SettingsOverview({ draft, settings, sysProxy, onNavigate }: {
           </CardContent>
         </Card>
 
-        {/* Application Files */}
-        <Card>
-          <CardContent className="p-5">
-            <h2 className="mb-4 text-sm font-semibold">{t('applicationFiles')}</h2>
-            <div className="flex flex-wrap gap-2">
-              {(['data', 'profiles', 'logs'] as const).map((target) => (
-                <Button
-                  key={target}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    void window.api?.window.openFolder(target).catch(() => setMessage('couldNotOpenTheFolder'))
-                  }}
-                >
-                  <Folder className="size-3.5" />
-                  {t(`${target}Folder`)}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </>
+  )
 }
