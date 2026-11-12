@@ -13,6 +13,7 @@ import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import { clearRestartState, readRestartState } from './utils/restart-state'
 import { isProcessElevated, restartAsAdmin } from './utils/elevation'
 import { createElevateTaskSync, tryRunElevateTask } from './utils/elevate-task'
+import { readElevationState, rememberElevation } from './utils/elevation-state'
 import { renderingSwitches } from '@shared/rendering-policy'
 
 app.setName('Qzyrium-clash')
@@ -98,20 +99,24 @@ if (adminRestartPid) {
   }
 }
 
-// Seamless UAC bypass via Windows Task Scheduler (koala-clash approach)
-if (
+// Restore administrator privileges via Windows Task Scheduler.
+const useAdminLaunch =
   process.platform === 'win32' &&
   app.isPackaged &&
   !process.argv.includes('--noadmin') &&
+  !process.argv.includes('noadmin') &&
   !process.argv.includes('--no-admin-task')
-) {
+let needsAdminLaunch = false
+if (useAdminLaunch) {
   if (isProcessElevated()) {
+    rememberElevation()
     try {
       createElevateTaskSync()
     } catch {
       // Ignore background task creation errors
     }
   } else if (!adminRestartPid) {
+    needsAdminLaunch = readElevationState()
     try {
       if (tryRunElevateTask(process.argv.slice(1))) {
         app.exit(0)
@@ -185,7 +190,7 @@ if (!gotTheLock) {
     logger.info('Starting Qzyrium-clash application...')
 
     const restartState = readRestartState()
-    if (restartState?.elevated && !isProcessElevated()) {
+    if ((restartState?.elevated || needsAdminLaunch) && !isProcessElevated()) {
       if (await restartAsAdmin()) return
       logger.warn('Administrator restart declined; continuing without elevation')
     }

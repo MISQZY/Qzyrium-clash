@@ -62,6 +62,7 @@ for (const elevated of [true, false]) {
       '@shared/rendering-policy': require('./fixtures/rendering.cjs'),
       'node:fs': { existsSync: () => false, readFileSync: () => '{}' }, 'node:path': path,
       './utils/elevation': { isProcessElevated: () => elevated },
+      './utils/elevation-state': { readElevationState: () => false, rememberElevation() {} },
       './utils/elevate-task': {
         createElevateTaskSync: () => { registrations++; return true },
         tryRunElevateTask: () => { launches++; return false }
@@ -84,6 +85,77 @@ for (const elevated of [true, false]) {
   }
 }
 
+async function verifyRememberedElevation() {
+  let stored
+  const stateExports = {}
+  const stateDeps = {
+    electron: { app: { getPath: () => 'fixture' } },
+    'node:fs': { readFileSync: () => stored, mkdirSync() {} }, 'node:path': path,
+    './atomicWrite': { writeFileAtomic: (_, value) => { stored = value } },
+    './logger': { logger: { warn() {} } }
+  }
+  const stateCode = ts.transpileModule(fs.readFileSync('src/main/utils/elevation-state.ts', 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true }
+  }).outputText
+  new Function('exports', 'require', stateCode)(stateExports, name => stateDeps[name])
+  assert.equal(stateExports.readElevationState(), false, 'first launch does not request elevation')
+  stored = '{invalid'
+  assert.equal(stateExports.readElevationState(), false, 'damaged state uses normal launch')
+  stored = '{"enabled":"true"}'
+  assert.equal(stateExports.readElevationState(), false)
+  stateExports.rememberElevation()
+  assert.equal(stateExports.readElevationState(), true, 'administrator mode persists independently of restart state')
+
+  for (const scenario of [
+    { remembered: false },
+    { remembered: true },
+    { remembered: true, declined: true },
+    { remembered: true, arg: '--noadmin' },
+    { remembered: true, arg: 'noadmin' },
+    { remembered: true, arg: '--no-admin-task' },
+    { remembered: true, arg: '--admin-restart=123' },
+    { remembered: true, packaged: false },
+    { remembered: true, platform: 'linux' },
+    { elevated: true }
+  ]) {
+    let ready, prompts = 0, remembered = 0
+    const stop = new Error('startup inspected')
+    const deps = {
+      electron: { app: {
+        isPackaged: scenario.packaged !== false, setName() {}, getPath: () => 'fixture',
+        commandLine: { appendSwitch() {} }, requestSingleInstanceLock: () => true,
+        on() {}, whenReady: () => ({ then: callback => { ready = callback } }),
+        setAsDefaultProtocolClient() {}, isDefaultProtocolClient: () => true
+      } },
+      '@electron-toolkit/utils': { electronApp: { setAppUserModelId() {} } },
+      '@shared/rendering-policy': require('./fixtures/rendering.cjs'),
+      '@shared/settings-config': { normalizeSettings: () => ({ general: {} }) },
+      'node:fs': { existsSync: () => false, readFileSync: () => '{}' }, 'node:path': path,
+      './utils/logger': { logger: { configureSettings() {}, initialize() {}, info() {}, warn() {} } },
+      './utils/elevation-state': {
+        readElevationState: () => scenario.remembered === true,
+        rememberElevation: () => { remembered++ }
+      },
+      './utils/elevate-task': { createElevateTaskSync() {}, tryRunElevateTask: () => false },
+      './utils/elevation': {
+        isProcessElevated: () => scenario.elevated === true,
+        restartAsAdmin: async () => { prompts++; return !scenario.declined }
+      },
+      './utils/restart-state': { readRestartState: () => null, clearRestartState() { throw stop } }
+    }
+    new Function('exports', 'require', 'process', 'console', startupCode)(
+      {}, name => deps[name] ?? {},
+      { platform: scenario.platform ?? 'win32', argv: ['app', ...(scenario.arg ? [scenario.arg] : [])], on() {}, kill() { throw new Error('exited') } },
+      { info() {} }
+    )
+    const shouldPrompt = scenario.remembered && !scenario.arg && scenario.packaged !== false && !scenario.platform
+    if (shouldPrompt && !scenario.declined) await ready()
+    else await assert.rejects(ready, error => error === stop)
+    assert.equal(prompts, shouldPrompt ? 1 : 0, JSON.stringify(scenario))
+    assert.equal(remembered, scenario.elevated ? 1 : 0, 'only a confirmed elevated launch saves the preference')
+  }
+}
+
 if (process.platform === 'win32') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qzyrium-runner-test-'))
   const csc = path.join(process.env.SystemRoot, 'Microsoft.NET', 'Framework64', 'v4.0.30319', 'csc.exe')
@@ -92,4 +164,6 @@ if (process.platform === 'win32') {
     path.resolve('scripts/runner/Program.cs'), path.resolve('scripts/runner/Tests.cs')], { windowsHide: true })
   execFileSync(binary, [root], { windowsHide: true, stdio: 'pipe' })
 }
-console.log('PASS: protected installed runner, legacy task removal, XML escaping and privileged argument allowlist')
+verifyRememberedElevation().then(() => {
+  console.log('PASS: protected installed runner, remembered administrator launches, UAC fallback/cancellation and launch overrides')
+}).catch(error => { console.error(error); process.exitCode = 1 })
