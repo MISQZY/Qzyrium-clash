@@ -154,21 +154,25 @@ async function prepareRunner() {
     .map(framework => path.join(systemRoot, 'Microsoft.NET', framework, 'v4.0.30319', 'csc.exe'))
     .find(filename => fs.existsSync(filename))
   const { execFileSync } = await import('node:child_process')
-  const directory = 'runner', executable = 'qzyrium-run.exe'
-  const source = path.join(cwd, 'scripts', directory, 'Program.cs')
-  const destination = path.join(FILES_DIR, executable)
-  const sourceInfo = fs.statSync(source)
-  if (fs.existsSync(destination)) {
-    const binaryInfo = fs.statSync(destination)
-    if (binaryInfo.size > 0 && binaryInfo.mtimeMs >= sourceInfo.mtimeMs) {
-      console.log(`[INFO] ${executable} is up to date.`)
-      return
+  for (const [sourceName, executable, references] of [
+    ['Program.cs', 'qzyrium-run.exe', []],
+    ['NetworkWatchdog.cs', 'qzyrium-watchdog.exe', ['/reference:System.Web.Extensions.dll', '/reference:System.Management.dll']]
+  ]) {
+    const source = path.join(cwd, 'scripts', 'runner', sourceName)
+    const destination = path.join(FILES_DIR, executable)
+    const sourceInfo = fs.statSync(source)
+    if (fs.existsSync(destination)) {
+      const binaryInfo = fs.statSync(destination)
+      if (binaryInfo.size > 0 && binaryInfo.mtimeMs >= sourceInfo.mtimeMs) {
+        console.log(`[INFO] ${executable} is up to date.`)
+        continue
+      }
     }
+    if (!cscPath) throw new Error('Windows .NET Framework C# compiler not found')
+    execFileSync(cscPath, [`/target:${sourceName === 'Program.cs' ? 'winexe' : 'exe'}`, '/optimize+', '/platform:anycpu',
+      ...references, `/out:${destination}`, source], { windowsHide: true, stdio: 'pipe' })
+    console.log(`[SUCCESS] Compiled ${executable}`)
   }
-  if (!cscPath) throw new Error('Windows .NET Framework C# compiler not found')
-  execFileSync(cscPath, ['/target:winexe', '/optimize+', '/platform:anycpu',
-    `/out:${destination}`, source], { windowsHide: true, stdio: 'pipe' })
-  console.log(`[SUCCESS] Compiled ${executable}`)
 }
 
 async function main() {

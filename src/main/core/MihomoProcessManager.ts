@@ -8,6 +8,7 @@ import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 import { LogLines } from '../utils/log-lines'
 import { parseMihomoLog } from '@shared/logs'
+import { networkWatchdog } from '../utils/network-watchdog'
 
 const runFile = promisify(execFile)
 
@@ -143,6 +144,7 @@ export class MihomoProcessManager extends EventEmitter {
         }
       })
 
+      if (spawned.pid) await networkWatchdog.trackCore(spawned.pid)
       await this.waitForReady(spawned, controllerPort, secret, sequence, () => exitedPrematurely, () => exitCode)
     } catch (err) {
       logger.error('Error starting Mihomo process', err)

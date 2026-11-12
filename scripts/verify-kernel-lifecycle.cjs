@@ -27,6 +27,7 @@ async function verifyRestart() {
   let now = 0
   const flush = () => new Promise(resolve => setImmediate(resolve))
   const { MihomoProcessManager } = load('src/main/core/MihomoProcessManager.ts', {
+    '../utils/network-watchdog': { networkWatchdog: { async trackCore() {} } },
     child_process: {
       spawn: () => {
         const child = new EventEmitter()

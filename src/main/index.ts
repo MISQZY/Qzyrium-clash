@@ -14,6 +14,7 @@ import { isProcessElevated, restartAsAdmin } from './utils/elevation'
 import { createElevateTaskSync, tryRunElevateTask } from './utils/elevate-task'
 import { readElevationState, rememberElevation } from './utils/elevation-state'
 import { renderingSwitches } from '@shared/rendering-policy'
+import { networkWatchdog } from './utils/network-watchdog'
 
 app.setName('Qzyrium-clash')
 electronApp.setAppUserModelId('com.qzyrium.vpn')
@@ -196,6 +197,14 @@ if (!gotTheLock) {
       app.quit()
       return
     }
+    // Wait for an earlier session's watchdog to finish recovery before touching
+    // its journal or starting another core on the same ports.
+    try { await networkWatchdog.start() }
+    catch (error) {
+      logger.error('Unable to start network crash recovery', error)
+      app.exit(1)
+      return
+    }
     services = new ServiceManager()
     logger.setAppLogHandler(entry => services?.windowService.broadcast(IPC_CHANNELS.EVENT_LOG, entry))
     if (restartState) {
@@ -226,17 +235,25 @@ if (!gotTheLock) {
       services.windowService.setQuitting(true)
       await services.dispose()
       services = null
+      await networkWatchdog.stop().catch(error => logger.error('Network watchdog cleanup failed', error))
       app.exit(0)
     }
   })
 
   process.on('uncaughtException', async (error) => {
     logger.error('Uncaught Exception in main process', error)
+    if (shuttingDown) { app.exit(1); return }
+    shuttingDown = true
+    const deadline = setTimeout(() => app.exit(1), 10_000)
+    deadline.unref()
     if (services) {
       try {
+        services.windowService.setQuitting(true)
         await services.dispose()
       } catch {}
     }
+    await networkWatchdog.stop().catch(() => {})
+    app.exit(1)
   })
 
   process.on('unhandledRejection', (reason) => {
