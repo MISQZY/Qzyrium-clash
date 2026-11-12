@@ -1,3 +1,4 @@
+import { NativeSelect } from '../ui/native-select'
 import { type ConnectionProtocol, type ConnectionSort } from '../../lib/connection-selectors'
 
 import { useTranslations } from '../../i18n'
@@ -50,16 +51,16 @@ export function ConnectionFilters({ query, setQuery, protocolFilter, setProtocol
           </div>
 
           {/* Sort selector */}
-          <select
+          <NativeSelect
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as ConnectionSort)}
             aria-label={t('sortBy')}
-            className="h-8 rounded-lg border border-border/80 bg-muted/40 px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-8"
           >
             <option value="traffic">{t('sortByTraffic')}</option>
             <option value="time">{t('sortByTime')}</option>
             <option value="process">{t('sortByProcess')}</option>
-          </select>
+          </NativeSelect>
 
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground px-1">
             {viewMode === 'process' && !selectedProcessKey

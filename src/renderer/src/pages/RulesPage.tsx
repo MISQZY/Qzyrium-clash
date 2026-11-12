@@ -1,3 +1,4 @@
+import { NativeSelect } from '../components/ui/native-select'
 import { useTranslations } from '../i18n'
 import React, { useMemo, useState } from 'react'
 import { RefreshCw, Search } from 'lucide-react'
@@ -81,14 +82,14 @@ export function RulesPage({
         </div>
 
         <div className="flex items-center gap-3">
-          <select
+          <NativeSelect
             aria-label={t('ruleType')}
             value={type}
             onChange={(event) => {
               setType(event.target.value)
               setPage(0)
             }}
-            className="h-8 rounded-md border border-input bg-card px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-8"
           >
             <option value="all">{t('allTypes')}</option>
             {types.map((item) => (
@@ -96,7 +97,7 @@ export function RulesPage({
                 {item}
               </option>
             ))}
-          </select>
+          </NativeSelect>
           <span className="text-xs tabular-nums text-muted-foreground">
             {filteredIndexes.length} / {rules.length}
           </span>

@@ -1,3 +1,4 @@
+import { NativeSelect } from '../ui/native-select'
 
 import { useTranslations } from '../../i18n'
 import { useState } from 'react'
@@ -57,14 +58,14 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
     <>
         <SettingsGroup title={t('interfaceGroup')} description={t('interfaceDescription')} icon={<Palette />}>
           <SettingRow title={t('language')} description={t('languageHint')}>
-            <select aria-label={t('language')} value={form.general.customLocalization ? `custom:${form.general.customLocalization}` : form.general.language} onChange={(event) => {
+            <NativeSelect aria-label={t('language')} value={form.general.customLocalization ? `custom:${form.general.customLocalization}` : form.general.language} onChange={(event) => {
               const pack = form.general.customLocalizations?.find(item => `custom:${item.id}` === event.target.value)
               updateGeneral(pack ? { language: pack.baseLanguage, customLocalization: pack.id } : { language: event.target.value as AppConfig['general']['language'], customLocalization: null })
             }}>
               <option value="ru">{common('languageRussian')}</option>
               <option value="en">{common('languageEnglish')}</option>
               {(form.general.customLocalizations ?? []).map(pack => <option key={pack.id} value={`custom:${pack.id}`}>{pack.name}</option>)}
-            </select>
+            </NativeSelect>
           </SettingRow>
           <CustomLocalizationSettings general={form.general} onChange={updateGeneral} />
           <SettingRow title={t('appearance')} description={t('followYourSystemThemeOrChooseOneExplicitly')}>

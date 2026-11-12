@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Select as SelectPrimitive } from 'radix-ui'
 import { Check, ChevronDown, ChevronUp } from 'lucide-react'
+import { fieldStyles } from './field-styles'
 import { cn } from '@renderer/lib/utils'
 
 const Select = SelectPrimitive.Root
@@ -14,7 +15,8 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-8 w-fit min-w-[140px] cursor-pointer items-center justify-between gap-2 rounded-lg border border-input bg-muted/60 px-2.5 py-1 text-xs text-foreground shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0',
+      fieldStyles,
+      'flex h-8.5 w-fit min-w-[140px] cursor-pointer items-center justify-between gap-2 px-3 py-1 font-sans [&_svg]:pointer-events-none [&_svg]:shrink-0',
       className
     )}
     {...props}

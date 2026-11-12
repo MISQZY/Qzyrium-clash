@@ -1,3 +1,4 @@
+import { NativeSelect } from './ui/native-select'
 import React, { useId, useState } from 'react'
 import { Check, LoaderCircle, Globe, FileCode, RefreshCw, ChevronDown } from 'lucide-react'
 import type { ProfileItem } from '@shared/profile'
@@ -149,7 +150,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
                   {autoUpdate && <div className="space-y-3 border-t border-border/60 p-3.5">
                     <div className="flex flex-wrap items-center justify-between gap-2.5">
                       <label htmlFor={`${id}-schedule`} className="text-xs font-medium">{t('updateFrequency')}</label>
-                      <select id={`${id}-schedule`} className="w-full sm:w-auto sm:min-w-40" value={customInterval ? 'custom' : interval} onChange={(event) => {
+                      <NativeSelect id={`${id}-schedule`} className="w-full sm:w-auto sm:min-w-40" value={customInterval ? 'custom' : interval} onChange={(event) => {
                         const custom = event.target.value === 'custom'
                         setCustomInterval(custom)
                         if (!custom) setInterval(Number(event.target.value))
@@ -159,7 +160,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
                         <option value={720}>{t('every12Hours')}</option>
                         <option value={1440}>{t('everyDay')}</option>
                         <option value="custom">{t('customInterval')}</option>
-                      </select>
+                      </NativeSelect>
                     </div>
                     {customInterval && <div className="space-y-2">
                       <label htmlFor={`${id}-interval`} className="text-[11px] text-muted-foreground">{t('updateIntervalMinutes')}</label>

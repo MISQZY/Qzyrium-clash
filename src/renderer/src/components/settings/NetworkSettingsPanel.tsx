@@ -1,3 +1,4 @@
+import { NativeSelect } from '../ui/native-select'
 
 import { type SettingsSection } from '@shared/settings-config'
 import { SETTINGS_SECTIONS } from '../../lib/settings-sections'
@@ -74,7 +75,7 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
               }}
             />
           </SettingRow>
-          <SettingRow title={t('networkStack')} description={t('chooseHowTheVirtualInterfaceHandlesPackets')}><select aria-label={t('networkStack')} value={form.kernel.tun.stack} onChange={(event) => updateTun({ stack: event.target.value as AppConfig['kernel']['tun']['stack'] })}><option value="system">{t('system')}</option><option value="gvisor">gVisor</option><option value="mixed">{t('mixed')}</option></select></SettingRow>
+          <SettingRow title={t('networkStack')} description={t('chooseHowTheVirtualInterfaceHandlesPackets')}><NativeSelect aria-label={t('networkStack')} value={form.kernel.tun.stack} onChange={(event) => updateTun({ stack: event.target.value as AppConfig['kernel']['tun']['stack'] })}><option value="system">{t('system')}</option><option value="gvisor">gVisor</option><option value="mixed">{t('mixed')}</option></NativeSelect></SettingRow>
           <SettingRow title={t('automaticRouting')} description={t('createRoutesForTheVirtualInterface')}><Switch aria-label={t('automaticRouting')} checked={form.kernel.tun.autoRoute} onCheckedChange={(autoRoute) => updateTun({ autoRoute })} /></SettingRow>
           <SettingRow title={t('strictRouting')} description={t('restrictTrafficThatCouldBypassTheVirtualInterface')}><Switch aria-label={t('strictRouting')} checked={form.kernel.tun.strictRoute} onCheckedChange={(strictRoute) => updateTun({ strictRoute })} /></SettingRow>
           <label className="mt-4 flex flex-col gap-2 text-xs font-medium">{t('dNSHijackDestinations')}<span className="font-normal text-muted-foreground">{t('oneEntryPerLineForExampleAny53')}</span><Textarea value={dnsHijack} onChange={(event) => { setDnsHijack(event.target.value); setDirty(true) }} rows={3} /></label>
@@ -96,7 +97,7 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
               onCheckedChange={onToggleSysProxy}
             />
           </SettingRow>
-          <SettingRow title={t('proxyMode')}><select aria-label={t('proxyMode')} value={form.sysProxy.mode ?? 'manual'} onChange={(event) => updateSysProxy({ mode: event.target.value as 'manual' | 'pac' })}><option value="manual">{t('manualProxy')}</option><option value="pac">PAC</option></select></SettingRow>
+          <SettingRow title={t('proxyMode')}><NativeSelect aria-label={t('proxyMode')} value={form.sysProxy.mode ?? 'manual'} onChange={(event) => updateSysProxy({ mode: event.target.value as 'manual' | 'pac' })}><option value="manual">{t('manualProxy')}</option><option value="pac">PAC</option></NativeSelect></SettingRow>
           <label className="mt-4 flex flex-col gap-2 text-xs font-medium">{t('proxyHost')}<Input aria-label={t('proxyHost')} value={form.sysProxy.host ?? '127.0.0.1'} onChange={(event) => updateSysProxy({ host: event.target.value })} /></label>
           {form.sysProxy.mode === 'pac' && <label className="mt-4 flex flex-col gap-2 text-xs font-medium">{t('pacScript')}<Textarea aria-label={t('pacScript')} rows={7} className="font-mono text-xs" value={form.sysProxy.pacScript ?? ''} placeholder={t('pacScriptHint')} onChange={(event) => updateSysProxy({ pacScript: event.target.value })} /></label>}
           <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{t('applicationsThatHonorWindowsProxySettingsWillUseThisEndpointTUNCanCaptureTrafficFromOtherApplications')}</p>
@@ -109,7 +110,7 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
           </div>
           <label className="mb-4 flex flex-col gap-2 text-xs font-medium">{t('controllerSecret')}<Input type="password" autoComplete="off" value={form.kernel.controllerSecret} onChange={(event) => updateKernel({ controllerSecret: event.target.value })} /></label>
           <SettingRow title={t('allowLANAccess')} description={t('letOtherDevicesConnectToTheLocalProxy')}><Switch aria-label={t('allowLANAccess')} checked={form.kernel.allowLan} onCheckedChange={(allowLan) => updateKernel({ allowLan })} /></SettingRow>
-          <SettingRow title={t('logLevel')} description={t('controlsTheVerbosityOfTheCoreLogStream')}><select aria-label={t('logLevel')} value={form.kernel.logLevel} onChange={(event) => updateKernel({ logLevel: event.target.value as LogLevel })}>{['debug', 'info', 'warning', 'error', 'silent'].map((level) => <option key={level} value={level}>{common(level as 'debug' | 'info' | 'warning' | 'error' | 'silent')}</option>)}</select></SettingRow>
+          <SettingRow title={t('logLevel')} description={t('controlsTheVerbosityOfTheCoreLogStream')}><NativeSelect aria-label={t('logLevel')} value={form.kernel.logLevel} onChange={(event) => updateKernel({ logLevel: event.target.value as LogLevel })}>{['debug', 'info', 'warning', 'error', 'silent'].map((level) => <option key={level} value={level}>{common(level as 'debug' | 'info' | 'warning' | 'error' | 'silent')}</option>)}</NativeSelect></SettingRow>
           <p className="mt-4 text-xs text-muted-foreground">{t('savingCoreSettingsRestartsMihomoExistingSessionsWillReconnect')}</p>
           <div className="mt-5"><SettingsFields prefix="core-options" fields={coreFields} value={form.kernel.options ?? {}} onChange={(options) => updateKernel({ options })} /></div>
         </>}

@@ -299,6 +299,11 @@ if (process.type === 'renderer') {
       await waitFor(`document.querySelector('button[form="settings-sysproxy"]').disabled`)
       assert.equal(await evaluate(`window.api.settings.get().then(s => s.sysProxy.mode)`), 'pac')
       await navigate('Settings')
+      assert.equal(await evaluate(`(() => {
+        const fields = [document.querySelector('select[aria-label="Interface language"]'), document.querySelector('button[role="combobox"]'), document.querySelector('#general-userAgent')];
+        const appearance = fields.map(field => { const style = getComputedStyle(field); return [style.height, style.borderRadius, style.borderColor, style.backgroundColor, style.fontSize].join('|') });
+        return new Set(appearance).size === 1;
+      })()`), true, 'native selects, custom selects and inputs share field appearance')
       await setControl('#general-delayTestTimeout', '7000')
       await setControl('#general-userAgent', 'Qzyrium fixture agent')
       await evaluate(`document.querySelector('button[form="settings-settings"]').click()`)

@@ -1,3 +1,4 @@
+import { NativeSelect } from './ui/native-select'
 import { useEffect, useRef, useState } from 'react'
 import yaml from 'yaml'
 import { HelpCircle, RotateCcw } from 'lucide-react'
@@ -96,8 +97,8 @@ export function SettingsFields({ fields, value, onChange, prefix, inherit = true
         </div>
         {inherit && current !== undefined && <Button type="button" size="icon-sm" variant="ghost" aria-label={t('resetField', { name: label })} onClick={() => update(field.key, undefined)}><RotateCcw className="size-3" /></Button>}
       </div>
-      {field.type === 'boolean' && <select id={id} aria-label={label} value={current === undefined ? '' : String(current)} onChange={(event) => update(field.key, event.target.value === '' ? undefined : event.target.value === 'true')}><option value="">{t('inheritProfile')}</option><option value="true">{t('enabledValue')}</option><option value="false">{t('disabledValue')}</option></select>}
-      {field.type === 'select' && <select id={id} aria-label={label} value={current === undefined ? '' : String(current)} onChange={(event) => update(field.key, event.target.value || undefined)}><option value="">{t('inheritProfile')}</option>{field.options?.map((option) => <option key={option} value={option}>{optionLabels[option] ?? option}</option>)}</select>}
+      {field.type === 'boolean' && <NativeSelect className="w-full" id={id} aria-label={label} value={current === undefined ? '' : String(current)} onChange={(event) => update(field.key, event.target.value === '' ? undefined : event.target.value === 'true')}><option value="">{t('inheritProfile')}</option><option value="true">{t('enabledValue')}</option><option value="false">{t('disabledValue')}</option></NativeSelect>}
+      {field.type === 'select' && <NativeSelect className="w-full" id={id} aria-label={label} value={current === undefined ? '' : String(current)} onChange={(event) => update(field.key, event.target.value || undefined)}><option value="">{t('inheritProfile')}</option>{field.options?.map((option) => <option key={option} value={option}>{optionLabels[option] ?? option}</option>)}</NativeSelect>}
       {(field.type === 'text' || field.type === 'number') && <Input id={id} aria-label={label} type={field.type === 'number' ? 'number' : 'text'} min={field.min} max={field.max} step={field.type === 'number' ? 1 : undefined} value={typeof current === 'number' || typeof current === 'string' ? current : ''} placeholder={inherit ? t('inheritProfile') : undefined} onChange={(event) => update(field.key, event.target.value === '' ? undefined : field.type === 'number' ? Number(event.target.value) : event.target.value)} />}
       {field.type === 'list' && <Textarea id={id} aria-label={label} rows={3} className="font-mono text-xs" placeholder={t('onePerLine')} value={Array.isArray(current) ? current.join('\n') : ''} onChange={(event) => update(field.key, event.target.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean))} />}
       {field.type === 'map' && <MappingInput id={id} label={label} value={current} placeholder={field.placeholder} onChange={(next) => update(field.key, next)} />}
