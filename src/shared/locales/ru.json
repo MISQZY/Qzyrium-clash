@@ -1,4 +1,5 @@
 {
+  "exportDiagnostics": "Собрать диагностику",
   "exportBackup": "Создать резервную копию",
   "importBackup": "Восстановить резервную копию",
   "backupFile": "Резервная копия Qzyrium",

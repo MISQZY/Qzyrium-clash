@@ -56,6 +56,7 @@ export const IPC_CHANNELS = {
   APP_OPEN_FOLDER: 'app:open-folder',
   APP_EXPORT_BACKUP: 'app:export-backup',
   APP_IMPORT_BACKUP: 'app:import-backup',
+  APP_EXPORT_DIAGNOSTICS: 'app:export-diagnostics',
 
   // Custom Themes & Config Files
   THEME_GET_CUSTOM_THEMES: 'theme:get-custom-themes',
@@ -181,6 +182,7 @@ export interface IElectronApi {
   app: {
     exportBackup: () => Promise<boolean>
     importBackup: () => Promise<boolean>
+    exportDiagnostics: () => Promise<boolean>
     enterCoreOnly: () => Promise<void>
     isElevated: () => Promise<boolean>
     restartAsAdmin: () => Promise<boolean | void>

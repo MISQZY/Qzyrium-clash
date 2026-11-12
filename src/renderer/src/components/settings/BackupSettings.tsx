@@ -21,8 +21,8 @@ export function BackupSettings({ disabled }: { disabled: boolean }) {
     <h2 className="text-sm font-semibold">{t('backupTitle')}</h2>
     <p className="mt-1 text-xs text-muted-foreground">{t('backupDescription')}</p>
     <div className="mt-4 flex flex-wrap gap-2">
-      <Button type="button" size="sm" variant="outline" disabled={disabled || pending} onClick={() => void run(false)}><Download className="size-3.5" />{t('exportBackup')}</Button>
-      <Button type="button" size="sm" variant="outline" disabled={disabled || pending} onClick={() => void run(true)}><Upload className="size-3.5" />{t('importBackup')}</Button>
+      <Button type="button" size="sm" variant="outline" data-maintenance="export-backup" disabled={disabled || pending} onClick={() => void run(false)}><Download className="size-3.5" />{t('exportBackup')}</Button>
+      <Button type="button" size="sm" variant="outline" data-maintenance="import-backup" disabled={disabled || pending} onClick={() => void run(true)}><Upload className="size-3.5" />{t('importBackup')}</Button>
     </div>
     {status && <p role="status" className="mt-3 text-xs text-muted-foreground">{t(status)}</p>}
   </CardContent></Card>

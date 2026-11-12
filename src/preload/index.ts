@@ -104,6 +104,7 @@ const api: IElectronApi = {
   app: {
     exportBackup: () => ipcRenderer.invoke(IPC_CHANNELS.APP_EXPORT_BACKUP),
     importBackup: () => ipcRenderer.invoke(IPC_CHANNELS.APP_IMPORT_BACKUP),
+    exportDiagnostics: () => ipcRenderer.invoke(IPC_CHANNELS.APP_EXPORT_DIAGNOSTICS),
     enterCoreOnly: () => ipcRenderer.invoke(IPC_CHANNELS.APP_ENTER_CORE_ONLY),
     isElevated: () => ipcRenderer.invoke(IPC_CHANNELS.APP_IS_ELEVATED),
     restartAsAdmin: () => ipcRenderer.invoke(IPC_CHANNELS.APP_RESTART_AS_ADMIN),

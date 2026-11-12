@@ -1,5 +1,6 @@
 import { GeneralPreferencesPanel } from '../components/settings/GeneralPreferencesPanel'
 import { BackupSettings } from '../components/settings/BackupSettings'
+import { DiagnosticSettings } from '../components/settings/DiagnosticSettings'
 import { SettingsOverview, SettingsNetworkLinks } from '../components/settings/SettingsOverview'
 import { NetworkSettingsPanel } from '../components/settings/NetworkSettingsPanel'
 import { useSettingsDraft } from '../hooks/useSettingsDraft'
@@ -247,6 +248,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
     </form>
     {section === 'settings' && <SettingsOverview draft={draft} onNavigate={onNavigate} />}
     {section === 'settings' && <BackupSettings disabled={busy || dirty} />}
+    {section === 'settings' && <DiagnosticSettings disabled={busy || dirty} />}
 
   </Page>
 }

@@ -30,7 +30,7 @@ export function writeFileAtomic(filePath: string, data: string, encoding: Buffer
 
 export async function writeFileAtomicAsync(
   filePath: string,
-  data: string,
+  data: string | Uint8Array,
   encoding: BufferEncoding = 'utf-8',
   backup = false
 ): Promise<void> {

@@ -4,6 +4,7 @@ import { getAppPaths } from '../utils/paths'
 import { parseBackup, readBackup, stageBackupRestore, type Backup } from '../utils/backup'
 import { IPC_CHANNELS } from '@shared/ipc'
 import { nativeMessages } from '@shared/localization'
+import { createDiagnostics } from '../utils/diagnostics'
 import type { ServiceManager } from '../services/ServiceManager'
 import type { TrustedRegistrar } from './trusted-handler'
 
@@ -26,6 +27,24 @@ export function registerMaintenanceHandlers(handle: TrustedRegistrar, services: 
     const backup: Backup = { format: 'qzyrium-backup', version: 1, createdAt: new Date().toISOString(), settings, profiles, themes: services.themeStore.listThemes() }
     const content = JSON.stringify(backup, null, 2)
     parseBackup(content)
+    await writeFileAtomicAsync(result.filePath, content)
+    return true
+  }))
+  handle(IPC_CHANNELS.APP_EXPORT_DIAGNOSTICS, () => exclusive(async () => {
+    const win = services.windowService.getMainWindow()
+    if (!win) return false
+    const settings = services.settingService.getSettings()
+    const messages = nativeMessages(settings.general)
+    const result = await dialog.showSaveDialog(win, { title: messages.exportDiagnostics, defaultPath: `qzyrium-diagnostics-${new Date().toISOString().slice(0, 10)}.zip`, filters: [{ name: 'ZIP', extensions: ['zip'] }] })
+    if (result.canceled || !result.filePath) return false
+    const coreStatus = services.kernelService.getStatus()
+    const coreVersion = coreStatus === 'running' ? (await services.kernelService.getVersion()).version : 'unknown'
+    const profiles = await Promise.all(services.profileService.getProfiles().map(async profile => ({
+      profile, content: await services.profileService.getProfileContent(profile.id).catch(() => null) ?? ''
+    })))
+    const content = await createDiagnostics({ appVersion: app.getVersion(), runtimeVersions: {
+      electron: process.versions.electron, chromium: process.versions.chrome, node: process.versions.node
+    }, coreVersion, coreStatus, settings, profiles, logsDir: getAppPaths().logsDir })
     await writeFileAtomicAsync(result.filePath, content)
     return true
   }))

@@ -33,6 +33,7 @@
     "test:kernel": "node scripts/verify-kernel-lifecycle.cjs",
     "test:logs": "node scripts/verify-logs.cjs",
     "test:backup": "node scripts/verify-backup.cjs",
+    "test:diagnostics": "node scripts/verify-diagnostics.cjs",
     "test:profiles": "node scripts/verify-profile-loading.cjs",
     "test:loading": "node scripts/verify-data-loading.cjs",
     "test:connections": "node scripts/verify-connections.cjs",

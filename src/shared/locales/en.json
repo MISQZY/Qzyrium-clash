@@ -1,4 +1,5 @@
 {
+  "exportDiagnostics": "Collect diagnostics",
   "exportBackup": "Export backup",
   "importBackup": "Restore backup",
   "backupFile": "Qzyrium backup",

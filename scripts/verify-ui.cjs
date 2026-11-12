@@ -16,6 +16,7 @@ if (process.type === 'renderer') {
   let sessionStartedAt = Date.now() - 3600000
   let trafficCallback, statusCallback, logCallback
   let configFile = null, savedConfig = null
+  const maintenanceCalls = []
   let customThemes = JSON.parse(localStorage.getItem('qzyrium:customThemeCache') || '[]')
   const profiles = [
     { id: 'remote', name: 'Europe · Primary subscription', type: 'remote', url: 'https://example.com/subscription/' + 'long-path-'.repeat(60), updatedAt: Date.now() },
@@ -28,7 +29,7 @@ if (process.type === 'renderer') {
   let connections = Array.from({ length: 8 }, (_, i) => ({ id: String(i), metadata: { network: 'tcp', type: 'HTTP', sourceIP: '127.0.0.1', destinationIP: '203.0.113.1', sourcePort: '51234', destinationPort: '443', host: i ? `service-${i}.example.com` : 'a-very-long-hostname-'.repeat(12) + '.example.com', processPath: 'C:\\Program Files\\Example\\browser.exe', dnsMode: 'normal' }, upload: 12345, download: 12345678, start: new Date().toISOString(), chains: [Object.keys(nodes)[0], 'PROXY'], rule: 'DomainSuffix', rulePayload: 'example.com' }))
   const noop = async () => {}
   contextBridge.exposeInMainWorld('api', {
-    uiTest: { setConfigFile: (content) => { configFile = content === null ? null : { name: 'fixture.json', content } }, getSavedConfig: () => savedConfig, emitLogs: (count) => { for (let i = 0; i < count; i++) logCallback?.({ type: 'info', payload: `Journal regression ${Date.now()} ${i} ` + 'payload '.repeat(40), time: new Date().toISOString() }) }, increaseTraffic: () => { connections = connections.map(c => ({ ...c, download: c.download + 4096 })) } },
+    uiTest: { setConfigFile: (content) => { configFile = content === null ? null : { name: 'fixture.json', content } }, getSavedConfig: () => savedConfig, emitLogs: (count) => { for (let i = 0; i < count; i++) logCallback?.({ type: 'info', payload: `Journal regression ${Date.now()} ${i} ` + 'payload '.repeat(40), time: new Date().toISOString(), source: 'mihomo' }) }, increaseTraffic: () => { connections = connections.map(c => ({ ...c, download: c.download + 4096 })) } },
     theme: {
       getCustomThemes: async () => customThemes,
       saveCustomTheme: async (pack) => { customThemes = [...customThemes.filter(theme => theme.id !== pack.id), pack]; return customThemes },
@@ -42,7 +43,11 @@ if (process.type === 'renderer') {
     profiles: { getList: async () => profiles, getActive: async () => active, setActive: async (id) => { active = profiles.find((profile) => profile.id === id) }, add: async (dto) => { const profile = { ...dto, name: dto.name || 'Imported subscription', nameSource: dto.name ? 'manual' : 'subscription', id: String(Date.now()), updatedAt: Date.now() }; profiles.push(profile); return profile }, delete: async (id) => { profiles.splice(profiles.findIndex((profile) => profile.id === id), 1) }, update: noop, getCustomRules: async () => active?.customRules || [], saveCustomRules: async (_, list) => { if (active) active.customRules = list }, getRawConfig: async () => 'rules:\n  - MATCH,DIRECT', saveRawConfig: noop, updateInfo: async (id, patch) => { const p = profiles.find(x => x.id === id); if (p) Object.assign(p, patch); return p } },
     mihomo: { getGlobeLocations: async () => active.id === 'long' ? { origin: null, routes: [], status: 'origin-unavailable', pendingNodes: [Object.keys(nodes)[0]] } : ({ origin: { ip: '8.8.8.8', longitude: 37.62, latitude: 55.75, city: 'Moscow', country: 'Russia' }, routes: state === 'running' ? [{ node: Object.keys(nodes)[0], location: { ip: '1.1.1.1', longitude: 4.9, latitude: 52.37, city: 'Amsterdam', country: 'Netherlands' } }] : [] }), getConfigs: async () => ({ mode: settings.kernel.mode }), patchConfigs: noop, getProxies: async () => proxies, selectProxy: async (group, node) => { proxies[group].now = node }, testDelay: async () => 42, getRules: async () => rules, getConnections: async () => ({ uploadTotal: 123456789, downloadTotal: 2345678910, connections }), closeConnection: async (id) => { connections = connections.filter((item) => item.id !== id) }, closeAllConnections: async () => { connections = [] } },
     window: { minimize: noop, maximize: noop, close: noop, openFolder: noop },
-    app: { getVersion: async () => '0.1.0', isElevated: async () => false, checkUpdates: async () => ({ state: 'not-available' }), copyToClipboard: async () => true },
+    app: { getVersion: async () => '0.1.0', isElevated: async () => false, checkUpdates: async () => ({ state: 'not-available' }), copyToClipboard: async () => true,
+      exportBackup: async () => { maintenanceCalls.push('export-backup'); return true },
+      importBackup: async () => { maintenanceCalls.push('import-backup'); return false },
+      exportDiagnostics: async () => { maintenanceCalls.push('diagnostics'); return true },
+      getMaintenanceCalls: async () => maintenanceCalls },
     events: { onTraffic: (cb) => { trafficCallback = cb; const timer = setInterval(() => cb(state === 'running' ? { up: 12345, down: 4567890 } : { up: 0, down: 0 }), 100); return () => { clearInterval(timer); trafficCallback = undefined } }, onCoreStatus: (cb) => { statusCallback = cb; return () => { statusCallback = undefined } }, onLog: (cb) => { logCallback = cb; const timer = setTimeout(() => { for (let i = 0; i < 30; i++) cb({ type: i % 3 ? 'info' : 'warn', payload: `Connection ${i} to service.example.com ` + 'long-payload-'.repeat(30), time: '12:34:56' }) }, 300); return () => clearTimeout(timer) } }
   })
 } else {
@@ -336,6 +341,30 @@ if (process.type === 'renderer') {
       await waitFor(`document.querySelector('button[form="settings-settings"]').disabled`)
       assert.equal(await evaluate(`window.api.settings.get().then(s => s.general.userAgent)`), 'clash.meta/qzyrium', 'clearing a client preference restores its effective default')
       result.checks.push('Advanced TUN/core, PAC and client preferences serialize through the settings form')
+      for (const key of ['reconnectAfterSleep', 'autoRestartCore', 'updateProfilesOnStart', 'appLogEnabled', 'connectionLogEnabled']) {
+        await evaluate(`(() => { const control = document.getElementById('general-${key}'); const details = control.closest('details'); if (details) details.open = true; control.click(); })()`)
+      }
+      for (const [key, value] of [['resumeDelaySeconds', '8'], ['coreRestartDelaySeconds', '9'], ['coreRestartMaxAttempts', '2'], ['profileStartupMaxAgeHours', '12'], ['appLogMaxSizeMb', '3'], ['connectionLogMaxSizeMb', '4']]) {
+        await setControl('#general-' + key, value)
+      }
+      await setControl('#general-closeAction', 'core-only')
+      assert.equal(await evaluate(`document.querySelector('[data-maintenance="export-backup"]').disabled`), true, 'backup waits for unsaved preferences')
+      await evaluate(`document.querySelector('button[form="settings-settings"]').click()`)
+      await waitFor(`document.querySelector('button[form="settings-settings"]').disabled`)
+      const savedPreferences = await evaluate(`window.api.settings.get().then(s => s.general)`)
+      for (const key of ['reconnectAfterSleep', 'autoRestartCore', 'updateProfilesOnStart']) assert.equal(savedPreferences[key], true)
+      assert.equal(savedPreferences.closeAction, 'core-only')
+      assert.equal(savedPreferences.appLogEnabled, false)
+      assert.equal(savedPreferences.connectionLogEnabled, false)
+      assert.equal(savedPreferences.appLogMaxSizeMb, 3)
+      assert.equal(savedPreferences.connectionLogMaxSizeMb, 4)
+      assert.equal(savedPreferences.coreRestartMaxAttempts, 2)
+      for (const action of ['export-backup', 'import-backup', 'diagnostics']) {
+        await evaluate(`document.querySelector('[data-maintenance="${action}"]').click()`)
+        await waitFor(`!document.querySelector('[data-maintenance="${action}"]').disabled`)
+      }
+      assert.deepEqual(await evaluate(`window.api.app.getMaintenanceCalls()`), ['export-backup', 'import-backup', 'diagnostics'])
+      result.checks.push('Recovery, startup, separate log policies and close action save; backup and diagnostics controls call the API')
       await navigate('Home')
       await waitFor(`document.querySelector('.overview-session-duration')?.textContent.startsWith('01:00:')`)
       await evaluate(`window.dispatchEvent(new Event('focus')); document.dispatchEvent(new Event('visibilitychange'))`)

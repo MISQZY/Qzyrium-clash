@@ -1,4 +1,9 @@
 {
+  "diagnosticsTitle": "Diagnostics",
+  "diagnosticsDescription": "Save a ZIP with application and core versions, basic settings and recent warnings and errors. Subscription files and access keys are excluded; known credentials, hosts, IPs and file paths are masked in logs. Nothing is sent automatically.",
+  "exportDiagnostics": "Collect diagnostics",
+  "diagnosticsSaved": "Diagnostics archive saved.",
+  "diagnosticsFailed": "Could not save diagnostics. Check the selected folder and available disk space.",
   "backupTitle": "Backup and restore",
   "backupDescription": "Export saved settings, profiles, rules, themes and localizations. Backups contain subscription URLs and access keys. Save or discard pending changes first. Restoring replaces settings and profiles and restarts the application.",
   "exportBackup": "Export backup",
