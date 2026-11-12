@@ -91,6 +91,7 @@ const contracts = {
     ...optionalFields({ name: text, url: text, content: text, updateViaProxy: boolean }) })],
   [IPC_CHANNELS.SYSPROXY_GET_STATUS]: [], [IPC_CHANNELS.SYSPROXY_SET]: [boolean],
   [IPC_CHANNELS.APP_GET_SETTINGS]: [], [IPC_CHANNELS.APP_UPDATE_SETTINGS]: [settings],
+  [IPC_CHANNELS.APP_EXPORT_BACKUP]: [], [IPC_CHANNELS.APP_IMPORT_BACKUP]: [],
   [IPC_CHANNELS.APP_SET_SHORTCUT_RECORDING]: [boolean], [IPC_CHANNELS.APP_MINIMIZE]: [],
   [IPC_CHANNELS.APP_MAXIMIZE]: [], [IPC_CHANNELS.APP_CLOSE]: [],
   [IPC_CHANNELS.APP_OPEN_FOLDER]: [oneOf('logs', 'appLogs', 'connectionLogs', 'data', 'profiles')],

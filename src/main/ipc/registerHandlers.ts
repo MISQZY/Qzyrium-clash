@@ -7,6 +7,7 @@ import { registerProfileHandlers } from './profile-handlers'
 import { registerSettingsHandlers } from './settings-handlers'
 import { registerApplicationHandlers } from './application-handlers'
 import { registerThemeHandlers } from './theme-handlers'
+import { registerMaintenanceHandlers } from './maintenance-handlers'
 
 export function registerIpcHandlers(services: ServiceManager): void {
   const handle = createTrustedRegistrar(ipcMain, services.windowService)
@@ -16,5 +17,6 @@ export function registerIpcHandlers(services: ServiceManager): void {
   registerSettingsHandlers(handle, services)
   registerApplicationHandlers(handle, services)
   registerThemeHandlers(handle, services)
+  registerMaintenanceHandlers(handle, services)
   logger.info('IPC handlers registered successfully.')
 }

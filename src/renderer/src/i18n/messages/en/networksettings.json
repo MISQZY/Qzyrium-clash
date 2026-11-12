@@ -1,4 +1,11 @@
 {
+  "backupTitle": "Backup and restore",
+  "backupDescription": "Export saved settings, profiles, rules, themes and localizations. Backups contain subscription URLs and access keys. Save or discard pending changes first. Restoring replaces settings and profiles and restarts the application.",
+  "exportBackup": "Export backup",
+  "importBackup": "Restore backup",
+  "backupSaved": "Backup saved.",
+  "backupRestoring": "Restarting to restore the backup…",
+  "backupFailed": "Could not complete the backup operation. Check the file and available disk space.",
   "shortcutShowWindow": "Show application window",
   "shortcutSysProxy": "Toggle system proxy",
   "shortcutTun": "Toggle TUN",

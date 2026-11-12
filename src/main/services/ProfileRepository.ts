@@ -58,6 +58,13 @@ export class ProfileRepository {
   }
 
   list(): ProfileItem[] { return structuredClone(this.profiles) }
+  snapshot(): Promise<{ profile: ProfileItem; content: string }[]> {
+    return this.enqueue(async () => Promise.all(this.list().map(async profile => {
+      const content = await this.content(profile.id)
+      if (content === null) throw new Error(`Profile file is missing: ${profile.id}`)
+      return { profile, content }
+    })))
+  }
   get(id: string): ProfileItem | undefined {
     const found = this.profiles.find(profile => profile.id === id)
     return found ? structuredClone(found) : undefined

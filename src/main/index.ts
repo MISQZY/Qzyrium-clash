@@ -8,6 +8,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { IPC_CHANNELS } from '@shared/ipc'
 import { normalizeSettings } from '@shared/settings-config'
+import { applyPendingBackup } from './utils/backup'
 import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import { clearRestartState, readRestartState } from './utils/restart-state'
 import { isProcessElevated, restartAsAdmin } from './utils/elevation'
@@ -185,6 +186,18 @@ if (!gotTheLock) {
       logger.warn('Administrator restart declined; continuing without elevation')
     }
     clearRestartState()
+    try {
+      if (await applyPendingBackup(app.getPath('userData'))) {
+        // Reload pre-ready graphics and startup preferences from the restored settings.
+        app.relaunch()
+        app.quit()
+        return
+      }
+    } catch (error) {
+      logger.error('Backup restoration failed; previous files were retained for recovery', error)
+      app.quit()
+      return
+    }
     services = new ServiceManager()
     logger.setAppLogHandler(entry => services?.windowService.broadcast(IPC_CHANNELS.EVENT_LOG, entry))
     if (restartState) {

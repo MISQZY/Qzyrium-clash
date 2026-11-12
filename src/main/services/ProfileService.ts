@@ -37,6 +37,7 @@ export class ProfileService implements BaseService {
   async dispose(): Promise<void> { await this.repository.flush() }
 
   getProfiles(): ProfileItem[] { return this.repository.list() }
+  exportProfiles(): Promise<{ profile: ProfileItem; content: string }[]> { return this.repository.snapshot() }
 
   getActiveProfile(): ProfileItem | null {
     return this.repository.active(this.activeProfileId)

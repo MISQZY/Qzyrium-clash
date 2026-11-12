@@ -1,4 +1,11 @@
 {
+  "exportBackup": "Export backup",
+  "importBackup": "Restore backup",
+  "backupFile": "Qzyrium backup",
+  "backupProfiles": "Profiles",
+  "restoreBackupConfirm": "Replace the current settings and profiles with this backup? The application will restart. Keep a backup of your current configuration if you want to return to it later.",
+  "cancel": "Cancel",
+  "restoreAndRestart": "Restore and restart",
   "open": "Open home",
   "proxy": "System proxy",
   "on": "ON",

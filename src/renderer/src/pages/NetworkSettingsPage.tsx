@@ -1,4 +1,5 @@
 import { GeneralPreferencesPanel } from '../components/settings/GeneralPreferencesPanel'
+import { BackupSettings } from '../components/settings/BackupSettings'
 import { SettingsOverview, SettingsNetworkLinks } from '../components/settings/SettingsOverview'
 import { NetworkSettingsPanel } from '../components/settings/NetworkSettingsPanel'
 import { useSettingsDraft } from '../hooks/useSettingsDraft'
@@ -245,6 +246,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
       {message && <p role="status" className="text-xs text-muted-foreground">{t(message)}</p>}
     </form>
     {section === 'settings' && <SettingsOverview draft={draft} onNavigate={onNavigate} />}
+    {section === 'settings' && <BackupSettings disabled={busy || dirty} />}
 
   </Page>
 }
