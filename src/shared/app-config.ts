@@ -9,6 +9,8 @@ export interface AppConfig {
     autoStartAsAdmin?: boolean
     autoCheckUpdates?: boolean
     autoConnect: boolean
+    reconnectAfterSleep?: boolean
+    resumeDelaySeconds?: number
     minimizeToTray: boolean
     closeAction?: 'tray' | 'quit' | 'core-only'
     theme: ThemePreference
@@ -87,6 +89,8 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     autoStartAsAdmin: false,
     autoCheckUpdates: true,
     autoConnect: false,
+    reconnectAfterSleep: false,
+    resumeDelaySeconds: 5,
     minimizeToTray: true,
     closeAction: 'tray',
     theme: 'dark',

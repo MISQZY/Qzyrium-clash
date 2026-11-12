@@ -1,4 +1,5 @@
 import { createKernelRuntime } from './createKernelRuntime'
+import { powerMonitor } from 'electron'
 import { installGeoResources } from '../core/installGeoResources'
 import { KernelGlobeResolver } from '../core/KernelGlobeResolver'
 import type { ActiveConfigBuilder } from '../core/ActiveConfigBuilder'
@@ -39,6 +40,46 @@ export class KernelService implements BaseService {
   private geoIp: GeoIpService
   private globeResolver: KernelGlobeResolver
   private lifecycle: Promise<void> = Promise.resolve()
+  private desiredRunning = false
+  private recoverySequence = 0
+  private resumeTimer?: ReturnType<typeof setTimeout>
+  private connectedBeforeSleep = false
+
+  private onSuspend = (): void => {
+    this.connectedBeforeSleep = this.desiredRunning && ['running', 'starting'].includes(this.getStatus())
+    this.cancelResume()
+  }
+
+  private onResume = (): void => {
+    this.cancelResume()
+    const general = this.settingService.getSettings().general
+    if (!general.reconnectAfterSleep || !this.connectedBeforeSleep || !this.desiredRunning) return
+    this.connectedBeforeSleep = false
+    const sequence = this.recoverySequence
+    this.resumeTimer = setTimeout(() => {
+      this.resumeTimer = undefined
+      void this.enqueueLifecycle(async () => {
+        const current = () => this.desiredRunning && sequence === this.recoverySequence && !!this.settingService.getSettings().general.reconnectAfterSleep
+        if (!current()) return
+        try {
+          await this.apiClient.getVersion()
+          if (current() && !this.streamsPaused && this.getStatus() === 'running') this.apiClient.startTrafficStream()
+        } catch {
+          if (!current()) return
+          logger.info('Recovering unresponsive core after wake-up')
+          await this.stopCore()
+          if (current()) await this.startCore()
+        }
+      }).catch(error => logger.error('Connection recovery after wake-up failed', error))
+    }, (general.resumeDelaySeconds ?? 5) * 1000)
+    this.resumeTimer.unref()
+  }
+
+  private cancelResume(): void {
+    this.recoverySequence++
+    clearTimeout(this.resumeTimer)
+    this.resumeTimer = undefined
+  }
   private configBuilder: ActiveConfigBuilder
   private broadcaster: ((channel: string, data: unknown) => void) | null = null
   private sessionStartedAt: number | null = null
@@ -110,6 +151,8 @@ export class KernelService implements BaseService {
   }
 
   async initialize(): Promise<void> {
+    powerMonitor?.on('suspend', this.onSuspend)
+    powerMonitor?.on('resume', this.onResume)
     const settings = this.settingService.getSettings()
     if (this.startupRunning ?? settings.general.autoConnect) {
       await this.start()
@@ -117,6 +160,8 @@ export class KernelService implements BaseService {
   }
 
   async dispose(): Promise<void> {
+    powerMonitor?.removeListener('suspend', this.onSuspend)
+    powerMonitor?.removeListener('resume', this.onResume)
     await this.stop()
     this.geoIp.dispose()
   }
@@ -142,6 +187,8 @@ export class KernelService implements BaseService {
   }
 
   start(): Promise<void> {
+    this.desiredRunning = true
+    this.cancelResume()
     return this.enqueueLifecycle(() => this.startCore())
   }
 
@@ -190,6 +237,8 @@ export class KernelService implements BaseService {
   }
 
   stop(): Promise<void> {
+    this.desiredRunning = false
+    this.cancelResume()
     this.invalidateGlobe()
     return this.enqueueLifecycle(() => this.stopCore())
   }
@@ -233,6 +282,8 @@ export class KernelService implements BaseService {
   }
 
   restart(): Promise<void> {
+    this.desiredRunning = true
+    this.cancelResume()
     this.invalidateGlobe()
     return this.enqueueLifecycle(async () => {
       await this.stopCore()

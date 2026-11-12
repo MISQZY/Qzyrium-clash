@@ -183,4 +183,45 @@ async function verifyModeUpdates() {
   assert.equal(settings.sysProxy.enable, true)
 }
 
-Promise.resolve().then(verifyRestart).then(verifyModeUpdates).then(() => console.log('PASS: process exit ordering, stale probes, API readiness retries/deadline, stop failures, live Rules/Global and port updates')).catch(error => { console.error(error); process.exitCode = 1 })
+async function verifyWakeRecovery() {
+  const config = load('src/shared/app-config.ts', {}).DEFAULT_APP_CONFIG
+  config.general.reconnectAfterSleep = true
+  const power = new EventEmitter(), manager = new EventEmitter(), api = new EventEmitter(), timers = new Set()
+  let state = 'stopped', starts = 0, healthy = true
+  manager.getState = () => state
+  Object.assign(api, { startTrafficStream() {}, stopAllStreams() {}, getVersion: async () => { if (!healthy) throw new Error('offline'); return { version: 'test' } } })
+  const { KernelService } = load('src/main/services/KernelService.ts', {
+    electron: { powerMonitor: power }, '../utils/logger': { logger }
+  }, { setTimeout: (fn, ms) => { const timer = { fn, ms, unref() {} }; timers.add(timer); return timer }, clearTimeout: timer => timers.delete(timer) })
+  const kernel = new KernelService({ getSettings: () => config }, {}, {
+    processManager: manager, apiClient: api, geoIp: { dispose() {} }, configBuilder: {}, trafficAccounting: {}
+  })
+  kernel.startCore = async () => { starts++; state = 'running'; manager.emit('state-change', state) }
+  kernel.stopCore = async () => { state = 'stopped'; manager.emit('state-change', state) }
+  await kernel.initialize()
+  assert.equal(power.listenerCount('resume'), 1)
+  await kernel.start()
+  const wake = async () => {
+    power.emit('suspend'); power.emit('resume')
+    const timer = [...timers][0]
+    assert.equal(timer.ms, 5000)
+    timers.delete(timer); timer.fn()
+    await kernel.lifecycle
+  }
+  await wake()
+  assert.equal(starts, 1, 'healthy core survives wake-up without a restart')
+  healthy = false
+  await wake()
+  assert.equal(starts, 2, 'unresponsive core restarts after wake-up')
+  power.emit('suspend'); power.emit('resume')
+  const stale = [...timers][0]
+  await kernel.stop()
+  stale.fn(); await kernel.lifecycle
+  assert.equal(starts, 2, 'manual stop cancels pending resume recovery')
+  power.emit('suspend'); power.emit('resume')
+  assert.equal(timers.size, 0, 'disconnected sessions stay disconnected')
+  await kernel.dispose()
+  assert.equal(power.listenerCount('resume'), 0, 'power listeners are removed on shutdown')
+}
+
+Promise.resolve().then(verifyRestart).then(verifyModeUpdates).then(verifyWakeRecovery).then(() => console.log('PASS: process lifecycle, API readiness, network modes and cancellable wake recovery')).catch(error => { console.error(error); process.exitCode = 1 })

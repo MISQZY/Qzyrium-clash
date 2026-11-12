@@ -132,6 +132,8 @@ export const resourceFields: SettingsField[] = [
   field('rule-providers', 'Rule providers (YAML)', 'Провайдеры правил (YAML)', 'map')
 ]
 export const generalFields: SettingsField[] = [
+  field('reconnectAfterSleep', 'Recover connection after sleep', 'Восстанавливать подключение после сна', 'boolean', desc('Check the controller after wake-up and restart an unresponsive core only if it was connected before sleep.', 'Проверять контроллер после пробуждения и перезапускать не отвечающее ядро, если подключение работало до сна.')),
+  field('resumeDelaySeconds', 'Recovery delay after wake-up (s)', 'Задержка восстановления после сна (с)', 'number', { min: 1, max: 120 }),
   field('updateProfilesOnStart', 'Update stale subscriptions at startup', 'Обновлять устаревшие подписки при запуске', 'boolean'),
   field('profileStartupMaxAgeHours', 'Subscription age before startup update (h)', 'Возраст подписки для обновления при запуске (ч)', 'number', { min: 1, max: 720 }),
   field('closeAction', 'When closing the window', 'При закрытии окна', 'select', { options: ['tray', 'quit', 'core-only'] }),

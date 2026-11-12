@@ -157,7 +157,7 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
           {renderGeneralFields(['autoUpdateProfiles', 'profileUpdateInterval', 'updateProfilesOnStart', 'profileStartupMaxAgeHours', 'userAgent'])}
         </SettingsGroup>
         <SettingsGroup title={t('connectionGroup')} description={t('connectionDescription')} icon={<Activity />} collapsible>
-          {renderGeneralFields(['onlyVpnTraffic', 'autoCloseConnection'])}
+          {renderGeneralFields(['onlyVpnTraffic', 'autoCloseConnection', 'reconnectAfterSleep', 'resumeDelaySeconds'])}
         </SettingsGroup>
         <SettingsGroup title={t('latencyGroup')} description={t('latencyDescription')} icon={<Gauge />} collapsible>
           {renderGeneralFields(['delayTestUrl', 'delayTestTimeout', 'delayTestConcurrency'])}
