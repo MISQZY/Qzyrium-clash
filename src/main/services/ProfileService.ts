@@ -155,6 +155,7 @@ export class ProfileService implements BaseService {
       url: targetUrl,
       type: dto.type,
       updatedAt: Date.now(),
+      lastFetchedAt: dto.type === 'remote' ? Date.now() : undefined,
       updateViaProxy: dto.updateViaProxy ? true : undefined,
       userInfo,
       profileLogo,
@@ -189,6 +190,7 @@ export class ProfileService implements BaseService {
       if (!this.repository.get(id)) return false
       const changed = await this.saveProfileContent(id, content)
       await this.repository.update(id, current => {
+        current.lastFetchedAt = Date.now()
         if (userInfo) current.userInfo = userInfo
         current.profileLogo = profileLogo
         current.announce = announce

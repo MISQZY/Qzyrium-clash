@@ -132,6 +132,8 @@ export const resourceFields: SettingsField[] = [
   field('rule-providers', 'Rule providers (YAML)', 'Провайдеры правил (YAML)', 'map')
 ]
 export const generalFields: SettingsField[] = [
+  field('updateProfilesOnStart', 'Update stale subscriptions at startup', 'Обновлять устаревшие подписки при запуске', 'boolean'),
+  field('profileStartupMaxAgeHours', 'Subscription age before startup update (h)', 'Возраст подписки для обновления при запуске (ч)', 'number', { min: 1, max: 720 }),
   field('closeAction', 'When closing the window', 'При закрытии окна', 'select', { options: ['tray', 'quit', 'core-only'] }),
   ...(['app', 'connection'] as const).flatMap(source => {
     const en = source === 'app' ? 'Application logs' : 'Connection logs'

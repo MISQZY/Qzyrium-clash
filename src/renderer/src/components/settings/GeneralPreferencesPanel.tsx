@@ -154,7 +154,7 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
 
         </SettingsGroup>
         <SettingsGroup title={t('subscriptionsGroup')} description={t('subscriptionsDescription')} icon={<FileText />}>
-          {renderGeneralFields(['autoUpdateProfiles', 'profileUpdateInterval', 'userAgent'])}
+          {renderGeneralFields(['autoUpdateProfiles', 'profileUpdateInterval', 'updateProfilesOnStart', 'profileStartupMaxAgeHours', 'userAgent'])}
         </SettingsGroup>
         <SettingsGroup title={t('connectionGroup')} description={t('connectionDescription')} icon={<Activity />} collapsible>
           {renderGeneralFields(['onlyVpnTraffic', 'autoCloseConnection'])}

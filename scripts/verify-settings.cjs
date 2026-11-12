@@ -221,6 +221,19 @@ async function verifyDesktop() {
   assert.equal(config.kernel.tun.enable, true)
   assert.equal(config.sysProxy.enable, false, 'TUN shortcut disables the conflicting system proxy')
   await desktop.dispose()
+  config.general.autoUpdateProfiles = false
+  config.general.updateProfilesOnStart = true
+  config.general.profileStartupMaxAgeHours = 24
+  calls.length = 0
+  const startupDesktop = new DesktopService(...desktopArgs, {})
+  await startupDesktop.initialize()
+  await flush()
+  assert.ok(calls.includes('update:active'), 'stale subscriptions update at startup even when periodic updates are off')
+  assert.ok(!calls.includes('update:recent'), 'fresh subscriptions are skipped at startup')
+  assert.ok(!calls.includes('update:disabled'))
+  assert.equal(calls.filter(call => call === 'restart').length, 1, 'startup updates restart the active core once')
+  await startupDesktop.dispose()
+  assert.equal(timers.size, 0)
 }
 
 function verifySession() {

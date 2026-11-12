@@ -36,6 +36,8 @@ export interface AppConfig {
     delayTestConcurrency?: number
     userAgent?: string
     autoUpdateProfiles?: boolean
+    updateProfilesOnStart?: boolean
+    profileStartupMaxAgeHours?: number
     profileUpdateInterval?: number
     shortcuts?: Record<string, string>
   }
@@ -110,6 +112,8 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     delayTestConcurrency: 6,
     userAgent: DEFAULT_SUBSCRIPTION_USER_AGENT,
     autoUpdateProfiles: false,
+    updateProfilesOnStart: false,
+    profileStartupMaxAgeHours: 24,
     profileUpdateInterval: 60,
     shortcuts: {}
   },

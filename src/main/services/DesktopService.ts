@@ -25,6 +25,10 @@ export class DesktopService implements BaseService {
   async initialize(): Promise<void> {
     this.disposed = false
     await this.applySettings(this.settings.getSettings())
+    if (this.settings.getSettings().general.updateProfilesOnStart) {
+      clearTimeout(this.timer)
+      this.updating = this.updateSubscriptions(true).finally(() => { this.updating = null; this.schedule() })
+    }
   }
 
   async applySettings(config: AppConfig): Promise<void> {
@@ -95,13 +99,14 @@ export class DesktopService implements BaseService {
     this.timer.unref()
   }
 
-  private async updateSubscriptions(): Promise<void> {
+  private async updateSubscriptions(startup = false): Promise<void> {
     let changedActive = false
     for (const profile of this.profiles.getProfiles()) {
-      if (this.disposed || !this.settings.getSettings().general.autoUpdateProfiles) break
+      const general = this.settings.getSettings().general
+      if (this.disposed || !(startup ? general.updateProfilesOnStart : general.autoUpdateProfiles)) break
       if (profile.type !== 'remote' || profile.autoUpdate === false) continue
-      const interval = profile.interval ?? this.settings.getSettings().general.profileUpdateInterval ?? 60
-      const lastUpdate = this.profileUpdateTimes.get(profile.id) ?? profile.updatedAt ?? 0
+      const interval = startup ? (general.profileStartupMaxAgeHours ?? 24) * 60 : profile.interval ?? general.profileUpdateInterval ?? 60
+      const lastUpdate = this.profileUpdateTimes.get(profile.id) ?? profile.lastFetchedAt ?? profile.updatedAt ?? 0
       if (Date.now() - lastUpdate < interval * 60_000) continue
       this.profileUpdateTimes.set(profile.id, Date.now())
       try {

@@ -32,6 +32,7 @@ export interface ProfileItem {
   url?: string
   type: ProfileType
   updatedAt: number
+  lastFetchedAt?: number
   selectedGroupProxies?: Record<string, string>
   customRules?: CustomRuleItem[]
   autoUpdate?: boolean
