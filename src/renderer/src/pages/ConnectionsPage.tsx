@@ -67,10 +67,12 @@ export function ConnectionsPage({
       }
     >
       {/* Search & Filters Header */}
+      <div data-tour="connections">
       <ConnectionFilters query={query} setQuery={setQuery} protocolFilter={protocolFilter}
         setProtocolFilter={setProtocolFilter} sortBy={sortBy} setSortBy={setSortBy}
         viewMode={viewMode} selectedProcessKey={selectedProcessKey}
         processCount={processGroups.length} connectionCount={filteredAndSortedList.length} />
+      </div>
 
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
 

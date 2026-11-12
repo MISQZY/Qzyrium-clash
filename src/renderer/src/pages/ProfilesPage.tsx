@@ -51,6 +51,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
         </div>
 
         <Button
+          data-tour="add-profile"
           onClick={() => setShowAddModal(true)}
           variant="glow"
           size="sm"

@@ -157,7 +157,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
     </div>
   }>
     {section === 'settings' && (
-      <Card>
+      <Card data-tour="capture">
         <CardContent className="p-4 flex flex-col gap-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>

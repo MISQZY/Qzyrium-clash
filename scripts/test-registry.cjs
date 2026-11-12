@@ -5,7 +5,7 @@ const functional = ['test-runner', 'ipc', 'subscriptions', 'updates', 'startup',
   'globe', 'globe-layout', 'recovery', 'traffic', 'diff-editor', 'rule-recovery', 'logs', 'window-behavior']
 const ui = ['ipc-ui', 'subscriptions-ui', 'ui', 'rules-ui', 'display-ui', 'globe-ui', 'theme-contrast-ui',
   'editors-ui', 'profile-info-ui', 'shortcuts-ui', 'startup-theme-ui', 'offline-proxies-ui', 'proxy-order-ui',
-  'localization-ui', 'updater-ui', 'tray', 'rule-recovery-ui', 'admin-ui', 'workspace-ui', 'globe-glow-ui']
+  'localization-ui', 'updater-ui', 'tray', 'rule-recovery-ui', 'admin-ui', 'workspace-ui', 'globe-glow-ui', 'onboarding-ui']
 
 const check = (id, suite, runtime, args = []) => Object.freeze({
   id, suite, runtime, file: path.join(__dirname, `verify-${id}.cjs`), args: Object.freeze(args),

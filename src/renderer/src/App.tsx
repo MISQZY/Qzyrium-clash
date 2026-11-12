@@ -8,6 +8,8 @@ import { Alert } from './components/ui/alert'
 import { Button } from './components/ui/button'
 import { TitleBar } from './components/TitleBar'
 import { WhatsNewDialog } from './components/WhatsNewDialog'
+import { TourProvider } from './providers/TourProvider'
+import { TourOverlay } from './components/TourOverlay'
 import { UpdaterProvider } from './providers/UpdaterProvider'
 import { Sidebar } from './components/Sidebar'
 import { AppStoreProvider, useNavigation, useKernel, useSettings, useProfiles } from './stores/useAppStore'
@@ -41,7 +43,7 @@ function AppContent() {
   return (
     <I18nProvider locale={settings.general.language} custom={selectedLocalization(settings.general)}>
       <CustomThemesProvider>
-        <UpdaterProvider><Workspace /></UpdaterProvider>
+        <UpdaterProvider><TourProvider><Workspace /><TourOverlay /></TourProvider></UpdaterProvider>
       </CustomThemesProvider>
     </I18nProvider>
   )

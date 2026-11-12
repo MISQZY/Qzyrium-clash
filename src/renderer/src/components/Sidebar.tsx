@@ -67,7 +67,7 @@ export const Sidebar = memo(function Sidebar({ activeTab, onSelectTab, coreStatu
         </button>
       </SidebarHint>
     </div>
-    <nav aria-label={t('navigation')} className="sidebar-nav">
+    <nav data-tour="navigation" aria-label={t('navigation')} className="sidebar-nav">
       {sidebarNavigation.map((group) => <div key={group.id} className={`sidebar-group ${group.id === 'application' ? 'mt-auto' : ''}`}>
         {group.id === 'application' && <UpdateIndicator />}
         <div className="flex flex-col gap-1">{group.items.map(({ id, icon: Icon }) => <SidebarHint key={id} label={t(id)} open={open}><button type="button" onClick={() => onSelectTab(id)} aria-label={t(id)} aria-current={activeTab === id ? 'page' : undefined} className={`sidebar-link w-full ${activeTab === id ? 'sidebar-link-active' : ''}`}>
@@ -79,7 +79,7 @@ export const Sidebar = memo(function Sidebar({ activeTab, onSelectTab, coreStatu
       <SidebarHint label={statusText} open={open}><span role="status" className="sidebar-vpn-badge" data-state={vpnEnabled ? 'on' : coreStatus === 'starting' ? 'starting' : coreStatus === 'error' ? 'error' : 'off'} data-mode={connectionMode} aria-label={statusText}>
         <span className="sidebar-vpn-dot-wrapper"><span className="sidebar-vpn-dot" /></span><span className="sidebar-label sidebar-vpn-label">{statusText}</span>
       </span></SidebarHint>
-      <div className="sidebar-routing" role="group" aria-label={t('routingMode')}>
+      <div data-tour="routing" className="sidebar-routing" role="group" aria-label={t('routingMode')}>
         {([{ id: 'rule', label: 'rulesMode', icon: RulesIcon }, { id: 'global', label: 'globalMode', icon: GlobalModeIcon }] as const).map(({ id, label, icon: Icon }) => <SidebarHint key={id} label={t(label)} open={false}><button type="button" className="sidebar-mode" aria-label={t(label)} aria-pressed={mode === id} disabled={busy || coreStatus === 'starting'} onClick={() => onUpdateMode(id)}><Icon className="size-4 shrink-0" /></button></SidebarHint>)}
       </div>
     </div>

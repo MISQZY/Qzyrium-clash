@@ -5,6 +5,8 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 if (process.type === 'renderer') {
+  // Existing UI checks exercise the workspace; onboarding has a dedicated first-launch check.
+  if (!process.argv.includes('--test-onboarding')) localStorage.setItem('qzyrium:onboarding-shown', '1')
   let settings = {
     general: { autoStart: false, autoConnect: true, minimizeToTray: true, theme: 'dark', language: 'en' },
     kernel: { mode: 'rule', logLevel: 'info', mixedPort: 7895, controllerPort: 9095, controllerSecret: 'test-only', allowLan: false, tun: { enable: false, stack: 'system', autoRoute: true, strictRoute: false, dnsHijack: ['any:53'] } },

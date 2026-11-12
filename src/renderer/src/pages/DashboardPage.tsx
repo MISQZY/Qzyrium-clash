@@ -193,6 +193,7 @@ export function DashboardPage({
               {statusLabel}
             </p>
             <button
+              data-tour="connect"
               className={`overview-power ${running ? 'is-running' : ''} ${coreStatus === 'error' ? 'border-destructive text-destructive' : ''}`}
               onClick={onToggleKernel}
               disabled={busy || connecting}

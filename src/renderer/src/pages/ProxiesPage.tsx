@@ -116,7 +116,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
   return (
     <div className="page-scroll">
       {/* Top Header */}
-      <div className="page-heading">
+      <div data-tour="proxies" className="page-heading">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">{t('proxies')}</h1>
         </div>

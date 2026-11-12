@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import type { WhatsNewPayload } from '@shared/updater'
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui'
 import { useTranslations } from '../i18n'
+import { useTour } from '../providers/TourProvider'
 
 export function WhatsNewDialog() {
+  const { index: tourIndex } = useTour()
   const [payload, setPayload] = useState<WhatsNewPayload | null>(null)
   const [dismissed, setDismissed] = useState(false)
   const t = useTranslations('app')
@@ -13,7 +15,7 @@ export function WhatsNewDialog() {
     if (window.api?.app?.getWhatsNew) void window.api.app.getWhatsNew().then((next) => { if (active) setPayload(next) }).catch(() => {})
     return () => { active = false }
   }, [])
-  if (!payload || dismissed) return null
+  if (!payload || dismissed || tourIndex !== null) return null
   return <Dialog open onOpenChange={(open) => { if (!open) setDismissed(true) }}>
     <DialogContent className="max-w-lg">
       <DialogHeader>

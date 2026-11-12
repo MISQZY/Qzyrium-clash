@@ -1,5 +1,7 @@
 
 import { useTranslations } from '../../i18n'
+import { useTour } from '../../providers/TourProvider'
+import { TourMascot } from '../TourMascot'
 import { useState, useEffect } from 'react'
 import { Folder, ChevronRight, RefreshCw } from 'lucide-react'
 import druseSvg from '../../assets/brand/druse.svg'
@@ -20,6 +22,8 @@ export function SettingsOverview({ draft, settings, sysProxy, onNavigate }: {
   draft: SettingsDraft; settings: AppConfig; sysProxy: SysProxyStatus; onNavigate?: (tab: NavTab) => void
 }) {
   const t = useTranslations('networksettings')
+  const tourT = useTranslations('app')
+  const { start: startTour } = useTour()
   const common = useTranslations('common')
   const { form, setMessage } = draft
   const [coreVersion, setCoreVersion] = useState<string>('')
@@ -73,6 +77,16 @@ export function SettingsOverview({ draft, settings, sysProxy, onNavigate }: {
     { target: 'resources', icon: ResourcesIcon, label: common('resources'), description: settings.kernel.resources ? t('overridden') : t('fromSubscription') }
   ] as const
   return <>
+        <Card data-tour="restart-tour">
+          <CardContent className="flex flex-wrap items-center gap-4 p-4">
+            <div className="tour-settings-mascot"><TourMascot pose="smirk" /></div>
+            <div className="min-w-40 flex-1">
+              <h2 className="text-sm font-semibold">{tourT('tourSettingsTitle')}</h2>
+              <p className="mt-1 text-xs text-muted-foreground">{tourT('tourSettingsDescription')}</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={startTour} data-tour-restart>{tourT('tourRestart')}</Button>
+          </CardContent>
+        </Card>
         {/* Versions Grid */}
         <div className="settings-versions grid grid-cols-1 md:grid-cols-2 gap-3">
           {/* Qzyrium App Version Card */}
