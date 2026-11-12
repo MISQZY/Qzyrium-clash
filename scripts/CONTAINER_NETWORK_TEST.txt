@@ -1,0 +1,32 @@
+Linux container network probe
+
+Run: pnpm test:network:container
+Requires a running Linux x86_64 Docker daemon with /dev/net/tun support.
+
+Scope: the real pinned Mihomo core, explicit HTTP proxy traffic, TUN stacks
+gvisor/system/mixed, DNS, SIGTERM/SIGKILL, and routes/policy rules after exit.
+This does not test Electron, the Windows native watchdog, Windows registry proxy
+restoration, or the Windows TUN driver. No user subscriptions are loaded.
+
+The test creates a temporary Docker bridge and a controlled HTTP CONNECT/DNS
+peer. Each case gets a separate network namespace and NET_ADMIN plus /dev/net/tun;
+it does not use privileged mode or host networking. Only generated fixture files
+and a results directory are mounted. The test removes its own containers and
+network at the end. Logs, routing snapshots and report.json remain under
+artifacts/container-network/run-*/.
+
+The Python image is pinned by digest; the Linux Mihomo binary is verified against
+scripts/resources.lock.json. Missing pinned images/archives may be downloaded.
+
+Exit code 1 means a case failed, including leftover policy rules even when HTTP
+and DNS connectivity have recovered. Keep this diagnostic opt-in: it requires
+Docker and currently reproduces an upstream Linux cleanup limitation on SIGKILL.
+
+Observed with Mihomo v1.19.33 and Docker Desktop Linux/WSL2:
+- Explicit proxy: SIGTERM and SIGKILL restore the baseline.
+- All three TUN stacks: SIGTERM restores the baseline, including policy rules.
+- TUN: SIGKILL removes the interface and restores direct HTTP/DNS, but leaves
+  policy rules with priorities 9000-9010. Consult the current report for the
+  precise rules in each stack.
+
+These Linux results do not establish that Windows has the same failure mode.
