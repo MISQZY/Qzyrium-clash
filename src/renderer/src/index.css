@@ -466,6 +466,48 @@ html, body, #root { width: 100%; height: 100%; min-width: 0; min-height: 0; }
 .connections-table th:last-child { width: 48px; }
 .data-table tr:hover td { background: color-mix(in oklch, var(--muted) 30%, transparent); }
 select option { background: var(--popover); color: var(--popover-foreground); }
+.native-select, .native-select::picker(select) { appearance: base-select; }
+.native-select { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; }
+.native-select::picker-icon {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  margin-left: 4px;
+  margin-right: 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  color: var(--muted-foreground);
+  transform: translateY(-2px) rotate(45deg);
+}
+.native-select::picker(select) {
+  max-height: min(24rem, calc(100dvh - 24px));
+  overflow-y: auto;
+  margin-block: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  font-family: inherit;
+  font-size: 12px;
+  box-shadow: 0 4px 8px -2px rgb(0 0 0 / 16%);
+}
+.native-select option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--popover-foreground);
+  cursor: pointer;
+  outline: none;
+}
+.native-select option:hover, .native-select option:focus-visible { background: var(--accent); color: var(--accent-foreground); }
+.native-select option::checkmark { order: 1; margin-left: auto; color: var(--primary); }
+.native-select option:disabled { opacity: 0.5; cursor: not-allowed; }
 button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 input, textarea, pre { user-select: text; }
 @media (max-width: 900px) {

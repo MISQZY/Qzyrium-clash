@@ -321,6 +321,23 @@ if (process.type === 'renderer') {
       assert.equal(await evaluate(`document.querySelector('#general-delayTestTimeout').closest('details').open`), false, 'latency settings start collapsed')
       assert.equal(await evaluate(`document.querySelector('#general-autoStartAsAdmin')?.getAttribute('role')`), 'switch', 'administrator startup is available')
       assert.equal(await evaluate(`document.querySelector('#general-autoStart').closest('details')`), null, 'startup stays visible')
+      assert.equal(await evaluate(`document.querySelector('#general-autoUpdateProfiles').closest('details').open`), false, 'subscriptions start collapsed')
+      await evaluate(`document.querySelector('#general-autoUpdateProfiles').closest('details').querySelector('summary').click()`)
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('#general-closeAction')).appearance`), 'base-select', 'select menus use the themeable native picker')
+      await win.webContents.executeJavaScript(`document.querySelector('#general-closeAction').showPicker()`, true)
+      await waitFor(`document.querySelector('#general-closeAction').matches(':open')`)
+      assert.equal(await evaluate(`(() => {
+        const field = document.querySelector('#general-closeAction');
+        const picker = getComputedStyle(field, '::picker(select)');
+        const reference = document.createElement('div');
+        reference.style.backgroundColor = 'var(--popover)'; document.body.append(reference);
+        const matches = picker.appearance === 'base-select' && picker.backgroundColor === getComputedStyle(reference).backgroundColor && picker.borderRadius === '8px';
+        reference.remove(); return matches;
+      })()`), true, 'opened select popup uses shared menu colors and rounding')
+      await screenshot('settings-select-picker')
+      win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' })
+      win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' })
+      await waitFor(`!document.querySelector('#general-closeAction').matches(':open')`)
       assert.equal(await evaluate(`(() => {
         const fields = [document.querySelector('select[aria-label="Interface language"]'), document.querySelector('button[role="combobox"]'), document.querySelector('#general-userAgent')];
         const appearance = fields.map(field => { const style = getComputedStyle(field); return [style.height, style.borderRadius, style.borderColor, style.backgroundColor, style.fontSize].join('|') });
