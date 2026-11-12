@@ -150,7 +150,7 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
                     className={cn(
                       'relative flex items-center justify-between gap-2.5 p-2.5 rounded-lg border text-left text-xs transition-colors cursor-pointer [content-visibility:auto] [contain-intrinsic-size:auto_54px]',
                       isSelected
-                        ? 'border-border bg-muted text-foreground font-medium'
+                        ? 'border-primary bg-primary/10 text-foreground font-medium shadow-xs shadow-primary/15 ring-1 ring-primary/40'
                         : 'border-border/70 bg-card hover:bg-muted/60 hover:border-border text-foreground/85 hover:text-foreground'
                     )}
                   >
