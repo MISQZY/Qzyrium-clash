@@ -310,7 +310,7 @@ export function DashboardPage({
                   }
                 }}
               >
-                <HelpCircle className="size-4 text-primary shrink-0" />
+                <HelpCircle className="size-4 text-muted-foreground shrink-0" />
                 <span className="font-medium">{t('support')}</span>
                 <ExternalLink className="size-3.5 ml-auto text-muted-foreground opacity-75" />
               </Button>

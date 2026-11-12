@@ -135,6 +135,8 @@
   --font-gothic: "Gothic Sans", sans-serif;
 }
 
+:where(svg.lucide, svg.tabler-icon) { stroke-width: 1.5; }
+
 h1,
 h2,
 h3,
@@ -394,28 +396,6 @@ html, body, #root { width: 100%; height: 100%; min-width: 0; min-height: 0; }
   overflow: hidden;
   background-color: var(--background);
   isolation: isolate;
-}
-.app-main::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 360px;
-  background: radial-gradient(ellipse 70% 100% at 100% 0%, var(--glow-secondary) 0%, transparent 75%);
-  pointer-events: none;
-  z-index: 0;
-}
-.app-main::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 360px;
-  background: radial-gradient(ellipse 70% 100% at 0% 100%, var(--glow-secondary) 0%, transparent 75%);
-  pointer-events: none;
-  z-index: 0;
 }
 .workspace-header {
   position: relative;
@@ -781,7 +761,6 @@ input, textarea, pre { user-select: text; }
   border-color: color-mix(in oklch, var(--warning) 65%, var(--border));
   background: color-mix(in oklch, var(--warning) 12%, var(--card));
   color: var(--foreground);
-  box-shadow: 0 0 8px color-mix(in oklch, var(--warning) 20%, transparent);
 }
 .globe-route-summary.is-group-active:hover {
   border-color: color-mix(in oklch, var(--warning) 80%, var(--border));
@@ -789,7 +768,6 @@ input, textarea, pre { user-select: text; }
 }
 .globe-route-summary.is-group-active .globe-route-dot {
   background-color: var(--warning) !important;
-  box-shadow: 0 0 6px var(--warning);
 }
 .globe-route-dot { width: 5px; height: 5px; flex-shrink: 0; border-radius: 50%; }
 .globe-route-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
