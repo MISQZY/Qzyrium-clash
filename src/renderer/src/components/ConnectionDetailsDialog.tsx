@@ -95,7 +95,7 @@ export function ConnectionDetailsDialog({ activeDetail, setSelectedConnection, h
 
                 {/* Destination Section */}
                 <div className="rounded-xl border border-border/60 bg-muted/15 p-3.5 flex flex-col gap-3">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                     <Globe className="size-3 text-primary" />
                     {t('destination')}
                   </span>
@@ -199,7 +199,7 @@ export function ConnectionDetailsDialog({ activeDetail, setSelectedConnection, h
 
                 {/* Source & Inbound Section */}
                 <div className="rounded-xl border border-border/60 bg-muted/15 p-3.5 flex flex-col gap-3">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                     <Activity className="size-3 text-primary" />
                     {t('source')} & {t('inbound')}
                   </span>
@@ -280,7 +280,7 @@ export function ConnectionDetailsDialog({ activeDetail, setSelectedConnection, h
 
                 {/* Application Section */}
                 <div className="rounded-xl border border-border/60 bg-muted/15 p-3.5 flex flex-col gap-3">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                     <AppWindow className="size-3 text-primary" />
                     {t('processName')}
                   </span>
@@ -323,7 +323,7 @@ export function ConnectionDetailsDialog({ activeDetail, setSelectedConnection, h
 
                 {/* Routing & Proxy Chain Section */}
                 <div className="rounded-xl border border-border/60 bg-muted/15 p-3.5 flex flex-col gap-3">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                     <Layers className="size-3 text-primary" />
                     {t('route')}
                   </span>
@@ -400,7 +400,7 @@ export function ConnectionDetailsDialog({ activeDetail, setSelectedConnection, h
 
                 {/* System & Metadata Section */}
                 <div className="rounded-xl border border-border/60 bg-muted/15 p-3.5 flex flex-col gap-3">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                     <Clock className="size-3 text-primary" />
                     {t('connectionId')} & {t('duration')}
                   </span>

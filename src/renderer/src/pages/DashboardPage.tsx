@@ -63,7 +63,7 @@ function AutoFitTrafficText({ text }: { text: string }) {
 
   return (
     <p
-      className="mt-2 w-full font-medium tabular-nums tracking-tight text-center whitespace-nowrap overflow-hidden text-ellipsis select-text"
+      className="mt-2 w-full font-medium tabular-nums text-center whitespace-nowrap overflow-hidden text-ellipsis select-text"
       style={{ fontSize: `${fontSize}px`, minHeight: '1.75rem', lineHeight: '1.75rem' }}
     >
       {text}
@@ -260,12 +260,12 @@ export function DashboardPage({
                       <Tooltip.Root key={label}>
                         <Tooltip.Trigger asChild>
                           <div className="flex flex-col items-center text-center min-w-0 cursor-help select-none">
-                            <span className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-                              <Icon className="size-3 text-primary shrink-0" />
+                            <span className="flex items-center justify-center gap-1.5 text-xs leading-4 text-muted-foreground">
+                              <Icon className="size-4 text-muted-foreground shrink-0" />
                               {label}
                             </span>
                             <AutoFitTrafficText text={formatBytes(value, locale)} />
-                            <p className="mt-1 text-[10px] text-muted-foreground tabular-nums text-center whitespace-nowrap overflow-hidden text-ellipsis w-full">
+                            <p className="mt-1 text-xs leading-4 text-muted-foreground tabular-nums text-center whitespace-nowrap overflow-hidden text-ellipsis w-full">
                               {t('rate', { value: formatBytes(rate, locale) })}
                             </p>
                           </div>
@@ -311,7 +311,7 @@ export function DashboardPage({
                 }}
               >
                 <HelpCircle className="size-4 text-primary shrink-0" />
-                <span className="font-medium tracking-wide">{t('support')}</span>
+                <span className="font-medium">{t('support')}</span>
                 <ExternalLink className="size-3.5 ml-auto text-muted-foreground opacity-75" />
               </Button>
             </div>

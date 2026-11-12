@@ -13,27 +13,27 @@ export function DelayBadge({ delay, loading = false }: { delay?: number; loading
     if (delay === undefined) return null
     if (delay === -1) {
       return (
-        <Badge variant="destructive" className="text-[10px] py-0 px-1.5 font-mono">
+        <Badge variant="destructive" className="text-[11px] py-0 px-1.5 font-mono">
           {t('timeout')}
         </Badge>
       )
     }
     if (delay < 200) {
       return (
-        <Badge variant="success" className="text-[10px] py-0 px-1.5 font-mono">
+        <Badge variant="success" className="text-[11px] py-0 px-1.5 font-mono">
           {t('latency', { delay })}
         </Badge>
       )
     }
     if (delay < 500) {
       return (
-        <Badge variant="warning" className="text-[10px] py-0 px-1.5 font-mono">
+        <Badge variant="warning" className="text-[11px] py-0 px-1.5 font-mono">
           {t('latency', { delay })}
         </Badge>
       )
     }
     return (
-      <Badge variant="destructive" className="text-[10px] py-0 px-1.5 font-mono">
+      <Badge variant="destructive" className="text-[11px] py-0 px-1.5 font-mono">
         {t('latency', { delay })}
       </Badge>
     )

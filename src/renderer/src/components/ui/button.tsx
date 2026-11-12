@@ -23,8 +23,8 @@ const buttonVariants = cva(
           'bg-primary text-primary-foreground hover:bg-primary/90'
       },
       size: {
-        default: 'h-9 px-3.5 py-1.5 text-xs gap-2',
-        sm: 'h-7.5 px-2.5 text-xs gap-1.5 rounded-md',
+        default: 'h-9 px-4 py-1.5 text-xs gap-2',
+        sm: 'h-8 px-3 text-xs gap-1.5 rounded-md',
         lg: 'h-10 px-5 text-sm gap-2 rounded-xl',
         icon: 'size-8 rounded-lg',
         'icon-sm': 'size-7 rounded-md'
