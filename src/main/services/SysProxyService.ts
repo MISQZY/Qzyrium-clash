@@ -1,5 +1,3 @@
-import { execFile } from 'child_process'
-import { promisify } from 'node:util'
 import { createServer, type Server } from 'node:http'
 import { SysProxyStatus } from '@shared/ipc'
 import { logger } from '../utils/logger'
@@ -7,8 +5,7 @@ import { BaseService } from './BaseService'
 import { SettingService } from './SettingService'
 import { pacScript } from '../utils/pac'
 import { flushSystemDns } from '../utils/network-transition'
-
-const execFileAsync = promisify(execFile)
+import { WindowsProxySettings } from '../utils/windows-proxy'
 
 export class SysProxyService implements BaseService {
   private enabled = false
@@ -18,19 +15,19 @@ export class SysProxyService implements BaseService {
   private pacServer: Server | null = null
   private pacContent = ''
 
-  constructor(settingService: SettingService) {
+  constructor(settingService: SettingService, private registry = new WindowsProxySettings()) {
     this.settingService = settingService
   }
 
   async initialize(): Promise<void> {
-    // The saved preference is applied only after the controller becomes ready.
-    if (this.settingService.getSettings().sysProxy.enable) await this.applySysProxy(false)
+    // Restore only changes owned by this app, preserving somebody else's proxy.
+    if (process.platform === 'win32') await this.registry.restore()
   }
 
   async dispose(): Promise<void> {
     this.coreRunning = false
     await this.proxyUpdate
-    if (this.enabled) {
+    if (this.enabled || process.platform === 'win32') {
       await this.applySysProxy(false)
     }
     this.closePacServer()
@@ -92,10 +89,10 @@ export class SysProxyService implements BaseService {
 
     if (process.platform === 'win32') {
       try {
-        const regBase = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings'
-        const setRegistryValue = (name: string, type: string, value: string) => {
-          return execFileAsync('reg.exe', ['add', regBase, '/v', name, '/t', type, '/d', value, '/f'], { windowsHide: true })
+        const setRegistryValue = (name: 'AutoConfigURL' | 'ProxyServer' | 'ProxyOverride' | 'ProxyEnable', type: 'REG_SZ' | 'REG_DWORD', value: string) => {
+          return this.registry.set(name, value, type)
         }
+        if (enable) await this.registry.capture()
         if (enable && mode === 'manual') {
           await setRegistryValue('AutoConfigURL', 'REG_SZ', '')
           await setRegistryValue('ProxyServer', 'REG_SZ', `${host.includes(':') ? `[${host}]` : host}:${port}`)
@@ -108,13 +105,15 @@ export class SysProxyService implements BaseService {
           await setRegistryValue('AutoConfigURL', 'REG_SZ', pacUrl)
           this.enabled = true
         } else {
-          await setRegistryValue('AutoConfigURL', 'REG_SZ', '')
-          await setRegistryValue('ProxyEnable', 'REG_DWORD', '0')
+          await this.registry.restore()
           this.enabled = false
           logger.info('System proxy disabled')
           flushSystemDns()
         }
       } catch (err) {
+        if (enable) {
+          await this.registry.restore().then(() => { this.enabled = false }).catch(error => logger.error('Failed to restore system proxy after a partial update', error))
+        }
         if (!hadServer) this.closePacServer()
         logger.error('Failed to update Windows system proxy settings', err)
         throw err

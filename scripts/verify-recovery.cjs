@@ -108,7 +108,11 @@ async function verifyProxyLifecycle() {
   const config = fresh(), registry = []
   config.sysProxy.enable = true
   const { SysProxyService } = load('src/main/services/SysProxyService.ts', {
-    child_process: { execFile(_file, args, _options, callback) { registry.push(args); callback(null, '', '') } }
+    '../utils/windows-proxy': { WindowsProxySettings: class {
+      async capture() { registry.push('capture') }
+      async restore() { registry.push('restore') }
+      async set(...args) { registry.push(args) }
+    } }
   }, { process: { platform: 'win32' } })
   const settings = { getSettings: () => structuredClone(config), updateSettings: async patch => Object.assign(config, patch) }
   const proxy = new SysProxyService(settings)

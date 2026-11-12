@@ -141,14 +141,18 @@ async function verifyPac() {
   const config = fresh(), commands = []
   config.sysProxy.mode = 'pac'
   const { SysProxyService } = load('src/main/services/SysProxyService.ts', {
-    child_process: { execFile(_name, args, _options, callback) { commands.push(args); callback(null, '', '') } },
+    '../utils/windows-proxy': { WindowsProxySettings: class {
+      async capture() {}
+      async restore() {}
+      async set(...args) { commands.push(args) }
+    } },
     '../utils/logger': { logger }
   }, { process: { platform: 'win32' } })
   const service = new SysProxyService({ getSettings: () => config, updateSettings: async patch => Object.assign(config, patch) })
   await service.setCoreRunning(true)
   try {
     await service.setSysProxy(true)
-    const url = commands.find(args => args[3] === 'AutoConfigURL')[7]
+    const url = commands.find(args => args[0] === 'AutoConfigURL')[1]
     assert.match(url, /^http:\/\/127\.0\.0\.1:\d+\/proxy\.pac$/)
     const response = await fetch(url)
     assert.equal(response.status, 200)

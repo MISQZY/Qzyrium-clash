@@ -303,12 +303,15 @@ async function verifySystemProxy() {
   let activeCommands = 0, maxActiveCommands = 0
   const settings = { kernel: { mixedPort: 7895 }, sysProxy: { enable: false, bypass: ['localhost'] } }
   const { SysProxyService } = load('src/main/services/SysProxyService.ts', {
-    child_process: { execFile(file, args, options, callback) {
-      assert.equal(file, 'reg.exe')
-      assert.equal(options.windowsHide, true)
-      commands.push(args[3])
-      maxActiveCommands = Math.max(maxActiveCommands, ++activeCommands)
-      setImmediate(() => { activeCommands--; callback(null, '', '') })
+    '../utils/windows-proxy': { WindowsProxySettings: class {
+      async capture() {}
+      async set(name) {
+        commands.push(name)
+        maxActiveCommands = Math.max(maxActiveCommands, ++activeCommands)
+        await nextTurn()
+        activeCommands--
+      }
+      async restore() { await this.set('restore') }
     } }, '../utils/logger': { logger }
   }, { platform: 'win32' })
   const proxy = new SysProxyService({ getSettings: () => settings, async updateSettings(patch) { Object.assign(settings, patch) } })
@@ -332,7 +335,7 @@ async function verifySystemProxy() {
   const reenable = proxy.setSysProxy(true)
   await Promise.all([reenable, proxy.setSysProxy(false)])
   assert.equal(maxActiveCommands, 1, 'concurrent toggles must preserve registry command order')
-  assert.deepEqual(commands, ['AutoConfigURL', 'ProxyServer', 'ProxyOverride', 'ProxyEnable', 'AutoConfigURL', 'ProxyServer', 'ProxyOverride', 'ProxyEnable', 'AutoConfigURL', 'ProxyEnable'])
+  assert.deepEqual(commands, ['AutoConfigURL', 'ProxyServer', 'ProxyOverride', 'ProxyEnable', 'AutoConfigURL', 'ProxyServer', 'ProxyOverride', 'ProxyEnable', 'restore'])
   assert.equal(proxy.getStatus().enabled, false, 'last toggle must determine final state')
 }
 
