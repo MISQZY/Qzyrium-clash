@@ -7,18 +7,14 @@ import { CodeMirrorDiffEditor } from './CodeMirrorDiffEditor'
 import yamlParser from 'yaml'
 import { FileCode, Check, AlertCircle, LoaderCircle } from 'lucide-react'
 import type { ProfileItem } from '@shared/profile'
-import { useLocale, useTranslations, useCustomLocalization } from '../i18n'
-import { EmojiText } from './EmojiText'
-import { profileName } from '../lib/profile-name'
+import { useTranslations } from '../i18n'
+import { ProfileEditorHeader } from './ProfileEditorHeader'
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogFooter
 } from './ui/dialog'
 import { Button } from './ui/button'
-import { Badge } from './ui/badge'
 import { Switch } from './ui/switch'
 
 interface EditorHandle {
@@ -42,8 +38,6 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
   onSaved
 }) => {
   const t = useTranslations('profiles')
-  const locale = useLocale()
-  const customLocalization = useCustomLocalization()
 
   const [originalContent, setOriginalContent] = useState('')
   const [content, setContent] = useState('')
@@ -163,26 +157,7 @@ export const ProfileFileEditorDialog: React.FC<ProfileFileEditorDialogProps> = (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[96vw] max-w-6xl h-[92dvh] flex flex-col p-4 sm:p-5 gap-3 overflow-hidden">
         {/* Header */}
-        <DialogHeader className="pb-2 border-b border-border/60 shrink-0">
-          <div className="flex flex-wrap items-center justify-between gap-3 pr-8">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="size-8 rounded-md bg-primary/15 text-primary flex items-center justify-center shrink-0">
-                <FileCode className="size-4.5" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <DialogTitle className="text-sm font-semibold truncate">
-                    <EmojiText text={profileName(profile, locale, customLocalization)} />
-                  </DialogTitle>
-                  <Badge variant="outline" className="text-[10px] uppercase font-mono px-1.5 py-0">
-                    {profile.type}
-                  </Badge>
-                </div>
-                <p className="text-[11px] text-muted-foreground truncate">{t('editProfileFile')}</p>
-              </div>
-            </div>
-          </div>
-        </DialogHeader>
+        <ProfileEditorHeader profile={profile} icon={FileCode} description={t('editProfileFile')} />
 
         {/* Error notification */}
         {error && (
