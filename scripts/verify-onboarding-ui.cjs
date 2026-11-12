@@ -11,7 +11,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 app.whenReady().then(async () => {
   const win = new BrowserWindow({ width: 1100, height: 760, show: false, webPreferences: {
-    preload: path.resolve('scripts/verify-ui.cjs'), contextIsolation: true, sandbox: false, backgroundThrottling: false,
+    preload: path.resolve('scripts/verify-ui.cjs'), contextIsolation: true, sandbox: false, backgroundThrottling: false, offscreen: true,
     additionalArguments: ['--test-onboarding']
   } })
   const errors = []
@@ -64,6 +64,7 @@ app.whenReady().then(async () => {
     await fits()
     const darkFur = await evaluate(`getComputedStyle(document.querySelector('.tour-mascot .tour-fur-top')).stopColor`)
     await evaluate(`document.documentElement.classList.remove('dark')`)
+    await waitFor(`getComputedStyle(document.querySelector('.tour-mascot .tour-fur-top')).stopColor !== ${JSON.stringify(darkFur)}`)
     assert.notEqual(await evaluate(`getComputedStyle(document.querySelector('.tour-mascot .tour-fur-top')).stopColor`), darkFur, 'light theme changes the fur, not only the accent')
     assert.equal(await evaluate(`getComputedStyle(document.querySelector('.tour-mascot')).getPropertyValue('--mascot-tag').trim()`), '#f9fafc', 'light theme uses a light nameplate')
     await fits()
@@ -141,6 +142,7 @@ app.whenReady().then(async () => {
     await recordMascot('light', 0)
     const original = await evaluate(`getComputedStyle(document.querySelector('.tour-mascot')).color`)
     await evaluate(`document.documentElement.style.setProperty('--primary', '#d883ff')`)
+    await waitFor(`getComputedStyle(document.querySelector('.tour-mascot')).color !== ${JSON.stringify(original)}`)
     assert.notEqual(await evaluate(`getComputedStyle(document.querySelector('.tour-mascot')).color`), original, 'mascot responds to the live theme accent')
     await delay(300)
     await fs.promises.writeFile(path.join(output, 'welcome-small-ru.png'), (await win.webContents.capturePage()).toPNG())
