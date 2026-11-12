@@ -3,6 +3,7 @@ import path from 'path'
 import { getAppPaths } from './paths'
 import { normalizeLogLevel, cleanLogMessage } from '@shared/logs'
 import type { LogEntry } from '@shared/types'
+import type { AppConfig } from '@shared/app-config'
 
 const MAX_BYTES = 10 * 1024 * 1024
 const MAX_ARCHIVES = 20
@@ -10,10 +11,22 @@ const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 const ARCHIVE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z(?:-\d+)?\.log$/
 
 class LogFile {
+  private enabled = true
+  private maxBytes = MAX_BYTES
+  private maxArchives = MAX_ARCHIVES
+  private maxAgeMs = MAX_AGE_MS
   private logFilePath = ''
   private bytes = 0
   private day = ''
   private reportedFailure = false
+
+  configure(enabled: boolean, sizeMb: number, archives: number, days: number): void {
+    this.enabled = enabled
+    this.maxBytes = sizeMb * 1024 * 1024
+    this.maxArchives = archives
+    this.maxAgeMs = days * 86400000
+    if (this.logFilePath) this.prune()
+  }
 
   // Resolve paths after userData migration and only in the instance holding the lock.
   initialize(directory?: string): void {
@@ -56,7 +69,7 @@ class LogFile {
       .map((name) => ({ name, modified: fs.statSync(path.join(directory, name)).mtimeMs }))
       .sort((a, b) => b.modified - a.modified || b.name.localeCompare(a.name))
     for (const [index, file] of archives.entries()) {
-      if (index >= MAX_ARCHIVES || Date.now() - file.modified > MAX_AGE_MS) {
+      if (index >= this.maxArchives || Date.now() - file.modified > this.maxAgeMs) {
         fs.unlinkSync(path.join(directory, file.name))
       }
     }
@@ -76,17 +89,17 @@ class LogFile {
     const formatted = cleanLogMessage(entry.payload).split('\n').map((line) => `${prefix}${line}\n`).join('')
     const output = level === 'error' ? console.error : level === 'warning' ? console.warn : console.log
     output(formatted.trimEnd())
-    if (!this.logFilePath) return
+    if (!this.logFilePath || !this.enabled) return
     try {
       // Preserve very large messages without allowing a single record to exceed
       // the file limit. The Unicode flag keeps surrogate pairs intact.
-      const records = Buffer.byteLength(formatted, 'utf8') <= MAX_BYTES ? [formatted]
+      const records = Buffer.byteLength(formatted, 'utf8') <= this.maxBytes ? [formatted]
         : cleanLogMessage(entry.payload).split('\n').flatMap((line) =>
           (line.match(/[\s\S]{1,65536}/gu) ?? ['']).map((part) => `${prefix}${part}\n`))
       for (const record of records) {
         const size = Buffer.byteLength(record, 'utf8')
         const day = new Date().toISOString().slice(0, 10)
-        const rotate = this.bytes > 0 && (this.bytes + size > MAX_BYTES || this.day !== day)
+        const rotate = this.bytes > 0 && (this.bytes + size > this.maxBytes || this.day !== day)
         if (rotate) {
           this.archive(this.logFilePath)
           this.bytes = 0
@@ -118,6 +131,11 @@ class LogFile {
 export class Logger extends LogFile {
   private readonly connections = new LogFile()
   private appLogHandler?: (entry: LogEntry) => void
+
+  configureSettings(general: AppConfig['general']): void {
+    super.configure(general.appLogEnabled ?? true, general.appLogMaxSizeMb ?? 10, general.appLogArchives ?? 20, general.appLogRetentionDays ?? 30)
+    this.connections.configure(general.connectionLogEnabled ?? true, general.connectionLogMaxSizeMb ?? 10, general.connectionLogArchives ?? 20, general.connectionLogRetentionDays ?? 30)
+  }
 
   override initialize(directory = getAppPaths().logsDir): void {
     // Existing mixed logs remain in the root directory for reference.

@@ -40,6 +40,7 @@ export class SettingService implements BaseService {
         }
       }
     }
+    logger.configureSettings(this.config.general)
   }
 
   async dispose(): Promise<void> {
@@ -61,6 +62,7 @@ export class SettingService implements BaseService {
     const next = mergeSettings(this.config, patch)
     await writeFileAtomicAsync(this.settingsPath, JSON.stringify(next, null, 2), 'utf-8', true)
     this.config = next
+    logger.configureSettings(next.general)
     return this.getSettings()
   }
 

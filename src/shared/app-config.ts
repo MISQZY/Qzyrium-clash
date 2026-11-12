@@ -22,6 +22,14 @@ export interface AppConfig {
     autoCloseConnection?: boolean
     connectionInterval?: number
     maxLogs?: number
+    appLogEnabled?: boolean
+    appLogMaxSizeMb?: number
+    appLogArchives?: number
+    appLogRetentionDays?: number
+    connectionLogEnabled?: boolean
+    connectionLogMaxSizeMb?: number
+    connectionLogArchives?: number
+    connectionLogRetentionDays?: number
     delayTestUrl?: string
     delayTestTimeout?: number
     delayTestConcurrency?: number
@@ -87,6 +95,14 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     autoCloseConnection: false,
     connectionInterval: 2000,
     maxLogs: 300,
+    appLogEnabled: true,
+    appLogMaxSizeMb: 10,
+    appLogArchives: 20,
+    appLogRetentionDays: 30,
+    connectionLogEnabled: true,
+    connectionLogMaxSizeMb: 10,
+    connectionLogArchives: 20,
+    connectionLogRetentionDays: 30,
     delayTestUrl: 'http://www.gstatic.com/generate_204',
     delayTestTimeout: 5000,
     delayTestConcurrency: 6,

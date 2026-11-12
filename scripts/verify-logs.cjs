@@ -176,6 +176,18 @@ try {
   assert.ok(fs.readFileSync(path.join(maintenanceDirectory, 'app', 'latest.log'), 'utf8').includes('cleanup failure must not stop writes'))
 
   const kernel = fs.readFileSync('src/main/services/KernelService.ts', 'utf8')
+  const policyDirectory = path.join(directory, 'policy')
+  const policy = new Logger()
+  policy.initialize(policyDirectory)
+  policy.configureSettings({ appLogEnabled: false, connectionLogMaxSizeMb: 1, connectionLogArchives: 1 })
+  policy.info('live only')
+  assert.equal(fs.readFileSync(path.join(policyDirectory, 'app', 'latest.log'), 'utf8'), '', 'disabled app disk recording')
+  for (let i = 0; i < 4; i++) policy.writeEntry({ type: 'info', source: 'mihomo', time: new Date(now).toISOString(), payload: 'x'.repeat(700000) })
+  assert.equal(fs.readdirSync(path.join(policyDirectory, 'connections')).length, 2, 'custom archive count is enforced')
+  for (const name of fs.readdirSync(path.join(policyDirectory, 'connections'))) assert.ok(fs.statSync(path.join(policyDirectory, 'connections', name)).size <= 1024 * 1024)
+  policy.configureSettings({ appLogEnabled: true, connectionLogEnabled: false })
+  policy.info('recording resumed')
+  assert.ok(fs.readFileSync(path.join(policyDirectory, 'app', 'latest.log'), 'utf8').includes('recording resumed'))
   assert.ok(!kernel.includes('startLogStream('), 'only pipe output should feed the journal')
   console.log('PASS: parsing, UTF-8 streaming, partial lines, size/day/session rotation, legacy migration, retention, filesystem errors and single log source')
 } finally {

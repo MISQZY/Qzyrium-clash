@@ -28,7 +28,7 @@ function load(file, dependencies, runtime = process) {
   return exports
 }
 
-const logger = { info() {}, warn() {}, error() {}, debug() {} }
+const logger = { info() {}, warn() {}, error() {}, debug() {}, configureSettings() {} }
 const { subscriptionName } = load('src/main/utils/subscription-name.ts', {})
 
 function verifySubscriptionNames() {

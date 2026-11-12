@@ -167,6 +167,9 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
         <SettingsGroup title={t('updatesGroup')} description={t('updatesDescription')} icon={<RefreshCw />} collapsible>
           {renderGeneralFields(['autoCheckUpdates'])}
         </SettingsGroup>
+        <SettingsGroup title={t('logStorageGroup')} description={t('logStorageDescription')} icon={<FileText />} collapsible>
+          {renderGeneralFields(['appLogEnabled', 'appLogMaxSizeMb', 'appLogArchives', 'appLogRetentionDays', 'connectionLogEnabled', 'connectionLogMaxSizeMb', 'connectionLogArchives', 'connectionLogRetentionDays'])}
+        </SettingsGroup>
         <SettingsGroup title={t('shortcutsGroup')} description={t('shortcutsDescription')} icon={<Keyboard />} collapsible>
           <ShortcutSettings value={form.general.shortcuts ?? {}} disabled={busy} onChange={(shortcuts) => updateGeneral({ shortcuts })} />
 

@@ -164,5 +164,7 @@
   "advancedTun": "Advanced TUN settings",
   "advancedCore": "Advanced core settings",
   "appLogsFolder": "Application logs",
-  "connectionLogsFolder": "Connection logs"
+  "connectionLogsFolder": "Connection logs",
+  "logStorageGroup": "Log storage",
+  "logStorageDescription": "Configure disk recording and archive limits independently for each log type. Disabling disk recording keeps the live journal available."
 }

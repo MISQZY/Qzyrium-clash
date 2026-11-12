@@ -6,7 +6,7 @@ const { EventEmitter } = require('node:events')
 const ts = require('typescript')
 const { createIpcFixture } = require('./fixtures/ipc.cjs')
 const channels = load('src/shared/ipc.ts', {}).IPC_CHANNELS
-const logger = { info() {}, warn() {}, error() {}, debug() {} }
+const logger = { info() {}, warn() {}, error() {}, debug() {}, configureSettings() {} }
 const flush = () => new Promise(resolve => setImmediate(resolve))
 
 function load(file, dependencies = {}, runtime = {}) {

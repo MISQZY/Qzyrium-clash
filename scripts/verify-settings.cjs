@@ -20,7 +20,7 @@ function load(file, dependencies = {}, overrides = {}) {
   vm.runInThisContext(`(function(exports, require, setTimeout, clearTimeout, process, Date) {\n${code}\n})`, { filename: file })(exports, requireModule, overrides.setTimeout ?? setTimeout, overrides.clearTimeout ?? clearTimeout, overrides.process ?? process, overrides.Date ?? Date)
   return exports
 }
-const logger = { info() {}, warn() {}, error() {}, debug() {} }
+const logger = { info() {}, warn() {}, error() {}, debug() {}, configureSettings() {} }
 const { DEFAULT_APP_CONFIG } = load('src/shared/app-config.ts')
 const { validateAppConfig } = load('src/shared/settings-validation.ts')
 const { MihomoConfigFactory } = load('src/main/core/MihomoConfigFactory.ts', { '../utils/logger': { logger } })

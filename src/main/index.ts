@@ -7,6 +7,7 @@ import { logger } from './utils/logger'
 import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { IPC_CHANNELS } from '@shared/ipc'
+import { normalizeSettings } from '@shared/settings-config'
 import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import { clearRestartState, readRestartState } from './utils/restart-state'
 import { isProcessElevated, restartAsAdmin } from './utils/elevation'
@@ -132,6 +133,12 @@ if (!gotTheLock) {
   console.warn('[Qzyrium-clash] If no window is visible, please check the system tray or close existing electron processes in Task Manager.\n')
   app.quit()
 } else {
+  for (const name of ['settings.json', 'settings.json.bak']) {
+    try {
+      logger.configureSettings(normalizeSettings(JSON.parse(readFileSync(path.join(app.getPath('userData'), name), 'utf8'))).general)
+      break
+    } catch { /* Use a valid backup or the default log policy. */ }
+  }
   logger.initialize()
   app.on('second-instance', (_, commandLine) => {
     if (services) {

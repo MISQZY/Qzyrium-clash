@@ -132,6 +132,16 @@ export const resourceFields: SettingsField[] = [
   field('rule-providers', 'Rule providers (YAML)', 'Провайдеры правил (YAML)', 'map')
 ]
 export const generalFields: SettingsField[] = [
+  ...(['app', 'connection'] as const).flatMap(source => {
+    const en = source === 'app' ? 'Application logs' : 'Connection logs'
+    const ru = source === 'app' ? 'Логи приложения' : 'Логи подключений'
+    return [
+      field(`${source}LogEnabled`, `${en}: save to disk`, `${ru}: запись на диск`, 'boolean'),
+      field(`${source}LogMaxSizeMb`, `${en}: file size (MB)`, `${ru}: размер файла (МБ)`, 'number', { min: 1, max: 100 }),
+      field(`${source}LogArchives`, `${en}: archive count`, `${ru}: число архивов`, 'number', { min: 0, max: 100 }),
+      field(`${source}LogRetentionDays`, `${en}: retention (days)`, `${ru}: срок хранения (дни)`, 'number', { min: 1, max: 365 })
+    ]
+  }),
   field('autoStartAsAdmin', 'Start with administrator privileges', 'Запускать от имени администратора', 'boolean', desc(
     'When Windows startup is enabled, use Task Scheduler to start with administrator privileges. Windows may request confirmation when saving.',
     'При запуске вместе с Windows использовать планировщик задач для запуска с правами администратора. При сохранении Windows может запросить подтверждение.'
