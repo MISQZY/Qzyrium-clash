@@ -53,7 +53,7 @@ export function SettingsFields({ fields, value, onChange, prefix, inherit = true
     else values[key] = next
     onChange(values)
   }
-  return <div className="flex flex-col gap-4">{fields.map((field) => {
+  return <div className={`settings-fields flex flex-col ${!inherit && fields.every(field => field.type === 'boolean') ? 'gap-0' : 'gap-4'}`}>{fields.map((field) => {
     const id = `${prefix}-${field.key}`
     const label = fieldT(`${settingsFieldKey(field)}.label`)
     const current = value[field.key]
