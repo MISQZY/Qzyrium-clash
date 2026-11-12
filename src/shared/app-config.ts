@@ -11,6 +11,9 @@ export interface AppConfig {
     autoConnect: boolean
     reconnectAfterSleep?: boolean
     resumeDelaySeconds?: number
+    autoRestartCore?: boolean
+    coreRestartDelaySeconds?: number
+    coreRestartMaxAttempts?: number
     minimizeToTray: boolean
     closeAction?: 'tray' | 'quit' | 'core-only'
     theme: ThemePreference
@@ -91,6 +94,9 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     autoConnect: false,
     reconnectAfterSleep: false,
     resumeDelaySeconds: 5,
+    autoRestartCore: false,
+    coreRestartDelaySeconds: 5,
+    coreRestartMaxAttempts: 3,
     minimizeToTray: true,
     closeAction: 'tray',
     theme: 'dark',

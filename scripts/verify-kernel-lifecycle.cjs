@@ -220,6 +220,26 @@ async function verifyWakeRecovery() {
   assert.equal(starts, 2, 'manual stop cancels pending resume recovery')
   power.emit('suspend'); power.emit('resume')
   assert.equal(timers.size, 0, 'disconnected sessions stay disconnected')
+  config.general.autoRestartCore = true
+  config.general.coreRestartMaxAttempts = 2
+  kernel.startCore = async () => { starts++; state = 'error'; manager.emit('state-change', state); throw new Error('crashed') }
+  await assert.rejects(kernel.start(), /crashed/)
+  for (let i = 0; i < 2; i++) {
+    const timer = [...timers][0]
+    assert.ok(timer, 'failed core schedules a retry')
+    timers.delete(timer); timer.fn()
+    await new Promise(resolve => setImmediate(resolve))
+  }
+  assert.equal(starts, 5, 'automatic retries stop at the configured limit')
+  assert.equal(timers.size, 0, 'repeated failures do not form an infinite retry loop')
+  await assert.rejects(kernel.start(), /crashed/)
+  assert.equal(timers.size, 1, 'manual start resets the retry allowance')
+  const cancelledRetry = [...timers][0]
+  await kernel.stop()
+  cancelledRetry.fn()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(starts, 6, 'manual stop cancels a scheduled crash restart')
+  assert.equal(timers.size, 0)
   await kernel.dispose()
   assert.equal(power.listenerCount('resume'), 0, 'power listeners are removed on shutdown')
 }

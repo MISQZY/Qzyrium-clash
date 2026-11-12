@@ -44,15 +44,48 @@ export class KernelService implements BaseService {
   private recoverySequence = 0
   private resumeTimer?: ReturnType<typeof setTimeout>
   private connectedBeforeSleep = false
+  private restartTimer?: ReturnType<typeof setTimeout>
+  private restartAttempts = 0
+  private runningSince: number | null = null
+  private suspended = false
+
+  private scheduleCoreRestart(): void {
+    const general = this.settingService.getSettings().general
+    if (!general.autoRestartCore || !this.desiredRunning || this.suspended || this.restartTimer || this.getStatus() === 'running') return
+    if (this.restartAttempts >= (general.coreRestartMaxAttempts ?? 3)) {
+      logger.warn('Automatic core restart attempt limit reached')
+      return
+    }
+    const sequence = this.recoverySequence
+    this.restartTimer = setTimeout(() => {
+      this.restartTimer = undefined
+      const current = () => this.desiredRunning && !this.suspended && sequence === this.recoverySequence && !!this.settingService.getSettings().general.autoRestartCore
+      if (!current()) return
+      this.restartAttempts++
+      logger.info(`Automatically restarting core (attempt ${this.restartAttempts})`)
+      void this.enqueueLifecycle(async () => {
+        if (!current()) return
+        await this.stopCore()
+        if (current()) await this.startCore()
+      }).catch(error => {
+        logger.error('Automatic core restart failed', error)
+        if (current()) this.scheduleCoreRestart()
+      })
+    }, (general.coreRestartDelaySeconds ?? 5) * 1000)
+    this.restartTimer.unref()
+  }
 
   private onSuspend = (): void => {
+    this.suspended = true
     this.connectedBeforeSleep = this.desiredRunning && ['running', 'starting'].includes(this.getStatus())
     this.cancelResume()
   }
 
   private onResume = (): void => {
+    this.suspended = false
     this.cancelResume()
     const general = this.settingService.getSettings().general
+    if (this.getStatus() === 'error' && (!general.reconnectAfterSleep || !this.connectedBeforeSleep)) this.scheduleCoreRestart()
     if (!general.reconnectAfterSleep || !this.connectedBeforeSleep || !this.desiredRunning) return
     this.connectedBeforeSleep = false
     const sequence = this.recoverySequence
@@ -70,13 +103,18 @@ export class KernelService implements BaseService {
           await this.stopCore()
           if (current()) await this.startCore()
         }
-      }).catch(error => logger.error('Connection recovery after wake-up failed', error))
+      }).catch(error => {
+        logger.error('Connection recovery after wake-up failed', error)
+        if (sequence === this.recoverySequence) this.scheduleCoreRestart()
+      })
     }, (general.resumeDelaySeconds ?? 5) * 1000)
     this.resumeTimer.unref()
   }
 
   private cancelResume(): void {
     this.recoverySequence++
+    clearTimeout(this.restartTimer)
+    this.restartTimer = undefined
     clearTimeout(this.resumeTimer)
     this.resumeTimer = undefined
   }
@@ -121,6 +159,15 @@ export class KernelService implements BaseService {
 
   private setupListeners(): void {
     this.processManager.on('state-change', (state: CoreState) => {
+      if (state === 'running') {
+        this.runningSince = Date.now()
+        clearTimeout(this.restartTimer)
+        this.restartTimer = undefined
+      } else if (state === 'error') {
+        if (this.runningSince !== null && Date.now() - this.runningSince >= 60_000) this.restartAttempts = 0
+        this.runningSince = null
+        this.scheduleCoreRestart()
+      }
       if (state === 'running') this.sessionStartedAt = Date.now()
       else this.sessionStartedAt = null
       this.broadcaster?.('event:core-status', state)
@@ -188,8 +235,13 @@ export class KernelService implements BaseService {
 
   start(): Promise<void> {
     this.desiredRunning = true
+    this.restartAttempts = 0
     this.cancelResume()
-    return this.enqueueLifecycle(() => this.startCore())
+    const sequence = this.recoverySequence
+    return this.enqueueLifecycle(() => this.startCore()).catch(error => {
+      if (sequence === this.recoverySequence) this.scheduleCoreRestart()
+      throw error
+    })
   }
 
   private async startCore(): Promise<void> {
@@ -283,11 +335,16 @@ export class KernelService implements BaseService {
 
   restart(): Promise<void> {
     this.desiredRunning = true
+    this.restartAttempts = 0
     this.cancelResume()
     this.invalidateGlobe()
+    const sequence = this.recoverySequence
     return this.enqueueLifecycle(async () => {
       await this.stopCore()
       await this.startCore()
+    }).catch(error => {
+      if (sequence === this.recoverySequence) this.scheduleCoreRestart()
+      throw error
     })
   }
 

@@ -132,6 +132,9 @@ export const resourceFields: SettingsField[] = [
   field('rule-providers', 'Rule providers (YAML)', 'Провайдеры правил (YAML)', 'map')
 ]
 export const generalFields: SettingsField[] = [
+  field('autoRestartCore', 'Restart the core after a crash', 'Перезапускать ядро после сбоя', 'boolean', desc('Retry failed connections with a limit. The counter resets after one minute of stable operation or a manual start.', 'Повторять неудачные подключения с ограничением попыток. Счётчик сбрасывается после минуты стабильной работы или ручного запуска.')),
+  field('coreRestartDelaySeconds', 'Core restart delay (s)', 'Задержка перезапуска ядра (с)', 'number', { min: 1, max: 300 }),
+  field('coreRestartMaxAttempts', 'Maximum core restart attempts', 'Максимум попыток перезапуска ядра', 'number', { min: 1, max: 10 }),
   field('reconnectAfterSleep', 'Recover connection after sleep', 'Восстанавливать подключение после сна', 'boolean', desc('Check the controller after wake-up and restart an unresponsive core only if it was connected before sleep.', 'Проверять контроллер после пробуждения и перезапускать не отвечающее ядро, если подключение работало до сна.')),
   field('resumeDelaySeconds', 'Recovery delay after wake-up (s)', 'Задержка восстановления после сна (с)', 'number', { min: 1, max: 120 }),
   field('updateProfilesOnStart', 'Update stale subscriptions at startup', 'Обновлять устаревшие подписки при запуске', 'boolean'),
