@@ -169,13 +169,14 @@ export class TrayService implements BaseService {
       return []
     }
 
-    eligibleGroupNames.sort((a, b) => {
-      if (currentMode === 'global') {
-        if (a === 'GLOBAL') return -1
-        if (b === 'GLOBAL') return 1
-      }
-      return a.localeCompare(b)
-    })
+    // Match the provider order used by the proxy page, falling back to API order.
+    const configuredOrder = [...new Set([
+      ...((this.cachedProxies.GLOBAL as ProxyGroup | undefined)?.all ?? []),
+      ...Object.keys(this.cachedProxies)
+    ])]
+    const order = new Map(configuredOrder.map((name, index) => [name, index]))
+    if (currentMode === 'global') order.set('GLOBAL', -1)
+    eligibleGroupNames.sort((a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity))
 
     return eligibleGroupNames.map((groupName) => {
       const group = this.cachedProxies[groupName] as unknown as ProxyGroup

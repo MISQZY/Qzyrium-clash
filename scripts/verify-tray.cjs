@@ -100,8 +100,12 @@ app.whenReady().then(async () => {
   // Verify Routing Mode and Selectors in tray context menu
   let selectedProxy = { group: '', proxy: '' }
   const proxiesData = {
+    Alpha: { name: 'Alpha', type: 'Selector', now: 'Node 1', all: ['Node 1'] },
     PROXY: { name: 'PROXY', type: 'Selector', now: 'Node 1', all: ['Node 1', 'Node 2'] },
-    GLOBAL: { name: 'GLOBAL', type: 'Selector', now: 'PROXY', all: ['PROXY', 'DIRECT'] }
+    Zulu: { name: 'Zulu', type: 'Selector', now: 'Node 1', all: ['Node 1'] },
+    Extra: { name: 'Extra', type: 'Selector', now: 'Node 1', all: ['Node 1'] },
+    Hidden: { name: 'Hidden', type: 'Selector', hidden: true, all: ['Node 1'] },
+    GLOBAL: { name: 'GLOBAL', type: 'Selector', now: 'PROXY', all: ['PROXY', 'Zulu', 'Hidden', 'Alpha', 'DIRECT'] }
   }
   const testKernel = {
     getStatus: () => core,
@@ -140,6 +144,17 @@ app.whenReady().then(async () => {
   core = 'running'
   await fullService.refreshProxies()
   fullService.updateContextMenu()
+  const trayGroupNames = () => currentTray.menu
+    .filter(item => item.submenu && Object.keys(proxiesData).some(name => item.label?.startsWith(`${name}:`)))
+    .map(item => item.label.split(':')[0])
+  assert.deepEqual(trayGroupNames(), ['PROXY', 'Zulu', 'Alpha', 'Extra'], 'Tray must follow provider order, hide hidden groups and append groups missing from GLOBAL in API order')
+
+  const providerOrder = proxiesData.GLOBAL.all
+  proxiesData.GLOBAL.all = []
+  fullService.updateContextMenu()
+  assert.deepEqual(trayGroupNames(), ['Alpha', 'PROXY', 'Zulu', 'Extra'], 'Tray must fall back to API order without configured group order')
+  proxiesData.GLOBAL.all = providerOrder
+  fullService.updateContextMenu()
 
   // Verify Routing mode menu
   const modeItem = currentTray.menu.find(item => item.label?.startsWith('Режим маршрутизации'))
@@ -170,6 +185,7 @@ app.whenReady().then(async () => {
   await globalOption.click()
   assert.equal(testSettings.kernel.mode, 'global', 'Mode must switch to global')
   fullService.updateContextMenu()
+  assert.deepEqual(trayGroupNames(), ['GLOBAL', 'PROXY', 'Zulu', 'Alpha', 'Extra'], 'Global mode must keep GLOBAL first and retain provider order')
   const globalGroup = currentTray.menu.find(item => item.label?.startsWith('GLOBAL'))
   assert.ok(globalGroup, 'GLOBAL group must be present in global mode')
   const innerProxyOption = globalGroup.submenu.find(item => item.label === 'PROXY')
