@@ -30,6 +30,9 @@ export function mergeSettings(current: AppConfig, patch: Partial<AppConfig>): Ap
     sysProxy: { ...current.sysProxy, ...patch.sysProxy }
   }
   next.general.userAgent = subscriptionUserAgent(next.general.userAgent)
+  if (patch.general?.minimizeToTray !== undefined && patch.general.closeAction === undefined) {
+    next.general.closeAction = patch.general.minimizeToTray ? 'tray' : 'quit'
+  }
   validateAppConfig(next)
   return structuredClone(next)
 }

@@ -10,6 +10,7 @@ export interface AppConfig {
     autoCheckUpdates?: boolean
     autoConnect: boolean
     minimizeToTray: boolean
+    closeAction?: 'tray' | 'quit' | 'core-only'
     theme: ThemePreference
     language: 'en' | 'ru'
     customLocalizations?: CustomLocalizationPack[]
@@ -85,6 +86,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     autoCheckUpdates: true,
     autoConnect: false,
     minimizeToTray: true,
+    closeAction: 'tray',
     theme: 'dark',
     language: 'ru',
     liteDashboard: false,

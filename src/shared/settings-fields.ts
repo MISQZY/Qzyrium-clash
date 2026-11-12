@@ -132,6 +132,7 @@ export const resourceFields: SettingsField[] = [
   field('rule-providers', 'Rule providers (YAML)', 'Провайдеры правил (YAML)', 'map')
 ]
 export const generalFields: SettingsField[] = [
+  field('closeAction', 'When closing the window', 'При закрытии окна', 'select', { options: ['tray', 'quit', 'core-only'] }),
   ...(['app', 'connection'] as const).flatMap(source => {
     const en = source === 'app' ? 'Application logs' : 'Connection logs'
     const ru = source === 'app' ? 'Логи приложения' : 'Логи подключений'

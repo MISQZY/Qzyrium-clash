@@ -31,6 +31,7 @@ class FixtureWindow extends EventEmitter {
   setBackgroundColor(color) { this.backgroundColor = color }
   setTitleBarOverlay() {}
   hide() { this.visible = false; this.emit('hide') }
+  destroy() { this.visible = false; this.destroyed = true }
   show() { this.visible = true; this.emit('show') }
   focus() {}
   minimize() { this.minimized = true; this.emit('minimize') }
@@ -56,7 +57,7 @@ vm.runInNewContext(code, {
   exports: exportsObject,
   require: name => dependencies[name] ?? require(name),
   process: { platform: 'linux', env: {} },
-  __dirname, setTimeout() {}
+  __dirname, setImmediate, setTimeout() {}
 })
 
 ;(async () => {
@@ -93,12 +94,24 @@ vm.runInNewContext(code, {
       assert.equal(visibility.at(-1), true)
       let prevented = false
       win.emit('close', { preventDefault: () => { prevented = true } })
-      assert.equal(prevented, minimizeToTray)
+      assert.equal(prevented, true)
       assert.equal(win.isVisible(), !minimizeToTray)
       const previousQuitCalls = quitCalls
       service.close()
       assert.equal(quitCalls - previousQuitCalls, minimizeToTray ? 0 : 1)
     }
+  }
+  for (const closeAction of ['tray', 'quit', 'core-only']) {
+    const service = new exportsObject.WindowService({ getSettings: () => ({ general: { closeAction, minimizeToTray: false } }) })
+    const win = await service.createWindow()
+    win.emit('ready-to-show')
+    const before = quitCalls
+    service.close()
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(quitCalls - before, closeAction === 'quit' ? 1 : 0)
+    assert.equal(service.isCoreOnlyMode(), closeAction === 'core-only')
+    if (closeAction === 'core-only') assert.equal(win.destroyed, true, 'core-only close releases the renderer')
+    if (closeAction === 'tray') assert.equal(win.isVisible(), false)
   }
   for (const [theme, mode, color] of [['custom-dark', 'dark', '#282638'], ['custom-light', 'light', '#eef3fa'], ['missing', undefined, undefined]]) {
     const packs = mode ? [{ id: theme, mode, colors: { '--background': color } }] : []

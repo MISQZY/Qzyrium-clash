@@ -165,6 +165,11 @@
   "advancedCore": "Advanced core settings",
   "appLogsFolder": "Application logs",
   "connectionLogsFolder": "Connection logs",
+  "closeAction": "When closing the window",
+  "closeActionDescription": "Choose whether to keep the interface in the tray, quit, or keep only the core running. The tray menu can reopen the interface.",
+  "closeToTray": "Minimize to tray",
+  "closeQuit": "Quit application",
+  "closeCoreOnly": "Keep only the core",
   "logStorageGroup": "Log storage",
   "logStorageDescription": "Configure disk recording and archive limits independently for each log type. Disabling disk recording keeps the live journal available."
 }

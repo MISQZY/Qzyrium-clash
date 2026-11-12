@@ -144,7 +144,12 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
         <SettingsGroup title={t('startupGroup')} description={t('startupDescription')} icon={<Power />}>
           {renderGeneralFields(['autoStart', 'autoStartAsAdmin'])}
           <SettingRow title={t('startCoreOnLaunch')} description={t('automaticallyStartMihomoWhenQzyriumOpens')} id="general-autoConnect"><Switch id="general-autoConnect" aria-label={t('startCoreOnLaunch')} checked={form.general.autoConnect} onCheckedChange={(autoConnect) => updateGeneral({ autoConnect })} /></SettingRow>
-          <SettingRow title={t('minimizeToTray')} description={t('keepTheApplicationRunningWhenTheWindowIsClosed')} id="general-minimizeToTray"><Switch id="general-minimizeToTray" aria-label={t('minimizeToTray')} checked={form.general.minimizeToTray} onCheckedChange={(minimizeToTray) => updateGeneral({ minimizeToTray })} /></SettingRow>
+          <SettingRow title={t('closeAction')} description={t('closeActionDescription')} id="general-closeAction">
+            <NativeSelect id="general-closeAction" aria-label={t('closeAction')} value={form.general.closeAction ?? (form.general.minimizeToTray ? 'tray' : 'quit')}
+              onChange={event => updateGeneral({ closeAction: event.target.value as AppConfig['general']['closeAction'], minimizeToTray: event.target.value !== 'quit' })}>
+              <option value="tray">{t('closeToTray')}</option><option value="quit">{t('closeQuit')}</option><option value="core-only">{t('closeCoreOnly')}</option>
+            </NativeSelect>
+          </SettingRow>
           <SettingRow title={t('silentStart')} description={t('silentStartDescription')} id="general-silentStart"><Switch id="general-silentStart" aria-label={t('silentStart')} checked={form.general.silentStart} onCheckedChange={(silentStart) => updateGeneral({ silentStart })} /></SettingRow>
 
         </SettingsGroup>

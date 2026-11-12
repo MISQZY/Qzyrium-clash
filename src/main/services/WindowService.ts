@@ -213,11 +213,9 @@ export class WindowService implements BaseService {
     })
 
     this.mainWindow.on('close', (e) => {
-      const settings = this.settingService.getSettings()
-      if (!this.isQuitting && settings.general.minimizeToTray) {
-        e.preventDefault()
-        this.mainWindow?.hide()
-      }
+      if (this.isQuitting) return
+      e.preventDefault()
+      this.close()
     })
 
     this.mainWindow.on('hide', () => {
@@ -278,8 +276,11 @@ export class WindowService implements BaseService {
 
   close(): void {
     const settings = this.settingService.getSettings()
-    if (settings.general.minimizeToTray) {
+    const action = settings.general.closeAction ?? (settings.general.minimizeToTray ? 'tray' : 'quit')
+    if (action === 'tray') {
       this.mainWindow?.hide()
+    } else if (action === 'core-only') {
+      setImmediate(() => this.setCoreOnlyMode(true))
     } else {
       app.quit()
     }
