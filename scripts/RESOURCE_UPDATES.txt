@@ -1,0 +1,21 @@
+Bundled runtime resources
+
+`scripts/resources.lock.json` pins Mihomo archives, extracted executables and
+geodata by SHA-256. Geodata URLs reference an immutable upstream Git commit.
+`pnpm prepare:resources` verifies existing files and replaces mismatches only
+after checking downloaded bytes. Release builds verify the same hashes again.
+
+To update resources:
+
+1. Choose a specific Mihomo release and geodata commit in the upstream repositories.
+2. Obtain archive SHA-256 digests from the Mihomo release asset metadata. Download
+   and verify each supported platform's archive, then hash its extracted executable.
+3. Hash the geodata files downloaded from the chosen commit. Compare them with
+   the upstream release asset digests when available.
+4. Update the versions, immutable URLs and hashes in `scripts/resources.lock.json`.
+5. Run `pnpm prepare:resources`, `node scripts/verify-release.cjs resources`,
+   `node scripts/verify-resources.cjs` and the functional/UI suites before committing.
+
+The checked-in lock file, rather than the current upstream `latest` release or
+the age of a local file, determines which runtime resources a build contains.
+The Windows launcher and watchdog are compiled from the checked-in C# sources.

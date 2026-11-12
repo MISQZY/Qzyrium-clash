@@ -1,0 +1,46 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+const { manifest, sha256, matchesFile, installVerified, downloadVerified, coreFor, verifyRuntimeResources } = require('./resource-integrity.cjs')
+
+async function verify() {
+  assert.equal(Object.keys(manifest.mihomo.targets).length, 7)
+  assert.match(manifest.mihomo.version, /^v\d+\.\d+\.\d+$/)
+  assert.match(manifest.geodata.commit, /^[a-f0-9]{40}$/)
+  for (const [target, core] of Object.entries(manifest.mihomo.targets)) {
+    assert.match(core.archiveSha256, /^[a-f0-9]{64}$/)
+    assert.match(core.sha256, /^[a-f0-9]{64}$/)
+    assert.ok(core.url.includes(`/download/${manifest.mihomo.version}/`), target)
+    assert.equal(new URL(core.url).hostname, 'github.com')
+  }
+  for (const item of manifest.geodata.files) {
+    assert.match(item.sha256, /^[a-f0-9]{64}$/)
+    assert.ok(item.url.includes(`/${manifest.geodata.commit}/`))
+    assert.equal(new URL(item.url).hostname, 'raw.githubusercontent.com')
+  }
+  assert.throws(() => coreFor('unknown', 'x64'), /Unsupported/)
+  const root = path.resolve('artifacts/resources-check')
+  fs.mkdirSync(root, { recursive: true })
+  const directory = fs.mkdtempSync(path.join(root, 'run-'))
+  const filename = path.join(directory, 'resource.bin')
+  const content = Buffer.from('pinned upstream bytes')
+  const expected = sha256(content)
+  const fetcher = async () => ({ ok: true, arrayBuffer: async () => content })
+  await downloadVerified('https://fixture.invalid/pinned', filename, expected, fetcher)
+  assert.ok(matchesFile(filename, expected))
+  await downloadVerified('https://fixture.invalid/pinned', filename, expected, async () => { throw new Error('valid cache should work offline') })
+  fs.writeFileSync(filename, 'nonempty but corrupt')
+  assert.equal(matchesFile(filename, expected), false)
+  await assert.rejects(downloadVerified('https://fixture.invalid/pinned', filename, expected, async () => ({ ok: true, arrayBuffer: async () => Buffer.from('wrong version') })), /SHA-256 mismatch/)
+  assert.equal(fs.readFileSync(filename, 'utf8'), 'nonempty but corrupt', 'failed verification never replaces the installed file')
+  await downloadVerified('https://fixture.invalid/pinned', filename, expected, fetcher)
+  assert.ok(matchesFile(filename, expected), 'corrupt cache is repaired from pinned bytes')
+  assert.throws(() => installVerified(filename, Buffer.from('bad extraction'), expected), /SHA-256 mismatch/)
+  assert.ok(matchesFile(filename, expected), 'invalid archive payload cannot overwrite a working executable')
+  await assert.rejects(downloadVerified('https://fixture.invalid/pinned', path.join(directory, 'missing'), expected, async () => ({ ok: false, status: 404 })), /HTTP 404/)
+  assert.ok(!fs.readdirSync(directory).some(name => name.endsWith('.tmp')))
+  verifyRuntimeResources(path.resolve('extra'))
+  console.log('PASS: pinned platform archives/executables/geodata, SHA-256 validation, offline cache, corruption repair and failed download/extraction preservation')
+}
+
+verify().catch(error => { console.error(error); process.exitCode = 1 })

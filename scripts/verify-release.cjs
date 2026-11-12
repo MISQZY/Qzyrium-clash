@@ -2,6 +2,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const yaml = require('yaml')
+const { verifyRuntimeResources } = require('./resource-integrity.cjs')
 const { version } = require('../package.json')
 
 const stage = process.argv[2]
@@ -10,6 +11,7 @@ if (stage === 'version') {
   assert.match(tag ?? '', /^v\d+\.\d+\.\d+$/, 'Release tags must use vX.Y.Z')
   assert.equal(tag, `v${version}`, 'Release tag must match package.json version')
 } else if (stage === 'resources') {
+  verifyRuntimeResources('extra')
   assert.ok(!fs.existsSync(path.join('extra', 'files', 'qzyrium-windows.exe')), 'Removed Windows helper must not be bundled')
   for (const file of ['sidecar/mihomo.exe', 'files/country.mmdb', 'files/geosite.dat', 'files/geoip.dat', 'files/qzyrium-run.exe', 'files/qzyrium-watchdog.exe']) {
     assert.ok(fs.statSync(path.join('extra', file)).size > 0, `Missing or empty runtime resource: ${file}`)
