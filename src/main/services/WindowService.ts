@@ -11,8 +11,11 @@ import { bootAppearance } from '@shared/appearance'
 import { watchWindowScale } from '../utils/window-scale'
 import { trimProcessMemory } from '../utils/memory'
 import { ProfileImportQueue } from '../utils/profile-import-queue'
+import { LogBatcher } from '../utils/log-batcher'
+import type { LogEntry } from '@shared/types'
 
 export class WindowService implements BaseService {
+  private logBatcher = new LogBatcher(entries => this.send(IPC_CHANNELS.EVENT_LOG, entries))
   private imports = new ProfileImportQueue(request => this.broadcast(IPC_CHANNELS.EVENT_IMPORT_PROFILE, request))
 
   queueProfileImport(rawUrl: string): void {
@@ -58,6 +61,7 @@ export class WindowService implements BaseService {
     if (this.isQuitting || this.coreOnly === enabled) return
     this.coreOnly = enabled
     if (enabled) {
+      this.logBatcher.clear()
       this.imports.resetRenderer()
       this.ready = false
       this.visibilityHandler?.(false)
@@ -85,6 +89,7 @@ export class WindowService implements BaseService {
   }
 
   async dispose(): Promise<void> {
+    this.logBatcher.clear()
     nativeTheme.removeListener('updated', this.updateTheme)
     this.isQuitting = true
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
@@ -122,12 +127,21 @@ export class WindowService implements BaseService {
   }
 
   broadcast(channel: string, data: unknown): void {
+    if (channel === IPC_CHANNELS.EVENT_LOG) {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) this.logBatcher.push(data as LogEntry)
+      return
+    }
+    this.send(channel, data)
+  }
+
+  private send(channel: string, data: unknown): void {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.webContents.send(channel, data)
     }
   }
 
   async createWindow(): Promise<BrowserWindow> {
+    this.logBatcher.clear()
     this.imports.resetRenderer()
     this.ready = false
     const { theme, language } = this.settingService.getSettings().general

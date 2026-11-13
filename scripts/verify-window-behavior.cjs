@@ -61,7 +61,8 @@ const dependencies = {
   '@shared/appearance': { bootAppearance },
   '../utils/window-scale': windowScale,
   '../utils/memory': { trimProcessMemory: async () => {} },
-  '../utils/profile-import-queue': require('./fixtures/typescript.cjs').loadTypeScript('src/main/utils/profile-import-queue.ts')
+  '../utils/profile-import-queue': require('./fixtures/typescript.cjs').loadTypeScript('src/main/utils/profile-import-queue.ts'),
+  '../utils/log-batcher': require('./fixtures/typescript.cjs').loadTypeScript('src/main/utils/log-batcher.ts')
 }
 const code = ts.transpileModule(fs.readFileSync('src/main/services/WindowService.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }

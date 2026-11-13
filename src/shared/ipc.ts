@@ -205,6 +205,7 @@ export interface IElectronApi {
     onSettingsChanged: (callback: () => void) => () => void
     onTraffic: (callback: (data: TrafficStats) => void) => () => void
     onLog: (callback: (log: LogEntry) => void) => () => void
+    onLogs?: (callback: (logs: LogEntry[]) => void) => () => void
     onCoreStatus: (callback: (status: CoreState) => void) => () => void
     onTunError: (callback: (errorText: string) => void) => () => void
     onWarning: (callback: (message: string) => void) => () => void

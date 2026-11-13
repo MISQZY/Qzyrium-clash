@@ -83,7 +83,8 @@ const api = {
   events: {
     onTraffic: fn => { events.traffic = fn; return () => {} },
     onCoreStatus: fn => { events.status = fn; return () => {} },
-    onLog: fn => { events.log = fn; return () => {} }
+    onLog: fn => { events.log = fn; return () => {} },
+    onLogs: fn => { events.logs = fn; events.log = entry => fn([entry]); return () => {} }
   }
 }
 const document = {
@@ -126,6 +127,7 @@ function createResolver(fromDir) {
       vm.runInNewContext(js, subContext, { filename: resolved })
       return subModule.exports
     }
+    if (name.startsWith('@shared/')) return require('./fixtures/typescript.cjs').loadTypeScript(path.resolve('src/shared', name.slice(8) + '.ts'))
     return require(name)
   }
 }

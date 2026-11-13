@@ -82,7 +82,8 @@ async function verify() {
     electron: {}, child_process: {}, '../utils/paths': {}, '../utils/logger': {},
     '@shared/ipc': {}, '@shared/appearance': {}, '../utils/window-scale': {},
     '../utils/memory': { trimProcessMemory: async () => {} },
-    '../utils/profile-import-queue': require('./fixtures/typescript.cjs').loadTypeScript('src/main/utils/profile-import-queue.ts')
+    '../utils/profile-import-queue': require('./fixtures/typescript.cjs').loadTypeScript('src/main/utils/profile-import-queue.ts'),
+    '../utils/log-batcher': require('./fixtures/typescript.cjs').loadTypeScript('src/main/utils/log-batcher.ts')
   })
   const window = new WindowService({})
   let destroyed = 0, created = 0, changes = 0
