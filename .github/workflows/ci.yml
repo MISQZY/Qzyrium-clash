@@ -38,8 +38,13 @@ jobs:
     needs: checks
     runs-on: windows-latest
     timeout-minutes: 25
+    env:
+      UI_ANGLE: swiftshader
     steps:
       - uses: actions/checkout@v6
+      - name: Configure desktop for native window checks
+        shell: powershell
+        run: ./scripts/fixtures/configure-ci-display.ps1
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:

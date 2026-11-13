@@ -14,6 +14,7 @@ public static class NativeCapture {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
+  [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
 }
 '@
 [NativeCapture]::SetProcessDPIAware() | Out-Null
@@ -26,6 +27,15 @@ $rect = New-Object NativeCapture+RECT
 if (![NativeCapture]::GetClientRect($handle, [ref]$rect)) { throw 'Cannot read native client bounds' }
 $origin = New-Object NativeCapture+POINT
 if (![NativeCapture]::ClientToScreen($handle, [ref]$origin)) { throw 'Cannot read native client position' }
+$desktopLeft = [NativeCapture]::GetSystemMetrics(76)
+$desktopTop = [NativeCapture]::GetSystemMetrics(77)
+$desktopWidth = [NativeCapture]::GetSystemMetrics(78)
+$desktopHeight = [NativeCapture]::GetSystemMetrics(79)
+if ($origin.X -lt $desktopLeft -or $origin.Y -lt $desktopTop -or
+    $origin.X + $rect.Right -gt $desktopLeft + $desktopWidth -or
+    $origin.Y + $rect.Bottom -gt $desktopTop + $desktopHeight) {
+  throw "Cannot verify native pixels: client lies outside the ${desktopWidth}x${desktopHeight} desktop"
+}
 $bitmap = New-Object System.Drawing.Bitmap(($rect.Right - $rect.Left), ($rect.Bottom - $rect.Top))
 $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
 try {
