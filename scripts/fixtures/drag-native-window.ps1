@@ -14,7 +14,27 @@ public static class NativeDrag {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT point);
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT point);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int key);
+  [DllImport("user32.dll", SetLastError = true)] public static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
   [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
+  public static POINT ResizePoint(IntPtr hwnd) {
+    RECT rect;
+    if (!GetWindowRect(hwnd, out rect)) throw new InvalidOperationException("Cannot read resize bounds");
+    // The outer rectangle includes invisible DWM margins. Query the actual
+    // non-client corner instead of assuming right-2/bottom-2 is a resize grip.
+    for (int inset = 1; inset <= 32; inset++) {
+      int x = rect.Right - inset, y = rect.Bottom - inset;
+      IntPtr hit;
+      long coordinates = ((long)(y & 0xffff) << 16) | (long)(x & 0xffff);
+      if (SendMessageTimeout(hwnd, 0x0084, IntPtr.Zero, new IntPtr(coordinates), 2, 1000, out hit) == IntPtr.Zero)
+        throw new InvalidOperationException("Resize hit-test timed out");
+      var point = new POINT { X = x, Y = y };
+      if (hit.ToInt64() == 17 && WindowFromPoint(point) == hwnd) return point; // HTBOTTOMRIGHT
+    }
+    throw new InvalidOperationException("No native bottom-right resize grip found");
+  }
 }
 '@
 [NativeDrag]::SetProcessDPIAware() | Out-Null
@@ -24,8 +44,9 @@ $rect = New-Object NativeDrag+RECT
 $cursor = New-Object NativeDrag+POINT
 [NativeDrag]::GetWindowRect($handle, [ref]$rect) | Out-Null
 [NativeDrag]::GetCursorPos([ref]$cursor) | Out-Null
-$startX = $rect.Right - 2
-$startY = $rect.Bottom - 2
+$resizePoint = [NativeDrag]::ResizePoint($handle)
+$startX = $resizePoint.X
+$startY = $resizePoint.Y
 [NativeDrag]::SetCursorPos($startX, $startY) | Out-Null
 Start-Sleep -Milliseconds 150
 [NativeDrag]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero)
@@ -53,7 +74,9 @@ try {
       $top = [int](72 * $ScaleFactor)
       $points = @(@($inset, $top), @(($client.Right - $inset), $top), @($inset, ($client.Bottom - $inset)), @(($client.Right - $inset), ($client.Bottom - $inset)))
       $colors = @($points | ForEach-Object { $color = $bitmap.GetPixel($_[0], $_[1]); @($color.B, $color.G, $color.R) })
-      $samples += @{ step = $step; width = $client.Right; height = $client.Bottom; colors = $colors; timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); originX = $origin.X; originY = $origin.Y }
+      $pointer = New-Object NativeDrag+POINT
+      [NativeDrag]::GetCursorPos([ref]$pointer) | Out-Null
+      $samples += @{ step = $step; width = $client.Right; height = $client.Bottom; colors = $colors; timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); originX = $origin.X; originY = $origin.Y; startX = $startX; startY = $startY; cursorX = $pointer.X; cursorY = $pointer.Y; foreground = ([NativeDrag]::GetForegroundWindow() -eq $handle); buttonDown = ([NativeDrag]::GetAsyncKeyState(1) -lt 0) }
     } finally { $graphics.Dispose(); $bitmap.Dispose() }
   }
 } finally {
