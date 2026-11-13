@@ -1,7 +1,9 @@
 import { ChildProcess, spawn, execFile } from 'child_process'
 import { promisify } from 'node:util'
 import axios from 'axios'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
+import path from 'node:path'
+import yaml from 'yaml'
 import { EventEmitter } from 'events'
 import { CoreState, LogEntry } from '@shared/types'
 import { getAppPaths } from '../utils/paths'
@@ -95,9 +97,15 @@ export class MihomoProcessManager extends EventEmitter {
     let exitCode: number | null = null
 
     try {
-      const spawned = spawn(binary, args, {
+      const linux = process.platform === 'linux'
+      const paths = getAppPaths()
+      const tun = linux ? (yaml.parse(readFileSync(configPath, 'utf8')) as Record<string, unknown>)?.tun : undefined
+      const command = linux ? process.execPath : binary
+      const launchArgs = linux ? [path.join(paths.geoFilesDir, 'linux-core-supervisor.cjs'), binary, JSON.stringify(tun ?? null), ...args] : args
+      const spawned = spawn(command, launchArgs, {
         windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe']
+        stdio: [linux ? 'pipe' : 'ignore', 'pipe', 'pipe'],
+        ...(linux ? { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } } : {})
       })
       this.childProcess = spawned
 
@@ -212,7 +220,7 @@ export class MihomoProcessManager extends EventEmitter {
       const timer = setTimeout(() => {
         child.removeListener('exit', onExit)
         reject(new Error('Timed out waiting for Mihomo to stop'))
-      }, 5000)
+      }, process.platform === 'linux' ? 8000 : 5000)
       child.once('exit', onExit)
       try {
         if (process.platform === 'win32' && child.pid) {

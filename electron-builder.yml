@@ -15,6 +15,8 @@ electronLanguages:
   - 'en'
   - 'ru'
 extraResources:
+  - from: resources/linux-core-supervisor.cjs
+    to: files/linux-core-supervisor.cjs
   - from: LICENSE
     to: licenses/GPL-3.0.txt
   - from: resources/licenses/

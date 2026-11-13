@@ -44,6 +44,10 @@ async function prepareGeoFiles() {
 }
 
 async function prepareRunner() {
+  if (platform === 'linux') {
+    fs.mkdirSync(FILES_DIR, { recursive: true })
+    fs.copyFileSync(path.join(cwd, 'resources', 'linux-core-supervisor.cjs'), path.join(FILES_DIR, 'linux-core-supervisor.cjs'))
+  }
   if (platform !== 'win32') return
   fs.mkdirSync(FILES_DIR, { recursive: true })
   const systemRoot = process.env.SystemRoot || 'C:\\Windows'

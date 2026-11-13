@@ -40,7 +40,8 @@ def request(host, port=8080, path="/"):
     try:
         connection.request("GET", path)
         response = connection.getresponse()
-        assert response.status == 200
+        if response.status != 200:
+            raise http.client.HTTPException(f"HTTP {response.status}: {response.reason}")
         return response.read().decode()
     finally:
         connection.close()
@@ -109,13 +110,14 @@ def peer():
 
 def snapshot():
     return {"interfaces": sorted(os.listdir("/sys/class/net")),
-            "routes": ip("route", "show", "table", "all"), "rules": ip("rule", "show")}
+            "routes": ip("route", "show", "table", "all"), "rules": ip("rule", "show"),
+            "rules6": ip("-6", "rule", "show")}
 
 
-def probe(peer_ip, mode, expected_hash, termination):
-    assert termination in ("SIGTERM", "SIGKILL")
+def probe(peer_ip, mode, expected_hash, termination, supervision):
+    assert termination in ("SIGTERM", "SIGKILL", "PARENT_SIGKILL")
     case = mode + "-" + termination.lower()
-    report = {"scope": "Linux Mihomo core, not Windows Electron/watchdog/system proxy", "mode": mode,
+    report = {"scope": "Linux Mihomo " + supervision + ", not Windows Electron/watchdog/system proxy", "mode": mode,
               "termination": termination, "checks": []}
     core = None
     work = Path("/tmp/mihomo-test")
@@ -136,10 +138,13 @@ def probe(peer_ip, mode, expected_hash, termination):
         config["tun"] = {"enable": True, "device": DEVICE, "stack": mode, "auto-route": True,
                          "auto-detect-interface": True, "strict-route": True,
                          "route-address": [TARGET + "/32"], "dns-hijack": ["any:53", "tcp://any:53"]}
+        if mode == "mixed":
+            config["tun"].update({"iproute2-table-index": 2222, "iproute2-rule-index": 9100})
     (work / "config.json").write_text(json.dumps(config))
     # The peer owns this documentation-only address. This baseline route lives
     # exclusively in the container namespace and makes recovery observable.
     ip("route", "replace", "default", "via", peer_ip, "dev", "eth0")
+    ip("rule", "add", "priority", "12000", "from", "all", "lookup", "main")
     try:
         assert request(TARGET) == "qzyrium-controlled-target"
         dns_query(peer_ip)
@@ -147,7 +152,16 @@ def probe(peer_ip, mode, expected_hash, termination):
         report["before"] = snapshot()
         before_count = json.loads(request(peer_ip, path="/stats"))["connects"]
         with (Path("/results") / (case + "-core.log")).open("w") as log:
-            core = subprocess.Popen([str(destination), "-d", str(work), "-f", str(work / "config.json")], stdout=log, stderr=log)
+            command = [str(destination), "-d", str(work), "-f", str(work / "config.json")]
+            if supervision == "supervised":
+                command = ["node", "/fixtures/linux-core-supervisor.cjs", str(destination), json.dumps(config.get("tun")), *command[1:]]
+            if termination == "PARENT_SIGKILL":
+                core = subprocess.Popen([sys.executable, __file__, "parent", str(Path("/results") / (case + "-core.log")), *command],
+                                        stdout=subprocess.PIPE, text=True)
+                supervisor_pid = int(core.stdout.readline())
+            else:
+                core = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=log, stderr=log)
+                supervisor_pid = core.pid
             deadline = time.monotonic() + 15
             while True:
                 assert core.poll() is None, "Mihomo exited during startup; inspect core log"
@@ -165,7 +179,10 @@ def probe(peer_ip, mode, expected_hash, termination):
             while True:
                 try:
                     body = request("127.0.0.1", 7895, "http://" + TARGET + ":8080/") if mode == "proxy" else request(TARGET)
-                    break
+                    if body == "qzyrium-controlled-target" and json.loads(request(peer_ip, path="/stats"))["connects"] > before_count:
+                        break
+                    assert time.monotonic() < deadline, "Mihomo did not route traffic through the controlled proxy"
+                    time.sleep(0.1)
                 except (OSError, http.client.HTTPException):
                     if time.monotonic() >= deadline:
                         raise
@@ -176,8 +193,27 @@ def probe(peer_ip, mode, expected_hash, termination):
             assert json.loads(request(peer_ip, path="/stats"))["connects"] > before_count, "traffic bypassed the controlled proxy"
             report["checks"].append("real traffic through Mihomo and upstream HTTP CONNECT")
             report["active"] = snapshot()
-            core.send_signal(getattr(signal, termination))
-            core.wait(timeout=5)
+            if termination == "SIGKILL" and supervision == "supervised":
+                children = Path(f"/proc/{supervisor_pid}/task/{supervisor_pid}/children").read_text().split()
+                assert len(children) == 1, "expected one supervised Mihomo process"
+                os.kill(int(children[0]), signal.SIGKILL)
+            else:
+                core.send_signal(signal.SIGKILL if termination == "PARENT_SIGKILL" else getattr(signal, termination))
+            core.wait(timeout=8)
+            if termination == "PARENT_SIGKILL":
+                deadline = time.monotonic() + 8
+                while time.monotonic() < deadline:
+                    try:
+                        finished, _status = os.waitpid(supervisor_pid, os.WNOHANG)
+                        if finished:
+                            break
+                    except ChildProcessError:
+                        if not Path(f"/proc/{supervisor_pid}").exists():
+                            break
+                    time.sleep(0.1)
+                else:
+                    raise AssertionError("supervisor survived parent crash")
+                report["checks"].append("supervisor recovered after parent SIGKILL")
             deadline = time.monotonic() + 5
             while DEVICE in os.listdir("/sys/class/net") and time.monotonic() < deadline:
                 time.sleep(0.1)
@@ -195,9 +231,10 @@ def probe(peer_ip, mode, expected_hash, termination):
             dns_query(peer_ip)
             report["checks"].append("direct HTTP and DNS recovered")
             report["differences"] = {key: list(difflib.unified_diff(report["before"][key].splitlines(), report["after"][key].splitlines()))
-                                     for key in ("routes", "rules") if report["before"][key] != report["after"][key]}
+                                     for key in ("routes", "rules", "rules6") if report["before"][key] != report["after"][key]}
             assert not report["differences"], "routing state differs after " + termination
             report["checks"].append("routes and policy rules match baseline")
+            report["checks"].append("unrelated policy rule preserved")
         report["status"] = "passed"
     except Exception as error:
         report["status"] = "failed"
@@ -205,7 +242,7 @@ def probe(peer_ip, mode, expected_hash, termination):
         report["failureSnapshot"] = snapshot()
     finally:
         if core is not None and core.poll() is None:
-            core.kill()
+            core.terminate()
             core.wait(timeout=5)
         (Path("/results") / (case + ".json")).write_text(json.dumps(report, indent=2))
         print(json.dumps({key: value for key, value in report.items() if key not in ("before", "active", "after", "failureSnapshot")}), flush=True)
@@ -215,5 +252,15 @@ def probe(peer_ip, mode, expected_hash, termination):
 if __name__ == "__main__":
     if sys.argv[1] == "peer":
         peer()
+    elif sys.argv[1] == "parent":
+        with open(sys.argv[2], "ab") as log:
+            child = subprocess.Popen(sys.argv[3:], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            def relay():
+                while data := child.stdout.read1(4096):
+                    log.write(data)
+                    log.flush()
+            threading.Thread(target=relay, daemon=True).start()
+            print(child.pid, flush=True)
+            threading.Event().wait(120)
     else:
         sys.exit(probe(*sys.argv[2:]))

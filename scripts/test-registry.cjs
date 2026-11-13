@@ -1,7 +1,7 @@
 const path = require('node:path')
 
 const functional = ['test-runner', 'ipc', 'subscriptions', 'updates', 'startup', 'elevation', 'i18n',
-  'kernel-lifecycle', 'profile-loading', 'profile-import', 'data-loading', 'connections', 'offline-proxies', 'settings', 'themes',
+  'kernel-lifecycle', 'linux-routing', 'profile-loading', 'profile-import', 'data-loading', 'connections', 'offline-proxies', 'settings', 'themes',
   'globe', 'globe-layout', 'recovery', 'system-proxy', 'network-watchdog', 'resources', 'traffic', 'diff-editor', 'rule-recovery', 'logs', 'window-behavior', 'backup', 'diagnostics']
 const ui = ['ipc-ui', 'subscriptions-ui', 'ui', 'rules-ui', 'display-ui', 'globe-ui', 'theme-contrast-ui',
   'editors-ui', 'profile-info-ui', 'shortcuts-ui', 'startup-theme-ui', 'offline-proxies-ui', 'proxy-order-ui',

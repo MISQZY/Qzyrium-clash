@@ -77,6 +77,9 @@ export class MihomoConfigFactory {
           ? appConfig.kernel.tun.dnsHijack
           : ['any:53', 'tcp://any:53']
       }
+      if (process.platform === 'linux' && !(parsed.tun as Record<string, unknown>).device) {
+        (parsed.tun as Record<string, unknown>).device = 'Qzyrium'
+      }
 
       // Ensure DNS module is active and properly configured for TUN packet resolution
       const currentDns = (parsed.dns && typeof parsed.dns === 'object' && !Array.isArray(parsed.dns))

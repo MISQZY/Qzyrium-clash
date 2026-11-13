@@ -16,11 +16,41 @@ function load(file, dependencies, overrides = {}) {
     if (name.endsWith('.json') && name.startsWith('.')) return require(path.resolve(path.dirname(file), name))
     const target = name.startsWith('@shared/') ? path.resolve('src/shared', name.slice(8) + '.ts') : name.startsWith('.') ? path.resolve(path.dirname(file), name + '.ts') : null
     return target && fs.existsSync(target) ? load(target, {}) : require(name)
-  }, overrides.setTimeout ?? setTimeout, overrides.clearTimeout ?? clearTimeout, process, overrides.Date ?? Date)
+  }, overrides.setTimeout ?? setTimeout, overrides.clearTimeout ?? clearTimeout, overrides.process ?? process, overrides.Date ?? Date)
   return exports
 }
 const recordedLogs = []
 const logger = { info() {}, warn() {}, error() {}, debug() {}, writeEntry(entry) { recordedLogs.push(entry) } }
+
+async function verifyLinuxLaunch() {
+  let launch
+  const child = Object.assign(new EventEmitter(), { pid: 123, stdout: new EventEmitter(), stderr: new EventEmitter() })
+  const runtime = { platform: 'linux', execPath: '/usr/bin/electron', env: { FIXTURE: '1' } }
+  const paths = { coreBinaryPath: '/fixture/mihomo', geoFilesDir: '/fixture/files' }
+  const { MihomoProcessManager } = load('src/main/core/MihomoProcessManager.ts', {
+    fs: { existsSync: () => true, readFileSync: () => 'tun: {enable: true, device: Qzyrium, auto-route: true}' },
+    child_process: { spawn: (...args) => { launch = args; return child }, execFile() {} },
+    '../utils/paths': { getAppPaths: () => paths }, '../utils/logger': { logger },
+    '../utils/network-watchdog': { networkWatchdog: { async trackCore() {} } }
+  }, { process: runtime })
+  const manager = new MihomoProcessManager()
+  manager.waitForReady = async () => { manager.setState('running') }
+  await manager.start('/work', '/work/config.yaml', 9095, 'fixture-secret')
+  assert.equal(launch[0], runtime.execPath, 'Linux launches its Node supervisor through the Electron executable')
+  assert.equal(path.basename(launch[1][0]), 'linux-core-supervisor.cjs')
+  assert.equal(launch[1][1], paths.coreBinaryPath)
+  assert.equal(JSON.parse(launch[1][2]).device, 'Qzyrium')
+  assert.deepEqual(launch[1].slice(3), ['-d', '/work', '-f', '/work/config.yaml', '-ext-ctl', '127.0.0.1:9095'])
+  assert.equal(launch[2].env.ELECTRON_RUN_AS_NODE, '1', 'supervision must not launch a second Electron interface')
+  assert.equal(launch[2].env.FIXTURE, '1')
+  assert.equal(launch[2].stdio[0], 'pipe', 'supervisor must observe parent death through pipe EOF')
+
+  const { MihomoConfigFactory } = load('src/main/core/MihomoConfigFactory.ts', {}, { process: runtime })
+  const config = structuredClone(load('src/shared/app-config.ts', {}).DEFAULT_APP_CONFIG)
+  config.kernel.tun.enable = true
+  const output = require('yaml').parse(MihomoConfigFactory.synthesize(null, config))
+  assert.equal(output.tun.device, 'Qzyrium', 'Linux TUN recovery has an explicit interface identity')
+}
 
 async function verifyRestart() {
   const children = [], timers = [], probes = []
@@ -245,4 +275,4 @@ async function verifyWakeRecovery() {
   assert.equal(power.listenerCount('resume'), 0, 'power listeners are removed on shutdown')
 }
 
-Promise.resolve().then(verifyRestart).then(verifyModeUpdates).then(verifyWakeRecovery).then(() => console.log('PASS: process lifecycle, API readiness, network modes and cancellable wake recovery')).catch(error => { console.error(error); process.exitCode = 1 })
+Promise.resolve().then(verifyRestart).then(verifyLinuxLaunch).then(verifyModeUpdates).then(verifyWakeRecovery).then(() => console.log('PASS: process lifecycle, Linux supervision, API readiness, network modes and cancellable wake recovery')).catch(error => { console.error(error); process.exitCode = 1 })
