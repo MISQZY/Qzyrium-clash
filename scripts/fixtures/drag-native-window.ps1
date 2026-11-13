@@ -7,6 +7,11 @@ using System.Runtime.InteropServices;
 public static class NativeDrag {
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
   [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
+  [StructLayout(LayoutKind.Sequential)] public struct GUITHREADINFO {
+    public uint cbSize, flags;
+    public IntPtr active, focus, capture, menuOwner, moveSize, caret;
+    public RECT caretRect;
+  }
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
   [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
@@ -17,8 +22,33 @@ public static class NativeDrag {
   [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT point);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int key);
+  [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+  [DllImport("user32.dll")] public static extern bool GetGUIThreadInfo(uint threadId, ref GUITHREADINFO info);
+  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
   [DllImport("user32.dll", SetLastError = true)] public static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
   [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
+  public static void MoveMouse(int x, int y) {
+    int left = GetSystemMetrics(76), top = GetSystemMetrics(77);
+    int width = GetSystemMetrics(78), height = GetSystemMetrics(79);
+    uint normalizedX = (uint)Math.Max(0, Math.Min(65535, (long)(x - left) * 65535 / (width - 1)));
+    uint normalizedY = (uint)Math.Max(0, Math.Min(65535, (long)(y - top) * 65535 / (height - 1)));
+    // Inject a mouse-move input event. Cursor warping alone need not deliver
+    // the input consumed by Windows' modal sizing loop on a virtual desktop.
+    mouse_event(0xC001, normalizedX, normalizedY, 0, UIntPtr.Zero);
+  }
+  public static bool IsSizing(IntPtr hwnd) {
+    uint pid;
+    uint thread = GetWindowThreadProcessId(hwnd, out pid);
+    var info = new GUITHREADINFO { cbSize = (uint)Marshal.SizeOf(typeof(GUITHREADINFO)) };
+    if (!GetGUIThreadInfo(thread, ref info)) throw new InvalidOperationException("Cannot inspect native sizing state");
+    return (info.flags & 2) != 0 && info.moveSize == hwnd;
+  }
+  public static void BeginSizing(IntPtr hwnd, int x, int y) {
+    long coordinates = ((long)(ushort)y << 16) + (ushort)x;
+    if (!PostMessage(hwnd, 0x00A1, new IntPtr(17), new IntPtr(coordinates)))
+      throw new InvalidOperationException("Cannot start native border sizing");
+  }
   public static POINT ResizePoint(IntPtr hwnd) {
     RECT rect;
     if (!GetWindowRect(hwnd, out rect)) throw new InvalidOperationException("Cannot read resize bounds");
@@ -47,15 +77,23 @@ $cursor = New-Object NativeDrag+POINT
 $resizePoint = [NativeDrag]::ResizePoint($handle)
 $startX = $resizePoint.X
 $startY = $resizePoint.Y
-[NativeDrag]::SetCursorPos($startX, $startY) | Out-Null
+[NativeDrag]::MoveMouse($startX, $startY)
 Start-Sleep -Milliseconds 150
 [NativeDrag]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero)
 $samples = @()
 try {
+  Start-Sleep -Milliseconds 100
+  if (![NativeDrag]::IsSizing($handle)) {
+    # Some virtual desktops update button state without forwarding the
+    # non-client button message. Enter the same OS sizing loop explicitly.
+    [NativeDrag]::BeginSizing($handle, $startX, $startY)
+    Start-Sleep -Milliseconds 100
+  }
+  if (![NativeDrag]::IsSizing($handle)) { throw 'Window did not enter the native sizing loop' }
   for ($step = 0; $step -lt 120; $step++) {
     $phase = $step % 60
     $offset = if ($phase -lt 30) { $phase * 8 } else { (60 - $phase) * 8 }
-    [NativeDrag]::SetCursorPos($startX + $offset, $startY + [int]($offset / 2)) | Out-Null
+    [NativeDrag]::MoveMouse($startX + $offset, $startY + [int]($offset / 2))
     Start-Sleep -Milliseconds 16
     if ($step % 15 -ne 0) { continue }
     # Pause while still holding the resize border, never using Electron's

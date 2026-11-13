@@ -56,6 +56,8 @@ jobs:
       - run: node scripts/verify-release.cjs resources
       - run: pnpm build
         id: build
+      - name: Verify native resizing before the full UI suite
+        run: pnpm exec electron scripts/verify-native-window-ui.cjs
       - run: pnpm test:bundle
       - run: pnpm test:functional
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
