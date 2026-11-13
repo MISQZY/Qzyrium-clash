@@ -27,7 +27,7 @@ public static class NativeDrag {
     for (int inset = 1; inset <= 32; inset++) {
       int x = rect.Right - inset, y = rect.Bottom - inset;
       IntPtr hit;
-      long coordinates = ((long)(y & 0xffff) << 16) | (long)(x & 0xffff);
+      long coordinates = ((long)(ushort)y << 16) + (ushort)x;
       if (SendMessageTimeout(hwnd, 0x0084, IntPtr.Zero, new IntPtr(coordinates), 2, 1000, out hit) == IntPtr.Zero)
         throw new InvalidOperationException("Resize hit-test timed out");
       var point = new POINT { X = x, Y = y };
