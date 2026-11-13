@@ -1,4 +1,5 @@
 import { ListTree, Search, X } from 'lucide-react'
+import { VirtualList } from '../VirtualList'
 
 import { Badge } from '../ui/badge'
 import { Input } from '../ui/input'
@@ -75,7 +76,7 @@ export function RuleListPanel({ editor }: RuleListPanelProps) {
                     <span>{searchQuery ? t('noMatchingRules') : t('noRules')}</span>
                   </div>
                 ) : (
-                  filteredRules.map((rule, idx) => {
+                  <VirtualList data={filteredRules} itemKey={rule => rule.id} externalScroll={false} gap={6} renderItem={(rule, idx) => {
                     const isEditing = editingId === rule.id
 
                     if (isEditing && editingDraft) {
@@ -90,7 +91,7 @@ export function RuleListPanel({ editor }: RuleListPanelProps) {
                     return (
                       <RuleListRow key={rule.id} rule={rule} idx={idx} editor={editor} />
                     )
-                  })
+                  }} />
                 )}
               </div>
             </div>

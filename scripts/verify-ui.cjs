@@ -200,7 +200,8 @@ if (process.type === 'renderer') {
       assert.equal(await evaluate(`Array.from(document.querySelectorAll('button')).find(el => el.textContent.trim() === 'Autoscroll').getAttribute('aria-pressed')`), 'false')
       await evaluate(`Array.from(document.querySelectorAll('button[aria-pressed]')).find(el => el.textContent.trim() === 'All').click(); window.api.uiTest.emitLogs(350)`)
       await delay(400)
-      const journal = `document.querySelector('[class*="overflow-anchor:none"]')`
+      const journal = `document.querySelector('[data-log-scroller]')`
+      await waitFor(`${journal}.scrollHeight > ${journal}.clientHeight`)
       await evaluate(`${journal}.scrollTop = 120`)
       await delay(50)
       const scrollBefore = await evaluate(`${journal}.scrollTop`)

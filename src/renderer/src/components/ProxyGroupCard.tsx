@@ -9,6 +9,7 @@ import { Button } from './ui/button'
 import { EmojiText } from './EmojiText'
 import { GroupIcon, NodeIcon, getGroupTypeStyle } from './ProxyIcons'
 import { DelayBadge } from './DelayBadge'
+import { VirtualList } from './VirtualList'
 
 interface Props {
   groupName: string; group: ProxyGroup; proxies: Record<string, ProxyNode>; delays: Record<string, number>
@@ -129,8 +130,7 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
       {isExpanded && (
         <div className="px-4 pb-4 pt-1 border-t border-border/50 bg-background/30">
           {sortedNodes.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3">
-              {sortedNodes.map((nodeName) => {
+            <VirtualList data={sortedNodes} itemKey={name => name} twoColumns className="pt-3" renderItem={(nodeName) => {
                 const isSelected = activeNow === nodeName
                 const nodeData = proxies[nodeName]
                 const nodeType = nodeData?.type || 'direct'
@@ -178,8 +178,7 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
                     </div>
                   </button>
                 )
-              })}
-            </div>
+              }} />
           ) : (
             <p className="empty-state py-6">{t(!running && nodes.length === 0 ? 'noCachedNodes' : 'noProxyNodesMatchYourSearch')}</p>
           )}
