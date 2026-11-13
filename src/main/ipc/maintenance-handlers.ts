@@ -7,6 +7,7 @@ import { nativeMessages } from '@shared/localization'
 import { createDiagnostics } from '../utils/diagnostics'
 import type { ServiceManager } from '../services/ServiceManager'
 import type { TrustedRegistrar } from './trusted-handler'
+import { logger } from '../utils/logger'
 
 export function registerMaintenanceHandlers(handle: TrustedRegistrar, services: ServiceManager): void {
   let pending = false
@@ -42,6 +43,7 @@ export function registerMaintenanceHandlers(handle: TrustedRegistrar, services: 
     const profiles = await Promise.all(services.profileService.getProfiles().map(async profile => ({
       profile, content: await services.profileService.getProfileContent(profile.id).catch(() => null) ?? ''
     })))
+    await logger.flush()
     const content = await createDiagnostics({ appVersion: app.getVersion(), runtimeVersions: {
       electron: process.versions.electron, chromium: process.versions.chrome, node: process.versions.node
     }, coreVersion, coreStatus, settings, profiles, logsDir: getAppPaths().logsDir })

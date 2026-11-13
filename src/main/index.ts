@@ -236,6 +236,7 @@ if (!gotTheLock) {
       await services.dispose()
       services = null
       await networkWatchdog.stop().catch(error => logger.error('Network watchdog cleanup failed', error))
+      await logger.close()
       app.exit(0)
     }
   })
@@ -253,6 +254,7 @@ if (!gotTheLock) {
       } catch {}
     }
     await networkWatchdog.stop().catch(() => {})
+    await logger.close()
     app.exit(1)
   })
 
