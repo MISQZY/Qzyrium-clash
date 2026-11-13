@@ -51,7 +51,7 @@ export function ProfileConfigPage({
       </Button>
     </div>
   }>
-    <form id={`override-${section}`} className="relative flex flex-col gap-4" onSubmit={(event) => {
+    <form data-unsaved-changes={dirty} id={`override-${section}`} className="relative flex flex-col gap-4" onSubmit={(event) => {
       event.preventDefault()
       if (busy || !enabled) return
       setMessage('')

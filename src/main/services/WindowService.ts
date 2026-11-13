@@ -42,6 +42,49 @@ export class WindowService implements BaseService {
   private modeChanged?: () => void
   private startupVisible?: boolean
   private visibilityHandler?: (visible: boolean) => void
+  private releaseTimer?: ReturnType<typeof setTimeout>
+  private releaseRevision = 0
+  private hiddenSince: number | null = null
+
+  private cancelAutoRelease(reset = true): void {
+    if (this.releaseTimer) clearTimeout(this.releaseTimer)
+    this.releaseTimer = undefined
+    this.releaseRevision++
+    if (reset) this.hiddenSince = null
+  }
+
+  refreshAutoReleasePolicy = (retryDelay = 0): void => {
+    this.cancelAutoRelease(false)
+    const window = this.mainWindow
+    const general = this.settingService.getSettings().general
+    if (this.isQuitting || this.coreOnly || !general.autoReleaseWindow || !window || window.isDestroyed() || window.isVisible()) return
+    this.hiddenSince ??= Date.now()
+    const minutes = general.autoReleaseWindowMinutes ?? 5
+    const delay = Math.max(retryDelay, Math.max(1, Math.min(1440, minutes)) * 60_000 - (Date.now() - this.hiddenSince))
+    const revision = this.releaseRevision
+    this.releaseTimer = setTimeout(() => {
+      this.releaseTimer = undefined
+      void this.tryAutoRelease(window, revision)
+    }, delay)
+    this.releaseTimer?.unref()
+  }
+
+  private async tryAutoRelease(window: BrowserWindow, revision: number): Promise<void> {
+    const current = () => revision === this.releaseRevision && !this.isQuitting &&
+      !this.coreOnly && this.mainWindow === window && !window.isDestroyed() && !window.isVisible()
+    if (!current()) return
+    try {
+      // Preserve pending imports, editors and unsaved drafts in a hidden window.
+      const idle = this.ready && await window.webContents.executeJavaScript(
+        `!document.querySelector('[role="dialog"], [role="alertdialog"], [data-unsaved-changes="true"], [aria-busy="true"]')`
+      )
+      if (!current()) return
+      if (idle === true) this.setCoreOnlyMode(true)
+      else this.refreshAutoReleasePolicy(30_000)
+    } catch {
+      if (current()) this.refreshAutoReleasePolicy(30_000)
+    }
+  }
 
   constructor(settingService: SettingService, private themeStore?: ThemeStore) {
     this.settingService = settingService
@@ -59,6 +102,7 @@ export class WindowService implements BaseService {
 
   setCoreOnlyMode(enabled: boolean): void {
     if (this.isQuitting || this.coreOnly === enabled) return
+    this.cancelAutoRelease()
     this.coreOnly = enabled
     if (enabled) {
       this.logBatcher.clear()
@@ -89,6 +133,7 @@ export class WindowService implements BaseService {
   }
 
   async dispose(): Promise<void> {
+    this.cancelAutoRelease()
     this.logBatcher.clear()
     nativeTheme.removeListener('updated', this.updateTheme)
     this.isQuitting = true
@@ -99,6 +144,7 @@ export class WindowService implements BaseService {
 
   setQuitting(val: boolean): void {
     this.isQuitting = val
+    if (val) this.cancelAutoRelease()
   }
 
   getMainWindow(): BrowserWindow | null {
@@ -141,6 +187,7 @@ export class WindowService implements BaseService {
   }
 
   async createWindow(): Promise<BrowserWindow> {
+    this.cancelAutoRelease()
     this.logBatcher.clear()
     this.imports.resetRenderer()
     this.ready = false
@@ -213,7 +260,7 @@ export class WindowService implements BaseService {
     this.mainWindow.on('ready-to-show', () => {
       logger.info('Main window ready-to-show event fired')
       this.ready = true
-      if (this.startHidden) return
+      if (this.startHidden) { this.refreshAutoReleasePolicy(); return }
       this.show()
     })
 
@@ -250,9 +297,12 @@ export class WindowService implements BaseService {
     this.mainWindow.on('hide', () => {
       this.broadcast(IPC_CHANNELS.EVENT_WINDOW_VISIBILITY, false)
       this.visibilityHandler?.(false)
+      this.hiddenSince ??= Date.now()
+      this.refreshAutoReleasePolicy()
     })
 
     this.mainWindow.on('show', () => {
+      this.cancelAutoRelease()
       this.broadcast(IPC_CHANNELS.EVENT_WINDOW_VISIBILITY, true)
       this.visibilityHandler?.(true)
     })
@@ -317,6 +367,7 @@ export class WindowService implements BaseService {
 
   show(): void {
     if (this.isQuitting) return
+    this.cancelAutoRelease()
     if (this.coreOnly) {
       this.coreOnly = false
       this.modeChanged?.()

@@ -30,7 +30,10 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
     const networkModeController = new types.NetworkModeController(settingService, kernelService, sysProxyService,
       async settings => { await desktopService?.applySettings(settings) },
       general => {
-        if (general) windowService.updateTheme()
+        if (general) {
+          windowService.updateTheme()
+          windowService.refreshAutoReleasePolicy?.()
+        }
         windowService.broadcast('event:settings-changed', null)
         trayService?.updateContextMenu()
       })

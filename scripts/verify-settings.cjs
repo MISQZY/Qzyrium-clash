@@ -318,6 +318,12 @@ async function verifyMigration() {
   await assert.rejects(settings.updateSettings({ general: { customLocalizations: [pack, pack] } }))
   await assert.rejects(settings.updateSettings({ general: { customLocalization: 'missing' } }))
   await assert.rejects(settings.updateSettings({ general: { customLocalizations: [{ ...pack, locale: '!bad' }] } }))
+  assert.equal(settings.getSettings().general.autoReleaseWindow, false, 'automatic release is opt-in after migration')
+  await settings.updateSettings({ general: { autoReleaseWindow: true, autoReleaseWindowMinutes: 7 } })
+  assert.equal(settings.getSettings().general.autoReleaseWindowMinutes, 7)
+  for (const minutes of [0, -1, 1441, 1.5, NaN]) {
+    await assert.rejects(settings.updateSettings({ general: { autoReleaseWindowMinutes: minutes } }))
+  }
 }
 
 function verifyWindowKeys() {

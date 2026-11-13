@@ -186,6 +186,11 @@ export const generalFields: SettingsField[] = [
     'Close active connections immediately when selecting another proxy.',
     'Принудительно закрывать активные соединения при смене прокси-узла.'
   )),
+  field('autoReleaseWindow', 'Free the interface while in tray', 'Освобождать интерфейс в трее', 'boolean', desc(
+    'Close the hidden interface after a delay to free memory. The core and tray keep running. Open editors and unsaved settings postpone this.',
+    'Закрывать скрытый интерфейс через заданное время для освобождения памяти. Ядро и трей продолжают работать. Открытые редакторы и несохранённые настройки откладывают закрытие.'
+  )),
+  field('autoReleaseWindowMinutes', 'Free interface after (minutes)', 'Освобождать интерфейс через (минут)', 'number', { min: 1, max: 1440 }),
   field('connectionInterval', 'Connections refresh interval (ms)', 'Интервал обновления соединений (мс)', 'number', { min: 500, max: 60000 }),
   field('maxLogs', 'Log entries kept in memory', 'Количество записей журнала в памяти', 'number', { min: 100, max: 10000 }),
   field('delayTestUrl', 'Latency test URL', 'URL проверки задержки', 'text'),

@@ -26,9 +26,10 @@ class FixtureWindow extends EventEmitter {
     getZoomFactor: () => this.zoomFactor ?? 1,
     setZoomFactor: factor => { this.zoomFactor = factor },
     messages: [],
+    executeJavaScript: async () => true,
     send(channel, ...args) { this.messages.push({ channel, args }) }, setWindowOpenHandler() {}
   })
-  isDestroyed() { return false }
+  isDestroyed() { return !!this.destroyed }
   getContentSize() { return [this.options.width, this.options.height] }
   nativeHooks = new Map()
   hookWindowMessage(message, handler) { this.nativeHooks.set(message, handler) }
@@ -44,6 +45,7 @@ class FixtureWindow extends EventEmitter {
   setTitleBarOverlay() {}
   hide() { this.visible = false; this.emit('hide') }
   destroy() { this.visible = false; this.destroyed = true }
+  close() { this.destroy() }
   show() { this.visible = true; this.emit('show') }
   showInactive() { this.show() }
   focus() {}
@@ -68,12 +70,26 @@ const code = ts.transpileModule(fs.readFileSync('src/main/services/WindowService
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
 }).outputText
 const exportsObject = {}
+const timers = new Map()
 vm.runInNewContext(code, {
   exports: exportsObject,
   require: name => dependencies[name] ?? require(name),
   process: { platform: 'linux', env: {} },
-  __dirname, setImmediate, setTimeout() {}
+  __dirname, setImmediate, Date: class extends Date { static now() { return clock } },
+  setTimeout(callback, delay) {
+    const timer = { at: clock + delay, unref() {} }
+    timers.set(timer, callback)
+    return timer
+  },
+  clearTimeout(timer) { timers.delete(timer) }
 })
+async function advance(milliseconds) {
+  clock += milliseconds
+  for (const [timer, callback] of [...timers]) {
+    if (timer.at <= clock) { timers.delete(timer); callback() }
+  }
+  await new Promise(resolve => setImmediate(resolve))
+}
 
 ;(async () => {
   for (const minimizeToTray of [false, true]) {
@@ -195,5 +211,52 @@ vm.runInNewContext(code, {
   assert.equal(current.webContents.messages.find(message => message.channel === 'import').args[0].id, request.id)
   imports.completeProfileImport(request.id)
   assert.equal(current.webContents.messages.filter(message => message.channel === 'import').length, 2)
+  const general = { autoReleaseWindow: true, autoReleaseWindowMinutes: 1 }
+  const auto = new exportsObject.WindowService({ getSettings: () => ({ general }) })
+  let window = await auto.createWindow()
+  window.emit('ready-to-show')
+  window.hide()
+  await advance(59_999)
+  assert.equal(window.isDestroyed(), false, 'renderer survives until the configured delay')
+  auto.show()
+  await advance(1)
+  assert.equal(window.isDestroyed(), false, 'show cancels the hidden-window timer')
+  window.hide()
+  await advance(60_000)
+  assert.equal(window.isDestroyed(), true, 'hidden renderer is freed at the deadline')
+  assert.equal(auto.isCoreOnlyMode(), true)
+  auto.show()
+  window = auto.getMainWindow()
+  window.emit('ready-to-show')
+  assert.equal(window.isVisible(), true, 'tray activation recreates and reveals the interface')
+  window.webContents.executeJavaScript = async () => false
+  window.hide()
+  await advance(60_000)
+  assert.equal(window.isDestroyed(), false, 'editors and unsaved settings postpone release')
+  window.webContents.executeJavaScript = async () => true
+  await advance(30_000)
+  assert.equal(window.isDestroyed(), true, 'release retries after the interface becomes idle')
+  auto.show()
+  window = auto.getMainWindow()
+  window.emit('ready-to-show')
+  window.hide()
+  general.autoReleaseWindow = false
+  auto.refreshAutoReleasePolicy()
+  await advance(60_000)
+  assert.equal(window.isDestroyed(), false, 'disabling the setting cancels pending release')
+  general.autoReleaseWindow = true
+  auto.refreshAutoReleasePolicy()
+  let resolveIdle
+  window.webContents.executeJavaScript = () => new Promise(resolve => { resolveIdle = resolve })
+  await advance(60_000)
+  auto.show()
+  resolveIdle(true)
+  await advance(0)
+  assert.equal(window.isDestroyed(), false, 'a stale idle response cannot destroy a reopened window')
+  window.hide()
+  auto.setQuitting(true)
+  await advance(60_000)
+  assert.equal(window.isDestroyed(), false, 'shutdown cancels automatic release')
   console.log('PASS: window presentation, close modes and queued imports across core-only renderer recreation')
+  console.log('PASS: automatic release deadline, show cancellation, dirty/editor postponement, retry, disable and stale idle responses')
 })().catch(error => { console.error(error); process.exitCode = 1 })

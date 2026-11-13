@@ -25,6 +25,8 @@ export interface AppConfig {
     silentStart?: boolean
     disableGpu?: boolean
     lowMemoryMode?: boolean
+    autoReleaseWindow?: boolean
+    autoReleaseWindowMinutes?: number
     autoCloseConnection?: boolean
     connectionInterval?: number
     maxLogs?: number
@@ -106,6 +108,8 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     silentStart: false,
     disableGpu: false,
     lowMemoryMode: false,
+    autoReleaseWindow: false,
+    autoReleaseWindowMinutes: 5,
     autoCloseConnection: false,
     connectionInterval: 2000,
     maxLogs: 300,

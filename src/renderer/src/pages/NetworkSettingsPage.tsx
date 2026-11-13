@@ -232,7 +232,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
       </Card>
     )}
     {section === 'settings' && <SettingsNetworkLinks draft={draft} settings={settings} sysProxy={sysProxy} busy={busy} onSaveSettings={onSaveSettings} onNavigate={onNavigate} />}
-    <form onInvalidCapture={(event) => {
+    <form data-unsaved-changes={dirty} onInvalidCapture={(event) => {
       // Reveal invalid fields before the browser attempts to focus them.
       let disclosure = (event.target as HTMLElement).closest('details')
       while (disclosure) {

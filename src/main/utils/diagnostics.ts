@@ -49,7 +49,7 @@ function settingsSummary(config: AppConfig): object {
   const keys = ['autoStart', 'autoConnect', 'closeAction', 'silentStart', 'disableGpu', 'lowMemoryMode', 'liteDashboard',
     'reconnectAfterSleep', 'resumeDelaySeconds', 'autoRestartCore', 'coreRestartDelaySeconds', 'coreRestartMaxAttempts',
     'autoUpdateProfiles', 'profileUpdateInterval', 'updateProfilesOnStart', 'profileStartupMaxAgeHours',
-    'connectionInterval', 'maxLogs', 'delayTestTimeout', 'delayTestConcurrency',
+    'connectionInterval', 'maxLogs', 'autoReleaseWindow', 'autoReleaseWindowMinutes', 'delayTestTimeout', 'delayTestConcurrency',
     'appLogEnabled', 'appLogMaxSizeMb', 'appLogArchives', 'appLogRetentionDays',
     'connectionLogEnabled', 'connectionLogMaxSizeMb', 'connectionLogArchives', 'connectionLogRetentionDays'] as const
   return {
