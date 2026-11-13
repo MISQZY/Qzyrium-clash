@@ -36,6 +36,7 @@ win:
     - portable
   artifactName: Qzyrium-clash_${version}_${arch}.${ext}
 nsis:
+  shortcutName: Qzyrium Clash
   artifactName: Qzyrium-clash_${version}_${arch}_setup.${ext}
   uninstallDisplayName: ${productName}
   allowToChangeInstallationDirectory: true
