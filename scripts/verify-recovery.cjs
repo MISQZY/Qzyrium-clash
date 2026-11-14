@@ -80,14 +80,19 @@ async function verifyPersistenceAndProfiles() {
   await profiles.initialize()
   const profile = await profiles.addProfile({ type: 'remote', url: 'https://fixture.invalid/sub', name: 'Working' })
   const original = await profiles.getProfileContent(profile.id)
-  response = '<html>expired</html>'
-  await assert.rejects(profiles.updateProfile(profile.id))
+  response = '<html>private-response-token</html>'
+  await assert.rejects(profiles.updateProfile(profile.id), error => {
+    assert.equal(error.code, 'format')
+    assert.equal(error.cause, undefined)
+    assert.ok(!error.stack.includes('private-response-token'))
+    return true
+  })
   assert.equal(await profiles.getProfileContent(profile.id), original)
   // The object is valid YAML, but Mihomo must reject its invalid schema before replacement.
   await assert.rejects(profiles.saveProfileContent(profile.id, 'proxies: 123\nrules: [MATCH,DIRECT]'))
   assert.equal(await profiles.getProfileContent(profile.id), original)
   const before = profiles.getProfiles().length
-  await assert.rejects(profiles.addProfile({ type: 'remote', url: 'https://fixture.invalid/bad' }))
+  await assert.rejects(profiles.addProfile({ type: 'remote', url: 'https://fixture.invalid/bad' }), { code: 'format' })
   assert.equal(profiles.getProfiles().length, before)
   response = 'rules:\n  - DOMAIN,example.com,DIRECT\n  - MATCH,DIRECT\n'
   await profiles.updateProfile(profile.id)

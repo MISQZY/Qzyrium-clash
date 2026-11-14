@@ -5,6 +5,7 @@ import { subscriptionUserAgent, type AppConfig } from '@shared/app-config'
 import { parseSubscriptionMetadata } from '../utils/subscription-metadata'
 import { isAllowedSubscriptionAddress, isValidRemoteSubscriptionUrl, subscriptionHostname } from '../utils/subscription-url'
 import { resolveSubscription, withinSubscriptionDeadline, type ResolveSubscription } from './SubscriptionResolver'
+import { SubscriptionDownloadError, type SubscriptionFailure } from '../utils/subscription-error'
 
 const REDIRECTS = new Set([301, 302, 303, 307, 308])
 
@@ -13,22 +14,26 @@ export class SubscriptionClient {
     private options: { resolve?: ResolveSubscription; timeoutMs?: number } = {}) {}
 
   async download(url: string, userAgent?: string, updateViaProxy?: boolean) {
-    if (!isValidRemoteSubscriptionUrl(url)) throw new Error('Invalid remote subscription URL scheme')
     const settings = this.settings()
+    const fail = (code: SubscriptionFailure) => new SubscriptionDownloadError(code, settings.general)
+    if (!isValidRemoteSubscriptionUrl(url)) throw fail('url')
     if (updateViaProxy && !this.isCoreRunning()) {
-      throw new Error('Start the VPN core before downloading a subscription through proxy')
+      throw fail('proxy')
     }
     const signal = AbortSignal.timeout(this.options.timeoutMs ?? 15_000)
     let target = new URL(url)
+    let phase: 'dns' | 'network' = 'dns'
     try {
       for (let redirects = 0; ; redirects++) {
-        if (!isValidRemoteSubscriptionUrl(target.href)) throw new Error('Invalid subscription destination')
+        if (!isValidRemoteSubscriptionUrl(target.href)) throw fail('blocked')
         const hostname = subscriptionHostname(target.hostname)
+        phase = 'dns'
         const addresses = await withinSubscriptionDeadline(
           (this.options.resolve ?? resolveSubscription)(hostname, settings, !!updateViaProxy, signal), signal)
-        if (!addresses.length || addresses.some(({ address, family }) =>
+        if (!addresses.length) throw fail('dns')
+        if (addresses.some(({ address, family }) =>
           isIP(address) !== family || !isAllowedSubscriptionAddress(address))) {
-          throw new Error('Invalid subscription DNS destination')
+          throw fail('blocked')
         }
         const pinned = new URL(target.href)
         if (updateViaProxy) {
@@ -38,6 +43,7 @@ export class SubscriptionClient {
         const httpsAgent = target.protocol === 'https:'
           ? new Agent({ servername: isIP(hostname) ? undefined : hostname, keepAlive: false }) : undefined
         let response
+        phase = 'network'
         try {
           response = await axios.get<unknown>(pinned.href, {
             timeout: this.options.timeoutMs ?? 15_000, signal,
@@ -54,17 +60,26 @@ export class SubscriptionClient {
           const content = typeof response.data === 'string' ? response.data : JSON.stringify(response.data)
           return { content, ...parseSubscriptionMetadata(response.headers, content) }
         }
-        if (redirects >= 5 || typeof response.headers.location !== 'string') throw new Error('Invalid subscription redirect')
-        const next = new URL(response.headers.location, target)
-        if (target.protocol === 'https:' && next.protocol !== 'https:') throw new Error('Unsafe subscription redirect')
+        if (redirects >= 5 || typeof response.headers.location !== 'string') throw fail('redirect')
+        let next: URL
+        try { next = new URL(response.headers.location, target) } catch { throw fail('redirect') }
+        if (target.protocol === 'https:' && next.protocol !== 'https:') throw fail('blocked')
         target = next
       }
     } catch (error: unknown) {
+      if (error instanceof SubscriptionDownloadError) throw error
       // Axios errors can carry the full URL, auth headers and request config.
-      const status = (error as { response?: { status?: unknown } } | null)?.response?.status
-      // eslint-disable-next-line preserve-caught-error -- The original cause may contain credentials.
-      throw new Error(`Subscription download failed${typeof status === 'number' && Number.isInteger(status)
-        && status >= 100 && status <= 599 ? ` (HTTP ${status})` : ''}`)
+      const detail = error as { code?: string; response?: { status?: unknown }; message?: unknown } | null
+      const status = detail?.response?.status
+      if (signal.aborted || ['ECONNABORTED', 'ETIMEDOUT', 'ERR_CANCELED'].includes(detail?.code ?? '')) throw fail('timeout')
+      if (typeof status === 'number' && Number.isInteger(status) && status >= 400 && status <= 599) {
+        throw new SubscriptionDownloadError('http', settings.general, status)
+      }
+      const code = detail?.code ?? ''
+      if (/^(?:ERR_TLS_|CERT_|ERR_SSL_)/.test(code) || ['DEPTH_ZERO_SELF_SIGNED_CERT', 'SELF_SIGNED_CERT_IN_CHAIN', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY'].includes(code)) throw fail('tls')
+      // Axios does not expose a separate error code for maxContentLength.
+      if (code === 'ERR_BAD_RESPONSE' && typeof detail?.message === 'string' && detail.message.startsWith('maxContentLength size of ')) throw fail('size')
+      throw fail(phase === 'dns' || ['ENOTFOUND', 'EAI_AGAIN'].includes(code) ? 'dns' : 'network')
     }
   }
 }

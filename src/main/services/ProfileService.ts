@@ -10,6 +10,7 @@ import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import type { SettingService } from './SettingService'
 import { DEFAULT_APP_CONFIG } from '@shared/app-config'
 import { prepareProfileContent, validateProfileContent } from '../utils/profile-validator'
+import { SubscriptionDownloadError } from '../utils/subscription-error'
 
 export class ProfileService implements BaseService {
   private activeProfileId: string | null = null
@@ -90,9 +91,22 @@ export class ProfileService implements BaseService {
     return true
   }
 
-  async saveProfileContent(id: string, content: string): Promise<boolean> {
+  async saveProfileContent(id: string, content: string, downloaded = false): Promise<boolean> {
     return this.repository.saveContent(id, content, profile =>
-      validateProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG, profile.customRules))
+      this.validateContent(content, profile.customRules, downloaded))
+  }
+
+  private async validateContent(content: string, rules?: CustomRuleItem[], downloaded = false): Promise<void> {
+    const settings = this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG
+    try { await validateProfileContent(content, settings, rules) }
+    catch (error) {
+      if (downloaded) {
+        const cause = (error as { cause?: { code?: string; killed?: boolean } } | null)?.cause
+        const unavailable = cause?.killed || ['ENOENT', 'EACCES', 'EPERM', 'ETIMEDOUT'].includes(cause?.code ?? '')
+        throw new SubscriptionDownloadError(unavailable ? 'validation' : 'format', settings.general)
+      }
+      throw error
+    }
   }
 
   async updateProfileInfo(id: string, patch: ProfileInfoPatch): Promise<ProfileItem> {
@@ -147,7 +161,7 @@ export class ProfileService implements BaseService {
         await this.subscriptions.download(targetUrl, undefined, dto.updateViaProxy))
     }
 
-    await validateProfileContent(content, this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG)
+    await this.validateContent(content, undefined, dto.type === 'remote')
 
     const item: ProfileItem = {
       id,
@@ -189,7 +203,7 @@ export class ProfileService implements BaseService {
         await this.subscriptions.download(item.url, item.customUA, item.updateViaProxy)
       // A subscription can be removed while its download is in flight.
       if (!this.repository.get(id)) return false
-      const changed = await this.saveProfileContent(id, content)
+      const changed = await this.saveProfileContent(id, content, true)
       await this.repository.update(id, current => {
         current.lastFetchedAt = Date.now()
         if (userInfo) current.userInfo = userInfo

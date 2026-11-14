@@ -192,7 +192,9 @@ async function verifyProfiles() {
   const failedUpdate = profiles.updateProfile('a')
   assert.equal(profiles.updateProfile('a'), failedUpdate, 'service consumers must share pending updates too')
   await assert.rejects(failedUpdate, error => {
-    assert.equal(error.message, 'Subscription download failed (HTTP 403)')
+    assert.equal(error.code, 'http')
+    assert.equal(error.httpStatus, 403)
+    assert.equal(error.message, load('src/shared/localization.ts', {}).nativeMessage('ru', 'subscriptionAccessDenied') + ' (HTTP 403)')
     assert.equal(error.config, undefined)
     assert.equal(error.cause, undefined)
     assert.ok(!error.stack.includes('private-token') && !error.stack.includes('private-path'))
@@ -283,14 +285,14 @@ async function verifyProfiles() {
   assert.deepEqual(requestProxies.at(-1), { host: '127.0.0.1', port: 7895, protocol: 'http' }, 'updates with updateViaProxy route through proxy tunnel')
     failFetch = true
     const beforeProxyFailure = fetches
-    await assert.rejects(profiles.updateProfile('a'), /download failed/)
+    await assert.rejects(profiles.updateProfile('a'), { code: 'http', httpStatus: 403 })
     assert.equal(fetches, beforeProxyFailure + 1, 'proxy failure must never retry directly')
     assert.deepEqual(requestProxies.at(-1), { host: '127.0.0.1', port: 7895, protocol: 'http' })
     failFetch = false
     profiles.setCoreStatusProvider(() => false)
     const beforeOffline = fetches
-    await assert.rejects(profiles.updateProfile('a'), /Start the VPN core/)
-    await assert.rejects(profiles.addProfile({ type: 'remote', url: 'https://provider.example/sub', updateViaProxy: true }), /Start the VPN core/)
+    await assert.rejects(profiles.updateProfile('a'), { code: 'proxy' })
+    await assert.rejects(profiles.addProfile({ type: 'remote', url: 'https://provider.example/sub', updateViaProxy: true }), { code: 'proxy' })
     assert.equal(fetches, beforeOffline, 'stopped core must not send a subscription request')
   await profiles.updateProfileInfo('a', { updateViaProxy: false })
   await profiles.updateProfile('a')

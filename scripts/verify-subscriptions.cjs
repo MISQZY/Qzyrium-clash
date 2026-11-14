@@ -45,7 +45,7 @@ async function verifyTransportPolicy() {
   for (const viaProxy of [false, true]) {
     for (const bad of ['127.0.0.2', '::ffff:127.0.0.1', '169.254.169.254']) {
       const fixture = clientFixture(undefined, async () => [...good, { address: bad, family: bad.includes(':') ? 6 : 4 }])
-      await assert.rejects(fixture.client.download('https://provider.invalid/sub', undefined, viaProxy), /download failed/)
+      await assert.rejects(fixture.client.download('https://provider.invalid/sub', undefined, viaProxy), { code: 'blocked' })
       assert.equal(fixture.requests.length, 0, 'reject mixed DNS answers before opening a connection')
     }
     const fixture = clientFixture()
@@ -73,21 +73,21 @@ async function verifyTransportPolicy() {
   for (const location of ['http://127.0.0.2/private', 'https://[::ffff:127.0.0.1]/sub',
     'https://localhost./sub', 'file:///private', 'http://provider.invalid/downgrade']) {
     const fixture = clientFixture(() => ({ status: 302, headers: { location } }))
-    await assert.rejects(fixture.client.download('https://provider.invalid/sub'), /download failed/)
+    await assert.rejects(fixture.client.download('https://provider.invalid/sub'), { code: 'blocked' })
     assert.equal(fixture.requests.length, 1, location)
   }
   const rebound = clientFixture(() => ({ status: 302, headers: { location: '/next' } }),
     async () => rebound.resolutions.length === 1 ? good : [{ address: '127.0.0.2', family: 4 }])
-  await assert.rejects(rebound.client.download('https://provider.invalid/sub'), /download failed/)
+  await assert.rejects(rebound.client.download('https://provider.invalid/sub'), { code: 'blocked' })
   assert.equal(rebound.requests.length, 1, 'DNS rebinding at a later hop never opens the second connection')
   const loop = clientFixture(() => ({ status: 301, headers: { location: '/loop' } }))
-  await assert.rejects(loop.client.download('https://provider.invalid/sub'), /download failed/)
+  await assert.rejects(loop.client.download('https://provider.invalid/sub'), { code: 'redirect' })
   assert.equal(loop.requests.length, 6, 'at most five redirects')
   const { SubscriptionClient } = load('src/main/core/SubscriptionClient.ts')
   const stopped = new SubscriptionClient(() => defaults, () => false)
-  await assert.rejects(stopped.download('https://provider.invalid/sub', undefined, true), /Start the VPN core/)
+  await assert.rejects(stopped.download('https://provider.invalid/sub', undefined, true), { code: 'proxy' })
   const timeout = new SubscriptionClient(() => defaults, () => true, { resolve: () => new Promise(() => {}), timeoutMs: 20 })
-  await Promise.all([assert.rejects(timeout.download('https://provider.invalid/sub'), /download failed/),
+  await Promise.all([assert.rejects(timeout.download('https://provider.invalid/sub'), { code: 'timeout' }),
     new Promise(resolve => setTimeout(resolve, 40))])
 }
 
@@ -180,9 +180,9 @@ async function verifyRealProxyTransport() {
     assert.equal(requests[0].url, 'http://203.0.113.12/sub', 'HTTP proxy receives a pinned destination')
     assert.equal(requests[0].host, 'provider.invalid', 'virtual host remains the provider')
     assert.equal(requests[0].authorization, undefined, 'controller credential never reaches the provider')
-    await assert.rejects(client.download('http://provider.invalid/redirect', undefined, true), /download failed/)
+    await assert.rejects(client.download('http://provider.invalid/redirect', undefined, true), { code: 'blocked' })
     assert.equal(requests.length, 2, 'unsafe redirect never reaches proxy')
-    await assert.rejects(client.download('https://provider.invalid/sub', undefined, true), /download failed/)
+    await assert.rejects(client.download('https://provider.invalid/sub', undefined, true), error => error.name === 'SubscriptionDownloadError')
     assert.equal(connects[0], '203.0.113.12:443', 'HTTPS CONNECT uses the pinned destination')
     assert.equal(sni, 'provider.invalid', 'real TLS ClientHello carries the original server name')
   } finally {
@@ -191,6 +191,38 @@ async function verifyRealProxyTransport() {
   }
 }
 
-Promise.resolve().then(verifyTransportPolicy).then(verifyResolver).then(verifyRealProxyTransport)
+async function verifySafeErrors() {
+  const privateText = 'https://user:private-password@provider.invalid/private-path?token=private-token'
+  const { nativeMessage } = load('src/shared/localization.ts')
+  for (const [failure, category, key] of [
+    [{ code: 'ENOTFOUND' }, 'dns', 'subscriptionDnsFailed'],
+    [{ code: 'CERT_HAS_EXPIRED' }, 'tls', 'subscriptionTlsFailed'],
+    [{ code: 'ECONNABORTED' }, 'timeout', 'subscriptionTimedOut'],
+    [{ code: 'ECONNREFUSED' }, 'network', 'subscriptionNetworkFailed'],
+    [{ response: { status: 403, data: privateText } }, 'http', 'subscriptionAccessDenied'],
+    [{ response: { status: 503, data: privateText } }, 'http', 'subscriptionHttpFailed'],
+    [{ code: 'ERR_BAD_RESPONSE', message: 'maxContentLength size of 15728640 exceeded' }, 'size', 'subscriptionTooLarge']
+  ]) {
+    for (const language of ['en', 'ru']) {
+      const { SubscriptionClient } = load('src/main/core/SubscriptionClient.ts', {
+        axios: { get: async () => { throw Object.assign(new Error(privateText), failure, { config: { url: privateText } }) } }
+      })
+      const client = new SubscriptionClient(() => ({ ...defaults, general: { ...defaults.general, language } }), () => true, { resolve: async () => good })
+      await assert.rejects(client.download(privateText), error => {
+        assert.equal(error.code, category)
+        const status = failure.response?.status
+        assert.equal(error.message, nativeMessage(language, key) + (status ? ` (HTTP ${status})` : ''))
+        assert.equal(error.cause, undefined); assert.equal(error.config, undefined)
+        assert.ok(!JSON.stringify(error).includes('private-') && !error.stack.includes('private-'))
+        return true
+      })
+    }
+  }
+  const dns = clientFixture(undefined, async () => { throw new Error(privateText) })
+  await assert.rejects(dns.client.download('https://provider.invalid/sub'), { code: 'dns' })
+  await assert.rejects(dns.client.download('not-a-url'), { code: 'url' })
+}
+
+Promise.resolve().then(verifyTransportPolicy).then(verifyResolver).then(verifyRealProxyTransport).then(verifySafeErrors)
   .then(() => console.log('PASS: subscription URL/DNS/redirect policy, pinned proxy destinations, original Host/TLS SNI, bounded deadline and safe errors'))
   .catch(error => { console.error(error); process.exitCode = 1 })
