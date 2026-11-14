@@ -1,3 +1,12 @@
+export type ProviderKind = 'proxies' | 'rules'
+
+export interface ProviderSummary {
+  name: string
+  vehicleType: string
+  updatedAt?: string
+  itemCount: number
+}
+
 export interface ProxyNodeHistory {
   time: string
   delay: number

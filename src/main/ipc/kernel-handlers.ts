@@ -1,6 +1,7 @@
 import { IPC_CHANNELS } from '@shared/ipc'
 import type { ServiceManager } from '../services/ServiceManager'
 import type { TrustedRegistrar } from './trusted-handler'
+import type { ProviderKind } from '@shared/mihomo'
 
 export function registerKernelHandlers(
   handle: TrustedRegistrar,
@@ -41,6 +42,9 @@ export function registerKernelHandlers(
   handle(IPC_CHANNELS.MIHOMO_GET_PROXIES, async () => {
     return await services.kernelService.getProxies()
   })
+
+  handle(IPC_CHANNELS.MIHOMO_GET_PROVIDERS, (_, kind: ProviderKind) => services.kernelService.getProviders(kind))
+  handle(IPC_CHANNELS.MIHOMO_UPDATE_PROVIDER, (_, kind: ProviderKind, name: string) => services.kernelService.updateProvider(kind, name))
 
   handle(IPC_CHANNELS.MIHOMO_SELECT_PROXY, async (_, group: string, proxy: string) => {
     await services.kernelService.selectProxy(group, proxy)

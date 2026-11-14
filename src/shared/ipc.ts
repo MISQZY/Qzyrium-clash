@@ -1,5 +1,5 @@
 import { AppConfig } from './app-config'
-import { ConnectionsSnapshot, MihomoRule, ProxyNode } from './mihomo'
+import { ConnectionsSnapshot, MihomoRule, ProxyNode, ProviderKind, ProviderSummary } from './mihomo'
 import { ProfileItem, CustomRuleItem, ProfileInfoPatch } from './profile'
 import { CoreState, LogEntry, MihomoVersion, TrafficStats } from './types'
 import type { GlobeLocations } from './geo'
@@ -20,6 +20,8 @@ export const IPC_CHANNELS = {
   MIHOMO_GET_CONFIGS: 'mihomo:get-configs',
   MIHOMO_PATCH_CONFIGS: 'mihomo:patch-configs',
   MIHOMO_GET_PROXIES: 'mihomo:get-proxies',
+  MIHOMO_GET_PROVIDERS: 'mihomo:get-providers',
+  MIHOMO_UPDATE_PROVIDER: 'mihomo:update-provider',
   MIHOMO_SELECT_PROXY: 'mihomo:select-proxy',
   MIHOMO_TEST_DELAY: 'mihomo:test-delay',
   MIHOMO_GET_RULES: 'mihomo:get-rules',
@@ -136,6 +138,8 @@ export interface IElectronApi {
     getConfigs: () => Promise<Record<string, unknown>>
     patchConfigs: (patch: Record<string, unknown>) => Promise<void>
     getProxies: () => Promise<Record<string, ProxyNode>>
+    getProviders: (kind: ProviderKind) => Promise<ProviderSummary[]>
+    updateProvider: (kind: ProviderKind, name: string) => Promise<void>
     selectProxy: (group: string, proxy: string) => Promise<void>
     testDelay: (name: string, url?: string, timeout?: number) => Promise<number>
     getRules: (scope?: 'summary') => Promise<MihomoRule[]>

@@ -31,7 +31,8 @@ if (process.type === 'renderer') {
   const rules = Array.from({ length: 210 }, (_, i) => ({ type: i % 2 ? 'DomainSuffix' : 'IPCIDR', payload: i % 2 ? `service-${i}.example.com` : `10.${i}.0.0/16`, proxy: 'PROXY' }))
   let connections = Array.from({ length: 8 }, (_, i) => ({ id: String(i), metadata: { network: 'tcp', type: 'HTTP', sourceIP: '127.0.0.1', destinationIP: '203.0.113.1', sourcePort: '51234', destinationPort: '443', host: i ? `service-${i}.example.com` : 'a-very-long-hostname-'.repeat(12) + '.example.com', processPath: 'C:\\Program Files\\Example\\browser.exe', dnsMode: 'normal' }, upload: 12345, download: 12345678, start: new Date().toISOString(), chains: [Object.keys(nodes)[0], 'PROXY'], rule: 'DomainSuffix', rulePayload: 'example.com' }))
   const noop = async () => {}
-  contextBridge.exposeInMainWorld('api', {
+  const providerCalls = []
+  const api = {
     uiTest: { setConfigFile: (content) => { configFile = content === null ? null : { name: 'fixture.json', content } }, getSavedConfig: () => savedConfig, emitLogs: (count) => { for (let i = 0; i < count; i++) logCallback?.({ type: 'info', payload: `Journal regression ${Date.now()} ${i} ` + 'payload '.repeat(40), time: new Date().toISOString(), source: 'mihomo' }) }, increaseTraffic: () => { connections = connections.map(c => ({ ...c, download: c.download + 4096 })) } },
     theme: {
       getCustomThemes: async () => customThemes,
@@ -52,7 +53,11 @@ if (process.type === 'renderer') {
       exportDiagnostics: async () => { maintenanceCalls.push('diagnostics'); return true },
       getMaintenanceCalls: async () => maintenanceCalls },
     events: { onTraffic: (cb) => { trafficCallback = cb; const timer = setInterval(() => cb(state === 'running' ? { up: 12345, down: 4567890 } : { up: 0, down: 0 }), 100); return () => { clearInterval(timer); trafficCallback = undefined } }, onCoreStatus: (cb) => { statusCallback = cb; return () => { statusCallback = undefined } }, onLog: (cb) => { logCallback = cb; const timer = setTimeout(() => { for (let i = 0; i < 30; i++) cb({ type: i % 3 ? 'info' : 'warn', payload: `Connection ${i} to service.example.com ` + 'long-payload-'.repeat(30), time: '12:34:56' }) }, 300); return () => clearTimeout(timer) } }
-  })
+  }
+  api.mihomo.getProviders = async kind => [{ name: kind === 'rules' ? 'Rule source' : 'Proxy source', vehicleType: 'HTTP', itemCount: 42, updatedAt: '2026-11-14T12:00:00Z' }]
+  api.mihomo.updateProvider = async (kind, name) => { providerCalls.push({ kind, name }) }
+  api.uiTest.getProviderCalls = () => providerCalls
+  contextBridge.exposeInMainWorld('api', api)
 } else {
   const assert = require('node:assert/strict')
   const output = path.resolve(__dirname, '../artifacts/ui-check')
@@ -213,6 +218,18 @@ if (process.type === 'renderer') {
       await waitFor(`${journal}.scrollHeight - ${journal}.clientHeight - ${journal}.scrollTop < 2`)
       assert.ok(await evaluate(`${journal}.scrollHeight - ${journal}.clientHeight - ${journal}.scrollTop < 2`), 'enabled autoscroll follows new entries')
       result.checks.push('Journal filter and autoscroll persist across navigation; scrolling stays off through buffer rollover')
+
+      for (const [page, kind, name] of [['Proxy groups', 'proxies', 'Proxy source'], ['Rules', 'rules', 'Rule source']]) {
+        await navigate(page)
+        assert.equal(await evaluate(`document.querySelector('details')?.open`), false, 'providers load only when expanded')
+        await evaluate(`document.querySelector('details summary').click()`)
+        await waitFor(`document.querySelector('details').textContent.includes('Items: 42')`)
+        await evaluate(`document.querySelector('button[aria-label="Update ${name}"]').click()`)
+        await waitFor(`document.querySelector('details [aria-busy]')?.getAttribute('aria-busy') === 'false'`)
+        const calls = await evaluate('window.api.uiTest.getProviderCalls()')
+        assert.deepEqual(calls.at(-1), { kind, name })
+      }
+      result.checks.push('Proxy and rule provider panels show metadata and update their selected source')
 
       await navigate('Connections')
       await waitFor(`!!document.querySelector('[data-traffic="download"]')`)

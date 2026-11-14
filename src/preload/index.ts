@@ -55,6 +55,8 @@ const api: IElectronApi = {
     getConfigs: () => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_CONFIGS),
     patchConfigs: (patch) => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_PATCH_CONFIGS, patch),
     getProxies: () => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_PROXIES),
+    getProviders: (kind) => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_PROVIDERS, kind),
+    updateProvider: (kind, name) => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_UPDATE_PROVIDER, kind, name),
     selectProxy: (group, proxy) =>
       ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_SELECT_PROXY, group, proxy),
     testDelay: (name, url, timeout) =>

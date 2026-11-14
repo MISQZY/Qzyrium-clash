@@ -28,6 +28,7 @@ import type { ProxyGroup } from '@shared/mihomo'
 import { offlineProxies } from '../utils/offline-proxies'
 import { flushSystemDns } from '../utils/network-transition'
 import { summarizeRules } from '@shared/rules'
+import type { ProviderKind, ProviderSummary } from '@shared/mihomo'
 import fs from 'node:fs/promises'
 import axios from 'axios'
 import { writeFileAtomicAsync } from '../utils/atomicWrite'
@@ -389,10 +390,28 @@ export class KernelService implements BaseService {
       // Selection restoration must not turn an applied configuration into a failed reload.
       await restoreProxySelection(activeProfile, this.apiClient)
         .catch(error => logger.warn(`Could not restore proxy selections after config reload: ${String(error)}`))
+      this.broadcaster?.(IPC_CHANNELS.EVENT_SETTINGS_CHANGED, null)
     })
   }
 
   // Proxied Mihomo API calls
+  async getProviders(kind: ProviderKind): Promise<ProviderSummary[]> {
+    if (this.getStatus() !== 'running') return []
+    return this.apiClient.getProviders(kind)
+  }
+
+  async updateProvider(kind: ProviderKind, name: string): Promise<void> {
+    return this.enqueueLifecycle(async () => {
+      if (this.getStatus() !== 'running') throw new Error('Start the VPN core before updating providers')
+      const providers = await this.apiClient.getProviders(kind)
+      const provider = providers.find(item => item.name === name)
+      if (!provider || provider.vehicleType.toLowerCase() !== 'http') throw new Error('Provider cannot be updated remotely')
+      await this.apiClient.updateProvider(kind, name)
+      this.invalidateGlobe()
+      this.broadcaster?.(IPC_CHANNELS.EVENT_SETTINGS_CHANGED, null)
+    })
+  }
+
   async getConfigs(): Promise<Record<string, unknown>> {
     return this.apiClient.getConfigs()
   }

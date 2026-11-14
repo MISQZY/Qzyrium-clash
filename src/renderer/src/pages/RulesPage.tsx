@@ -8,6 +8,7 @@ import { Page } from '../components/Page'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
+import { ProvidersPanel } from '../components/ProvidersPanel'
 import { CopyableCodeLine } from '../components/CopyableCodeLine'
 
 export interface RulesPageProps {
@@ -15,13 +16,15 @@ export interface RulesPageProps {
   running: boolean
   busy: boolean
   onRefresh: () => void
+  profileId?: string
 }
 
 export function RulesPage({
   rules,
   running,
   busy,
-  onRefresh
+  onRefresh,
+  profileId
 }: RulesPageProps) {
   const t = useTranslations('rules')
 
@@ -65,6 +68,7 @@ export function RulesPage({
         </Button>
       }
     >
+      <ProvidersPanel key={profileId} kind="rules" running={running} onUpdated={onRefresh} />
       {/* Search and Type Filter */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="relative min-w-48 sm:min-w-64">

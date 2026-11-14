@@ -65,6 +65,10 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
     // Route kernel broadcasts to renderer via WindowService
     kernelService.setBroadcaster((channel, data) => {
       windowService.broadcast(channel, data)
+      if (channel === 'event:settings-changed') {
+        void trayService.refreshProxies().then(() => trayService.updateContextMenu())
+          .catch(error => logger.error('Failed to refresh tray proxies after config update', error))
+      }
       if (channel === 'event:core-status') {
         if (data === 'running') {
           void trayService.refreshProxies().then(() => {

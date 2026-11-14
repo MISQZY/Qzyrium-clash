@@ -79,6 +79,7 @@ function verifyArgumentContracts() {
     'mihomo:select-proxy': ['Group', 'Node'],
     'mihomo:test-delay': ['Node', 'https://example.com/', 5000],
     'mihomo:get-rules': ['summary'], 'mihomo:close-connection': ['connection-1'],
+    'mihomo:get-providers': ['proxies'], 'mihomo:update-provider': ['rules', 'Source / #1'],
     'profile:set-active': ['profile-1'], 'profile:delete': ['profile-1'], 'profile:update': ['profile-1'],
     'profile:get-custom-rules': ['profile-1'], 'profile:save-custom-rules': ['profile-1', [rule]],
     'profile:validate-custom-rules': ['profile-1', [rule]], 'profile:get-raw-config': ['profile-1'],
@@ -107,6 +108,7 @@ function verifyArgumentContracts() {
   validate('profile:add', [{ type: 'local', content: '' }])
   validate('app:update-settings', [{ kernel: { dns: null, tun: { enable: false } }, general: { customLocalization: null } }])
   const invalid = [
+    ['mihomo:get-providers', ['../../configs']], ['mihomo:update-provider', ['rules', '']],
     ['sysproxy:set', ['false']], ['app:open-folder', ['../../']],
     ['profile:set-active', ['../settings']], ['profile:update-info', ['profile-1', { id: 'replacement' }]],
     ['profile:update-info', ['profile-1', { autoUpdate: 'yes' }]],

@@ -6,6 +6,7 @@ import {
   MihomoRule,
   ProxyNode
 } from '@shared/mihomo'
+import type { ProviderKind, ProviderSummary } from '@shared/mihomo'
 import { LogEntry, MihomoVersion, TrafficStats } from '@shared/types'
 import { logger } from '../utils/logger'
 
@@ -82,6 +83,21 @@ export class MihomoApiClient extends EventEmitter {
   async resolveHost(name: string): Promise<string[]> {
     const { data } = await this.client.get<{ Answer?: { type: number; data: string }[] }>('/dns/query', { params: { name, type: 'A' } })
     return (data.Answer ?? []).filter((answer) => answer.type === 1 || answer.type === 28).map((answer) => answer.data)
+  }
+
+  async getProviders(kind: ProviderKind): Promise<ProviderSummary[]> {
+    const { data } = await this.client.get<{ providers?: Record<string, {
+      vehicleType?: string; updatedAt?: string; ruleCount?: number; proxies?: unknown[]
+    }> }>(`/providers/${kind}`)
+    // Only metadata crosses IPC: provider payloads can be large and contain private configuration.
+    return Object.entries(data.providers ?? {}).map(([name, provider]) => ({
+      name, vehicleType: provider.vehicleType ?? 'Unknown', updatedAt: provider.updatedAt,
+      itemCount: kind === 'rules' ? provider.ruleCount ?? 0 : provider.proxies?.length ?? 0
+    }))
+  }
+
+  async updateProvider(kind: ProviderKind, name: string): Promise<void> {
+    await this.client.put(`/providers/${kind}/${encodeURIComponent(name)}`)
   }
 
   async selectProxy(groupName: string, proxyName: string): Promise<void> {

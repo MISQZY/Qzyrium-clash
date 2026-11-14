@@ -10,6 +10,7 @@ import { Button } from '../components/ui/button'
 
 import { Card } from '../components/ui/card'
 import { Input } from '../components/ui/input'
+import { ProvidersPanel } from '../components/ProvidersPanel'
 import { cn } from '../lib/utils'
 
 import { visibleProxyGroups, type ProxySortMode } from '../lib/proxies'
@@ -24,6 +25,8 @@ interface ProxiesPageProps {
   onUpdateDelays?: (delays: Record<string, number>) => void
   onSelectNode: (group: string, node: string) => void
   testConcurrency?: number
+  onRefresh?: () => Promise<unknown>
+  profileId?: string
 }
 
 export const ProxiesPage: React.FC<ProxiesPageProps> = ({
@@ -34,7 +37,9 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
   delays: externalDelays,
   onUpdateDelays,
   onSelectNode,
-  testConcurrency = 6
+  testConcurrency = 6,
+  onRefresh,
+  profileId
 }) => {
   const t = useTranslations('proxies')
 
@@ -207,6 +212,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 
       {!running && <p className="text-xs leading-relaxed text-muted-foreground">{t('offlineSelectionHint')}</p>}
 
+      <ProvidersPanel key={profileId} kind="proxies" running={running} onUpdated={onRefresh} />
       {/* Search Input with Clear Button */}
       {groupNames.length > 0 && (
         <div className="relative">

@@ -36,12 +36,15 @@ function DashboardContent() {
 }
 
 function ProxiesContent() {
+  const refreshAll = useRefreshAll()
+  const { activeProfile } = useProfiles()
   const { coreStatus } = useKernel()
   const { settings } = useSettings()
   const { proxies, delays, updateDelays, selectProxyNode } = useProxies()
   const { rules } = useRules()
   return <ProxiesPage running={coreStatus === 'running'} proxies={proxies} rules={rules} mode={settings.kernel.mode}
-    delays={delays} onUpdateDelays={updateDelays} onSelectNode={selectProxyNode} testConcurrency={settings.general.delayTestConcurrency ?? 6} />
+    delays={delays} onUpdateDelays={updateDelays} onSelectNode={selectProxyNode} testConcurrency={settings.general.delayTestConcurrency ?? 6}
+    onRefresh={refreshAll} profileId={activeProfile?.id} />
 }
 
 function ProfilesContent(props: ImportProps) {
@@ -58,11 +61,12 @@ function ConnectionsContent() {
 }
 
 function RulesContent() {
+  const { activeProfile } = useProfiles()
   const { rules } = useRules()
   const { coreStatus } = useKernel()
   const { busy } = useNavigation()
   const refreshAll = useRefreshAll()
-  return <RulesPage rules={rules} running={coreStatus === 'running'} busy={busy} onRefresh={refreshAll} />
+  return <RulesPage rules={rules} running={coreStatus === 'running'} busy={busy} onRefresh={refreshAll} profileId={activeProfile?.id} />
 }
 
 function LogsContent() {
