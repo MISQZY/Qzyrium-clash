@@ -1,13 +1,26 @@
 using System;
 using System.IO;
 using System.Reflection;
+using System.Diagnostics;
+using System.Threading;
 using Microsoft.Win32;
 
 static class WatchdogTests
 {
     static void Main(string[] args)
     {
+        if (args[0] == "--core") { Thread.Sleep(60000); return; }
         var flags = BindingFlags.Static | BindingFlags.NonPublic;
+        MethodInfo track = typeof(NetworkWatchdog).GetMethod("TrackCore", flags);
+        string executable = Process.GetCurrentProcess().MainModule.FileName;
+        for (int attempt = 0; attempt < 50; attempt++)
+        {
+            using (Process core = Process.Start(new ProcessStartInfo(executable, "--core") { UseShellExecute = false, CreateNoWindow = true }))
+            {
+                try { track.Invoke(null, new object[] { core.Id, executable, DateTime.UtcNow.AddMinutes(-1) }); }
+                finally { if (!core.HasExited) core.Kill(); core.WaitForExit(); }
+            }
+        }
         MethodInfo restore = typeof(NetworkWatchdog).GetMethod("RestoreProxy", flags);
         string registryPath = @"Software\QzyriumWatchdogTests\" + Guid.NewGuid().ToString("N");
         string filename = Path.Combine(args[0], "proxy-test.json");

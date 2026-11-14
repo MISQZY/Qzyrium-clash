@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.IO;
 using System.Management;
 using System.Threading;
@@ -14,6 +17,20 @@ static class NetworkWatchdog
     static readonly string[] Names = { "ProxyServer", "ProxyOverride", "AutoConfigURL", "ProxyEnable" };
     static readonly List<Process> Cores = new List<Process>();
     static readonly ManualResetEvent ParentGone = new ManualResetEvent(false);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern bool QueryFullProcessImageName(IntPtr process, int flags, StringBuilder name, ref int size);
+
+    static string ExecutablePath(Process process)
+    {
+        // MainModule depends on the child's loader having initialized its module
+        // list. The kernel image path is available immediately after creation.
+        var name = new StringBuilder(32768);
+        int size = name.Capacity;
+        if (!QueryFullProcessImageName(process.Handle, 0, name, ref size))
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        return name.ToString();
+    }
 
     static bool SamePath(string a, string b)
     {
@@ -77,7 +94,7 @@ static class NetworkWatchdog
         {
             // Open a process handle now; never kill by a recycled PID later.
             IntPtr handle = core.Handle;
-            if (!SamePath(core.MainModule.FileName, executable) || core.StartTime.ToUniversalTime() < parentStarted)
+            if (!SamePath(ExecutablePath(core), executable) || core.StartTime.ToUniversalTime() < parentStarted)
                 throw new InvalidDataException("Unexpected core process");
             lock (Cores)
             {
@@ -97,7 +114,7 @@ static class NetworkWatchdog
             using (Process parent = Process.GetProcessById(int.Parse(args[0])))
             {
                 IntPtr handle = parent.Handle;
-                if (!SamePath(parent.MainModule.FileName, args[1])) return 1;
+                if (!SamePath(ExecutablePath(parent), args[1])) return 1;
                 DateTime started = parent.StartTime.ToUniversalTime();
                 string directory = Path.GetFullPath(args[3]);
                 using (FileStream session = LockSession(Path.Combine(directory, "network-session.lock")))
@@ -116,7 +133,11 @@ static class NetworkWatchdog
                                 int pid;
                                 if (!int.TryParse(line, out pid) || pid <= 0) break;
                                 try { TrackCore(pid, args[2], started); Console.WriteLine("CORE " + pid); Console.Out.Flush(); }
-                                catch { Console.WriteLine("ERROR " + pid); Console.Out.Flush(); }
+                                catch (Exception error)
+                                {
+                                    Console.Error.WriteLine("Unable to track core " + pid + ": " + error);
+                                    Console.WriteLine("ERROR " + pid); Console.Out.Flush();
+                                }
                             }
                         }
                         catch (IOException) { /* The parent closed its pipes while exiting. */ }
