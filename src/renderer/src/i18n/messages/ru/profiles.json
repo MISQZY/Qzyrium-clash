@@ -1,4 +1,7 @@
 {
+  "providerUpdateInterval": "От провайдера / приложения",
+  "providerIntervalValue": "Провайдер рекомендует обновлять каждые {minutes} мин. Ручной интервал имеет приоритет.",
+  "providerIntervalFallback": "Если провайдер не указал интервал, используется настройка приложения.",
   "profileSettings": "Настройки подписки",
   "displayName": "Название",
   "optional": "Необязательно",

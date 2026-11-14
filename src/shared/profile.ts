@@ -38,6 +38,7 @@ export interface ProfileItem {
   autoUpdate?: boolean
   updateViaProxy?: boolean
   interval?: number
+  serverInterval?: number
   customUA?: string
   userInfo?: ProfileUserInfo
   profileLogo?: string
@@ -47,4 +48,8 @@ export interface ProfileItem {
 
 /** Fields editable through profile information; identity and rule state are separate commands. */
 export type ProfileInfoPatch = Partial<Pick<ProfileItem,
-  'name' | 'url' | 'autoUpdate' | 'updateViaProxy' | 'interval' | 'customUA'>>
+  'name' | 'url' | 'autoUpdate' | 'updateViaProxy' | 'customUA'>> & { interval?: number | null }
+
+export function subscriptionUpdateInterval(profile: Pick<ProfileItem, 'interval' | 'serverInterval'>, fallback = 60): number {
+  return profile.interval ?? profile.serverInterval ?? fallback
+}

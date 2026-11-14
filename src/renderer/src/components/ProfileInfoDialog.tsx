@@ -45,6 +45,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
   const [autoUpdate, setAutoUpdate] = useState(profile?.autoUpdate ?? true)
   const [updateViaProxy, setUpdateViaProxy] = useState(profile?.updateViaProxy ?? false)
   const [interval, setInterval] = useState(profile?.interval ?? 1440)
+  const [automaticInterval, setAutomaticInterval] = useState(profile?.interval === undefined)
   const [customUA, setCustomUA] = useState(profile?.customUA || '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -57,6 +58,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
       setAutoUpdate(profile.autoUpdate ?? true)
       setUpdateViaProxy(profile.updateViaProxy ?? false)
       setInterval(profile.interval ?? 1440)
+      setAutomaticInterval(profile.interval === undefined)
       setCustomInterval(![60, 360, 720, 1440].includes(profile.interval ?? 1440))
       setCustomUA(profile.customUA || '')
       setError(null)
@@ -76,7 +78,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
         url: profile.type === 'remote' ? url.trim() : undefined,
         autoUpdate: profile.type === 'remote' ? autoUpdate : undefined,
         updateViaProxy: profile.type === 'remote' ? updateViaProxy : undefined,
-        interval: profile.type === 'remote' && autoUpdate ? Number(interval) || 1440 : undefined,
+        interval: profile.type === 'remote' && autoUpdate ? automaticInterval ? null : Number(interval) || 1440 : undefined,
         customUA: profile.type === 'remote' ? customUA.trim() : undefined
       })
       if (profile.type === 'remote' && autoUpdate && window.api?.settings) {
@@ -150,11 +152,14 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
                   {autoUpdate && <div className="space-y-3 border-t border-border/60 p-3.5">
                     <div className="flex flex-wrap items-center justify-between gap-2.5">
                       <label htmlFor={`${id}-schedule`} className="text-xs font-medium">{t('updateFrequency')}</label>
-                      <NativeSelect id={`${id}-schedule`} className="w-full sm:w-auto sm:min-w-40" value={customInterval ? 'custom' : interval} onChange={(event) => {
+                      <NativeSelect id={`${id}-schedule`} className="w-full sm:w-auto sm:min-w-40" value={automaticInterval ? 'automatic' : customInterval ? 'custom' : interval} onChange={(event) => {
+                        setAutomaticInterval(event.target.value === 'automatic')
+                        if (event.target.value === 'automatic') return
                         const custom = event.target.value === 'custom'
                         setCustomInterval(custom)
                         if (!custom) setInterval(Number(event.target.value))
                       }}>
+                        <option value="automatic">{t('providerUpdateInterval')}</option>
                         <option value={60}>{t('everyHour')}</option>
                         <option value={360}>{t('every6Hours')}</option>
                         <option value={720}>{t('every12Hours')}</option>
@@ -162,7 +167,8 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
                         <option value="custom">{t('customInterval')}</option>
                       </NativeSelect>
                     </div>
-                    {customInterval && <div className="space-y-2">
+                    {automaticInterval && <p className="text-[11px] text-muted-foreground">{profile.serverInterval ? t('providerIntervalValue', { minutes: profile.serverInterval }) : t('providerIntervalFallback')}</p>}
+                    {!automaticInterval && customInterval && <div className="space-y-2">
                       <label htmlFor={`${id}-interval`} className="text-[11px] text-muted-foreground">{t('updateIntervalMinutes')}</label>
                       <Input id={`${id}-interval`} type="number" min={15} max={43200} step={1} required value={interval || ''} onChange={(event) => setInterval(Number(event.target.value))} aria-describedby={`${id}-interval-hint`} />
                       <p id={`${id}-interval-hint`} className="text-[11px] text-muted-foreground">{t('intervalHint')}</p>

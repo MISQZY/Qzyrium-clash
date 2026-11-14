@@ -94,7 +94,10 @@ function parseAnnounce(raw: string | undefined): string | undefined {
 }
 
 export function parseSubscriptionMetadata(headers: Parameters<typeof subscriptionName>[0], content: string) {
+  const interval = getHeader(headers, 'profile-update-interval')?.trim()
+  const hours = interval && /^\d+$/.test(interval) ? Number(interval) : NaN
   return {
+    serverInterval: Number.isInteger(hours) && hours >= 1 && hours <= 720 ? hours * 60 : undefined,
     providerName: subscriptionName(headers, content),
     userInfo: parseUserInfo(getHeader(headers, 'subscription-userinfo')),
     profileLogo: parseProfileLogo(getHeader(headers, 'profile-logo')),

@@ -60,7 +60,7 @@ const rule = object({ id: name, type: name, payload: text, proxy: text,
     additionalParams: list(text), isDeleted: boolean, offset: integer(0), sourceRule: text,
     sourceOccurrence: integer(0), replacementRule: text }) })
 const profilePatch = object(optionalFields({ name: text, url: text, autoUpdate: boolean,
-  updateViaProxy: boolean, interval: integer(15, 43200), customUA: text }))
+  updateViaProxy: boolean, interval: value => value === null || integer(15, 43200)(value), customUA: text }))
 const overlay = object(optionalFields({ color: text, symbolColor: text }))
 const theme = object({ id: name, name: text, mode: oneOf('light', 'dark'), colors: record(text),
   titleBarOverlay: optional(object({ color: text, symbolColor: text })) })

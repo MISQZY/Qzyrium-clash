@@ -113,7 +113,7 @@ export class ProfileService implements BaseService {
 
   async updateProfileInfo(id: string, patch: ProfileInfoPatch): Promise<ProfileItem> {
     const updated = await this.repository.update(id, found => {
-      if (patch.interval !== undefined && (!Number.isInteger(patch.interval) || patch.interval < 15 || patch.interval > 43200)) throw new Error('Profile update interval must be between 15 and 43200 minutes')
+      if (patch.interval != null && (!Number.isInteger(patch.interval) || patch.interval < 15 || patch.interval > 43200)) throw new Error('Profile update interval must be between 15 and 43200 minutes')
       if (patch.name !== undefined) {
         found.name = patch.name.trim()
         found.nameSource = 'manual'
@@ -125,7 +125,7 @@ export class ProfileService implements BaseService {
         found.autoUpdate = patch.autoUpdate
       }
       if (patch.interval !== undefined) {
-        found.interval = patch.interval
+        found.interval = patch.interval ?? undefined
       }
       if (patch.customUA !== undefined) {
         found.customUA = patch.customUA.trim() || undefined
@@ -147,6 +147,7 @@ export class ProfileService implements BaseService {
     let profileLogo: string | undefined
     let announce: string | undefined
     let supportUrl: string | undefined
+    let serverInterval: number | undefined
 
     let targetUrl = dto.url?.trim()
     if (targetUrl) {
@@ -159,7 +160,7 @@ export class ProfileService implements BaseService {
 
     if (dto.type === 'remote' && targetUrl) {
       logger.info(`Fetching remote subscription from: ${sanitizeUrl(targetUrl)}`)
-      ;({ content, providerName, userInfo, profileLogo, announce, supportUrl } =
+      ;({ content, providerName, userInfo, profileLogo, announce, supportUrl, serverInterval } =
         await this.subscriptions.download(targetUrl, undefined, dto.updateViaProxy))
     }
 
@@ -177,7 +178,8 @@ export class ProfileService implements BaseService {
       userInfo,
       profileLogo,
       announce,
-      supportUrl
+      supportUrl,
+      serverInterval
     }
 
     await this.repository.add(item, content, this.selectionChange(() =>
@@ -201,7 +203,7 @@ export class ProfileService implements BaseService {
 
     if (item.type === 'remote' && item.url) {
       logger.info(`Updating remote profile ${item.name} from ${sanitizeUrl(item.url)}`)
-      const { content, providerName, userInfo, profileLogo, announce, supportUrl } =
+      const { content, providerName, userInfo, profileLogo, announce, supportUrl, serverInterval } =
         await this.subscriptions.download(item.url, item.customUA, item.updateViaProxy)
       // A subscription can be removed while its download is in flight.
       if (!this.repository.get(id)) return false
@@ -212,6 +214,7 @@ export class ProfileService implements BaseService {
         current.profileLogo = profileLogo
         current.announce = announce
         current.supportUrl = supportUrl
+        current.serverInterval = serverInterval
         if (providerName && current.nameSource && current.nameSource !== 'manual') {
           current.name = providerName
           current.nameSource = 'subscription'

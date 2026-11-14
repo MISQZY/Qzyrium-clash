@@ -1,4 +1,7 @@
 {
+  "providerUpdateInterval": "From provider / application",
+  "providerIntervalValue": "Provider recommends every {minutes} minutes. A manual interval takes priority.",
+  "providerIntervalFallback": "Uses the application's refresh interval when the provider does not specify one.",
   "profileSettings": "Subscription settings",
   "displayName": "Display name",
   "optional": "Optional",

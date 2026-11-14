@@ -9,6 +9,7 @@ import type { WindowService } from './WindowService'
 import { logger } from '../utils/logger'
 import type { NetworkModeController } from './NetworkModeController'
 import { applyWindowsStartup } from '../utils/windows-startup'
+import { subscriptionUpdateInterval } from '@shared/profile'
 
 export class DesktopService implements BaseService {
   private shortcuts = new Map<string, string>()
@@ -95,7 +96,7 @@ export class DesktopService implements BaseService {
       this.updating = this.updateSubscriptions().finally(() => { this.updating = null; this.schedule() })
     }, Math.min(config.general.profileUpdateInterval ?? 60, ...this.profiles.getProfiles()
       .filter((profile) => profile.type === 'remote' && profile.autoUpdate !== false)
-      .map((profile) => profile.interval ?? config.general.profileUpdateInterval ?? 60)) * 60_000)
+      .map((profile) => subscriptionUpdateInterval(profile, config.general.profileUpdateInterval ?? 60))) * 60_000)
     this.timer.unref()
   }
 
@@ -105,7 +106,7 @@ export class DesktopService implements BaseService {
       const general = this.settings.getSettings().general
       if (this.disposed || !(startup ? general.updateProfilesOnStart : general.autoUpdateProfiles)) break
       if (profile.type !== 'remote' || profile.autoUpdate === false) continue
-      const interval = startup ? (general.profileStartupMaxAgeHours ?? 24) * 60 : profile.interval ?? general.profileUpdateInterval ?? 60
+      const interval = startup ? (general.profileStartupMaxAgeHours ?? 24) * 60 : subscriptionUpdateInterval(profile, general.profileUpdateInterval ?? 60)
       const lastUpdate = this.profileUpdateTimes.get(profile.id) ?? profile.lastFetchedAt ?? profile.updatedAt ?? 0
       if (Date.now() - lastUpdate < interval * 60_000) continue
       this.profileUpdateTimes.set(profile.id, Date.now())

@@ -49,6 +49,7 @@ export function parseBackup(content: string): Backup {
     for (const key of ['profileLogo', 'announce', 'supportUrl'] as const) if (profile[key] !== undefined && typeof profile[key] !== 'string') throw new Error('Invalid subscription metadata')
     if (profile.userInfo !== undefined && (!object(profile.userInfo) || Object.values(profile.userInfo).some(value => !finite(value)))) throw new Error('Invalid subscription usage')
     if (profile.nameSource !== undefined && !['manual', 'subscription', 'fallback'].includes(profile.nameSource)) throw new Error('Invalid profile name source')
+    if (profile.serverInterval !== undefined && (!Number.isInteger(profile.serverInterval) || profile.serverInterval < 60 || profile.serverInterval > 43200)) throw new Error('Invalid server update interval')
     const parsed: unknown = yaml.parse(item.content, { maxAliasCount: 100 })
     if (parsed !== null && !object(parsed)) throw new Error('Profile YAML must be a mapping')
   }
