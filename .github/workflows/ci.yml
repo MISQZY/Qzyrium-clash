@@ -57,12 +57,13 @@ jobs:
       - run: pnpm build
         id: build
       - name: Verify native resizing before the full UI suite
+        id: native
         run: pnpm exec electron scripts/verify-native-window-ui.cjs
       - run: pnpm test:bundle
       - run: pnpm test:functional
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.native.outcome == 'success' }}
       - run: pnpm test:ui:all
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.native.outcome == 'success' }}
       - name: Upload test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

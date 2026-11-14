@@ -89,6 +89,10 @@ app.whenReady().then(async () => {
       win.setContentSize(width, height)
       await delay(300)
       assert.ok(Math.abs(win.webContents.getZoomFactor() - zoom) < 0.02, `zoom at ${width}x${height}`)
+      await waitFor(`(() => {
+        const title = document.querySelector('.app-titlebar').getBoundingClientRect();
+        return Math.abs(title.height * ${zoom} - (36 + ${zoom})) < 1;
+      })()`)
       for (const tab of ['Home', 'Proxy groups', 'Profiles', 'Connections', 'Rules', 'Logs', 'Settings']) {
         await navigate(tab)
         const layout = await evaluate(`(() => {

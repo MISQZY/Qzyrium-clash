@@ -547,7 +547,7 @@ input, textarea, pre { user-select: text; }
 /* Overview: a quiet geographic canvas and one compact control surface. */
 .overview-page { gap: 16px; overflow: hidden; }
 .overview-layout { --overview-reserved: 312px; position: relative; isolation: isolate; overflow: visible; display: grid; grid-template-columns: minmax(0, 1fr) 288px; gap: 20px; flex: 1 1 0%; min-height: 0; height: 100%; }
-.connection-globe { position: absolute; inset: 0; min-width: 0; overflow: visible; }
+.connection-globe { position: absolute; inset: 0; min-width: 0; overflow: clip; overflow-clip-margin: 8px; }
 
 .globe-scene { position: absolute; inset: 0; touch-action: none; cursor: grab; outline-offset: -3px; }
 .globe-scene:active { cursor: grabbing; }

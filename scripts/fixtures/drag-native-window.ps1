@@ -26,6 +26,7 @@ public static class NativeDrag {
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
   [DllImport("user32.dll")] public static extern bool GetGUIThreadInfo(uint threadId, ref GUITHREADINFO info);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+  [DllImport("user32.dll", EntryPoint="SystemParametersInfoW", SetLastError=true)] public static extern bool ReadParameter(uint action, uint parameter, out bool value, uint flags);
   [DllImport("user32.dll", SetLastError = true)] public static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
   [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
   public static void MoveMouse(int x, int y) {
@@ -68,6 +69,10 @@ public static class NativeDrag {
 }
 '@
 [NativeDrag]::SetProcessDPIAware() | Out-Null
+$fullWindowDrag = $false
+if (![NativeDrag]::ReadParameter(0x0026, 0, [ref]$fullWindowDrag, 0) -or !$fullWindowDrag) {
+  throw 'Native pixel checks require full-window dragging; run the CI desktop setup first'
+}
 $handle = [IntPtr]$WindowHandle
 [NativeDrag]::SetForegroundWindow($handle) | Out-Null
 $rect = New-Object NativeDrag+RECT
@@ -119,6 +124,8 @@ try {
   }
 } finally {
   [NativeDrag]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
+  for ($cleanupAttempt = 0; $cleanupAttempt -lt 20 -and [NativeDrag]::IsSizing($handle); $cleanupAttempt++) { Start-Sleep -Milliseconds 25 }
+  if ([NativeDrag]::IsSizing($handle)) { [NativeDrag]::PostMessage($handle, 0x001F, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null }
   [NativeDrag]::SetCursorPos($cursor.X, $cursor.Y) | Out-Null
 }
 ConvertTo-Json -InputObject $samples -Depth 5 -Compress
