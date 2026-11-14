@@ -299,7 +299,7 @@ export function DashboardPage({
               </Tooltip.Provider>
             )
           })()}
-          {subscriptionUsage(activeProfile?.userInfo) && <div className="overview-panel-section p-3"><SubscriptionUsageBar info={activeProfile?.userInfo} /></div>}
+          {subscriptionUsage(activeProfile?.userInfo) && <div className="overview-panel-section overview-quota-section"><SubscriptionUsageBar info={activeProfile?.userInfo} compact /></div>}
           {activeProfile?.supportUrl?.startsWith('https://') && (
             <div className="overview-panel-section overview-support-section p-3">
               <Button

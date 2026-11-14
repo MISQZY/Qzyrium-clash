@@ -12,10 +12,11 @@ if (process.type === 'renderer') {
     api.profiles.getList = async () => {
       const profiles = await getList()
       profiles[0].userInfo = info
+      profiles[0].supportUrl = 'https://support.example/help'
       return profiles
     }
     const getActive = api.profiles.getActive
-    api.profiles.getActive = async () => ({ ...await getActive(), userInfo: info })
+    api.profiles.getActive = async () => ({ ...await getActive(), userInfo: info, supportUrl: 'https://support.example/help' })
     const updateInfo = api.profiles.updateInfo
     api.profiles.updateInfo = async (id, patch) => {
       if (fail) throw new Error('Provider unavailable')
@@ -59,6 +60,10 @@ if (process.type === 'renderer') {
       assert.deepEqual((await values()).slice(0, 2), ['75.0 GB', '10 d'])
       assert.equal(await evaluate(`document.querySelector('[data-subscription-info] [role="progressbar"]').getAttribute('aria-valuenow')`), '25')
       assert.equal(await evaluate(`document.querySelector('[data-subscription-info] [data-subscription-usage]').dataset.subscriptionUsage`), 'normal')
+      assert.equal(await evaluate(`document.querySelector('[data-subscription-info]').innerText.includes('Updated with the subscription')`), false, 'snapshot explanation stays out of the card layout')
+      await evaluate(`document.querySelector('[data-subscription-info] button[aria-label="Updated with the subscription"]').dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse' }))`)
+      await waitFor(`document.querySelector('[role="tooltip"]')?.textContent.includes('Updated with the subscription')`)
+      await evaluate(`document.querySelector('[data-subscription-info] button[aria-label="Updated with the subscription"]').dispatchEvent(new PointerEvent('pointerleave', { bubbles: true, pointerType: 'mouse' }))`)
       assert.equal((await values())[2], new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(Date.now() + 10 * 86400000))
       assert.equal(await evaluate(`document.querySelector('[data-subscription-info]').parentElement.textContent.includes('long-path-')`), false, 'card shows hostname without access token')
       assert.equal(await evaluate(`(() => { const card = document.querySelector('[data-subscription-info]').parentElement; const refresh = card.querySelector('[aria-label="Update Subscription"]'); const more = card.querySelector('[aria-label="More actions"]'); return refresh.textContent.trim() === '' && refresh.parentElement === more.parentElement && refresh.getBoundingClientRect().top < card.querySelector('[data-subscription-info]').getBoundingClientRect().top })()`), true, 'refresh is an icon beside settings and the menu above statistics')
@@ -110,13 +115,24 @@ if (process.type === 'renderer') {
       assert.equal(await evaluate(`document.querySelectorAll('[role="progressbar"]').length`), 0, 'missing usage never shows a full allowance')
       await refresh({ total: 100, download: 90 })
       assert.equal(await evaluate(`document.querySelector('[data-subscription-usage]').dataset.subscriptionUsage`), 'near')
-      for (const [width, height] of [[840, 560], [1040, 720]]) {
+      for (const [width, height, zoom] of [[840, 560, 1], [1040, 720, 1], [840, 620, 0.8], [1040, 720, 1.25], [1040, 720, 1.5]]) {
         win.setSize(width, height)
+        win.webContents.setZoomFactor(zoom)
         await delay(150)
         for (const page of ['Home', 'Profiles']) {
           await evaluate(`document.querySelector('[aria-label="${page}"]').click()`)
           await waitFor(`document.querySelector('[role="progressbar"]')`)
           assert.equal(await evaluate(`document.documentElement.scrollWidth > innerWidth + 1 || document.querySelector('.app-main').scrollWidth > document.querySelector('.app-main').clientWidth + 1`), false, `${page}: quota fits narrow layout`)
+          if (page === 'Home') {
+            await waitFor(`document.querySelector('.overview-map-notes')`)
+            if (await evaluate('innerWidth <= 760')) await evaluate(`document.querySelector('.overview-panel-column').scrollIntoView({ block: 'end' })`)
+            assert.ok(await evaluate(`(() => {
+              const notes = document.querySelector('.overview-map-notes').getBoundingClientRect();
+              const panel = document.querySelector('.overview-panel').getBoundingClientRect();
+              const column = document.querySelector('.overview-panel-column').getBoundingClientRect();
+              return column.top >= -1 && column.bottom <= innerHeight + 1 && notes.bottom <= innerHeight + 1 && notes.top >= panel.bottom - 1;
+            })()`), `panel and lower hint fit ${width}x${height} at zoom ${zoom}`)
+          }
         }
       }
       fs.writeFileSync(path.join(output, 'quota-warning.png'), (await win.webContents.capturePage()).toPNG())

@@ -798,12 +798,13 @@ input, textarea, pre { user-select: text; }
 .globe-route-dot { width: 5px; height: 5px; flex-shrink: 0; border-radius: 50%; }
 .globe-route-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .globe-route-latency { margin-left: auto; padding-left: 8px; flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
-.overview-panel-column { position: relative; z-index: 3; grid-column: 2; align-self: center; min-width: 0; min-height: 0; max-height: 100%; overflow: visible; display: flex; flex-direction: column; }
+.overview-panel-column { position: relative; z-index: 3; grid-column: 2; align-self: center; min-width: 0; min-height: 0; max-height: 100%; overflow: hidden; display: flex; flex-direction: column; }
 .overview-panel-column > * { flex-shrink: 0; }
+.overview-panel-column > .overview-panel { flex-shrink: 1; min-height: 0; overflow-y: auto; }
 .overview-layout.is-lite { display: flex; align-items: center; justify-content: center; min-height: 0; flex: 1 1 auto; overflow-y: auto; }
 .overview-layout.is-lite .overview-panel-column { grid-column: auto; align-self: center; width: 100%; max-width: 360px; margin: auto; }
 .overview-panel { min-width: 0; border: 1px solid var(--border); border-radius: 16px; background: var(--card); }
-.overview-map-notes { position: absolute; top: 100%; left: 0; right: 0; display: flex; flex-direction: column; gap: 4px; padding: 8px 8px 0; color: var(--muted-foreground); font-size: 11px; line-height: 16px; text-align: center; pointer-events: none; }
+.overview-map-notes { display: flex; flex-direction: column; gap: 4px; padding: 8px 8px 0; color: var(--muted-foreground); font-size: 11px; line-height: 16px; text-align: center; pointer-events: none; }
 .overview-map-notes p { margin: 0; }
 
 .overview-page > .page-heading {
@@ -864,6 +865,7 @@ input, textarea, pre { user-select: text; }
 .overview-session-duration { color: var(--foreground); font-family: var(--font-mono); font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1.2; letter-spacing: 0.03em; }
 .overview-panel-section { padding: 16px; border-top: 1px solid var(--border); }
 .overview-support-section { padding: 12px 16px; }
+.overview-quota-section { padding: 10px 16px; }
 .overview-manage { padding: 3px; color: var(--muted-foreground); cursor: pointer; }
 .overview-manage:hover { color: var(--primary); }
 .overview-profile { display: block; width: 100%; margin-top: 10px; padding: 9px 10px; border-radius: 8px; text-overflow: ellipsis; background: var(--background); }
@@ -911,9 +913,6 @@ input, textarea, pre { user-select: text; }
   .overview-support-section button { height: 28px; }
   .overview-map-notes { padding: 4px 4px 0; }
   .overview-announce-pill.is-lite { margin-bottom: 8px; }
-}
-@media (max-height: 520px) {
-  .overview-panel-column { overflow-y: auto; }
 }
 @media (max-width: 760px) {
   .overview-layout { --overview-reserved: 0px; grid-template-columns: minmax(0, 1fr); overflow-y: auto; align-content: start; }
