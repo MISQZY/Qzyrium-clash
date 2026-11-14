@@ -13,6 +13,7 @@ import { parseMihomoLog } from '@shared/logs'
 import { networkWatchdog } from '../utils/network-watchdog'
 import { classifyKernelFailure, kernelFailureDetails, KernelOperationError } from '../utils/kernel-failure'
 import type { KernelFailure, KernelFailureReason } from '@shared/kernel-failure'
+import { getSystemBinary } from '../utils/system-binaries'
 
 const runFile = promisify(execFile)
 
@@ -253,7 +254,7 @@ export class MihomoProcessManager extends EventEmitter {
       try {
         if (process.platform === 'win32' && child.pid) {
           try {
-            execFile('taskkill', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true }, (error) => {
+            execFile(getSystemBinary('taskkill.exe'), ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true }, (error) => {
               if (error && this.childProcess === child) child.kill()
             })
           } catch {

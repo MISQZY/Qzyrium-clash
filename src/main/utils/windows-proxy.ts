@@ -4,6 +4,7 @@ import { readFile, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { getAppPaths } from './paths'
 import { writeFileAtomicAsync } from './atomicWrite'
+import { getSystemBinary } from './system-binaries'
 
 const execute = promisify(execFile)
 const registryKey = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings'
@@ -19,7 +20,7 @@ export interface ProxyRegistry {
 
 export const windowsProxyRegistry: ProxyRegistry = {
   async read() {
-    const { stdout } = await execute('reg.exe', ['query', registryKey], { windowsHide: true, timeout: 5000 })
+    const { stdout } = await execute(getSystemBinary('reg.exe'), ['query', registryKey], { windowsHide: true, timeout: 5000 })
     const values = Object.fromEntries(names.map(name => [name, null])) as Snapshot
     for (const line of stdout.split(/\r?\n/)) {
       const match = /^\s+(ProxyEnable|ProxyServer|ProxyOverride|AutoConfigURL)\s+(REG_\w+)\s*(.*)$/.exec(line)
@@ -31,10 +32,10 @@ export const windowsProxyRegistry: ProxyRegistry = {
   },
   async write(name, value) {
     if (value) {
-      await execute('reg.exe', ['add', registryKey, '/v', name, '/t', value.type, '/d', value.data, '/f'], { windowsHide: true, timeout: 5000 })
+      await execute(getSystemBinary('reg.exe'), ['add', registryKey, '/v', name, '/t', value.type, '/d', value.data, '/f'], { windowsHide: true, timeout: 5000 })
     } else {
       if ((await this.read())[name] === null) return
-      await execute('reg.exe', ['delete', registryKey, '/v', name, '/f'], { windowsHide: true, timeout: 5000 })
+      await execute(getSystemBinary('reg.exe'), ['delete', registryKey, '/v', name, '/f'], { windowsHide: true, timeout: 5000 })
     }
   }
 }

@@ -14,7 +14,7 @@ async function verify() {
       (error, stdout, stderr) => error ? reject(error) : resolve({ stdout, stderr }))) },
     './paths': { getAppPaths() { throw new Error('Tests must not access userData') } },
     'node:child_process': { execFile(file, args, options, callback) {
-      assert.equal(file, 'reg.exe')
+      assert.ok(file.endsWith('reg.exe'))
       assert.ok(options.windowsHide && options.timeout > 0)
       callback(null, '\r\nHKEY_CURRENT_USER\\fixture\r\n    ProxyEnable    REG_DWORD    0x1\r\n    ProxyServer    REG_SZ    company proxy:8080\r\n    ProxyOverride    REG_SZ    \r\n    AutoConfigURL    REG_EXPAND_SZ    %USERPROFILE%\\proxy.pac\r\n')
     } }

@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { logger } from './logger'
+import { getSystemBinary } from './system-binaries'
 
 /**
  * Flushes the operating system DNS resolver cache.
@@ -8,7 +9,7 @@ import { logger } from './logger'
  */
 export function flushSystemDns(): void {
   if (process.platform === 'win32') {
-    execFile('ipconfig', ['/flushdns'], { windowsHide: true }, (err) => {
+    execFile(getSystemBinary('ipconfig.exe'), ['/flushdns'], { windowsHide: true }, (err) => {
       if (err) {
         logger.warn(`Failed to flush Windows DNS cache: ${String(err)}`)
       } else {

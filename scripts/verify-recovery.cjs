@@ -232,7 +232,7 @@ async function verifyElevationRecovery() {
           assert.ok(file.includes('fltmc') || file.includes('whoami'))
         },
         execFile: (file, args, options, callback) => {
-          assert.equal(file, 'wscript.exe')
+          assert.ok(file.endsWith('wscript.exe'))
           assert.equal(options.windowsHide, true)
           const vbsFile = args[1]
           const script = fs.readFileSync(vbsFile, 'utf8')

@@ -5,6 +5,7 @@ import { writeFileSync, unlinkSync } from 'fs'
 import { app } from 'electron'
 import { logger } from './logger'
 import { checkElevateTask, tryRunElevateTask } from './elevate-task'
+import { getSystemBinary } from './system-binaries'
 
 let cachedElevated: boolean | null = null
 
@@ -108,7 +109,7 @@ export function restartAsAdmin(): Promise<boolean> {
       }
 
       execFile(
-        'wscript.exe',
+        getSystemBinary('wscript.exe'),
         ['//nologo', vbsPath],
         { windowsHide: true },
         (err) => {
