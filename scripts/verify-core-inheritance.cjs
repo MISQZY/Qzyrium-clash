@@ -33,6 +33,16 @@ async function verify() {
   assert.match(pacScript(config, 8100), /127\.0\.0\.1:8100/)
 
   const requests = []
+  const { KernelService } = load('src/main/services/KernelService.ts', { electron: { powerMonitor: new (require('node:events').EventEmitter)() } })
+  let reads = 0
+  const kernel = Object.assign(Object.create(KernelService.prototype), {
+    settingService: { getSettings: () => config },
+    profileService: { getActiveProfile: () => ({ id: 'fixture' }), getProfileContent: async () => { reads++; return yaml.stringify(profile) } }
+  })
+  assert.deepEqual(await kernel.getEffectiveCore(), resolveEffectiveCore(profile, config))
+  assert.equal((await kernel.getEffectiveCore({ kernel: { ...config.kernel, inheritMixedPort: false } })).ports['mixed-port'].source, 'override')
+  assert.equal(config.kernel.inheritMixedPort, true, 'draft preview never mutates saved settings')
+  assert.equal(reads, 2, 'preview reads the profile without starting a core or writing runtime files')
   const { SubscriptionClient } = load('src/main/core/SubscriptionClient.ts', { axios: { get: async (_url, options) => {
     requests.push(options); return { status: 200, data: 'rules: []', headers: {} }
   } } })

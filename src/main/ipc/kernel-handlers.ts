@@ -2,6 +2,7 @@ import { IPC_CHANNELS } from '@shared/ipc'
 import type { ServiceManager } from '../services/ServiceManager'
 import type { TrustedRegistrar } from './trusted-handler'
 import type { ProviderKind } from '@shared/mihomo'
+import type { AppConfig } from '@shared/app-config'
 
 export function registerKernelHandlers(
   handle: TrustedRegistrar,
@@ -34,6 +35,8 @@ export function registerKernelHandlers(
   handle(IPC_CHANNELS.MIHOMO_GET_CONFIGS, async () => {
     return await services.kernelService.getConfigs()
   })
+
+  handle(IPC_CHANNELS.MIHOMO_GET_EFFECTIVE_CORE, (_, patch?: Partial<AppConfig>) => services.kernelService.getEffectiveCore(patch))
 
   handle(IPC_CHANNELS.MIHOMO_PATCH_CONFIGS, async (_, patch: Record<string, unknown>) => {
     await services.kernelService.patchConfigs(patch)

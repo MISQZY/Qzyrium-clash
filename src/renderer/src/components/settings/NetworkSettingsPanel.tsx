@@ -21,6 +21,7 @@ import { SettingsFields } from '../SettingsFields'
 import { coreFields, tunFields } from '@shared/settings-fields'
 
 import type { SettingsDraft } from '../../hooks/useSettingsDraft'
+import { EffectiveCoreSummary } from './EffectiveCoreSummary'
 
 export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy, onToggleSysProxy,
   isElevated, restartingAdmin, handleRestartAsAdmin, setTunAdminPrompt }: {
@@ -125,6 +126,7 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
           <SettingRow title={t('logLevel')} description={t('controlsTheVerbosityOfTheCoreLogStream')}><NativeSelect aria-label={t('logLevel')} disabled={!!form.kernel.inheritLogLevel} value={form.kernel.logLevel} onChange={(event) => updateKernel({ logLevel: event.target.value as LogLevel })}>{['debug', 'info', 'warning', 'error', 'silent'].map((level) => <option key={level} value={level}>{common(level as 'debug' | 'info' | 'warning' | 'error' | 'silent')}</option>)}</NativeSelect></SettingRow>
           <p className="mt-4 text-xs text-muted-foreground">{t('savingCoreSettingsRestartsMihomoExistingSessionsWillReconnect')}</p>
           <SettingsDisclosure title={t('advancedCore')}><SettingsFields prefix="core-options" fields={coreFields} value={form.kernel.options ?? {}} onChange={(options) => updateKernel({ options })} /></SettingsDisclosure>
+          <EffectiveCoreSummary kernel={form.kernel} />
         </>}
       </CardContent></Card>
 }

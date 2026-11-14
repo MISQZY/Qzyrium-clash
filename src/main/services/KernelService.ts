@@ -32,6 +32,10 @@ import type { ProviderKind, ProviderSummary } from '@shared/mihomo'
 import fs from 'node:fs/promises'
 import axios from 'axios'
 import { writeFileAtomicAsync } from '../utils/atomicWrite'
+import type { AppConfig } from '@shared/app-config'
+import { mergeSettings } from '@shared/settings-config'
+import { resolveEffectiveCore, type EffectiveCoreValues } from '@shared/effective-core'
+import { parseProfileConfig } from '@shared/profile-config'
 
 export class KernelService implements BaseService {
   private ruleWarning: string | null = null
@@ -421,6 +425,14 @@ export class KernelService implements BaseService {
     const port = configs['mixed-port']
     if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Mihomo mixed listener is unavailable')
     return port
+  }
+
+  async getEffectiveCore(patch: Partial<AppConfig> = {}): Promise<EffectiveCoreValues> {
+    const settings = mergeSettings(this.settingService.getSettings(), patch)
+    const profile = this.profileService.getActiveProfile()
+    const content = profile ? await this.profileService.getProfileContent(profile.id) : null
+    if (profile && content === null) throw new Error('Profile file is missing')
+    return resolveEffectiveCore(content === null ? {} : parseProfileConfig(content), settings)
   }
 
   async patchConfigs(patch: Record<string, unknown>): Promise<void> {

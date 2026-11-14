@@ -1,4 +1,9 @@
 {
+  "effectiveCoreTitle": "Values after applying settings",
+  "effectiveCoreHint": "Calculated from the active profile and this draft. If the profile omits a value, the saved fallback is used; HTTP/SOCKS ports default to 0 (disabled).",
+  "valueFallback": "Fallback",
+  "effectiveCoreFailed": "Could not calculate values. Check the profile and port settings.",
+  "effectiveCoreLoading": "Calculating values…",
   "mixedPortSource": "Mixed port source",
   "logLevelSource": "Log level source",
   "valueFromProfile": "From profile",

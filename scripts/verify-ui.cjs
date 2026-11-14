@@ -57,6 +57,15 @@ if (process.type === 'renderer') {
   api.mihomo.getProviders = async kind => [{ name: kind === 'rules' ? 'Rule source' : 'Proxy source', vehicleType: 'HTTP', itemCount: 42, updatedAt: '2026-11-14T12:00:00Z' }]
   api.mihomo.updateProvider = async (kind, name) => { providerCalls.push({ kind, name }) }
   api.uiTest.getProviderCalls = () => providerCalls
+  api.uiTest.getSettings = () => settings
+  api.mihomo.getEffectiveCore = async patch => {
+    const kernel = patch?.kernel ?? settings.kernel
+    return { ports: {
+      'mixed-port': { value: kernel.inheritMixedPort ? 8100 : kernel.mixedPort, source: kernel.inheritMixedPort ? 'profile' : 'override' },
+      port: { value: kernel.options?.port ?? 0, source: kernel.options?.port === undefined ? 'default' : 'override' },
+      'socks-port': { value: kernel.options?.['socks-port'] ?? 0, source: kernel.options?.['socks-port'] === undefined ? 'default' : 'override' }
+    }, logLevel: { value: kernel.inheritLogLevel ? 'debug' : kernel.logLevel, source: kernel.inheritLogLevel ? 'profile' : 'override' } }
+  }
   contextBridge.exposeInMainWorld('api', api)
 } else {
   const assert = require('node:assert/strict')
@@ -230,6 +239,20 @@ if (process.type === 'renderer') {
         assert.deepEqual(calls.at(-1), { kind, name })
       }
       result.checks.push('Proxy and rule provider panels show metadata and update their selected source')
+      await navigate('Mihomo core')
+      await setControl('select[aria-label="Mixed port source"]', 'profile')
+      await setControl('select[aria-label="Log level source"]', 'profile')
+      await waitFor(`document.querySelector('[data-effective-setting="mixed-port"]')?.textContent.includes('8100')`)
+      assert.ok(await evaluate(`document.querySelector('[data-effective-setting="mixed-port"]').textContent.includes('From profile')`))
+      assert.ok(await evaluate(`document.querySelector('select[aria-label="Log level"]').disabled`))
+      await evaluate(`document.querySelector('button[form="settings-mihomo"]').click()`)
+      await waitFor(`document.querySelector('button[form="settings-mihomo"]').disabled`)
+      assert.ok((await evaluate('window.api.uiTest.getSettings()')).kernel.inheritMixedPort)
+      await setControl('select[aria-label="Mixed port source"]', 'override')
+      await setControl('select[aria-label="Log level source"]', 'override')
+      await evaluate(`document.querySelector('button[form="settings-mihomo"]').click()`)
+      await waitFor(`document.querySelector('[data-effective-setting="mixed-port"]')?.textContent.includes('Custom value')`)
+      result.checks.push('Core inheritance selectors persist and show effective values and their source')
 
       await navigate('Connections')
       await waitFor(`!!document.querySelector('[data-traffic="download"]')`)
