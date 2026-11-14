@@ -14,6 +14,8 @@ import { connectionRoutes } from '../lib/globe'
 import { ConnectionGlobe } from '../components/ConnectionGlobe'
 import { Button } from '../components/ui/button'
 import { Tooltip } from 'radix-ui'
+import { SubscriptionUsageBar } from '../components/SubscriptionUsageBar'
+import { subscriptionUsage } from '@shared/subscription-health'
 
 interface DashboardPageProps {
   visible?: boolean
@@ -297,6 +299,7 @@ export function DashboardPage({
               </Tooltip.Provider>
             )
           })()}
+          {subscriptionUsage(activeProfile?.userInfo) && <div className="overview-panel-section p-3"><SubscriptionUsageBar info={activeProfile?.userInfo} /></div>}
           {activeProfile?.supportUrl?.startsWith('https://') && (
             <div className="overview-panel-section overview-support-section p-3">
               <Button

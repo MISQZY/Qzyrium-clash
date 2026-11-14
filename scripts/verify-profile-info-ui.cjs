@@ -14,11 +14,13 @@ if (process.type === 'renderer') {
       profiles[0].userInfo = info
       return profiles
     }
+    const getActive = api.profiles.getActive
+    api.profiles.getActive = async () => ({ ...await getActive(), userInfo: info })
     const updateInfo = api.profiles.updateInfo
     api.profiles.updateInfo = async (id, patch) => {
       if (fail) throw new Error('Provider unavailable')
       saved = patch
-      return updateInfo(id, patch)
+      return updateInfo(id, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)))
     }
     expose('profileTest', { setInfo: value => { info = value }, getSaved: () => saved, fail: value => { fail = value } })
     expose(name, api)
@@ -55,6 +57,8 @@ if (process.type === 'renderer') {
       await evaluate(`document.querySelector('[aria-label="Profiles"]').click()`)
       await waitFor(`document.querySelector('[data-subscription-info]')`)
       assert.deepEqual((await values()).slice(0, 2), ['75.0 GB', '10 d'])
+      assert.equal(await evaluate(`document.querySelector('[data-subscription-info] [role="progressbar"]').getAttribute('aria-valuenow')`), '25')
+      assert.equal(await evaluate(`document.querySelector('[data-subscription-info] [data-subscription-usage]').dataset.subscriptionUsage`), 'normal')
       assert.equal((await values())[2], new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(Date.now() + 10 * 86400000))
       assert.equal(await evaluate(`document.querySelector('[data-subscription-info]').parentElement.textContent.includes('long-path-')`), false, 'card shows hostname without access token')
       assert.equal(await evaluate(`(() => { const card = document.querySelector('[data-subscription-info]').parentElement; const refresh = card.querySelector('[aria-label="Update Subscription"]'); const more = card.querySelector('[aria-label="More actions"]'); return refresh.textContent.trim() === '' && refresh.parentElement === more.parentElement && refresh.getBoundingClientRect().top < card.querySelector('[data-subscription-info]').getBoundingClientRect().top })()`), true, 'refresh is an icon beside settings and the menu above statistics')
@@ -90,15 +94,32 @@ if (process.type === 'renderer') {
       assert.equal(saved.interval, 90)
       assert.equal(saved.customUA, 'ClashMeta')
       assert.equal(saved.autoUpdate, true)
+      assert.equal(saved.sendHwid, false, 'HWID stays opt-in')
 
       await refresh({ total: 1024, upload: 2048, download: 1, expire: 1 })
       assert.deepEqual((await values()).slice(0, 2), ['0 B', 'Expired'])
+      assert.equal(await evaluate(`document.querySelector('[role="progressbar"]').getAttribute('aria-valuenow')`), '100')
+      assert.equal(await evaluate(`document.querySelector('[data-subscription-usage]').dataset.subscriptionUsage`), 'exhausted')
       await refresh({ total: 0, expire: 0 })
       assert.deepEqual(await values(), ['Unlimited', 'No expiration', 'No expiration'])
+      assert.equal(await evaluate(`document.querySelectorAll('[role="progressbar"]').length`), 0)
       await refresh({})
       assert.deepEqual(await values(), ['Not provided', 'Not provided', 'Not provided'])
       await refresh({ total: 1024 })
       assert.equal((await values())[0], 'Not provided', 'missing usage is not presented as a full allowance')
+      assert.equal(await evaluate(`document.querySelectorAll('[role="progressbar"]').length`), 0, 'missing usage never shows a full allowance')
+      await refresh({ total: 100, download: 90 })
+      assert.equal(await evaluate(`document.querySelector('[data-subscription-usage]').dataset.subscriptionUsage`), 'near')
+      for (const [width, height] of [[840, 560], [1040, 720]]) {
+        win.setSize(width, height)
+        await delay(150)
+        for (const page of ['Home', 'Profiles']) {
+          await evaluate(`document.querySelector('[aria-label="${page}"]').click()`)
+          await waitFor(`document.querySelector('[role="progressbar"]')`)
+          assert.equal(await evaluate(`document.documentElement.scrollWidth > innerWidth + 1 || document.querySelector('.app-main').scrollWidth > document.querySelector('.app-main').clientWidth + 1`), false, `${page}: quota fits narrow layout`)
+        }
+      }
+      fs.writeFileSync(path.join(output, 'quota-warning.png'), (await win.webContents.capturePage()).toPNG())
       assert.deepEqual(errors, [])
       console.log('PASS: subscription allowance, expiry, missing/unlimited data, custom schedule, validation, advanced settings, save recovery and short-window layout')
     } finally { win.destroy(); app.quit() }

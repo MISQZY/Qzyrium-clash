@@ -10,7 +10,7 @@ function parseUserInfo(header?: unknown): ProfileUserInfo | undefined {
     if (!k || !v) continue
     const key = k.toLowerCase().trim()
     const num = Number(v.trim())
-    if (!isNaN(num)) {
+    if (Number.isFinite(num) && num >= 0 && num <= Number.MAX_SAFE_INTEGER) {
       if (key === 'upload') info.upload = num
       else if (key === 'download') info.download = num
       else if (key === 'total') info.total = num

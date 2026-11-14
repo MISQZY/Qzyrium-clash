@@ -1,4 +1,8 @@
 {
+  "subscriptionTrafficLow": "No more than 10% of the subscription's traffic allowance remains.",
+  "subscriptionTrafficExhausted": "The subscription's traffic allowance is exhausted.",
+  "subscriptionExpiresSoon": "The subscription expires within three days.",
+  "subscriptionExpired": "The subscription has expired.",
   "subscriptionDeviceLimit": "The subscription's device limit has been reached. Your saved configuration is unchanged. Contact the provider's support.",
   "subscriptionHwidRequired": "This subscription requires a device identifier. Enable HWID in the subscription settings and try again.",
   "subscriptionIdentityFailed": "Could not read the local subscription device identifier. Check access to the application data folder.",

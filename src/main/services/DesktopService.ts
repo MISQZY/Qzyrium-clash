@@ -10,6 +10,7 @@ import { logger } from '../utils/logger'
 import type { NetworkModeController } from './NetworkModeController'
 import { applyWindowsStartup } from '../utils/windows-startup'
 import { subscriptionUpdateInterval } from '@shared/profile'
+import { SubscriptionNotifications } from './SubscriptionNotifications'
 
 export class DesktopService implements BaseService {
   private shortcuts = new Map<string, string>()
@@ -20,12 +21,24 @@ export class DesktopService implements BaseService {
   private actionPending: Promise<void> | null = null
   private profileUpdateTimes = new Map<string, number>()
   private startupApplied: string | null = null
+  private noticeTimer?: ReturnType<typeof setTimeout>
+  private notifications = new SubscriptionNotifications(() => this.window.show())
+
+  private checkNotices = (): void => {
+    clearTimeout(this.noticeTimer)
+    if (this.disposed || !this.notifications.isSupported()) return
+    try { this.notifications.check(this.profiles.getProfiles(), this.settings.getSettings().general) }
+    catch { logger.warn('Could not show subscription notification') }
+    this.noticeTimer = setTimeout(this.checkNotices, 60_000)
+    this.noticeTimer.unref()
+  }
 
   constructor(private settings: SettingService, private profiles: ProfileService, private kernel: KernelService, private proxy: SysProxyService, private window: WindowService, private changed: () => void, private commands: NetworkModeController) {}
 
   async initialize(): Promise<void> {
     this.disposed = false
     await this.applySettings(this.settings.getSettings())
+    this.checkNotices()
     if (this.settings.getSettings().general.updateProfilesOnStart) {
       clearTimeout(this.timer)
       this.updating = this.updateSubscriptions(true).finally(() => { this.updating = null; this.schedule() })
@@ -120,12 +133,14 @@ export class DesktopService implements BaseService {
       try { await this.kernel.reloadConfig() } catch (err) { logger.error('Applying updated subscription failed', err) }
     }
     this.changed()
+    this.checkNotices()
   }
 
   async dispose(): Promise<void> {
     this.disposed = true
     this.recordingShortcut = false
     clearTimeout(this.timer)
+    clearTimeout(this.noticeTimer)
     for (const accelerator of this.shortcuts.values()) globalShortcut.unregister(accelerator)
     this.shortcuts.clear()
     await Promise.all([this.updating, this.actionPending])

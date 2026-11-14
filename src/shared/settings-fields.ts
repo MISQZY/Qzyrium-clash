@@ -132,6 +132,10 @@ export const resourceFields: SettingsField[] = [
   field('rule-providers', 'Rule providers (YAML)', 'Провайдеры правил (YAML)', 'map')
 ]
 export const generalFields: SettingsField[] = [
+  field('subscriptionNotifications', 'Subscription notifications', 'Уведомления о подписках', 'boolean', desc(
+    'Notify when traffic is nearly exhausted or the subscription expires within three days.',
+    'Сообщать о низком остатке трафика и окончании подписки в ближайшие три дня.'
+  )),
   field('autoRestartCore', 'Restart the core after a crash', 'Перезапускать ядро после сбоя', 'boolean', desc('Retry failed connections with a limit. The counter resets after one minute of stable operation or a manual start.', 'Повторять неудачные подключения с ограничением попыток. Счётчик сбрасывается после минуты стабильной работы или ручного запуска.')),
   field('coreRestartDelaySeconds', 'Core restart delay (s)', 'Задержка перезапуска ядра (с)', 'number', { min: 1, max: 300 }),
   field('coreRestartMaxAttempts', 'Maximum core restart attempts', 'Максимум попыток перезапуска ядра', 'number', { min: 1, max: 10 }),

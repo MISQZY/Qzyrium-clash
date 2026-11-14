@@ -1,4 +1,9 @@
 {
+  "trafficUsed": "Traffic used",
+  "trafficUsageValue": "{used} of {total} used ({percent}%)",
+  "trafficSnapshotHint": "Updated with the subscription",
+  "trafficNearlyExhausted": "No more than 10% of traffic remaining",
+  "trafficExhausted": "Traffic allowance exhausted",
   "sendHwid": "Send device identifier (HWID)",
   "sendHwidHint": "Sends an installation identifier and OS to this subscription's server. Enable only if required by your provider.",
   "deviceLimitNotice": "Device limit reached. Your saved configuration is preserved.",

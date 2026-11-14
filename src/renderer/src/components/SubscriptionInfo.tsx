@@ -3,6 +3,8 @@ import { CalendarDays, Clock3, Gauge } from 'lucide-react'
 import type { ProfileUserInfo } from '@shared/profile'
 import { useLocale, useTranslations } from '../i18n'
 import { formatBytes } from '../lib/format'
+import { SubscriptionUsageBar } from './SubscriptionUsageBar'
+import { subscriptionUsage } from '@shared/subscription-health'
 
 export function SubscriptionInfo({ info }: { info?: ProfileUserInfo }) {
   const t = useTranslations('profiles')
@@ -32,7 +34,8 @@ export function SubscriptionInfo({ info }: { info?: ProfileUserInfo }) {
   ]
 
   return (
-    <dl className="grid grid-cols-1 gap-3 rounded-xl border border-border/50 bg-background/25 p-3 sm:grid-cols-3 sm:gap-4" data-subscription-info>
+    <div className="rounded-xl border border-border/50 bg-background/25 p-3" data-subscription-info>
+    <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
       {items.map(({ icon: Icon, label, value, warning }) => (
         <div key={label} className="flex min-w-0 items-start gap-2.5">
           <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -43,5 +46,7 @@ export function SubscriptionInfo({ info }: { info?: ProfileUserInfo }) {
         </div>
       ))}
     </dl>
+    {subscriptionUsage(info) && <div className="mt-3 border-t border-border/40 pt-3"><SubscriptionUsageBar info={info} /></div>}
+    </div>
   )
 }
