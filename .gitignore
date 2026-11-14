@@ -2,9 +2,20 @@
 node_modules/
 .pnpm-store/
 
+# Environment & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.crt
+
 # Knowledge base & documentation
 /docs/
 *.[mM][dD]
+!README.md
 
 # Build and distribution outputs
 dist/
@@ -21,9 +32,36 @@ resources/files/
 data/
 *.log
 
+# Temporary files & runtime backups
+*.tmp
+*.bak
+*.dmp
+system-proxy-recovery.json
+elevate_*.vbs
+
+# C# / .NET build outputs
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Tooling and compiler caches
+.eslintcache
+.stylelintcache
+*.timestamp-*
+coverage/
+.vite/
+
 # Operating system files
 .DS_Store
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
+ehthumbs.db
+desktop.ini
+*~
 **/Microsoft/Spelling/
 
 # IDE and editor files
@@ -33,3 +71,4 @@ Thumbs.db
 .idea/
 *.sublime-workspace
 *.swp
+*.swo
