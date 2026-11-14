@@ -24,6 +24,7 @@ if (process.type === 'renderer') {
   app.setPath('userData', path.join(output, 'user-data'))
   app.whenReady().then(async () => {
     const win = new BrowserWindow({ show: false, width: 1040, height: 720, webPreferences: { preload: __filename, sandbox: false, contextIsolation: true, backgroundThrottling: false } })
+    if (process.env.GITHUB_ACTIONS === 'true') win.showInactive()
     const evaluate = code => win.webContents.executeJavaScript(code)
     const wait = async code => {
       for (let n = 0; n < 100; n++) {
@@ -36,6 +37,17 @@ if (process.type === 'renderer') {
       await evaluate(`document.querySelector('nav button[aria-label="${label}"]').click()`)
       await wait(`document.querySelector('h1')?.textContent === '${label}'`)
     }
+    const scrollToEnd = async (selector, visible) => {
+      // Virtual rows refine the estimated document height after measurement.
+      // Keep moving the scrollbar to the end until the requested row is visible.
+      for (let attempt = 0; attempt < 100; attempt++) {
+        await evaluate(`(() => { const scroller = document.querySelector(${JSON.stringify(selector)}); scroller.scrollTop = scroller.scrollHeight; })()`)
+        if (await evaluate(visible)) return
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+      const geometry = await evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); return { top: el.scrollTop, height: el.scrollHeight, viewport: el.clientHeight, rows: [...el.querySelectorAll('[data-index]')].map(row => row.dataset.index) }; })()`)
+      throw Error(`Last virtual row is unreachable: ${JSON.stringify(geometry)}`)
+    }
     let failed = false
     try {
       await win.webContents.session.clearStorageData()
@@ -44,23 +56,20 @@ if (process.type === 'renderer') {
       await navigate('Connections')
       await wait(`document.querySelector('[data-virtual-list="true"] [data-index]')`)
       assert.ok(await evaluate(`document.querySelectorAll('[data-index]').length < 100`), 'process DOM stays bounded for 2000 processes')
-      await evaluate(`document.querySelector('.page-scroll').scrollTop = 1e8`)
-      await wait(`document.querySelector('.page-scroll').textContent.includes('process-0.exe')`)
+      await scrollToEnd('.page-scroll', `document.querySelector('.page-scroll').textContent.includes('process-0.exe')`)
       await navigate('Proxy groups')
       await wait(`document.querySelector('[aria-expanded]')`)
       await evaluate(`document.querySelector('[aria-expanded="false"]')?.click()`)
       await wait(`document.querySelector('[data-virtual-list="true"] [data-index]')`)
       assert.ok(await evaluate(`document.querySelectorAll('button[aria-label^="Select"]').length < 100`), 'proxy DOM stays bounded')
-      await evaluate(`document.querySelector('.page-scroll').scrollTop = 1e8`)
-      await wait(`document.querySelector('button[aria-label*="Server 1999"]')`)
+      await scrollToEnd('.page-scroll', `!!document.querySelector('button[aria-label*="Server 1999"]')`)
       await evaluate(`document.querySelector('button[aria-label*="Server 1999"]').click()`)
       await wait(`document.querySelector('button[aria-label*="Server 1999"]')?.getAttribute('aria-pressed') === 'true'`)
       await navigate('Profiles')
       await evaluate(`document.querySelector('[aria-label="Edit rules"]').click()`)
       await wait(`document.querySelector('[role="dialog"] [data-virtual-list="true"] [data-index]')`)
       assert.ok(await evaluate(`document.querySelectorAll('[role="dialog"] [draggable]').length < 100`), 'rule DOM stays bounded')
-      await evaluate(`document.querySelector('[role="dialog"] [data-virtuoso-scroller]').scrollTop = 1e8`)
-      await wait(`document.querySelector('[role="dialog"]').textContent.includes('rule-1999.example')`)
+      await scrollToEnd('[role="dialog"] [data-virtuoso-scroller]', `document.querySelector('[role="dialog"]').textContent.includes('rule-1999.example')`)
       await evaluate(`Array.from(document.querySelectorAll('[draggable]')).find(el => el.textContent.includes('rule-1999.example')).click()`)
       await wait(`document.querySelector('fieldset input')?.value === 'rule-1999.example'`)
       console.log('PASS: 2000 proxies, processes and rules keep a bounded DOM; final rows remain reachable and editable')
