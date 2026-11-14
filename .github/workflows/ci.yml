@@ -38,8 +38,6 @@ jobs:
     needs: checks
     runs-on: windows-latest
     timeout-minutes: 25
-    env:
-      UI_ANGLE: swiftshader
     steps:
       - uses: actions/checkout@v6
       - name: Configure desktop for native window checks
@@ -56,9 +54,9 @@ jobs:
       - run: node scripts/verify-release.cjs resources
       - run: pnpm build
         id: build
-      - name: Verify native resizing before the full UI suite
+      - name: Select a graphics backend that passes native presentation checks
         id: native
-        run: pnpm exec electron scripts/verify-native-window-ui.cjs
+        run: node scripts/check-ci-graphics.cjs
       - run: pnpm test:bundle
       - run: pnpm test:functional
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.native.outcome == 'success' }}

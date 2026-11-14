@@ -24,4 +24,4 @@ if (![CiDisplay]::ReadParameter(0x0026, 0, [ref]$fullWindowDrag, 0)) { throw 'Ca
 Write-Output "Full-window dragging before setup: $fullWindowDrag"
 if (![CiDisplay]::WriteParameter(0x0025, 1, [IntPtr]::Zero, 2)) { throw 'Cannot enable full-window dragging' }
 if (![CiDisplay]::ReadParameter(0x0026, 0, [ref]$fullWindowDrag, 0) -or !$fullWindowDrag) { throw 'Full-window dragging remains disabled' }
-Write-Output "CI desktop: ${displayWidth}x${displayHeight}; full-window dragging: $fullWindowDrag; test compositor: SwANGLE"
+Write-Output "CI desktop: ${displayWidth}x${displayHeight}; full-window dragging: $fullWindowDrag"

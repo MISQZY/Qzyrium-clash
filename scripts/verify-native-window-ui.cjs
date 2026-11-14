@@ -66,6 +66,8 @@ app.whenReady().then(async () => {
     await win.loadFile(path.resolve(__dirname, '../out/renderer/index.html'))
     await ready()
     win.showInactive(); win.focus()
+    console.log('GRAPHICS:', JSON.stringify({ requestedBackend: process.env.UI_ANGLE ?? 'default',
+      features: app.getGPUFeatureStatus(), info: await app.getGPUInfo('basic') }))
     await capture('startup')
     win.setSize(940, 660)
     await capture('resize')
