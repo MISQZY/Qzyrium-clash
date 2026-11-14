@@ -50,6 +50,8 @@
   "silent": "Silent",
   "warn": "Warning",
   "close": "Close",
+  "minimize": "Minimize",
+  "maximize": "Maximize",
   "saveError": "Settings could not be saved. See the message above.",
   "routingMode": "Routing mode",
   "rulesMode": "Rules",

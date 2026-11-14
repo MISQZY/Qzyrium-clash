@@ -26,7 +26,8 @@ export class UpdateService implements BaseService {
   async initialize(): Promise<void> {
     this.whatsNew = this.loadWhatsNew()
     // NSIS needs installation metadata. Portable executables and dev runs cannot update in place.
-    if (!app.isPackaged || process.platform !== 'win32' || process.env.PORTABLE_EXECUTABLE_DIR) {
+    const isSupportedPlatform = process.platform === 'win32' || (process.platform === 'linux' && !!process.env.APPIMAGE)
+    if (!app.isPackaged || !isSupportedPlatform || process.env.PORTABLE_EXECUTABLE_DIR) {
       this.setStatus({ state: 'unsupported' })
       return
     }

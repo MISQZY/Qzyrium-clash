@@ -6,6 +6,7 @@ import { SettingService } from './SettingService'
 import { pacScript } from '../utils/pac'
 import { flushSystemDns } from '../utils/network-transition'
 import { WindowsProxySettings } from '../utils/windows-proxy'
+import { LinuxProxySettings } from '../utils/linux-proxy'
 
 export class SysProxyService implements BaseService {
   private enabled = false
@@ -19,7 +20,11 @@ export class SysProxyService implements BaseService {
 
   setPortProvider(provider: () => Promise<number>): void { this.portProvider = provider }
 
-  constructor(settingService: SettingService, private registry = new WindowsProxySettings()) {
+  constructor(
+    settingService: SettingService,
+    private registry = new WindowsProxySettings(),
+    private linuxProxy = new LinuxProxySettings()
+  ) {
     this.settingService = settingService
   }
 
@@ -121,6 +126,23 @@ export class SysProxyService implements BaseService {
         }
         if (!hadServer) this.closePacServer()
         logger.error('Failed to update Windows system proxy settings', err)
+        throw err
+      }
+    } else if (process.platform === 'linux') {
+      try {
+        if (enable && mode === 'manual') {
+          await this.linuxProxy.setManual(host, port)
+          this.enabled = true
+        } else if (enable && mode === 'pac') {
+          await this.linuxProxy.setAuto(pacUrl)
+          this.enabled = true
+        } else {
+          await this.linuxProxy.disable()
+          this.enabled = false
+          flushSystemDns()
+        }
+      } catch (err) {
+        logger.error('Failed to update Linux system proxy settings', err)
         throw err
       }
     } else {

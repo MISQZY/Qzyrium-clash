@@ -42,6 +42,7 @@ async function verify() {
   const exports = {}
   new Function('exports', 'require', 'process', code)(exports, name => {
     if (name === '../utils/windows-proxy') return { WindowsProxySettings }
+    if (name === '../utils/linux-proxy') return { LinuxProxySettings: class { async setManual() {} async setAuto() {} async disable() {} } }
     if (name === '../utils/logger') return { logger: { info() {}, error() {} } }
     if (name === '../utils/network-transition') return { flushSystemDns() {} }
     if (name === '../utils/pac') return loadTypeScript('src/main/utils/pac.ts')

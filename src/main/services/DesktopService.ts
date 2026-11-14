@@ -9,6 +9,7 @@ import type { WindowService } from './WindowService'
 import { logger } from '../utils/logger'
 import type { NetworkModeController } from './NetworkModeController'
 import { applyWindowsStartup } from '../utils/windows-startup'
+import { applyLinuxStartup } from '../utils/linux-startup'
 import { subscriptionUpdateInterval } from '@shared/profile'
 import { SubscriptionNotifications } from './SubscriptionNotifications'
 
@@ -59,7 +60,8 @@ export class DesktopService implements BaseService {
       const startup = JSON.stringify(config.general.autoStart)
       if (this.startupApplied !== startup) {
         if (app.isPackaged && process.platform === 'win32') await applyWindowsStartup(config.general)
-        else if (app.isPackaged && process.platform !== 'linux') app.setLoginItemSettings({ openAtLogin: config.general.autoStart })
+        else if (app.isPackaged && process.platform === 'linux') applyLinuxStartup(config.general.autoStart)
+        else if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: config.general.autoStart })
         this.startupApplied = startup
       }
       this.shortcuts = registered

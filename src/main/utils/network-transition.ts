@@ -15,5 +15,11 @@ export function flushSystemDns(): void {
         logger.info('Flushed Windows DNS cache successfully')
       }
     })
+  } else if (process.platform === 'linux') {
+    execFile('resolvectl', ['flush-caches'], (err) => {
+      if (!err) {
+        logger.info('Flushed systemd-resolved DNS cache')
+      }
+    })
   }
 }

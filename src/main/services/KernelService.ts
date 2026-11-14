@@ -282,7 +282,7 @@ export class KernelService implements BaseService {
     const paths = getAppPaths()
     const settings = this.settingService.getSettings()
 
-    if (settings.kernel.tun.enable && !isProcessElevated()) {
+    if (settings.kernel.tun.enable && process.platform === 'win32' && !isProcessElevated()) {
       throw new KernelOperationError('permission', 'TUN requires administrator privileges')
     }
 

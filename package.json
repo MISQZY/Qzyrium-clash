@@ -13,6 +13,7 @@
     "build": "electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:win": "node scripts/verify-release.cjs resources && electron-vite build && electron-builder --publish never --win",
+    "build:linux": "node scripts/verify-release.cjs resources && electron-vite build && electron-builder --publish never --linux",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",

@@ -41,6 +41,7 @@ if (appearance) {
 }
 
 const api: IElectronApi = {
+  platform: process.platform,
   bootAppearance: appearance,
   kernel: {
     getFailure: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_FAILURE),

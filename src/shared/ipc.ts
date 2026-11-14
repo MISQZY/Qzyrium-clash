@@ -132,6 +132,7 @@ export interface AddProfileDto {
 }
 
 export interface IElectronApi {
+  platform?: string
   bootAppearance?: BootAppearance
   kernel: {
     getFailure?: () => Promise<KernelFailure | null>
