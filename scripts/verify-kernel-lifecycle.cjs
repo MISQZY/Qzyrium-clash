@@ -161,7 +161,7 @@ async function verifyModeUpdates() {
   const services = {
     settingService: { getSettings: () => settings, updateSettings: async patch => { calls.push('save'); if (rejectSave) throw new Error('disk full'); settings = { ...settings, ...patch, kernel: { ...settings.kernel, ...patch.kernel } }; return settings } },
     kernelService: { getStatus: () => status, patchConfigs: async patch => { calls.push(`mode:${patch.mode}`); if (rejectMode) throw new Error('API unavailable') }, restart: async () => { calls.push('restart') } },
-    sysProxyService: { setSysProxy: async () => { calls.push('system-proxy') } },
+    sysProxyService: { setSysProxy: async () => { calls.push('system-proxy') }, async setCoreRunning() {} },
     trayService: { updateContextMenu() {} }, windowService: { ...ipc.windowService, updateTheme() {} }
   }
   const { NetworkModeController } = load('src/main/services/NetworkModeController.ts', { '../utils/logger': { logger } })
@@ -317,4 +317,36 @@ async function verifyHotReload() {
   assert.equal(restarts, 1, 'a queued apply never reverses a manual stop')
 }
 
-Promise.resolve().then(verifyRestart).then(verifyLinuxLaunch).then(verifyModeUpdates).then(verifyWakeRecovery).then(verifyHotReload).then(() => console.log('PASS: process lifecycle, Linux supervision, API readiness, network modes, cancellable wake recovery and safe hot reload')).catch(error => { console.error(error); process.exitCode = 1 })
+async function verifyProxyActivation() {
+  let config = structuredClone(load('src/shared/app-config.ts', {}).DEFAULT_APP_CONFIG)
+  let state = 'stopped', coreReady = false, enabled = false, starts = 0, fail = false
+  const { NetworkModeController } = load('src/main/services/NetworkModeController.ts', {
+    '../utils/logger': { logger }, '../utils/elevation': { isProcessElevated: () => true }
+  })
+  const kernel = {
+    getStatus: () => state,
+    async start() { starts++; state = 'starting'; await Promise.resolve(); if (fail) { state = 'error'; throw new Error('core failed') } state = 'running' },
+    async stop() { state = 'stopped' }, async restart() { state = 'running' }, async patchConfigs() {}
+  }
+  const proxy = {
+    getStatus: () => ({ enabled }),
+    async setCoreRunning(running) { coreReady = running; enabled = running && config.sysProxy.enable },
+    async setSysProxy(enable) { enabled = enable && coreReady }
+  }
+  const { mergeSettings } = load('src/shared/settings-config.ts', {})
+  const commands = new NetworkModeController({ getSettings: () => config, updateSettings: async patch => { config = mergeSettings(config, patch); return config } }, kernel, proxy)
+  await commands.setSystemProxy(true)
+  assert.equal(state, 'running'); assert.equal(enabled, true); assert.equal(starts, 1, 'enabling proxy starts an idle core')
+  await commands.setSystemProxy(true)
+  assert.equal(starts, 1, 'an already running core is preserved')
+  await commands.setSystemProxy(false)
+  assert.equal(state, 'running'); assert.equal(enabled, false, 'disabling capture leaves a running core alone')
+  state = 'stopped'; coreReady = false; fail = true
+  await assert.rejects(commands.setSystemProxy(true), /core failed/)
+  assert.equal(state, 'stopped'); assert.equal(config.sysProxy.enable, false); assert.equal(enabled, false, 'failed activation restores preference and OS proxy')
+  fail = false
+  await commands.setSystemProxy(true)
+  assert.equal(state, 'running'); assert.equal(enabled, true, 'a failed start does not poison later activation')
+}
+
+Promise.resolve().then(verifyRestart).then(verifyLinuxLaunch).then(verifyModeUpdates).then(verifyWakeRecovery).then(verifyHotReload).then(verifyProxyActivation).then(() => console.log('PASS: process lifecycle, Linux supervision, API readiness, network modes, proxy activation, cancellable wake recovery and safe hot reload')).catch(error => { console.error(error); process.exitCode = 1 })

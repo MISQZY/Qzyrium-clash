@@ -58,6 +58,11 @@ if (process.type === 'renderer') {
   api.mihomo.updateProvider = async (kind, name) => { providerCalls.push({ kind, name }) }
   api.uiTest.getProviderCalls = () => providerCalls
   api.uiTest.getSettings = () => settings
+  const setSystemProxy = api.sysproxy.set
+  api.sysproxy.set = async enable => {
+    if (enable && state !== 'running') await api.kernel.start()
+    await setSystemProxy(enable)
+  }
   api.mihomo.getEffectiveCore = async patch => {
     const kernel = patch?.kernel ?? settings.kernel
     return { ports: {
@@ -590,7 +595,11 @@ if (process.type === 'renderer') {
       assert.equal(await evaluate(`document.querySelector('.overview-power-section [role="status"]').textContent`), 'Disconnected')
       await waitFor(`!document.querySelector('.globe-solid-surface.is-running')`)
       assert.equal(await evaluate(`document.querySelectorAll('.globe-route-track:not(.is-connecting)').length`), 0, 'stopped core displays preview routes without live connection styling')
-      await evaluate(`document.querySelector('button[aria-label="Start core"]').click()`)
+      await navigate('System proxy')
+      await evaluate(`document.querySelector('[role="switch"][aria-label="System proxy enabled"]').click()`)
+      await waitFor(`document.querySelector('[role="switch"][aria-label="System proxy enabled"]').getAttribute('aria-checked') === 'true'`)
+      await navigate('Home')
+      await waitFor(`document.querySelector('button[aria-label="Stop core"]') && document.querySelector('.overview-power-section [role="status"]').textContent === 'Connected'`)
       await waitFor(`document.querySelector('.sidebar-vpn-badge').dataset.state === 'on'`)
       await waitFor(`document.querySelector('.overview-session-duration')?.textContent.startsWith('00:00:')`)
       result.checks.push('Rules/Global keep the running core indicator on, including without capture; stopping turns it off')

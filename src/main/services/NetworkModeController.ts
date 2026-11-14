@@ -15,8 +15,8 @@ export class NetworkModeController {
 
   constructor(
     private settings: Pick<SettingService, 'getSettings' | 'updateSettings'>,
-    private kernel: Pick<KernelService, 'getStatus' | 'restart' | 'patchConfigs'>,
-    private proxy: Pick<SysProxyService, 'getStatus' | 'setSysProxy'>,
+    private kernel: Pick<KernelService, 'getStatus' | 'start' | 'stop' | 'restart' | 'patchConfigs'>,
+    private proxy: Pick<SysProxyService, 'getStatus' | 'setSysProxy' | 'setCoreRunning'>,
     private applyDesktop: (settings: AppConfig) => Promise<void> = async () => {},
     private changed: (general: boolean) => void = () => {},
     private elevated = isProcessElevated
@@ -36,7 +36,7 @@ export class NetworkModeController {
   setSystemProxy(enable: boolean): Promise<void> {
     return this.enqueue(async () => {
       const current = this.settings.getSettings()
-      await this.apply({ sysProxy: { ...current.sysProxy, enable } })
+      await this.apply({ sysProxy: { ...current.sysProxy, enable } }, enable)
     })
   }
 
@@ -54,7 +54,7 @@ export class NetworkModeController {
     })
   }
 
-  private async apply(patch: Partial<AppConfig>): Promise<AppConfig> {
+  private async apply(patch: Partial<AppConfig>, startProxy = false): Promise<AppConfig> {
     const previous = structuredClone(this.settings.getSettings())
     let candidate = mergeSettings(previous, patch)
     if (patch.kernel?.tun?.enable) {
@@ -73,6 +73,7 @@ export class NetworkModeController {
     let liveModeChanged = false
     let proxyDisabled = false
     let saved = false
+    let startedCore = false
     try {
       if (candidate.kernel.tun.enable && (previous.sysProxy.enable || this.proxy.getStatus().enabled)) {
         await this.proxy.setSysProxy(false)
@@ -86,6 +87,14 @@ export class NetworkModeController {
       const updated = await this.settings.updateSettings(patch)
       saved = true
       if (kernelChanged && !modeOnly && running()) await this.kernel.restart()
+      if (startProxy && updated.sysProxy.enable) {
+        if (this.kernel.getStatus() !== 'running') {
+          startedCore = !running()
+          await this.kernel.start()
+        }
+        if (this.kernel.getStatus() !== 'running') throw new Error('Mihomo core did not start')
+        await this.proxy.setCoreRunning(true)
+      }
       if (patch.sysProxy || (previous.kernel.mixedPort !== updated.kernel.mixedPort && updated.sysProxy.enable)) {
         await this.proxy.setSysProxy(updated.sysProxy.enable)
       }
@@ -94,6 +103,10 @@ export class NetworkModeController {
     } catch (error) {
       const recover = async () => {
         if (saved) await this.settings.updateSettings(previous)
+        if (startedCore) {
+          await this.kernel.stop()
+          await this.proxy.setCoreRunning(false)
+        }
         if (liveModeChanged && this.kernel.getStatus() === 'running') await this.kernel.patchConfigs({ mode: previous.kernel.mode })
         if (saved && kernelChanged && !modeOnly && running()) await this.kernel.restart()
         if (proxyDisabled || (saved && patch.sysProxy)) await this.proxy.setSysProxy(previous.sysProxy.enable)

@@ -189,7 +189,7 @@ async function verifyDesktop() {
     { getSettings: () => structuredClone(config), updateSettings: async patch => { Object.assign(config, patch); calls.push('save'); return structuredClone(config) } },
     { getProfiles: () => [{ id: 'active', type: 'remote' }, { id: 'other', type: 'remote' }, { id: 'local', type: 'local' }, { id: 'disabled', type: 'remote', autoUpdate: false }, { id: 'recent', type: 'remote', interval: 15, updatedAt: Date.now() }], getActiveProfile: () => ({ id: 'active' }), updateProfile: async id => { calls.push('update:' + id); return true } },
     { getStatus: () => 'running', restart: async () => calls.push('restart'), reloadConfig: async () => calls.push('reload'), patchConfigs: async patch => calls.push('mode:' + patch.mode) },
-    { getStatus: () => ({ enabled: config.sysProxy.enable }), setSysProxy: async enable => { config.sysProxy.enable = enable; calls.push('proxy:' + enable) } }, { show: () => calls.push('show') }, () => calls.push('notify')]
+    { getStatus: () => ({ enabled: config.sysProxy.enable }), async setCoreRunning() {}, setSysProxy: async enable => { config.sysProxy.enable = enable; calls.push('proxy:' + enable) } }, { show: () => calls.push('show') }, () => calls.push('notify')]
   const desktop = new DesktopService(...desktopArgs, new NetworkModeController(desktopArgs[0], desktopArgs[2], desktopArgs[3], async () => {}, () => {}, () => true))
   await desktop.initialize()
   assert.deepEqual(login, [true])
