@@ -12,7 +12,7 @@ export function isAllowedSubscriptionAddress(address: string): boolean {
   const family = isIP(address)
   if (family === 4) {
     const octets = address.split('.').map(Number)
-    return octets[0] !== 0 && octets[0] !== 127 && address !== '169.254.169.254'
+    return octets[0] !== 0 && octets[0] !== 127 && !(octets[0] === 169 && octets[1] === 254)
   }
   if (family !== 6) return false
   const expanded = address.replace(/\d+\.\d+\.\d+\.\d+$/, value => {
@@ -25,6 +25,7 @@ export function isAllowedSubscriptionAddress(address: string): boolean {
   const words = (right !== undefined ? [...start, ...Array(8 - start.length - end.length).fill('0'), ...end] : start)
     .map(value => parseInt(value, 16))
   if (words.slice(0, 6).every(value => value === 0) && words[6] === 0 && words[7] <= 1) return false
+  if ((words[0] & 0xffc0) === 0xfe80) return false
   if (words.slice(0, 5).every(value => value === 0) && (words[5] === 0xffff || words[5] === 0)) {
     return isAllowedSubscriptionAddress(`${words[6] >> 8}.${words[6] & 255}.${words[7] >> 8}.${words[7] & 255}`)
   }

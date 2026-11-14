@@ -11,6 +11,7 @@ for (const url of [
   'http://[0:0:0:0:0:0:0:1]/sub', 'http://[::ffff:127.0.0.2]/sub',
   'http://[::ffff:7f00:1]/sub', 'http://[::127.0.0.1]/sub',
   'http://169.254.169.254/sub', 'http://[::ffff:169.254.169.254]/sub',
+  'http://169.254.1.2/sub', 'http://[fe80::1]/sub', 'http://[::ffff:169.254.1.2]/sub',
   'http://localhost./sub', 'http://LOCALHOST/sub', 'http://sub.localhost./sub', 'http://host.local./sub',
   'file:///etc/hosts', 'ftp://example.com/sub', 'not-a-url'
 ]) assert.equal(valid(url), false, url)
@@ -20,7 +21,7 @@ for (const url of ['https://provider.example/sub?Token=private', 'http://192.168
   'https://[::ffff:192.168.1.2]/sub', 'https://user:password@provider.example/sub']) {
   assert.equal(valid(url), true, url)
 }
-for (const address of ['127.0.0.2', '::ffff:127.0.0.1', '0:0:0:0:0:ffff:7f00:2', '::', '::1', 'not-an-ip']) {
+for (const address of ['127.0.0.2', '::ffff:127.0.0.1', '0:0:0:0:0:ffff:7f00:2', '::', '::1', '169.254.1.2', 'fe80::1', '::ffff:169.254.1.2', 'not-an-ip']) {
   assert.equal(allowed(address), false, address)
 }
 assert.equal(allowed('192.168.1.2'), true)
