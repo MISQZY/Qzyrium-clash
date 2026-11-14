@@ -72,6 +72,13 @@ export function AddProfileDialog({ draft }: { draft: ProfileImportDraft }) {
               </div>
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                 <div className="space-y-0.5">
+                  <label htmlFor="add-send-hwid" className="text-xs font-medium cursor-pointer">{t('sendHwid')}</label>
+                  <p className="text-[10px] text-muted-foreground">{t('sendHwidHint')}</p>
+                </div>
+                <Switch id="add-send-hwid" checked={draft.sendHwid} onCheckedChange={draft.setSendHwid} />
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+                <div className="space-y-0.5">
                   <label htmlFor="add-update-via-proxy" className="text-xs font-medium cursor-pointer">
                     {t('updateViaProxy')}
                   </label>

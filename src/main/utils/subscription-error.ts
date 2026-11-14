@@ -5,7 +5,8 @@ const messages = {
   dns: 'subscriptionDnsFailed', tls: 'subscriptionTlsFailed', timeout: 'subscriptionTimedOut',
   http: 'subscriptionHttpFailed', blocked: 'subscriptionAddressBlocked', redirect: 'subscriptionRedirectFailed',
   size: 'subscriptionTooLarge', format: 'subscriptionInvalidFormat', network: 'subscriptionNetworkFailed',
-  proxy: 'subscriptionProxyStopped', url: 'subscriptionInvalidUrl', validation: 'subscriptionValidationUnavailable'
+  proxy: 'subscriptionProxyStopped', url: 'subscriptionInvalidUrl', validation: 'subscriptionValidationUnavailable',
+  'device-limit': 'subscriptionDeviceLimit', 'hwid-required': 'subscriptionHwidRequired', identity: 'subscriptionIdentityFailed'
 } as const
 
 export type SubscriptionFailure = keyof typeof messages

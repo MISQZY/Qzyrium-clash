@@ -21,6 +21,7 @@ export function useProfileImport({ importRequest, onClearImportRequest, onRefres
   const [profileUrl, setProfileUrl] = useState('')
   const [profileType, setProfileType] = useState<'remote' | 'local'>('remote')
   const [updateViaProxy, setUpdateViaProxy] = useState(false)
+  const [sendHwid, setSendHwid] = useState(false)
   const [yamlContent, setYamlContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -31,6 +32,7 @@ export function useProfileImport({ importRequest, onClearImportRequest, onRefres
       setProfileUrl(parsed.url)
       setProfileName(importRequest.name || parsed.name || '')
       setUpdateViaProxy(false)
+      setSendHwid(false)
       setAddModalOpen(true)
     }
   }, [importRequest])
@@ -55,6 +57,7 @@ export function useProfileImport({ importRequest, onClearImportRequest, onRefres
         url: profileType === 'remote' ? profileUrl.trim() : undefined,
         type: profileType,
         updateViaProxy: profileType === 'remote' ? updateViaProxy : undefined,
+        sendHwid: profileType === 'remote' ? sendHwid : undefined,
         content: profileType === 'local' ? yamlContent : undefined
       })
       setShowAddModal(false)
@@ -62,6 +65,7 @@ export function useProfileImport({ importRequest, onClearImportRequest, onRefres
       setProfileUrl('')
       setUpdateViaProxy(false)
       setYamlContent('')
+      setSendHwid(false)
       onRefreshAll()
     } catch (err) {
       setError(t('addFailed', { error: err instanceof Error ? err.message : String(err) }))
@@ -70,7 +74,7 @@ export function useProfileImport({ importRequest, onClearImportRequest, onRefres
     }
   }
 
-  return { showAddModal, setShowAddModal, profileName, setProfileName, profileUrl, profileType, setProfileType, updateViaProxy, setUpdateViaProxy, yamlContent, setYamlContent, submitting, error, handleUrlChange, handleAddProfile }
+  return { showAddModal, setShowAddModal, profileName, setProfileName, profileUrl, profileType, setProfileType, updateViaProxy, setUpdateViaProxy, sendHwid, setSendHwid, yamlContent, setYamlContent, submitting, error, handleUrlChange, handleAddProfile }
 }
 
 export type ProfileImportDraft = ReturnType<typeof useProfileImport>

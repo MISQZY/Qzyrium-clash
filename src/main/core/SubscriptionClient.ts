@@ -6,14 +6,15 @@ import { parseSubscriptionMetadata } from '../utils/subscription-metadata'
 import { isAllowedSubscriptionAddress, isValidRemoteSubscriptionUrl, subscriptionHostname } from '../utils/subscription-url'
 import { resolveSubscription, withinSubscriptionDeadline, type ResolveSubscription } from './SubscriptionResolver'
 import { SubscriptionDownloadError, type SubscriptionFailure } from '../utils/subscription-error'
+import { subscriptionDeviceHeaders } from '../utils/subscription-device'
 
 const REDIRECTS = new Set([301, 302, 303, 307, 308])
 
 export class SubscriptionClient {
   constructor(private settings: () => AppConfig, private isCoreRunning: () => boolean,
-    private options: { resolve?: ResolveSubscription; timeoutMs?: number; proxyPort?: () => Promise<number> } = {}) {}
+    private options: { resolve?: ResolveSubscription; timeoutMs?: number; proxyPort?: () => Promise<number>; deviceHeaders?: typeof subscriptionDeviceHeaders } = {}) {}
 
-  async download(url: string, userAgent?: string, updateViaProxy?: boolean) {
+  async download(url: string, userAgent?: string, updateViaProxy?: boolean, sendHwid = false) {
     const settings = this.settings()
     const fail = (code: SubscriptionFailure) => new SubscriptionDownloadError(code, settings.general)
     if (!isValidRemoteSubscriptionUrl(url)) throw fail('url')
@@ -22,8 +23,14 @@ export class SubscriptionClient {
     }
     const signal = AbortSignal.timeout(this.options.timeoutMs ?? 15_000)
     let target = new URL(url)
+    const origin = target.origin
     let phase: 'dns' | 'network' = 'dns'
     try {
+      let deviceHeaders: Record<string, string> = {}
+      if (sendHwid) {
+        try { deviceHeaders = await (this.options.deviceHeaders ?? subscriptionDeviceHeaders)(origin) }
+        catch { throw fail('identity') }
+      }
       const proxyPort = updateViaProxy && this.options.proxyPort ? await this.options.proxyPort() : settings.kernel.mixedPort
       for (let redirects = 0; ; redirects++) {
         if (!isValidRemoteSubscriptionUrl(target.href)) throw fail('blocked')
@@ -49,8 +56,9 @@ export class SubscriptionClient {
           response = await axios.get<unknown>(pinned.href, {
             timeout: this.options.timeoutMs ?? 15_000, signal,
             maxContentLength: 15 * 1024 * 1024, maxBodyLength: 15 * 1024 * 1024,
-            maxRedirects: 0, validateStatus: status => status >= 200 && status < 300 || REDIRECTS.has(status),
-            headers: { 'User-Agent': userAgent || subscriptionUserAgent(settings.general.userAgent), Host: target.host },
+            maxRedirects: 0, validateStatus: status => status >= 200 && status <= 599,
+            headers: { 'User-Agent': userAgent || subscriptionUserAgent(settings.general.userAgent), Host: target.host,
+              ...(target.origin === origin ? deviceHeaders : {}) },
             httpsAgent,
             // Return only approved answers; never perform a second DNS resolution.
             lookup: async () => [addresses],
@@ -58,6 +66,10 @@ export class SubscriptionClient {
           })
         } finally { httpsAgent?.destroy() }
         if (!REDIRECTS.has(response.status)) {
+          const metadata = parseSubscriptionMetadata(response.headers, '')
+          // A device-limit response may be a placeholder rather than a working configuration.
+          if (metadata.deviceStatus) return { content: '', ...metadata }
+          if (response.status >= 400) throw new SubscriptionDownloadError('http', settings.general, response.status)
           const content = typeof response.data === 'string' ? response.data : JSON.stringify(response.data)
           return { content, ...parseSubscriptionMetadata(response.headers, content) }
         }

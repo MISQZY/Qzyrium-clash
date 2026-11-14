@@ -37,7 +37,50 @@ async function verify() {
   headers = {}
   await service.updateProfile(profile.id)
   assert.equal(subscriptionUpdateInterval(service.getActiveProfile()), 60, 'removed header restores the application fallback')
+  await service.updateProfileInfo(profile.id, { sendHwid: true })
+  assert.equal(service.getActiveProfile().sendHwid, true)
+  const working = await service.getProfileContent(profile.id)
+  headers = { 'X-Hwid-Max-Devices-Reached': 'true', 'support-url': 'https://support.example/help' }
+  await assert.rejects(service.updateProfile(profile.id), { code: 'device-limit' })
+  assert.equal(await service.getProfileContent(profile.id), working, 'limit placeholders never replace a working profile')
+  assert.equal(service.getActiveProfile().deviceStatus, 'limit')
+  assert.equal(service.getActiveProfile().supportUrl, 'https://support.example/help')
+  const count = service.getProfiles().length
+  await assert.rejects(service.addProfile({ type: 'remote', url: 'https://example.invalid/denied' }), { code: 'device-limit' })
+  assert.equal(service.getProfiles().length, count, 'denied imports do not create broken profiles')
+  headers = { 'x-hwid-not-supported': 'true' }
+  await assert.rejects(service.updateProfile(profile.id), { code: 'hwid-required' })
+  headers = {}
+  await service.updateProfile(profile.id)
+  assert.equal(service.getActiveProfile().deviceStatus, undefined)
   await service.dispose()
-  console.log('PASS: subscription interval parsing, persistence, manual priority and automatic fallback')
+
+  const { subscriptionDeviceHeaders } = load('src/main/utils/subscription-device.ts', { './paths': { getAppPaths: () => ({ userData: directory }) } })
+  const identity = await subscriptionDeviceHeaders('https://provider.example/sub')
+  assert.match(identity['x-hwid'], /^[a-zA-Z0-9=-]{10,64}$/)
+  assert.equal((await subscriptionDeviceHeaders('https://provider.example/other'))['x-hwid'], identity['x-hwid'])
+  assert.notEqual((await subscriptionDeviceHeaders('https://other.example'))['x-hwid'], identity['x-hwid'])
+  let identities = 0, requests = []
+  const { SubscriptionClient } = load('src/main/core/SubscriptionClient.ts', { axios: {
+    get: async (_url, options) => { requests.push(options); return requests.length === 1
+      ? { status: 302, headers: { location: 'https://other.example/sub' } }
+      : { status: 200, headers: {}, data: 'rules: []' } }
+  } })
+  const client = new SubscriptionClient(() => config, () => true, {
+    resolve: async () => [{ address: '203.0.113.1', family: 4 }], deviceHeaders: async () => { identities++; return identity }
+  })
+  await client.download('https://provider.example/sub')
+  assert.equal(identities, 0, 'HWID is opt-in')
+  assert.equal(requests[0].headers['x-hwid'], undefined)
+  requests = []
+  await client.download('https://provider.example/sub', undefined, false, true)
+  assert.equal(requests[0].headers['x-hwid'], identity['x-hwid'])
+  assert.equal(requests[1].headers['x-hwid'], undefined, 'cross-origin redirects do not receive the opted-in identifier')
+  const { SubscriptionClient: DeniedClient } = load('src/main/core/SubscriptionClient.ts', { axios: {
+    get: async () => ({ status: 403, headers: { 'x-hwid-limit': 'true' }, data: 'private placeholder' })
+  } })
+  const denied = await new DeniedClient(() => config, () => true, { resolve: async () => [{ address: '203.0.113.1', family: 4 }] }).download('https://provider.example/sub')
+  assert.equal(denied.deviceStatus, 'limit'); assert.equal(denied.content, '')
+  console.log('PASS: server intervals, opt-in stable HWID, redirect privacy, device limits and preservation of working profiles')
 }
 verify().catch(error => { console.error(error); process.exitCode = 1 })

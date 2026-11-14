@@ -32,6 +32,7 @@ export function useProfileActions(onRefreshAll: () => void) {
       onRefreshAll()
     } catch (err) {
       setError(t('updateFailed', { error: err instanceof Error ? err.message : String(err) }))
+      onRefreshAll()
     } finally {
       pendingUpdates.current.delete(id)
       setUpdating(new Set(pendingUpdates.current))

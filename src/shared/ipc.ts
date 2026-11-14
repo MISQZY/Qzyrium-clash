@@ -119,6 +119,7 @@ export interface BootSnapshot {
 }
 
 export interface AddProfileDto {
+  sendHwid?: boolean
   name?: string
   url?: string
   type: 'remote' | 'local'

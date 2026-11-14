@@ -1,4 +1,7 @@
 {
+  "subscriptionDeviceLimit": "The subscription's device limit has been reached. Your saved configuration is unchanged. Contact the provider's support.",
+  "subscriptionHwidRequired": "This subscription requires a device identifier. Enable HWID in the subscription settings and try again.",
+  "subscriptionIdentityFailed": "Could not read the local subscription device identifier. Check access to the application data folder.",
   "subscriptionValidationUnavailable": "Could not validate the subscription. Check that the Mihomo core is installed and available, then try again.",
   "subscriptionDnsFailed": "Could not resolve the subscription server. Check DNS settings and try again.",
   "subscriptionTlsFailed": "Could not verify the subscription server's secure connection. Check the system date and the subscription address.",

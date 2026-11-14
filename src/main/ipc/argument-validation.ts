@@ -60,7 +60,7 @@ const rule = object({ id: name, type: name, payload: text, proxy: text,
     additionalParams: list(text), isDeleted: boolean, offset: integer(0), sourceRule: text,
     sourceOccurrence: integer(0), replacementRule: text }) })
 const profilePatch = object(optionalFields({ name: text, url: text, autoUpdate: boolean,
-  updateViaProxy: boolean, interval: value => value === null || integer(15, 43200)(value), customUA: text }))
+  updateViaProxy: boolean, sendHwid: boolean, interval: value => value === null || integer(15, 43200)(value), customUA: text }))
 const overlay = object(optionalFields({ color: text, symbolColor: text }))
 const theme = object({ id: name, name: text, mode: oneOf('light', 'dark'), colors: record(text),
   titleBarOverlay: optional(object({ color: text, symbolColor: text })) })
@@ -93,7 +93,7 @@ const contracts = {
   [IPC_CHANNELS.PROFILE_GET_RAW_CONFIG]: [id], [IPC_CHANNELS.PROFILE_SAVE_RAW_CONFIG]: [id, text],
   [IPC_CHANNELS.PROFILE_UPDATE_INFO]: [id, profilePatch],
   [IPC_CHANNELS.PROFILE_ADD]: [object({ type: oneOf('local', 'remote'),
-    ...optionalFields({ name: text, url: text, content: text, updateViaProxy: boolean }) })],
+    ...optionalFields({ name: text, url: text, content: text, updateViaProxy: boolean, sendHwid: boolean }) })],
   [IPC_CHANNELS.SYSPROXY_GET_STATUS]: [], [IPC_CHANNELS.SYSPROXY_SET]: [boolean],
   [IPC_CHANNELS.APP_GET_SETTINGS]: [], [IPC_CHANNELS.APP_UPDATE_SETTINGS]: [settings],
   [IPC_CHANNELS.APP_EXPORT_BACKUP]: [], [IPC_CHANNELS.APP_IMPORT_BACKUP]: [],

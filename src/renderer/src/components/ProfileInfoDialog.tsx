@@ -44,6 +44,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
   const [url, setUrl] = useState(profile?.url || '')
   const [autoUpdate, setAutoUpdate] = useState(profile?.autoUpdate ?? true)
   const [updateViaProxy, setUpdateViaProxy] = useState(profile?.updateViaProxy ?? false)
+  const [sendHwid, setSendHwid] = useState(profile?.sendHwid ?? false)
   const [interval, setInterval] = useState(profile?.interval ?? 1440)
   const [automaticInterval, setAutomaticInterval] = useState(profile?.interval === undefined)
   const [customUA, setCustomUA] = useState(profile?.customUA || '')
@@ -57,6 +58,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
       setUrl(profile.url || '')
       setAutoUpdate(profile.autoUpdate ?? true)
       setUpdateViaProxy(profile.updateViaProxy ?? false)
+      setSendHwid(profile.sendHwid ?? false)
       setInterval(profile.interval ?? 1440)
       setAutomaticInterval(profile.interval === undefined)
       setCustomInterval(![60, 360, 720, 1440].includes(profile.interval ?? 1440))
@@ -78,6 +80,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
         url: profile.type === 'remote' ? url.trim() : undefined,
         autoUpdate: profile.type === 'remote' ? autoUpdate : undefined,
         updateViaProxy: profile.type === 'remote' ? updateViaProxy : undefined,
+        sendHwid: profile.type === 'remote' ? sendHwid : undefined,
         interval: profile.type === 'remote' && autoUpdate ? automaticInterval ? null : Number(interval) || 1440 : undefined,
         customUA: profile.type === 'remote' ? customUA.trim() : undefined
       })
@@ -182,6 +185,13 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
                     <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                   </summary>
                   <div className="space-y-4 border-t border-border/60 p-3.5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-0.5">
+                        <label htmlFor={`${id}-hwid`} className="cursor-pointer text-xs font-medium">{t('sendHwid')}</label>
+                        <p className="text-[11px] leading-relaxed text-muted-foreground">{t('sendHwidHint')}</p>
+                      </div>
+                      <Switch id={`${id}-hwid`} checked={sendHwid} onCheckedChange={setSendHwid} />
+                    </div>
                     <div className="flex items-center justify-between gap-4">
                       <div className="space-y-0.5">
                         <label htmlFor={`${id}-proxy`} className="cursor-pointer text-xs font-medium">{t('updateViaProxy')}</label>

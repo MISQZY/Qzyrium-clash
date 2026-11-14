@@ -112,6 +112,11 @@ export function ProfileCard({ profile: p, isActive, updating, onSwitchProfile, o
         </div>
     
         {p.type === 'remote' && <SubscriptionInfo info={p.userInfo} />}
+        {p.deviceStatus && <div role="status" className="rounded-lg border border-warning/25 bg-warning/5 p-3 text-xs text-warning">
+          <p>{t(p.deviceStatus === 'limit' ? 'deviceLimitNotice' : 'hwidRequiredNotice')}</p>
+          {p.supportUrl?.startsWith('https://') && <Button type="button" variant="ghost" size="sm" className="mt-1 h-auto p-0 text-warning underline underline-offset-2"
+            onClick={() => { void window.api.app.openUrl(p.supportUrl!) }}>{t('providerSupport')}</Button>}
+        </div>}
     
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border/60 pt-3">
           <p className="text-[10px] text-muted-foreground">{t('updated', { date: dateStr })}</p>
