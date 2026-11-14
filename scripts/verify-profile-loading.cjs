@@ -215,13 +215,13 @@ async function verifyProfiles() {
   })
   const ipc = createIpcFixture()
   registerIpcHandlers({ windowService: ipc.windowService, profileService: profiles, kernelService: {
-    getStatus: () => status, async restart() { restarts++; await nextTurn() }
+    getStatus: () => status, async reloadConfig() { restarts++; await nextTurn() }, async restart() { assert.fail('profile changes must use hot reload') }
   } })
   const invoke = (channel, ...args) => handlers.get(channels[channel])(ipc.event, ...args)
   const first = invoke('PROFILE_UPDATE', 'a')
   await Promise.all([first, invoke('PROFILE_UPDATE', 'a'), invoke('PROFILE_UPDATE', 'a')])
   assert.equal(fetches, 1, 'concurrent subscription updates must share one download')
-  assert.equal(restarts, 1, 'shared subscription update must restart only once')
+  assert.equal(restarts, 1, 'shared subscription update must apply only once')
   await invoke('PROFILE_UPDATE', 'a')
   assert.equal(restarts, 1, 'unchanged subscription must not restart')
   await invoke('PROFILE_UPDATE', 'b')

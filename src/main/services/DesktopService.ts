@@ -116,7 +116,7 @@ export class DesktopService implements BaseService {
     }
     if (this.disposed) return
     if (changedActive && ['running', 'starting'].includes(this.kernel.getStatus())) {
-      try { await this.kernel.restart() } catch (err) { logger.error('Applying updated subscription failed', err) }
+      try { await this.kernel.reloadConfig() } catch (err) { logger.error('Applying updated subscription failed', err) }
     }
     this.changed()
   }

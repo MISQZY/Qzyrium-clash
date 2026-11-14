@@ -28,6 +28,9 @@ import type { ProxyGroup } from '@shared/mihomo'
 import { offlineProxies } from '../utils/offline-proxies'
 import { flushSystemDns } from '../utils/network-transition'
 import { summarizeRules } from '@shared/rules'
+import fs from 'node:fs/promises'
+import axios from 'axios'
+import { writeFileAtomicAsync } from '../utils/atomicWrite'
 
 export class KernelService implements BaseService {
   private ruleWarning: string | null = null
@@ -349,26 +352,43 @@ export class KernelService implements BaseService {
   }
 
   async reloadConfig(force = true): Promise<void> {
-    if (this.getStatus() !== 'running') {
-      await this.restart()
-      return
-    }
-    this.invalidateGlobe()
     return this.enqueueLifecycle(async () => {
+      // Recheck after queued start/stop operations: applying a profile never starts a stopped core.
+      if (this.getStatus() !== 'running') return
+      this.invalidateGlobe()
+      const configPath = getAppPaths().activeConfigPath
+      const previous = await fs.readFile(configPath, 'utf8')
+      const settings = this.settingService.getSettings()
+      let activeProfile
       try {
-        const settings = this.settingService.getSettings()
-        const activeProfile = await this.configBuilder.build(settings, true)
-
-        await this.apiClient.reloadConfig(force)
-        logger.info('Mihomo configuration reloaded on the fly via REST API')
-        this.warnInvalidRules(activeProfile?.id)
-
-        await restoreProxySelection(activeProfile, this.apiClient)
+        activeProfile = await this.configBuilder.build(settings, true)
+      } catch (error) {
+        await writeFileAtomicAsync(configPath, previous)
+        throw error
+      }
+      try {
+        await this.apiClient.reloadConfig(configPath, force)
       } catch (err) {
-        logger.warn(`Hot config reload failed, falling back to full restart: ${String(err)}`)
+        // A rejected configuration leaves the old runtime intact. Do not destroy it with a restart.
+        const rejected = axios.isAxiosError(err) && [400, 422].includes(err.response?.status ?? 0)
+        let healthy = false
+        if (!rejected) {
+          try { await this.apiClient.getVersion(); healthy = true } catch { /* Recover an unreachable core below. */ }
+        }
+        if (rejected || healthy) {
+          await writeFileAtomicAsync(configPath, previous)
+          throw err
+        }
+        logger.warn('Hot config reload failed and the controller is unreachable; restarting the core')
         await this.stopCore()
         await this.startCore()
+        return
       }
+      logger.info('Mihomo configuration reloaded on the fly via REST API')
+      this.warnInvalidRules(activeProfile?.id)
+      // Selection restoration must not turn an applied configuration into a failed reload.
+      await restoreProxySelection(activeProfile, this.apiClient)
+        .catch(error => logger.warn(`Could not restore proxy selections after config reload: ${String(error)}`))
     })
   }
 

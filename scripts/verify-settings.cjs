@@ -188,7 +188,7 @@ async function verifyDesktop() {
   const desktopArgs = [
     { getSettings: () => structuredClone(config), updateSettings: async patch => { Object.assign(config, patch); calls.push('save'); return structuredClone(config) } },
     { getProfiles: () => [{ id: 'active', type: 'remote' }, { id: 'other', type: 'remote' }, { id: 'local', type: 'local' }, { id: 'disabled', type: 'remote', autoUpdate: false }, { id: 'recent', type: 'remote', interval: 15, updatedAt: Date.now() }], getActiveProfile: () => ({ id: 'active' }), updateProfile: async id => { calls.push('update:' + id); return true } },
-    { getStatus: () => 'running', restart: async () => calls.push('restart'), patchConfigs: async patch => calls.push('mode:' + patch.mode) },
+    { getStatus: () => 'running', restart: async () => calls.push('restart'), reloadConfig: async () => calls.push('reload'), patchConfigs: async patch => calls.push('mode:' + patch.mode) },
     { getStatus: () => ({ enabled: config.sysProxy.enable }), setSysProxy: async enable => { config.sysProxy.enable = enable; calls.push('proxy:' + enable) } }, { show: () => calls.push('show') }, () => calls.push('notify')]
   const desktop = new DesktopService(...desktopArgs, new NetworkModeController(desktopArgs[0], desktopArgs[2], desktopArgs[3], async () => {}, () => {}, () => true))
   await desktop.initialize()
@@ -215,7 +215,8 @@ async function verifyDesktop() {
   assert.equal(scheduled.ms, 15 * 60_000, 'scheduler wakes for the shortest per-profile interval')
   scheduled.fn()
   await flush()
-  assert.equal(calls.filter(call => call === 'restart').length, 1, 'all background profile updates apply through one restart')
+  assert.equal(calls.filter(call => call === 'reload').length, 1, 'all background profile updates apply through one hot reload')
+  assert.equal(calls.filter(call => call === 'restart').length, 0, 'background updates preserve the running process')
   assert.ok(!calls.includes('update:local'))
   assert.ok(!calls.includes('update:disabled'), 'disabled subscriptions are skipped')
   assert.ok(!calls.includes('update:recent'), 'subscriptions are not fetched before their interval elapses')
@@ -252,7 +253,7 @@ async function verifyDesktop() {
   assert.ok(calls.includes('update:active'), 'stale subscriptions update at startup even when periodic updates are off')
   assert.ok(!calls.includes('update:recent'), 'fresh subscriptions are skipped at startup')
   assert.ok(!calls.includes('update:disabled'))
-  assert.equal(calls.filter(call => call === 'restart').length, 1, 'startup updates restart the active core once')
+  assert.equal(calls.filter(call => call === 'reload').length, 1, 'startup updates apply to the active core once')
   await startupDesktop.dispose()
   assert.equal(timers.size, 0)
 }

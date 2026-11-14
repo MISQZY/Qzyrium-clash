@@ -275,4 +275,46 @@ async function verifyWakeRecovery() {
   assert.equal(power.listenerCount('resume'), 0, 'power listeners are removed on shutdown')
 }
 
-Promise.resolve().then(verifyRestart).then(verifyLinuxLaunch).then(verifyModeUpdates).then(verifyWakeRecovery).then(() => console.log('PASS: process lifecycle, Linux supervision, API readiness, network modes and cancellable wake recovery')).catch(error => { console.error(error); process.exitCode = 1 })
+async function verifyHotReload() {
+  let disk = 'previous', state = 'running', failure, buildFailure, healthy = true, restarts = 0, selections = 0
+  const { KernelService } = load('src/main/services/KernelService.ts', {
+    electron: { powerMonitor: new EventEmitter() }, '../utils/logger': { logger },
+    '../utils/paths': { getAppPaths: () => ({ activeConfigPath: '/fixture/active.yaml' }) },
+    'node:fs/promises': { readFile: async () => disk },
+    '../utils/atomicWrite': { writeFileAtomicAsync: async (_path, content) => { disk = content } },
+    '../core/ProxySelection': { restoreProxySelection: async () => { selections++ } }
+  })
+  const kernel = Object.assign(Object.create(KernelService.prototype), {
+    lifecycle: Promise.resolve(), invalidateGlobe() {}, warnInvalidRules() {},
+    processManager: { getState: () => state },
+    settingService: { getSettings: () => ({}) },
+    configBuilder: { build: async () => { disk = 'candidate'; if (buildFailure) throw buildFailure; return { id: 'active' } } },
+    apiClient: {
+      reloadConfig: async (configPath) => { assert.equal(configPath, '/fixture/active.yaml'); if (failure) throw failure },
+      getVersion: async () => { if (!healthy) throw new Error('unreachable'); return { version: 'fixture' } }
+    },
+    stopCore: async () => { state = 'stopped' }, startCore: async () => { state = 'running'; restarts++ }
+  })
+  await kernel.reloadConfig()
+  assert.equal(disk, 'candidate'); assert.equal(selections, 1); assert.equal(restarts, 0)
+  disk = 'previous'
+  failure = Object.assign(new Error('rejected'), { isAxiosError: true, response: { status: 400 } })
+  await assert.rejects(kernel.reloadConfig(), /rejected/)
+  assert.equal(disk, 'previous'); assert.equal(restarts, 0, 'invalid configs preserve the working core and file')
+  failure = undefined; buildFailure = new Error('invalid YAML')
+  await assert.rejects(kernel.reloadConfig(), /invalid YAML/)
+  assert.equal(disk, 'previous'); assert.equal(restarts, 0)
+  buildFailure = undefined; failure = new Error('timeout')
+  await assert.rejects(kernel.reloadConfig(), /timeout/)
+  assert.equal(disk, 'previous'); assert.equal(restarts, 0, 'an ambiguous timeout does not restart a healthy core')
+  healthy = false
+  await kernel.reloadConfig()
+  assert.equal(restarts, 1, 'an unreachable controller falls back to a restart')
+  let release
+  kernel.lifecycle = new Promise(resolve => { release = resolve })
+  const pending = kernel.reloadConfig()
+  state = 'stopped'; release(); await pending
+  assert.equal(restarts, 1, 'a queued apply never reverses a manual stop')
+}
+
+Promise.resolve().then(verifyRestart).then(verifyLinuxLaunch).then(verifyModeUpdates).then(verifyWakeRecovery).then(verifyHotReload).then(() => console.log('PASS: process lifecycle, Linux supervision, API readiness, network modes, cancellable wake recovery and safe hot reload')).catch(error => { console.error(error); process.exitCode = 1 })

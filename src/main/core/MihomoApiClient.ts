@@ -70,8 +70,8 @@ export class MihomoApiClient extends EventEmitter {
     await this.client.patch('/configs', patch)
   }
 
-  async reloadConfig(force = true): Promise<void> {
-    await this.client.put(`/configs?force=${force}`)
+  async reloadConfig(configPath: string, force = true): Promise<void> {
+    await this.client.put(`/configs?force=${force}`, { path: configPath })
   }
 
   async getProxies(): Promise<Record<string, ProxyNode>> {

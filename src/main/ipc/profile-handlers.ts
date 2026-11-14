@@ -9,10 +9,10 @@ export function registerProfileHandlers(
 ): void {
   const profileUpdates = new Map<string, Promise<void>>()
 
-  const restartActiveProfile = async (id: string | undefined): Promise<void> => {
+  const applyActiveProfile = async (id: string | undefined): Promise<void> => {
     const status = services.kernelService.getStatus()
     if (id && services.profileService.getActiveProfile()?.id === id && (status === 'running' || status === 'starting')) {
-      await services.kernelService.restart()
+      await services.kernelService.reloadConfig()
     }
   }
 
@@ -27,12 +27,18 @@ export function registerProfileHandlers(
   handle(IPC_CHANNELS.PROFILE_SET_ACTIVE, async (_, id: string) => {
     const previousId = services.profileService.getActiveProfile()?.id
     await services.profileService.setActiveProfile(id)
-    if (previousId !== id) await restartActiveProfile(id)
+    if (previousId !== id) {
+      try { await applyActiveProfile(id) }
+      catch (error) {
+        if (previousId) await services.profileService.setActiveProfile(previousId)
+        throw error
+      }
+    }
   })
 
   handle(IPC_CHANNELS.PROFILE_ADD, async (_, dto: AddProfileDto) => {
     const item = await services.profileService.addProfile(dto)
-    await restartActiveProfile(item.id)
+    await applyActiveProfile(item.id)
     return item
   })
 
@@ -41,7 +47,7 @@ export function registerProfileHandlers(
     await services.profileService.deleteProfile(id)
     // Removing the final active profile also requires a default kernel configuration.
     if (active && ['running', 'starting'].includes(services.kernelService.getStatus())) {
-      await services.kernelService.restart()
+      await services.kernelService.reloadConfig()
     }
   })
 
@@ -56,7 +62,7 @@ export function registerProfileHandlers(
   handle(
     IPC_CHANNELS.PROFILE_SAVE_CUSTOM_RULES,
     async (_, id: string, rules: CustomRuleItem[]) => {
-      if (await services.profileService.saveCustomRules(id, rules)) await restartActiveProfile(id)
+      if (await services.profileService.saveCustomRules(id, rules)) await applyActiveProfile(id)
     }
   )
 
@@ -65,7 +71,7 @@ export function registerProfileHandlers(
   })
 
   handle(IPC_CHANNELS.PROFILE_SAVE_RAW_CONFIG, async (_, id: string, content: string) => {
-    if (await services.profileService.saveProfileContent(id, content)) await restartActiveProfile(id)
+    if (await services.profileService.saveProfileContent(id, content)) await applyActiveProfile(id)
   })
 
   handle(IPC_CHANNELS.PROFILE_UPDATE_INFO, async (_, id: string, patch: ProfileInfoPatch) => {
@@ -76,7 +82,7 @@ export function registerProfileHandlers(
     const pending = profileUpdates.get(id)
     if (pending) return pending
     const update = (async () => {
-      if (await services.profileService.updateProfile(id)) await restartActiveProfile(id)
+      if (await services.profileService.updateProfile(id)) await applyActiveProfile(id)
     })().finally(() => profileUpdates.delete(id))
     profileUpdates.set(id, update)
     return update
