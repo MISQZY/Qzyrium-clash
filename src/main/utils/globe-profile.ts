@@ -1,9 +1,11 @@
-// The globe only needs names, server addresses and selector targets, never the
+// The globe only needs names, server addresses, DNS types and selector targets, never the
 // credentials, certificates, DNS configuration or thousands of routing conditions.
-export function globeProxies(value: unknown): { name: string; server: string }[] {
+export function globeProxies(value: unknown): { name: string; server?: string; type?: string }[] {
   if (!Array.isArray(value)) return []
-  return value.filter((proxy) => proxy && typeof proxy.name === 'string' && typeof proxy.server === 'string')
-    .map(({ name, server }) => ({ name, server }))
+  return value.filter((proxy) => proxy && typeof proxy.name === 'string' &&
+    (typeof proxy.server === 'string' || typeof proxy.type === 'string' && proxy.type.toLowerCase() === 'dns'))
+    .map(({ name, server, type }) => typeof type === 'string' && type.toLowerCase() === 'dns'
+      ? { name, type: 'dns' } : { name, server })
 }
 
 export function globeProfile(value: Record<string, unknown>): Record<string, unknown> {

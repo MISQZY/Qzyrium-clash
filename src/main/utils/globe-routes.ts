@@ -16,29 +16,35 @@ export function globeCandidates(snapshot: ConnectionsSnapshot, proxies: Record<s
   const result = new Map<string, string[]>()
   if (mode === 'direct') return result
   const groups = Array.isArray(config['proxy-groups']) ? config['proxy-groups'] as { name?: string; proxies?: string[]; filter?: string }[] : []
-  const proxyList = Array.isArray(config.proxies) ? config.proxies as { name?: string; server?: string }[] : []
+  const proxyList = Array.isArray(config.proxies) ? config.proxies as { name?: string; server?: string; type?: string }[] : []
+  // DNS outbounds handle queries internally; they are not geographic VPN exits.
+  const dnsOutbounds = new Set([
+    ...Object.entries(proxies).filter(([, proxy]) => proxy.type?.toLowerCase() === 'dns').map(([name]) => name),
+    ...proxyList.filter((proxy) => proxy.type?.toLowerCase() === 'dns').map((proxy) => proxy.name)
+  ])
+  const isTunnel = (name: string) => !builtins.has(name) && !dnsOutbounds.has(name)
 
   const resolveGroupProxy = (group: { name?: string; proxies?: string[]; filter?: string }): string | undefined => {
     if (Array.isArray(group.proxies) && group.proxies.length > 0) {
-      const first = group.proxies.find((p) => typeof p === 'string' && !builtins.has(p))
+      const first = group.proxies.find((p) => typeof p === 'string' && isTunnel(p))
       if (first) return first
     }
     if (group.filter && typeof group.filter === 'string') {
       try {
         const clean = group.filter.replace(/^\(\?[imsuxU]+\)/i, '')
         const re = new RegExp(clean, 'i')
-        const match = proxyList.find((p) => p?.name && re.test(p.name))
+        const match = proxyList.find((p) => p?.name && isTunnel(p.name) && re.test(p.name))
         if (match?.name) return match.name
       } catch {
         // invalid regex in group filter ignored
       }
     }
-    const fallback = proxyList.find((p) => p?.name && !builtins.has(p.name))
+    const fallback = proxyList.find((p) => p?.name && isTunnel(p.name))
     return fallback?.name
   }
 
   const leaf = (name: string, visited = new Set<string>()): string | undefined => {
-    if (!name || builtins.has(name) || visited.has(name) || visited.size > 20) return
+    if (!name || !isTunnel(name) || visited.has(name) || visited.size > 20) return
     visited.add(name)
     const proxy = proxies[name]
     if (proxy?.now) return leaf(proxy.now, visited)
@@ -106,7 +112,7 @@ export function globeCandidates(snapshot: ConnectionsSnapshot, proxies: Record<s
     }
     // 4. Fall back to first non-builtin proxy in profile
     if (!selected) {
-      const first = proxyList.find((p) => p?.name && !builtins.has(p.name))
+      const first = proxyList.find((p) => p?.name && isTunnel(p.name))
       if (first?.name) selected = leaf(first.name)
     }
   }

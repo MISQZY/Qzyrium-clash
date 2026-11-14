@@ -133,6 +133,25 @@ async function main() {
   assert.deepEqual([...candidates], [['idle', ['vpn.example.com']]], 'selected nested node appears even without active network sockets')
   assert.equal(helpers.globeCandidates({ connections: [] }, { GLOBAL: { now: 'DIRECT' } }, {}, new Map(), 'global').size, 0)
 
+  const dnsProfile = profileHelpers.globeProfile({
+    proxies: [{ name: 'DNS-OUT', type: 'dns' }, { name: 'vpn', type: 'ss', server: 'vpn.example.com' }],
+    'proxy-groups': [{ name: 'VPN', proxies: ['DNS-OUT', 'vpn'] }],
+    rules: ['DST-PORT,53,DNS-OUT', 'MATCH,DIRECT']
+  })
+  assert.deepEqual(dnsProfile.proxies[0], { name: 'DNS-OUT', type: 'dns' }, 'compact profile retains DNS identity without credentials')
+  for (const liveProxies of [{}, { 'DNS-OUT': { type: 'DNS' } }]) {
+    const nodes = helpers.globeCandidates({ connections: [
+      { chains: ['DNS-OUT'], metadata: { remoteDestination: '1.1.1.1:53' } }
+    ] }, liveProxies, dnsProfile, new Map([['vpn', 'vpn.example.com']]), 'rule')
+    assert.deepEqual([...nodes], [['vpn', ['vpn.example.com']]], 'DNS traffic and DNS rules never create routes or pending nodes, even without API metadata')
+  }
+  assert.equal(helpers.globeCandidates({ connections: [] }, {
+    GLOBAL: { now: 'resolver' }, resolver: { type: 'Dns' }
+  }, {}, new Map(), 'global').size, 0, 'DNS filtering uses type, not a fixed outbound name')
+  assert.deepEqual([...helpers.globeCandidates({ connections: [] }, {
+    GLOBAL: { now: 'DNS-OUT' }, 'DNS-OUT': { type: 'Shadowsocks' }
+  }, {}, new Map(), 'global').keys()], ['DNS-OUT'], 'real VPN exits remain visible regardless of their name')
+
   const empty = class {}
   const { KernelService } = load('src/main/services/KernelService.ts', {
     '../utils/offline-proxies': offlineHelpers,
