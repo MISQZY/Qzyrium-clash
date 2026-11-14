@@ -10,6 +10,8 @@ export interface EffectiveCoreValues {
   logLevel: EffectiveValue<LogLevel>
 }
 
+export interface ConfigPreview { profileName: string | null; original: string; effective: string }
+
 /** Shared by synthesis and preview so displayed values follow exactly the same precedence. */
 export function resolveEffectiveCore(profile: Record<string, unknown>, settings: AppConfig): EffectiveCoreValues {
   const ports = {} as EffectiveCoreValues['ports']

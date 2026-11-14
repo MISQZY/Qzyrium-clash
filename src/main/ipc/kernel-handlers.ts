@@ -37,6 +37,7 @@ export function registerKernelHandlers(
   })
 
   handle(IPC_CHANNELS.MIHOMO_GET_EFFECTIVE_CORE, (_, patch?: Partial<AppConfig>) => services.kernelService.getEffectiveCore(patch))
+  handle(IPC_CHANNELS.MIHOMO_GET_CONFIG_PREVIEW, (_, patch?: Partial<AppConfig>) => services.kernelService.getConfigPreview(patch))
 
   handle(IPC_CHANNELS.MIHOMO_PATCH_CONFIGS, async (_, patch: Record<string, unknown>) => {
     await services.kernelService.patchConfigs(patch)

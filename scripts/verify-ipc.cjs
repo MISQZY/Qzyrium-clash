@@ -108,6 +108,8 @@ function verifyArgumentContracts() {
   validate('profile:add', [{ type: 'local', content: '' }])
   validate('app:update-settings', [{ kernel: { dns: null, tun: { enable: false } }, general: { customLocalization: null } }])
   const invalid = [
+    ['mihomo:get-effective-core', [{ kernel: { inheritMixedPort: 'true' } }]],
+    ['mihomo:get-config-preview', [{ kernel: { inheritLogLevel: 1 } }]],
     ['mihomo:get-providers', ['../../configs']], ['mihomo:update-provider', ['rules', '']],
     ['sysproxy:set', ['false']], ['app:open-folder', ['../../']],
     ['profile:set-active', ['../settings']], ['profile:update-info', ['profile-1', { id: 'replacement' }]],

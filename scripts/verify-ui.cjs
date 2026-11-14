@@ -66,6 +66,8 @@ if (process.type === 'renderer') {
       'socks-port': { value: kernel.options?.['socks-port'] ?? 0, source: kernel.options?.['socks-port'] === undefined ? 'default' : 'override' }
     }, logLevel: { value: kernel.inheritLogLevel ? 'debug' : kernel.logLevel, source: kernel.inheritLogLevel ? 'profile' : 'override' } }
   }
+  api.mihomo.getConfigPreview = async patch => ({ profileName: active.name, original: 'mixed-port: 8100\nrules: []\n',
+    effective: `mixed-port: ${patch?.kernel?.inheritMixedPort ? 8100 : patch?.kernel?.mixedPort ?? settings.kernel.mixedPort}\nlog-level: info\nrules: [MATCH,DIRECT]\n` })
   contextBridge.exposeInMainWorld('api', api)
 } else {
   const assert = require('node:assert/strict')
@@ -253,6 +255,16 @@ if (process.type === 'renderer') {
       await evaluate(`document.querySelector('button[form="settings-mihomo"]').click()`)
       await waitFor(`document.querySelector('[data-effective-setting="mixed-port"]')?.textContent.includes('Custom value')`)
       result.checks.push('Core inheritance selectors persist and show effective values and their source')
+      await waitFor(`Array.from(document.querySelectorAll('button')).some(button => button.textContent.trim() === 'Preview final configuration' && !button.disabled)`)
+      await evaluate(`Array.from(document.querySelectorAll('button')).find(button => button.textContent.trim() === 'Preview final configuration').click()`)
+      await waitFor(`document.querySelector('[data-config-preview="yaml"] .cm-content')?.textContent.includes('mixed-port: 7895')`)
+      assert.equal(await evaluate(`document.querySelector('[data-config-preview="yaml"] .cm-content').getAttribute('contenteditable')`), 'false')
+      await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(button => button.textContent.trim() === 'Compare with profile').click()`)
+      await waitFor(`document.querySelectorAll('[data-config-preview="diff"] .cm-content[contenteditable="false"]').length === 2`)
+      await screenshot('configuration-preview')
+      await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(button => button.textContent.trim() === 'Close').click()`)
+      await waitFor(`!document.querySelector('[role="dialog"]')`)
+      result.checks.push('Final YAML and side-by-side diff open read-only without editing the profile')
 
       await navigate('Connections')
       await waitFor(`!!document.querySelector('[data-traffic="download"]')`)

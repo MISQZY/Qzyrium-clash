@@ -1,4 +1,10 @@
 {
+  "configPreviewTitle": "Preview final configuration",
+  "configPreviewHint": "Read-only preview of the active profile with this draft and saved rule overrides applied. It does not change the running core. Formatting changes also appear in the comparison.",
+  "configPreviewYaml": "Final YAML",
+  "configPreviewDiff": "Compare with profile",
+  "configPreviewOriginal": "Original profile",
+  "configPreviewFailed": "Could not prepare the preview. Check the profile and settings.",
   "effectiveCoreTitle": "Values after applying settings",
   "effectiveCoreHint": "Calculated from the active profile and this draft. If the profile omits a value, the saved fallback is used; HTTP/SOCKS ports default to 0 (disabled).",
   "valueFallback": "Fallback",

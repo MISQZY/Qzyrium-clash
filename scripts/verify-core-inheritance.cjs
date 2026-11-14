@@ -37,12 +37,19 @@ async function verify() {
   let reads = 0
   const kernel = Object.assign(Object.create(KernelService.prototype), {
     settingService: { getSettings: () => config },
-    profileService: { getActiveProfile: () => ({ id: 'fixture' }), getProfileContent: async () => { reads++; return yaml.stringify(profile) } }
+    profileService: { getActiveProfile: () => ({ id: 'fixture', name: 'Fixture' }), getProfileContent: async () => { reads++; return yaml.stringify(profile) }, getCustomRules: () => [{ id: 'custom', type: 'DOMAIN', payload: 'example.com', proxy: 'DIRECT', position: 'top' }] }
   })
   assert.deepEqual(await kernel.getEffectiveCore(), resolveEffectiveCore(profile, config))
   assert.equal((await kernel.getEffectiveCore({ kernel: { ...config.kernel, inheritMixedPort: false } })).ports['mixed-port'].source, 'override')
   assert.equal(config.kernel.inheritMixedPort, true, 'draft preview never mutates saved settings')
   assert.equal(reads, 2, 'preview reads the profile without starting a core or writing runtime files')
+  const preview = await kernel.getConfigPreview()
+  assert.equal(preview.original, yaml.stringify(profile))
+  assert.equal(preview.profileName, 'Fixture')
+  assert.equal(yaml.parse(preview.effective)['mixed-port'], 8100)
+  assert.equal(yaml.parse(preview.effective).rules[0], 'DOMAIN,example.com,DIRECT')
+  kernel.profileService.getActiveProfile = () => null
+  assert.equal((await kernel.getConfigPreview()).original, '', 'no profile still previews the default config')
   const { SubscriptionClient } = load('src/main/core/SubscriptionClient.ts', { axios: { get: async (_url, options) => {
     requests.push(options); return { status: 200, data: 'rules: []', headers: {} }
   } } })

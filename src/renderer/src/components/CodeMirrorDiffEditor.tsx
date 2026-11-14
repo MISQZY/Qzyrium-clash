@@ -9,6 +9,7 @@ export interface CodeMirrorDiffEditorProps {
   original: string
   modified: string
   sideBySide?: boolean
+  readOnly?: boolean
   isDark?: boolean
   onChange?: (val: string) => void
   onMount?: (handle: {
@@ -22,6 +23,7 @@ export function CodeMirrorDiffEditor({
   original,
   modified,
   sideBySide = true,
+  readOnly = false,
   isDark: propIsDark,
   onChange,
   onMount
@@ -44,7 +46,7 @@ export function CodeMirrorDiffEditor({
     let mergeInstance: MergeView | null = null
     let unifiedInstance: EditorView | null = null
 
-    const baseExtensions = createDiffEditorExtensions(isDark)
+    const baseExtensions = [...createDiffEditorExtensions(isDark), EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]
 
     if (sideBySide) {
       mergeInstance = new MergeView({
@@ -91,7 +93,7 @@ export function CodeMirrorDiffEditor({
           doc: modifiedRef.current,
           extensions: [
             ...baseExtensions,
-            unifiedMergeView({ original }),
+            unifiedMergeView({ original, mergeControls: !readOnly }),
             EditorView.updateListener.of((update) => {
               if (update.docChanged) {
                 onChangeRef.current?.(update.state.doc.toString())
@@ -120,7 +122,7 @@ export function CodeMirrorDiffEditor({
       unifiedInstance?.destroy()
       container.innerHTML = ''
     }
-  }, [original, sideBySide, isDark])
+  }, [original, sideBySide, isDark, readOnly])
 
   return (
     <div className="monaco-diff-editor cm-diff-wrapper h-full w-full flex-1 min-h-0 relative flex flex-col">

@@ -6,7 +6,7 @@ import type { GlobeLocations } from './geo'
 import type { CustomThemePack } from './theme'
 import type { AppUpdaterStatus, WhatsNewPayload } from './updater'
 import type { BootAppearance } from './appearance'
-import type { EffectiveCoreValues } from './effective-core'
+import type { EffectiveCoreValues, ConfigPreview } from './effective-core'
 
 export const IPC_CHANNELS = {
   // Kernel
@@ -20,6 +20,7 @@ export const IPC_CHANNELS = {
   // Mihomo Core API
   MIHOMO_GET_CONFIGS: 'mihomo:get-configs',
   MIHOMO_GET_EFFECTIVE_CORE: 'mihomo:get-effective-core',
+  MIHOMO_GET_CONFIG_PREVIEW: 'mihomo:get-config-preview',
   MIHOMO_PATCH_CONFIGS: 'mihomo:patch-configs',
   MIHOMO_GET_PROXIES: 'mihomo:get-proxies',
   MIHOMO_GET_PROVIDERS: 'mihomo:get-providers',
@@ -139,6 +140,7 @@ export interface IElectronApi {
   mihomo: {
     getConfigs: () => Promise<Record<string, unknown>>
     getEffectiveCore: (patch?: Partial<AppConfig>) => Promise<EffectiveCoreValues>
+    getConfigPreview: (patch?: Partial<AppConfig>) => Promise<ConfigPreview>
     patchConfigs: (patch: Record<string, unknown>) => Promise<void>
     getProxies: () => Promise<Record<string, ProxyNode>>
     getProviders: (kind: ProviderKind) => Promise<ProviderSummary[]>

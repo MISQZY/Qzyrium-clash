@@ -30,6 +30,7 @@ export default function YamlEditor({
         height="100%"
         theme="none"
         readOnly={readOnly}
+        editable={!readOnly}
         className="h-full w-full flex-1 min-h-0"
         extensions={extensions}
         onChange={(val) => onChange?.(val)}

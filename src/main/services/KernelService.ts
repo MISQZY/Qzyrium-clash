@@ -34,8 +34,9 @@ import axios from 'axios'
 import { writeFileAtomicAsync } from '../utils/atomicWrite'
 import type { AppConfig } from '@shared/app-config'
 import { mergeSettings } from '@shared/settings-config'
-import { resolveEffectiveCore, type EffectiveCoreValues } from '@shared/effective-core'
+import { resolveEffectiveCore, type EffectiveCoreValues, type ConfigPreview } from '@shared/effective-core'
 import { parseProfileConfig } from '@shared/profile-config'
+import { MihomoConfigFactory } from '../core/MihomoConfigFactory'
 
 export class KernelService implements BaseService {
   private ruleWarning: string | null = null
@@ -433,6 +434,17 @@ export class KernelService implements BaseService {
     const content = profile ? await this.profileService.getProfileContent(profile.id) : null
     if (profile && content === null) throw new Error('Profile file is missing')
     return resolveEffectiveCore(content === null ? {} : parseProfileConfig(content), settings)
+  }
+
+  async getConfigPreview(patch: Partial<AppConfig> = {}): Promise<ConfigPreview> {
+    const settings = mergeSettings(this.settingService.getSettings(), patch)
+    const profile = this.profileService.getActiveProfile()
+    const content = profile ? await this.profileService.getProfileContent(profile.id) : null
+    if (profile && content === null) throw new Error('Profile file is missing')
+    return {
+      profileName: profile?.name ?? null, original: content ?? '',
+      effective: MihomoConfigFactory.synthesize(content, settings, profile ? this.profileService.getCustomRules(profile.id) : [])
+    }
   }
 
   async patchConfigs(patch: Record<string, unknown>): Promise<void> {

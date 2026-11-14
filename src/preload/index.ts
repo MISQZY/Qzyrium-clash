@@ -54,6 +54,7 @@ const api: IElectronApi = {
   mihomo: {
     getConfigs: () => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_CONFIGS),
     getEffectiveCore: (patch) => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_EFFECTIVE_CORE, patch),
+    getConfigPreview: (patch) => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_CONFIG_PREVIEW, patch),
     patchConfigs: (patch) => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_PATCH_CONFIGS, patch),
     getProxies: () => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_PROXIES),
     getProviders: (kind) => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_PROVIDERS, kind),
