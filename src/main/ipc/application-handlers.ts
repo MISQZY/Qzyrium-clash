@@ -87,7 +87,16 @@ export function registerApplicationHandlers(
     if (!processPath || typeof processPath !== 'string') return null
     if (iconCache.has(processPath)) return iconCache.get(processPath) || null
     try {
-      const lower = processPath.toLowerCase()
+      const trimmed = processPath.trim()
+      if (process.platform === 'win32') {
+        // Disallow UNC paths, network shares, namespaces, and control characters to prevent NTLM leak / SMB probe
+        if (/^([\\/]{2}|\\\\?\?\\)/i.test(trimmed) || trimmed.includes('\0')) {
+          setCachedIcon(processPath, '')
+          return null
+        }
+      }
+
+      const lower = trimmed.toLowerCase()
       if (lower.includes('qzyrium') || lower === 'qzyrium-clash.exe' || lower === 'qzyrium-clash') {
         const appIcon = await app.getFileIcon(process.execPath, { size: 'normal' }).catch(() => null)
         if (appIcon && !appIcon.isEmpty()) {
@@ -96,19 +105,25 @@ export function registerApplicationHandlers(
           return dataUrl
         }
       }
-  
-      let targetPath = processPath
+
+      let targetPath = trimmed
       if (!existsSync(targetPath)) {
         if (process.platform === 'win32') {
-          const windir = process.env.WINDIR || 'C:\\Windows'
-          const candidate = join(windir, 'System32', processPath)
-          if (existsSync(candidate)) {
-            targetPath = candidate
+          if (/^[a-zA-Z0-9_.-]+\.exe$/i.test(trimmed)) {
+            const windir = process.env.WINDIR || process.env.SystemRoot || 'C:\\Windows'
+            const candidate = join(windir, 'System32', trimmed)
+            if (existsSync(candidate)) {
+              targetPath = candidate
+            }
           }
         }
       }
-  
-      if (existsSync(targetPath)) {
+
+      const isLocalAbsolute = process.platform === 'win32'
+        ? /^[a-zA-Z]:[\\/]/.test(targetPath)
+        : targetPath.startsWith('/')
+
+      if (isLocalAbsolute && existsSync(targetPath)) {
         const icon = await app.getFileIcon(targetPath, { size: 'normal' })
         if (icon && !icon.isEmpty()) {
           const dataUrl = icon.toDataURL()
