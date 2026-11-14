@@ -10,6 +10,7 @@ app.setPath('userData', path.join(output, 'user-data'))
 app.on('window-all-closed', () => {})
 app.whenReady().then(async () => {
   const pending = () => new Promise(() => {})
+  let rendererReadyCalls = 0
   for (const [channel, handler] of Object.entries({
     'app:get-boot-snapshot': pending, 'app:get-settings': pending, 'theme:get-custom-themes': pending,
     'kernel:get-status': () => 'stopped', 'kernel:get-session-started-at': () => null,
@@ -17,7 +18,8 @@ app.whenReady().then(async () => {
     'sysproxy:get-status': () => ({ enabled: false, mode: 'manual', port: 7895 }),
     'profile:get-list': () => [], 'profile:get-active': () => null,
     'app:get-updater-status': () => ({ state: 'unsupported' }), 'app:get-whats-new': () => null,
-    'window:set-titlebar-overlay': () => {}, 'app:get-app-version': () => 'test'
+    'window:set-titlebar-overlay': () => {}, 'app:get-app-version': () => 'test',
+    'app:import-renderer-ready': () => { rendererReadyCalls++ }
   })) ipcMain.handle(channel, handler)
   const errors = []
   for (const [mode, background, expected] of [['dark', '#282638', 'rgb(40, 38, 56)'], ['light', '#eef3fa', 'rgb(238, 243, 250)']]) {
@@ -50,6 +52,7 @@ app.whenReady().then(async () => {
     } finally { win.webContents.session.webRequest.onBeforeRequest(null); win.destroy() }
   }
   assert.deepEqual(errors, [])
+  assert.ok(rendererReadyCalls >= 2, 'both rendered themes register the import listener through the real preload')
   console.log('PASS: real preload applies saved light/dark custom themes before CSS/JS and React preserves them without waiting for settings IPC')
   app.quit()
 }).catch(error => { console.error(error); app.exit(1) })
