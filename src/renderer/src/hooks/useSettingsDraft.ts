@@ -51,7 +51,7 @@ export function useSettingsDraft(section: SettingsSection, settings: AppConfig,
   }
   const save = async (event: FormEvent) => {
     event.preventDefault(); setMessage('')
-    if (section === 'mihomo' && form.kernel.mixedPort === form.kernel.controllerPort) {
+    if (section === 'mihomo' && !form.kernel.inheritMixedPort && form.kernel.mixedPort === form.kernel.controllerPort) {
       setMessage('mixedAndControllerPortsMustBeDifferent'); return
     }
     try {

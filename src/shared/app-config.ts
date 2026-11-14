@@ -51,6 +51,8 @@ export interface AppConfig {
   kernel: {
     mode: TunnelMode
     logLevel: LogLevel
+    inheritLogLevel?: boolean
+    inheritMixedPort?: boolean
     mixedPort: number
     controllerPort: number
     controllerSecret: string
@@ -134,6 +136,8 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   kernel: {
     mode: 'rule',
     logLevel: 'info',
+    inheritLogLevel: false,
+    inheritMixedPort: false,
     mixedPort: 7895,
     controllerPort: 9095,
     controllerSecret: 'qzyrium_secret_token',

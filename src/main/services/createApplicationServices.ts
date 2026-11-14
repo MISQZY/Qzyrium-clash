@@ -24,7 +24,8 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
     const profileService = new types.ProfileService(settingService)
     const sysProxyService = new types.SysProxyService(settingService)
     const kernelService = new types.KernelService(settingService, profileService)
-    profileService.setCoreStatusProvider?.(() => kernelService.getStatus() === 'running')
+    profileService.setCoreStatusProvider?.(() => kernelService.getStatus() === 'running', () => kernelService.getMixedPort())
+    sysProxyService.setPortProvider?.(() => kernelService.getMixedPort())
     const themeStore = new types.ThemeStore(getAppPaths().userData)
     const windowService = new types.WindowService(settingService, themeStore)
     const networkModeController = new types.NetworkModeController(settingService, kernelService, sysProxyService,
@@ -66,6 +67,8 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
     kernelService.setBroadcaster((channel, data) => {
       windowService.broadcast(channel, data)
       if (channel === 'event:settings-changed') {
+        void sysProxyService.setCoreRunning(kernelService.getStatus() === 'running')
+          .catch(error => logger.error('Failed to synchronize proxy after config update', error))
         void trayService.refreshProxies().then(() => trayService.updateContextMenu())
           .catch(error => logger.error('Failed to refresh tray proxies after config update', error))
       }

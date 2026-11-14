@@ -14,6 +14,10 @@ export class SysProxyService implements BaseService {
   private proxyUpdate: Promise<void> = Promise.resolve()
   private pacServer: Server | null = null
   private pacContent = ''
+  private effectivePort?: number
+  private portProvider?: () => Promise<number>
+
+  setPortProvider(provider: () => Promise<number>): void { this.portProvider = provider }
 
   constructor(settingService: SettingService, private registry = new WindowsProxySettings()) {
     this.settingService = settingService
@@ -39,7 +43,7 @@ export class SysProxyService implements BaseService {
       enabled: this.enabled,
       mode: settings.sysProxy.mode ?? 'manual',
       host: settings.sysProxy.host || '127.0.0.1',
-      port: settings.kernel.mixedPort
+      port: this.coreRunning ? this.effectivePort ?? settings.kernel.mixedPort : settings.kernel.mixedPort
     }
   }
 
@@ -76,14 +80,15 @@ export class SysProxyService implements BaseService {
 
   private async applySysProxy(enable: boolean): Promise<void> {
     const settings = this.settingService.getSettings()
-    const port = settings.kernel.mixedPort
+    const port = enable && this.portProvider ? await this.portProvider() : settings.kernel.mixedPort
+    if (enable) this.effectivePort = port
     const bypassList = settings.sysProxy.bypass.join(';')
     const host = settings.sysProxy.host || '127.0.0.1'
     const mode = settings.sysProxy.mode ?? 'manual'
     let pacUrl = ''
     const hadServer = !!this.pacServer
     if (enable && mode === 'pac') {
-      this.pacContent = pacScript(settings)
+      this.pacContent = pacScript(settings, port)
       pacUrl = await this.ensurePacServer()
     }
 

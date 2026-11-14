@@ -4,6 +4,9 @@ import { SHORTCUT_ACTIONS, shortcutIdentity } from './shortcuts'
 import { coreFields, dnsFields, generalFields, resourceFields, snifferFields, tunFields, validateFields } from './settings-fields'
 
 export function validateAppConfig(config: AppConfig): void {
+  for (const key of ['inheritLogLevel', 'inheritMixedPort'] as const) {
+    if (config.kernel[key] !== undefined && typeof config.kernel[key] !== 'boolean') throw new Error(`kernel.${key}: expected a boolean`)
+  }
   const packs = config.general.customLocalizations ?? []
   if (!Array.isArray(packs)) throw new Error('Invalid custom localizations')
   packs.forEach(validateLocalizationPack)
@@ -12,7 +15,7 @@ export function validateAppConfig(config: AppConfig): void {
   for (const port of [config.kernel.mixedPort, config.kernel.controllerPort]) {
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Ports must be between 1 and 65535')
   }
-  if (config.kernel.mixedPort === config.kernel.controllerPort) throw new Error('Mixed and controller ports must be different')
+  if (!config.kernel.inheritMixedPort && config.kernel.mixedPort === config.kernel.controllerPort) throw new Error('Mixed and controller ports must be different')
   if (!['rule', 'global', 'direct'].includes(config.kernel.mode)) throw new Error('Invalid routing mode')
   if (!['info', 'warning', 'debug', 'error', 'silent'].includes(config.kernel.logLevel)) throw new Error('Invalid log level')
   if (!['system', 'gvisor', 'mixed'].includes(config.kernel.tun.stack)) throw new Error('Invalid TUN stack')
@@ -34,6 +37,6 @@ export function validateAppConfig(config: AppConfig): void {
   if (config.sysProxy.mode && !['manual', 'pac'].includes(config.sysProxy.mode)) throw new Error('Invalid system proxy mode')
   if (config.sysProxy.host && !/^[\w.:-]+$/.test(config.sysProxy.host)) throw new Error('Invalid system proxy host')
   if (config.sysProxy.bypass.some((value) => typeof value !== 'string')) throw new Error('Invalid proxy bypass list')
-  const ports = [config.kernel.mixedPort, config.kernel.controllerPort, config.kernel.options?.port, config.kernel.options?.['socks-port']].filter((port) => typeof port === 'number' && port > 0)
+  const ports = [config.kernel.inheritMixedPort ? 0 : config.kernel.mixedPort, config.kernel.controllerPort, config.kernel.options?.port, config.kernel.options?.['socks-port']].filter((port) => typeof port === 'number' && port > 0)
   if (new Set(ports).size !== ports.length) throw new Error('Listening ports must be unique')
 }

@@ -1,10 +1,10 @@
 import { Script } from 'node:vm'
 import type { AppConfig } from '@shared/app-config'
 
-export function pacScript(settings: AppConfig): string {
+export function pacScript(settings: AppConfig, effectivePort = settings.kernel.mixedPort): string {
   const rawHost = settings.sysProxy.host || '127.0.0.1'
   const host = rawHost.includes(':') ? `[${rawHost}]` : rawHost
-  const port = settings.kernel.mixedPort
+  const port = effectivePort
   const custom = settings.sysProxy.pacScript?.trim()
   const script = custom
     ? custom.replaceAll('{{host}}', host).replaceAll('{{port}}', String(port)).replaceAll('%mixed-port%', String(port))

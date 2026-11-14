@@ -11,7 +11,7 @@ const REDIRECTS = new Set([301, 302, 303, 307, 308])
 
 export class SubscriptionClient {
   constructor(private settings: () => AppConfig, private isCoreRunning: () => boolean,
-    private options: { resolve?: ResolveSubscription; timeoutMs?: number } = {}) {}
+    private options: { resolve?: ResolveSubscription; timeoutMs?: number; proxyPort?: () => Promise<number> } = {}) {}
 
   async download(url: string, userAgent?: string, updateViaProxy?: boolean) {
     const settings = this.settings()
@@ -24,6 +24,7 @@ export class SubscriptionClient {
     let target = new URL(url)
     let phase: 'dns' | 'network' = 'dns'
     try {
+      const proxyPort = updateViaProxy && this.options.proxyPort ? await this.options.proxyPort() : settings.kernel.mixedPort
       for (let redirects = 0; ; redirects++) {
         if (!isValidRemoteSubscriptionUrl(target.href)) throw fail('blocked')
         const hostname = subscriptionHostname(target.hostname)
@@ -53,7 +54,7 @@ export class SubscriptionClient {
             httpsAgent,
             // Return only approved answers; never perform a second DNS resolution.
             lookup: async () => [addresses],
-            proxy: updateViaProxy ? { host: '127.0.0.1', port: settings.kernel.mixedPort, protocol: 'http' } : false
+            proxy: updateViaProxy ? { host: '127.0.0.1', port: proxyPort, protocol: 'http' } : false
           })
         } finally { httpsAgent?.destroy() }
         if (!REDIRECTS.has(response.status)) {

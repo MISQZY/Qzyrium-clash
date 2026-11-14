@@ -16,18 +16,20 @@ export class ProfileService implements BaseService {
   private activeProfileId: string | null = null
   private updates = new Map<string, Promise<boolean>>()
   private isCoreRunning?: () => boolean
+  private proxyPort?: () => Promise<number>
   private repository: ProfileRepository
   private subscriptions: Pick<SubscriptionClient, 'download'>
 
   constructor(private settingService?: SettingService, subscriptions?: Pick<SubscriptionClient, 'download'>, repository = new ProfileRepository()) {
     this.subscriptions = subscriptions ?? new SubscriptionClient(
       () => this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG,
-      () => this.isCoreRunning?.() ?? false)
+      () => this.isCoreRunning?.() ?? false, { proxyPort: () => this.proxyPort?.() ?? Promise.resolve((this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG).kernel.mixedPort) })
     this.repository = repository
   }
 
-  setCoreStatusProvider(provider: () => boolean): void {
+  setCoreStatusProvider(provider: () => boolean, proxyPort?: () => Promise<number>): void {
     this.isCoreRunning = provider
+    this.proxyPort = proxyPort
   }
 
   async initialize(): Promise<void> {

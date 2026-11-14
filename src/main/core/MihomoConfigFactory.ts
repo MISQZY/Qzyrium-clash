@@ -3,6 +3,7 @@ import { AppConfig } from '@shared/app-config'
 import { CustomRuleItem } from '@shared/profile'
 import { insertRuleOverrides, splitRuleFields } from '@shared/rules'
 import { parseProfileConfig } from '../utils/profile-config'
+import { resolveEffectiveCore, CORE_PORT_KEYS } from '@shared/effective-core'
 
 export class MihomoConfigFactory {
   static createDefaultConfig(appConfig: AppConfig): Record<string, unknown> {
@@ -40,7 +41,8 @@ export class MihomoConfigFactory {
       parsed = this.createDefaultConfig(appConfig)
     }
 
-    // Apply strict kernel overrides from AppConfig
+    const effective = resolveEffectiveCore(rawProfileYaml === null ? {} : parsed, appConfig)
+    // Apply explicit overrides; listener inheritance is resolved against the original profile.
     Object.assign(parsed, appConfig.kernel.options ?? {})
     if (appConfig.kernel.resources) {
       for (const [key, value] of Object.entries(appConfig.kernel.resources)) {
@@ -53,10 +55,10 @@ export class MihomoConfigFactory {
       const override = appConfig.kernel[block]
       if (override) parsed[block] = { ...(parsed[block] as Record<string, unknown> ?? {}), ...override }
     }
-    parsed['mixed-port'] = appConfig.kernel.mixedPort
+    for (const key of CORE_PORT_KEYS) parsed[key] = effective.ports[key].value
     parsed['allow-lan'] = appConfig.kernel.allowLan
     parsed['mode'] = appConfig.kernel.mode
-    parsed['log-level'] = appConfig.kernel.logLevel
+    parsed['log-level'] = effective.logLevel.value
     parsed['external-controller'] = `127.0.0.1:${appConfig.kernel.controllerPort}`
     parsed['secret'] = appConfig.kernel.controllerSecret
 

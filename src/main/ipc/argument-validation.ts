@@ -51,6 +51,7 @@ const nullableConfig: Check = value => value === null || config(value)
 const settings = object(optionalFields({ general,
   kernel: object(optionalFields({ ...primitiveDefaults(DEFAULT_APP_CONFIG.kernel), tun,
     mode: oneOf('rule', 'global', 'direct'), logLevel: oneOf('info', 'warning', 'debug', 'error', 'silent'),
+    inheritMixedPort: boolean, inheritLogLevel: boolean,
     options: config, dns: nullableConfig, sniffer: nullableConfig, resources: nullableConfig })),
   sysProxy: object(optionalFields({ enable: boolean, bypass: list(text), mode: oneOf('manual', 'pac'),
     host: text, pacScript: text })), activeProfileId: value => value === null || name(value) }))

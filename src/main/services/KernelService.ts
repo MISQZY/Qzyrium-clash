@@ -416,6 +416,13 @@ export class KernelService implements BaseService {
     return this.apiClient.getConfigs()
   }
 
+  async getMixedPort(): Promise<number> {
+    const configs = await this.getConfigs()
+    const port = configs['mixed-port']
+    if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Mihomo mixed listener is unavailable')
+    return port
+  }
+
   async patchConfigs(patch: Record<string, unknown>): Promise<void> {
     await this.apiClient.patchConfigs(patch)
     this.invalidateGlobe()

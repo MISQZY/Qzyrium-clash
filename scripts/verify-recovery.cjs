@@ -147,7 +147,7 @@ async function verifyProxyLifecycle() {
     './SettingService': { SettingService: class { constructor() { return settings } } },
     './ProfileService': { ProfileService: empty },
     './SysProxyService': { SysProxyService: class { constructor() { return proxy } } },
-    './KernelService': { KernelService: class { setBroadcaster(fn) { broadcast = fn } } },
+    './KernelService': { KernelService: class { setBroadcaster(fn) { broadcast = fn } async getMixedPort() { return config.kernel.mixedPort } } },
     './WindowService': { WindowService: class { broadcast() {} setVisibilityHandler() {} setModeChangedHandler() {} } },
     './TrayService': { TrayService: class { clearProxies() {} updateContextMenu() {} async refreshProxies() {} } },
     './DesktopService': { DesktopService: empty }, './ThemeStore': { ThemeStore: empty }, './UpdateService': { UpdateService: empty },
