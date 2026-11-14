@@ -84,6 +84,7 @@ app.whenReady().then(async () => {
       assert.ok(sample.colors.every((value, index) => expected[index] ? value > 170 : value < 120),
         `native drag ${sample.step}: UI must fill all four corners: ${sample.colors}`)
     }
+    console.log(`PASS: native drag repaints while held; maximum additional paint wait ${Math.max(...samples.map(sample => sample.paintWaitMs ?? 0))} ms`)
     win.setSize(1280, 860)
     await capture('grow')
     win.hide(); await delay(100); win.showInactive(); win.focus()

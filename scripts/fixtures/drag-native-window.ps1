@@ -104,23 +104,36 @@ try {
     # Pause while still holding the resize border, never using Electron's
     # capturePage(), which can itself trigger a renderer repaint.
     Start-Sleep -Milliseconds 100
-    $client = New-Object NativeDrag+RECT
-    $origin = New-Object NativeDrag+POINT
-    [NativeDrag]::GetClientRect($handle, [ref]$client) | Out-Null
-    [NativeDrag]::ClientToScreen($handle, [ref]$origin) | Out-Null
-    $bitmap = New-Object System.Drawing.Bitmap($client.Right, $client.Bottom)
-    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-    try {
-      $graphics.CopyFromScreen($origin.X, $origin.Y, 0, 0, $bitmap.Size)
-      $bitmap.Save((Join-Path $OutputDirectory "drag-$step.png"), [System.Drawing.Imaging.ImageFormat]::Png)
-      $inset = [int](20 * $ScaleFactor)
-      $top = [int](72 * $ScaleFactor)
-      $points = @(@($inset, $top), @(($client.Right - $inset), $top), @($inset, ($client.Bottom - $inset)), @(($client.Right - $inset), ($client.Bottom - $inset)))
-      $colors = @($points | ForEach-Object { $color = $bitmap.GetPixel($_[0], $_[1]); @($color.B, $color.G, $color.R) })
-      $pointer = New-Object NativeDrag+POINT
-      [NativeDrag]::GetCursorPos([ref]$pointer) | Out-Null
-      $samples += @{ step = $step; width = $client.Right; height = $client.Bottom; colors = $colors; timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); originX = $origin.X; originY = $origin.Y; startX = $startX; startY = $startY; cursorX = $pointer.X; cursorY = $pointer.Y; foreground = ([NativeDrag]::GetForegroundWindow() -eq $handle); buttonDown = ([NativeDrag]::GetAsyncKeyState(1) -lt 0) }
-    } finally { $graphics.Dispose(); $bitmap.Dispose() }
+    $paintWait = [System.Diagnostics.Stopwatch]::StartNew()
+    do {
+      if (![NativeDrag]::IsSizing($handle) -or [NativeDrag]::GetAsyncKeyState(1) -ge 0) { throw 'Native sizing ended before the pixel sample' }
+      $client = New-Object NativeDrag+RECT
+      $origin = New-Object NativeDrag+POINT
+      [NativeDrag]::GetClientRect($handle, [ref]$client) | Out-Null
+      [NativeDrag]::ClientToScreen($handle, [ref]$origin) | Out-Null
+      $bitmap = New-Object System.Drawing.Bitmap($client.Right, $client.Bottom)
+      $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+      try {
+        $graphics.CopyFromScreen($origin.X, $origin.Y, 0, 0, $bitmap.Size)
+        $inset = [int](20 * $ScaleFactor)
+        $top = [int](72 * $ScaleFactor)
+        $points = @(@($inset, $top), @(($client.Right - $inset), $top), @($inset, ($client.Bottom - $inset)), @(($client.Right - $inset), ($client.Bottom - $inset)))
+        $colors = @($points | ForEach-Object { $color = $bitmap.GetPixel($_[0], $_[1]); @($color.B, $color.G, $color.R) })
+        $expected = @(0, 0, 255, 0, 255, 0, 255, 0, 0, 0, 255, 255)
+        $painted = $colors.Count -eq $expected.Count
+        for ($channel = 0; $channel -lt $expected.Count -and $painted; $channel++) {
+          $painted = if ($expected[$channel]) { $colors[$channel] -gt 170 } else { $colors[$channel] -lt 120 }
+        }
+        if (!$painted -and $paintWait.ElapsedMilliseconds -lt 1500) { Start-Sleep -Milliseconds 25; continue }
+        $bitmap.Save((Join-Path $OutputDirectory "drag-$step.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+        $pointer = New-Object NativeDrag+POINT
+        [NativeDrag]::GetCursorPos([ref]$pointer) | Out-Null
+        $samples += @{ step = $step; width = $client.Right; height = $client.Bottom; colors = $colors; timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); originX = $origin.X; originY = $origin.Y; startX = $startX; startY = $startY; cursorX = $pointer.X; cursorY = $pointer.Y; foreground = ([NativeDrag]::GetForegroundWindow() -eq $handle); buttonDown = $true; paintWaitMs = $paintWait.ElapsedMilliseconds }
+        ConvertTo-Json -InputObject $samples -Depth 5 | Set-Content -LiteralPath (Join-Path $OutputDirectory 'drag-progress.json') -Encoding UTF8
+        if (!$painted) { throw "Native frame did not paint all four corners within 1500 ms while sizing at step ${step}: $colors" }
+        break
+      } finally { $graphics.Dispose(); $bitmap.Dispose() }
+    } while ($true)
   }
 } finally {
   [NativeDrag]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
