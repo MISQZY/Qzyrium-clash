@@ -10,7 +10,7 @@ import { Button } from '../components/ui/button'
 
 import { Card } from '../components/ui/card'
 import { Input } from '../components/ui/input'
-import { ProvidersPanel } from '../components/ProvidersPanel'
+import { ProvidersDialog } from '../components/ProvidersDialog'
 import { cn } from '../lib/utils'
 
 import { visibleProxyGroups, type ProxySortMode } from '../lib/proxies'
@@ -126,7 +126,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
           <h1 className="text-xl font-semibold tracking-tight">{t('proxies')}</h1>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Node Sorting Control */}
           {groupNames.length > 0 && (
             <div className="flex items-center gap-1 bg-muted/60 rounded-md p-0.5 border border-border/60">
@@ -207,12 +207,18 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
               </span>
             </span>
           </Button>
+
+          <ProvidersDialog
+            key={profileId}
+            kind="proxies"
+            running={running}
+            onUpdated={onRefresh}
+          />
         </div>
       </div>
 
       {!running && <p className="text-xs leading-relaxed text-muted-foreground">{t('offlineSelectionHint')}</p>}
 
-      <ProvidersPanel key={profileId} kind="proxies" running={running} onUpdated={onRefresh} />
       {/* Search Input with Clear Button */}
       {groupNames.length > 0 && (
         <div className="relative">

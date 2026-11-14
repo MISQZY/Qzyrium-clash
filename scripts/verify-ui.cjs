@@ -248,15 +248,17 @@ if (process.type === 'renderer') {
 
       for (const [page, kind, name] of [['Proxy groups', 'proxies', 'Proxy source'], ['Rules', 'rules', 'Rule source']]) {
         await navigate(page)
-        assert.equal(await evaluate(`document.querySelector('details')?.open`), false, 'providers load only when expanded')
-        await evaluate(`document.querySelector('details summary').click()`)
-        await waitFor(`document.querySelector('details').textContent.includes('Items: 42')`)
+        assert.equal(await evaluate(`Boolean(document.querySelector('[role="dialog"]'))`), false, 'providers load only when dialog is opened')
+        await evaluate(`document.querySelector('button[data-providers-trigger="${kind}"]').click()`)
+        await waitFor(`document.querySelector('[role="dialog"]')?.textContent.includes('Items: 42')`)
         await evaluate(`document.querySelector('button[aria-label="Update ${name}"]').click()`)
-        await waitFor(`document.querySelector('details [aria-busy]')?.getAttribute('aria-busy') === 'false'`)
+        await waitFor(`document.querySelector('[role="dialog"] [aria-busy]')?.getAttribute('aria-busy') === 'false'`)
         const calls = await evaluate('window.api.uiTest.getProviderCalls()')
         assert.deepEqual(calls.at(-1), { kind, name })
+        await evaluate(`(document.querySelector('[role="dialog"] button[data-dialog-close]') || document.querySelector('[role="dialog"] button:has(svg.lucide-x)')).click()`)
+        await waitFor(`!document.querySelector('[role="dialog"]')`)
       }
-      result.checks.push('Proxy and rule provider panels show metadata and update their selected source')
+      result.checks.push('Proxy and rule provider dialogs show metadata and update their selected source')
       await navigate('Mihomo core')
       await setControl('select[aria-label="Mixed port source"]', 'profile')
       await setControl('select[aria-label="Log level source"]', 'profile')

@@ -8,7 +8,7 @@ import { Page } from '../components/Page'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
-import { ProvidersPanel } from '../components/ProvidersPanel'
+import { ProvidersDialog } from '../components/ProvidersDialog'
 import { CopyableCodeLine } from '../components/CopyableCodeLine'
 
 export interface RulesPageProps {
@@ -56,19 +56,26 @@ export function RulesPage({
     <Page
       title={t('rules')}
       actions={
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onRefresh}
-          disabled={!running || busy}
-          className="gap-1.5"
-        >
-          <RefreshCw className="size-3.5" />
-          <span>{t('refresh')}</span>
-        </Button>
+        <>
+          <ProvidersDialog
+            key={profileId}
+            kind="rules"
+            running={running}
+            onUpdated={onRefresh}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRefresh}
+            disabled={!running || busy}
+            className="gap-1.5"
+          >
+            <RefreshCw className="size-3.5" />
+            <span>{t('refresh')}</span>
+          </Button>
+        </>
       }
     >
-      <ProvidersPanel key={profileId} kind="rules" running={running} onUpdated={onRefresh} />
       {/* Search and Type Filter */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="relative min-w-48 sm:min-w-64">
