@@ -73,6 +73,7 @@ const httpUrl: Check = value => {
 // Explicit coverage makes a new channel require an input contract at compile time.
 const contracts = {
   [IPC_CHANNELS.KERNEL_GET_STATUS]: [], [IPC_CHANNELS.KERNEL_GET_SESSION_STARTED_AT]: [],
+  [IPC_CHANNELS.KERNEL_GET_FAILURE]: [],
   [IPC_CHANNELS.KERNEL_GET_RULE_WARNING]: [], [IPC_CHANNELS.KERNEL_START]: [],
   [IPC_CHANNELS.KERNEL_STOP]: [], [IPC_CHANNELS.KERNEL_RESTART]: [], [IPC_CHANNELS.KERNEL_GET_VERSION]: [],
   [IPC_CHANNELS.MIHOMO_GET_CONFIGS]: [], [IPC_CHANNELS.MIHOMO_PATCH_CONFIGS]: [config],

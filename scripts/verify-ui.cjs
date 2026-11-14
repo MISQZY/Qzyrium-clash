@@ -58,6 +58,17 @@ if (process.type === 'renderer') {
   api.mihomo.updateProvider = async (kind, name) => { providerCalls.push({ kind, name }) }
   api.uiTest.getProviderCalls = () => providerCalls
   api.uiTest.getSettings = () => settings
+  let coreFailure = null, failureCallback
+  api.kernel.getFailure = async () => coreFailure
+  api.events.onCoreFailure = callback => { failureCallback = callback; return () => { failureCallback = undefined } }
+  api.uiTest.emitCoreFailure = reason => {
+    state = 'error'
+    coreFailure = { reason, occurredAt: new Date().toISOString(), exitCode: 1 }
+    failureCallback?.(coreFailure)
+    statusCallback?.(state)
+  }
+  const startCore = api.kernel.start
+  api.kernel.start = async () => { coreFailure = null; await startCore() }
   const setSystemProxy = api.sysproxy.set
   api.sysproxy.set = async enable => {
     if (enable && state !== 'running') await api.kernel.start()
@@ -603,6 +614,16 @@ if (process.type === 'renderer') {
       await waitFor(`document.querySelector('.sidebar-vpn-badge').dataset.state === 'on'`)
       await waitFor(`document.querySelector('.overview-session-duration')?.textContent.startsWith('00:00:')`)
       result.checks.push('Rules/Global keep the running core indicator on, including without capture; stopping turns it off')
+      for (const [reason, text] of [['configuration', 'Check the active profile'], ['port-in-use', 'port is already in use'],
+        ['permission', 'does not have permission'], ['watchdog', 'watchdog could not supervise']]) {
+        await evaluate(`window.api.uiTest.emitCoreFailure(${JSON.stringify(reason)})`)
+        await waitFor(`document.querySelector('[role="alert"]')?.textContent.includes(${JSON.stringify(text)})`)
+        assert.equal(await evaluate(`document.querySelector('[role="alert"]').textContent.includes('unexpectedly')`), false, 'specific error is not overwritten by the generic crash message')
+      }
+      await evaluate(`document.querySelector('button[aria-label="Dismiss error"]').click()`)
+      await evaluate(`document.querySelector('button[aria-label="Start core"]').click()`)
+      await waitFor(`document.querySelector('button[aria-label="Stop core"]')`)
+      result.checks.push('Kernel failures show distinct actionable messages for configuration, occupied ports, permissions and watchdog')
       await navigate('Settings')
       await evaluate(`(() => { const select = document.querySelector('select[aria-label="Interface language"]'); select.value = 'ru'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`)
       await evaluate(`document.querySelector('button[form="settings-settings"]').click()`)

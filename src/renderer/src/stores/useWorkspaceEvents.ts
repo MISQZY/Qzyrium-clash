@@ -3,6 +3,7 @@ import type { AppConfig } from '@shared/app-config'
 import { selectedLocalization } from '@shared/custom-localization'
 import { translate } from '../i18n/catalogs'
 import type { NavigationStore, KernelStore } from './domains'
+import { kernelFailureMessage } from '@shared/kernel-failure'
 
 export function useWorkspaceEvents(nav: NavigationStore, kernel: KernelStore,
   general: AppConfig['general'], refreshAll: () => Promise<void>) {
@@ -28,7 +29,12 @@ export function useWorkspaceEvents(nav: NavigationStore, kernel: KernelStore,
     const unsubStatus = window.api.events.onCoreStatus((status) => {
       statusRevision.current++
       setCoreStatus(status)
-      if (status === 'error') {
+      if (status === 'error' && window.api.kernel.getFailure) {
+        const revision = statusRevision.current
+        void window.api.kernel.getFailure().then(failure => {
+          if (mounted.current && revision === statusRevision.current && failure) reportError(kernelFailureMessage(failure, preferences.current))
+        }).catch(() => {})
+      } else if (status === 'error' && !window.api.events.onCoreFailure) {
         reportError(
           translate(
             preferences.current.language,
@@ -59,7 +65,12 @@ export function useWorkspaceEvents(nav: NavigationStore, kernel: KernelStore,
       void refreshAll().catch(reportError)
     })
 
+    const unsubFailure = window.api.events.onCoreFailure?.(failure => {
+      reportError(kernelFailureMessage(failure, preferences.current))
+    })
+
     const unsubTunError = window.api.events.onTunError?.(() => {
+      if (window.api.events.onCoreFailure) return
       reportError(
         translate(
           preferences.current.language,
@@ -82,6 +93,7 @@ export function useWorkspaceEvents(nav: NavigationStore, kernel: KernelStore,
       mounted.current = false
       document.removeEventListener('visibilitychange', visibility)
       unsubStatus()
+      unsubFailure?.()
       unsubSettings?.()
       unsubTunError?.()
       unsubVisibility?.()

@@ -254,7 +254,7 @@ async function verifyWakeRecovery() {
   config.general.autoRestartCore = true
   config.general.coreRestartMaxAttempts = 2
   kernel.startCore = async () => { starts++; state = 'error'; manager.emit('state-change', state); throw new Error('crashed') }
-  await assert.rejects(kernel.start(), /crashed/)
+  await assert.rejects(kernel.start(), { reason: 'crash' })
   for (let i = 0; i < 2; i++) {
     const timer = [...timers][0]
     assert.ok(timer, 'failed core schedules a retry')
@@ -263,7 +263,7 @@ async function verifyWakeRecovery() {
   }
   assert.equal(starts, 5, 'automatic retries stop at the configured limit')
   assert.equal(timers.size, 0, 'repeated failures do not form an infinite retry loop')
-  await assert.rejects(kernel.start(), /crashed/)
+  await assert.rejects(kernel.start(), { reason: 'crash' })
   assert.equal(timers.size, 1, 'manual start resets the retry allowance')
   const cancelledRetry = [...timers][0]
   await kernel.stop()
@@ -287,7 +287,7 @@ async function verifyHotReload() {
   const kernel = Object.assign(Object.create(KernelService.prototype), {
     lifecycle: Promise.resolve(), invalidateGlobe() {}, warnInvalidRules() {},
     processManager: { getState: () => state },
-    settingService: { getSettings: () => ({}) },
+    settingService: { getSettings: () => load('src/shared/app-config.ts', {}).DEFAULT_APP_CONFIG },
     configBuilder: { build: async () => { disk = 'candidate'; if (buildFailure) throw buildFailure; return { id: 'active' } } },
     apiClient: {
       reloadConfig: async (configPath) => { assert.equal(configPath, '/fixture/active.yaml'); if (failure) throw failure },
@@ -299,13 +299,13 @@ async function verifyHotReload() {
   assert.equal(disk, 'candidate'); assert.equal(selections, 1); assert.equal(restarts, 0)
   disk = 'previous'
   failure = Object.assign(new Error('rejected'), { isAxiosError: true, response: { status: 400 } })
-  await assert.rejects(kernel.reloadConfig(), /rejected/)
+  await assert.rejects(kernel.reloadConfig(), { reason: 'configuration' })
   assert.equal(disk, 'previous'); assert.equal(restarts, 0, 'invalid configs preserve the working core and file')
   failure = undefined; buildFailure = new Error('invalid YAML')
-  await assert.rejects(kernel.reloadConfig(), /invalid YAML/)
+  await assert.rejects(kernel.reloadConfig(), { reason: 'configuration' })
   assert.equal(disk, 'previous'); assert.equal(restarts, 0)
   buildFailure = undefined; failure = new Error('timeout')
-  await assert.rejects(kernel.reloadConfig(), /timeout/)
+  await assert.rejects(kernel.reloadConfig(), { reason: 'timeout' })
   assert.equal(disk, 'previous'); assert.equal(restarts, 0, 'an ambiguous timeout does not restart a healthy core')
   healthy = false
   await kernel.reloadConfig()

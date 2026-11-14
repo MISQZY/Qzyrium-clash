@@ -37,8 +37,22 @@ import { mergeSettings } from '@shared/settings-config'
 import { resolveEffectiveCore, type EffectiveCoreValues, type ConfigPreview } from '@shared/effective-core'
 import { parseProfileConfig } from '@shared/profile-config'
 import { MihomoConfigFactory } from '../core/MihomoConfigFactory'
+import { classifyKernelFailure, kernelFailureDetails, KernelOperationError } from '../utils/kernel-failure'
+import { kernelFailureMessage, type KernelFailure, type KernelFailureReason } from '@shared/kernel-failure'
 
 export class KernelService implements BaseService {
+  private failure: KernelFailure | null = null
+  getFailure(): KernelFailure | null { return this.failure }
+
+  private reportFailure(error: unknown, context?: KernelFailureReason): KernelOperationError {
+    const failure = this.failure ?? classifyKernelFailure(error, [], context)
+    if (!this.failure) {
+      this.failure = failure
+      logger.error(`Kernel operation failed [${failure.reason}]\n${kernelFailureDetails(error)}`)
+      this.broadcaster?.(IPC_CHANNELS.EVENT_CORE_FAILURE, failure)
+    }
+    return new KernelOperationError(failure.reason, kernelFailureMessage(failure, this.settingService.getSettings().general))
+  }
   private ruleWarning: string | null = null
 
   getRuleWarning(): string | null { return this.ruleWarning }
@@ -167,7 +181,12 @@ export class KernelService implements BaseService {
   }
 
   private setupListeners(): void {
+    this.processManager.on('failure', (failure: KernelFailure) => {
+      this.failure = failure
+      this.broadcaster?.(IPC_CHANNELS.EVENT_CORE_FAILURE, failure)
+    })
     this.processManager.on('state-change', (state: CoreState) => {
+      if (state === 'starting' || state === 'running') this.failure = null
       if (state === 'running') {
         this.runningSince = Date.now()
         clearTimeout(this.restartTimer)
@@ -192,6 +211,7 @@ export class KernelService implements BaseService {
     })
 
     this.processManager.on('tun-error', (errText: string) => {
+      this.reportFailure(new Error(errText))
       this.broadcaster?.('event:tun-error', errText)
       if (this.settingService.getSettings().kernel.tun.enable) {
         void this.stop()
@@ -243,25 +263,27 @@ export class KernelService implements BaseService {
   }
 
   start(): Promise<void> {
+    this.failure = null
     this.desiredRunning = true
     this.restartAttempts = 0
     this.cancelResume()
     const sequence = this.recoverySequence
     return this.enqueueLifecycle(() => this.startCore()).catch(error => {
       if (sequence === this.recoverySequence) this.scheduleCoreRestart()
-      throw error
+      throw this.reportFailure(error)
     })
   }
 
   private async startCore(): Promise<void> {
     if (this.getStatus() === 'running' || this.getStatus() === 'starting') return
+    this.failure = null
     this.resetDirectTraffic()
     this.invalidateGlobe()
     const paths = getAppPaths()
     const settings = this.settingService.getSettings()
 
     if (settings.kernel.tun.enable && !isProcessElevated()) {
-      throw new Error(nativeMessage(settings.general.language, 'tunRequiresAdmin', settings.general))
+      throw new KernelOperationError('permission', 'TUN requires administrator privileges')
     }
 
     // Capture the physical source before TUN can alter routing. This is bounded
@@ -271,7 +293,7 @@ export class KernelService implements BaseService {
 
     await installGeoResources(paths)
 
-    const activeProfile = await this.configBuilder.build(settings)
+    const activeProfile = await this.configBuilder.build(settings).catch(error => { throw this.reportFailure(error, 'configuration') })
 
     this.apiClient.reconfigure(
       '127.0.0.1',
@@ -343,6 +365,7 @@ export class KernelService implements BaseService {
   }
 
   restart(): Promise<void> {
+    this.failure = null
     this.desiredRunning = true
     this.restartAttempts = 0
     this.cancelResume()
@@ -353,7 +376,7 @@ export class KernelService implements BaseService {
       await this.startCore()
     }).catch(error => {
       if (sequence === this.recoverySequence) this.scheduleCoreRestart()
-      throw error
+      throw this.reportFailure(error)
     })
   }
 
@@ -361,6 +384,7 @@ export class KernelService implements BaseService {
     return this.enqueueLifecycle(async () => {
       // Recheck after queued start/stop operations: applying a profile never starts a stopped core.
       if (this.getStatus() !== 'running') return
+      this.failure = null
       this.invalidateGlobe()
       const configPath = getAppPaths().activeConfigPath
       const previous = await fs.readFile(configPath, 'utf8')
@@ -370,7 +394,7 @@ export class KernelService implements BaseService {
         activeProfile = await this.configBuilder.build(settings, true)
       } catch (error) {
         await writeFileAtomicAsync(configPath, previous)
-        throw error
+        throw this.reportFailure(error, 'configuration')
       }
       try {
         await this.apiClient.reloadConfig(configPath, force)
@@ -383,7 +407,7 @@ export class KernelService implements BaseService {
         }
         if (rejected || healthy) {
           await writeFileAtomicAsync(configPath, previous)
-          throw err
+          throw this.reportFailure(err, rejected ? 'configuration' : undefined)
         }
         logger.warn('Hot config reload failed and the controller is unreachable; restarting the core')
         await this.stopCore()
@@ -396,7 +420,7 @@ export class KernelService implements BaseService {
       await restoreProxySelection(activeProfile, this.apiClient)
         .catch(error => logger.warn(`Could not restore proxy selections after config reload: ${String(error)}`))
       this.broadcaster?.(IPC_CHANNELS.EVENT_SETTINGS_CHANGED, null)
-    })
+    }).catch(error => { throw this.reportFailure(error) })
   }
 
   // Proxied Mihomo API calls

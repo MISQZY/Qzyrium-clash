@@ -11,6 +11,7 @@ export function registerKernelHandlers(
   handle(IPC_CHANNELS.KERNEL_GET_SESSION_STARTED_AT, () => services.kernelService.getSessionStartedAt())
 
   handle(IPC_CHANNELS.KERNEL_GET_RULE_WARNING, () => services.kernelService.getRuleWarning())
+  handle(IPC_CHANNELS.KERNEL_GET_FAILURE, () => services.kernelService.getFailure())
 
   handle(IPC_CHANNELS.KERNEL_GET_STATUS, () => {
     return services.kernelService.getStatus()

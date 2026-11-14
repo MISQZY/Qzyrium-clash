@@ -7,10 +7,12 @@ import type { CustomThemePack } from './theme'
 import type { AppUpdaterStatus, WhatsNewPayload } from './updater'
 import type { BootAppearance } from './appearance'
 import type { EffectiveCoreValues, ConfigPreview } from './effective-core'
+import type { KernelFailure } from './kernel-failure'
 
 export const IPC_CHANNELS = {
   // Kernel
   KERNEL_GET_STATUS: 'kernel:get-status',
+  KERNEL_GET_FAILURE: 'kernel:get-failure',
   KERNEL_GET_SESSION_STARTED_AT: 'kernel:get-session-started-at',
   KERNEL_START: 'kernel:start',
   KERNEL_STOP: 'kernel:stop',
@@ -94,6 +96,7 @@ export const IPC_CHANNELS = {
   EVENT_UPDATER_STATUS: 'event:updater-status',
   EVENT_LOG: 'event:log',
   EVENT_CORE_STATUS: 'event:core-status',
+  EVENT_CORE_FAILURE: 'event:core-failure',
   EVENT_SETTINGS_CHANGED: 'event:settings-changed',
   EVENT_TUN_ERROR: 'event:tun-error',
   EVENT_WARNING: 'event:warning',
@@ -110,6 +113,7 @@ export interface SysProxyStatus {
 }
 
 export interface BootSnapshot {
+  coreFailure?: KernelFailure | null
   settings: AppConfig
   profiles: ProfileItem[]
   activeProfile: ProfileItem | null
@@ -130,6 +134,7 @@ export interface AddProfileDto {
 export interface IElectronApi {
   bootAppearance?: BootAppearance
   kernel: {
+    getFailure?: () => Promise<KernelFailure | null>
     getStatus: () => Promise<CoreState>
     getSessionStartedAt: () => Promise<number | null>
     getRuleWarning: () => Promise<string | null>
@@ -211,6 +216,7 @@ export interface IElectronApi {
     completeProfileImport?: (id: string) => Promise<void>
   }
   events: {
+    onCoreFailure?: (callback: (failure: KernelFailure) => void) => () => void
     onUpdaterStatus: (callback: (status: AppUpdaterStatus) => void) => () => void
     onSettingsChanged: (callback: () => void) => () => void
     onTraffic: (callback: (data: TrafficStats) => void) => () => void

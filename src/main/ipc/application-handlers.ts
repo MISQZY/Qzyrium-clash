@@ -165,6 +165,7 @@ export function registerApplicationHandlers(
       profiles: services.profileService.getProfiles(),
       activeProfile: services.profileService.getActiveProfile(),
       coreStatus,
+      coreFailure: services.kernelService.getFailure?.() ?? null,
       sessionStartedAt: coreStatus === 'running'
         ? await (services.kernelService.getSessionStartedAt?.() ?? Promise.resolve(null))
         : null,

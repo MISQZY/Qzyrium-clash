@@ -11,6 +11,8 @@ import { logger } from '../utils/logger'
 import { LogLines } from '../utils/log-lines'
 import { parseMihomoLog } from '@shared/logs'
 import { networkWatchdog } from '../utils/network-watchdog'
+import { classifyKernelFailure, kernelFailureDetails, KernelOperationError } from '../utils/kernel-failure'
+import type { KernelFailure, KernelFailureReason } from '@shared/kernel-failure'
 
 const runFile = promisify(execFile)
 
@@ -20,6 +22,17 @@ export class MihomoProcessManager extends EventEmitter {
   private binaryPath: string | null = null
   private explicitStop = false
   private startSequence = 0
+  private failure: KernelFailure | null = null
+  private failureOutput: string[] = []
+
+  getFailure(): KernelFailure | null { return this.failure }
+
+  private reportFailure(error: unknown, context?: KernelFailureReason, exitCode?: number | null): void {
+    if (this.failure) return
+    this.failure = classifyKernelFailure(error, this.failureOutput, context, exitCode)
+    logger.error(`Mihomo failure [${this.failure.reason}]${exitCode == null ? '' : `, exit code ${exitCode}`}\n${kernelFailureDetails(error, this.failureOutput)}`)
+    this.emit('failure', this.failure)
+  }
 
   constructor() {
     super()
@@ -45,7 +58,7 @@ export class MihomoProcessManager extends EventEmitter {
       return this.binaryPath
     }
 
-    logger.warn(`Mihomo binary not found at ${paths.coreBinaryPath}. Core will be simulated until installed.`)
+    logger.warn(`Mihomo binary not found at ${paths.coreBinaryPath}`)
     this.binaryPath = null
     return null
   }
@@ -65,21 +78,25 @@ export class MihomoProcessManager extends EventEmitter {
     }
 
     const sequence = ++this.startSequence
+    this.failure = null
+    this.failureOutput = []
     this.explicitStop = false
     this.setState('starting')
 
     const binary = await this.resolveBinaryPath()
     if (sequence !== this.startSequence || this.explicitStop || this.getState() !== 'starting') return
     if (!binary) {
-      logger.warn('Cannot spawn Mihomo core binary: binary not found. Running in mock/standby mode.')
+      logger.warn('Cannot start Mihomo: executable is missing')
+      const error = new KernelOperationError('missing-core', 'Mihomo core binary is missing')
+      this.reportFailure(error)
       this.setState('error')
       this.emit('log', {
         type: 'warning',
-        payload: 'Mihomo core binary missing. Run "pnpm prepare:resources" to download core.',
+        payload: 'Mihomo executable is missing. Reinstall the application or check the bundled runtime resources.',
         time: new Date().toISOString(),
         source: 'mihomo'
       } as LogEntry)
-      throw new Error('Mihomo core binary is missing. Run pnpm prepare:resources before connecting.')
+      throw error
     }
 
     const args = [
@@ -118,11 +135,16 @@ export class MihomoProcessManager extends EventEmitter {
       spawned.once('exit', onPrematureExit)
 
       const receiveLine = (line: string, fallback: string) => {
+        if (this.childProcess !== spawned) return
         const entry = parseMihomoLog(line, fallback)
         if (!entry) return
         const isTunError = entry.payload.includes('Start TUN listening error') || entry.payload.includes('configure tun interface')
         if (isTunError) entry.type = 'error'
         logger.writeEntry(entry)
+        if (entry.type === 'error' || entry.type === 'warning') {
+          this.failureOutput.push(entry.payload.slice(-2048))
+          if (this.failureOutput.length > 20) this.failureOutput.shift()
+        }
         this.emit('log', entry)
         if (isTunError) this.emit('tun-error', entry.payload)
       }
@@ -137,6 +159,7 @@ export class MihomoProcessManager extends EventEmitter {
       spawned.on('error', (err) => {
         if (this.childProcess !== spawned) return
         logger.error('Failed to spawn Mihomo process', err)
+        this.reportFailure(err)
         if (!spawned.pid) this.childProcess = null
         this.setState('error')
       })
@@ -144,19 +167,24 @@ export class MihomoProcessManager extends EventEmitter {
       spawned.on('exit', (code, signal) => {
         logger.info(`Mihomo process exited with code ${code}, signal ${signal}`)
         if (this.childProcess !== spawned) return
+        stdout.end(); stderr.end()
         this.childProcess = null
         if (!this.explicitStop) {
+          this.reportFailure(new Error(`Mihomo exited unexpectedly, signal ${signal}`), 'crash', code)
           this.setState('error')
         } else {
           this.setState('stopped')
         }
       })
 
-      if (spawned.pid) await networkWatchdog.trackCore(spawned.pid)
+      if (spawned.pid) {
+        try { await networkWatchdog.trackCore(spawned.pid) }
+        catch (error) { throw new KernelOperationError('watchdog', kernelFailureDetails(error)) }
+      }
       await this.waitForReady(spawned, controllerPort, secret, sequence, () => exitedPrematurely, () => exitCode)
     } catch (err) {
-      logger.error('Error starting Mihomo process', err)
       if (sequence === this.startSequence && !this.explicitStop) {
+        this.reportFailure(err)
         const cleanup = this.stop()
         const cleanupSequence = this.startSequence
         try { await cleanup }

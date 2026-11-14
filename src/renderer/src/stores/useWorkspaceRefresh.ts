@@ -1,9 +1,10 @@
 import { useCallback, type Dispatch, type SetStateAction } from 'react'
 import type { NavigationStore, SettingsStore, ProfilesStore, KernelStore } from './domains'
+import { kernelFailureMessage } from '@shared/kernel-failure'
 
 export function useWorkspaceRefresh(nav: NavigationStore, settings: SettingsStore, profiles: ProfilesStore,
   kernel: KernelStore, setRefreshing: Dispatch<SetStateAction<boolean>>) {
-  const { setLoading, setDataRevision, pendingRefresh, refreshSequence, statusRevision, mounted } = nav
+  const { setLoading, setDataRevision, pendingRefresh, refreshSequence, statusRevision, mounted, reportError } = nav
   const { setSettings, setSysProxy } = settings
   const { setProfiles, setActiveProfile } = profiles
   const { setCoreStatus, setSessionStartedAt } = kernel
@@ -35,6 +36,7 @@ export function useWorkspaceRefresh(nav: NavigationStore, settings: SettingsStor
             setSessionStartedAt(boot.sessionStartedAt)
           }
           setSysProxy(boot.sysProxy)
+          if (boot.coreFailure && revision === statusRevision.current) reportError(kernelFailureMessage(boot.coreFailure, boot.settings.general))
           setLoading(false)
           setDataRevision((value) => value + 1)
           return
@@ -80,6 +82,6 @@ export function useWorkspaceRefresh(nav: NavigationStore, settings: SettingsStor
     void request.then(clear, clear)
     return request
   }, [mounted, pendingRefresh, refreshSequence, statusRevision, setLoading, setDataRevision,
-    setProfiles, setActiveProfile, setCoreStatus, setSessionStartedAt, setSettings, setSysProxy, setRefreshing])
+    setProfiles, setActiveProfile, setCoreStatus, setSessionStartedAt, setSettings, setSysProxy, setRefreshing, reportError])
   return refreshAll
 }

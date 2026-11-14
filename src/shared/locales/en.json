@@ -1,4 +1,12 @@
 {
+  "kernelFailureConfiguration": "Mihomo could not apply the configuration. Check the active profile, rules and core settings. The application log contains the exact validation error.",
+  "kernelFailurePort": "A Mihomo listening port is already in use. Close the other proxy client or choose a different port in core settings. The conflicting address is recorded in the application log.",
+  "kernelFailurePermission": "Mihomo does not have permission to perform this operation. For TUN, restart the application as administrator; otherwise check file and security software permissions. Details are in the application log.",
+  "kernelFailureWatchdog": "The network watchdog could not supervise Mihomo. The application stopped the core to protect network recovery. Restart the application and check that the installed build is up to date. Technical details are in the application log.",
+  "kernelFailureMissing": "The Mihomo executable is missing or unavailable. Reinstall the application or check whether security software quarantined the core. Details are in the application log.",
+  "kernelFailureTimeout": "Mihomo's controller did not respond in time. Retry the operation; if the problem persists, check the application log for startup errors.",
+  "kernelFailureCrash": "Mihomo exited unexpectedly. Retry the connection and check the application log for the exit code and recent core errors.",
+  "kernelFailureUnknown": "The Mihomo operation failed. Check the application log for the technical cause, then retry the connection.",
   "subscriptionTrafficLow": "No more than 10% of the subscription's traffic allowance remains.",
   "subscriptionTrafficExhausted": "The subscription's traffic allowance is exhausted.",
   "subscriptionExpiresSoon": "The subscription expires within three days.",

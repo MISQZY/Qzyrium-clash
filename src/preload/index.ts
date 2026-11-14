@@ -43,6 +43,7 @@ if (appearance) {
 const api: IElectronApi = {
   bootAppearance: appearance,
   kernel: {
+    getFailure: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_FAILURE),
     getRuleWarning: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_RULE_WARNING),
     getSessionStartedAt: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_SESSION_STARTED_AT),
     getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_STATUS),
@@ -135,6 +136,11 @@ const api: IElectronApi = {
     completeProfileImport: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.APP_COMPLETE_PROFILE_IMPORT, id)
   },
   events: {
+    onCoreFailure: (callback) => {
+      const listener = (_: IpcRendererEvent, failure: Parameters<typeof callback>[0]): void => callback(failure)
+      ipcRenderer.on(IPC_CHANNELS.EVENT_CORE_FAILURE, listener)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.EVENT_CORE_FAILURE, listener)
+    },
     onWarning: (callback) => {
       const listener = (_: IpcRendererEvent, message: string): void => callback(message)
       ipcRenderer.on(IPC_CHANNELS.EVENT_WARNING, listener)
