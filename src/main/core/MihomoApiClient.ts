@@ -208,7 +208,7 @@ export class MihomoApiClient extends EventEmitter {
         const entry: LogEntry = {
           type: parsed.type || 'info',
           payload: parsed.payload || '',
-          time: new Date().toLocaleTimeString()
+          time: new Date().toISOString()
         }
         this.emit('log', entry)
       } catch {

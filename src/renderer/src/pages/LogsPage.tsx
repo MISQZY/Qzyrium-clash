@@ -42,11 +42,22 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
     } catch { /* Keep the controls usable when storage is unavailable. */ }
   }, [levelFilter, autoScroll, source])
   const timeFormatter = useMemo(() => new Intl.DateTimeFormat(locale, {
-    hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
   }), [locale])
   const displayTime = (time: string) => {
-    const date = new Date(time)
-    return Number.isNaN(date.getTime()) ? time : timeFormatter.format(date)
+    let date = new Date(time)
+    if (Number.isNaN(date.getTime()) && /^\d{1,2}:\d{2}:\d{2}/.test(time)) {
+      const today = new Date().toISOString().slice(0, 10)
+      date = new Date(`${today}T${time}`)
+    }
+    if (!Number.isNaN(date.getTime())) return timeFormatter.format(date)
+    return time.replace(/(\b\d{1,2}:\d{2}:\d{2})[.,]\d+/, '$1')
   }
 
   const sourceLogs = useMemo(() => logs.filter(log => (log.source ?? 'app') === source), [logs, source])
