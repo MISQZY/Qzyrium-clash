@@ -16,6 +16,7 @@ import { coreFields, tunFields } from '@shared/settings-fields'
 import type { SettingsDraft } from '../../hooks/useSettingsDraft'
 import { EffectiveCoreSummary } from './EffectiveCoreSummary'
 import { AdminElevationNotice } from './AdminElevationNotice'
+import { CoreVersionSection } from './CoreVersionSection'
 
 export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy, onToggleSysProxy,
   isElevated, restartingAdmin, handleRestartAsAdmin, setTunAdminPrompt }: {
@@ -91,6 +92,10 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
           <label className="mt-5 flex flex-col gap-2 text-xs font-medium">{t('bypassList')}<span className="font-normal text-muted-foreground">{t('oneHostOrWildcardPerLineLocalDestinationsAreExcludedByDefault')}</span><Textarea value={bypass} onChange={(event) => { setBypass(event.target.value); setDirty(true) }} rows={9} className="font-mono" /></label>
         </>}
         {section === 'mihomo' && <>
+          <CoreVersionSection
+            channel={form.kernel.channel ?? 'stable'}
+            onChannelChange={(channel) => draft.setForm(previous => ({ ...previous, kernel: { ...previous.kernel, channel } }))}
+          />
           <SettingRow title={t('mixedPortSource')}>
             <NativeSelect aria-label={t('mixedPortSource')} value={form.kernel.inheritMixedPort ? 'profile' : 'override'}
               onChange={event => updateKernel({ inheritMixedPort: event.target.value === 'profile' })}>

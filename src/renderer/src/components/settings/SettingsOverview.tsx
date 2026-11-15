@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { Folder, ChevronRight, RefreshCw } from 'lucide-react'
 import druseSvg from '../../assets/brand/druse.svg'
 import { CoreIcon } from '../../lib/icons'
+import type { CoreVersionInfo } from '@shared/core-version'
 import type { NavTab } from '../../lib/navigation'
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
@@ -20,6 +21,7 @@ export function SettingsOverview({ draft, onNavigate }: {
   const { start: startTour } = useTour()
   const { setMessage } = draft
   const [coreVersion, setCoreVersion] = useState<string>('')
+  const [coreInfo, setCoreInfo] = useState<CoreVersionInfo | null>(null)
   const [appVersion, setAppVersion] = useState<string>('')
   const [checkingUpdates, setCheckingUpdates] = useState(false)
   const [updateStatus, setUpdateStatus] = useState<{ type: 'latest' | 'available' | 'error' | 'unsupported' | 'downloading' | 'downloaded'; version?: string } | null>(null)
@@ -60,6 +62,7 @@ export function SettingsOverview({ draft, onNavigate }: {
   useEffect(() => {
     let active = true
     void window.api?.kernel?.getVersion?.().then(value => { if (active && value?.version) setCoreVersion(value.version) }).catch(() => {})
+    void window.api?.kernel?.getCoreInfo?.().then(value => { if (active && value) setCoreInfo(value) }).catch(() => {})
     void window.api?.app?.getVersion?.().then(value => { if (active && value) setAppVersion(value) }).catch(() => {})
     return () => { active = false }
   }, [])
@@ -123,8 +126,24 @@ export function SettingsOverview({ draft, onNavigate }: {
                   <CoreIcon className="size-4.5" />
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-sm font-semibold text-foreground break-words">{t('mihomoCoreVersion')}</span>
-                  <span className="text-xs text-muted-foreground font-mono truncate">{coreVersion || '—'}</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm font-semibold text-foreground break-words">{t('mihomoCoreVersion')}</span>
+                    {coreInfo && (
+                      <span
+                        className={`rounded px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider ${
+                          coreInfo.channel === 'alpha'
+                            ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                            : 'bg-primary/15 text-primary border border-primary/30'
+                        }`}
+                      >
+                        {coreInfo.channel}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground font-mono truncate">
+                    {coreInfo?.installedVersion || coreVersion || '—'}
+                    {coreInfo?.installedBuild ? ` (${coreInfo.installedBuild})` : ''}
+                  </span>
                 </div>
               </div>
               <Button
