@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text.RegularExpressions;
@@ -11,6 +12,17 @@ namespace QzyriumRunner
 {
     static class Program
     {
+        [DllImport("wininet.dll", SetLastError = true)]
+        static extern bool InternetSetOption(IntPtr hInternet, int dwOption, IntPtr lpBuffer, int dwBufferLength);
+
+        const int INTERNET_OPTION_REFRESH = 37;
+        const int INTERNET_OPTION_SETTINGS_CHANGED = 39;
+
+        static void RefreshInternetSettings()
+        {
+            InternetSetOption(IntPtr.Zero, INTERNET_OPTION_SETTINGS_CHANGED, IntPtr.Zero, 0);
+            InternetSetOption(IntPtr.Zero, INTERNET_OPTION_REFRESH, IntPtr.Zero, 0);
+        }
         static bool Trusted(IdentityReference identity)
         {
             string sid = identity.Translate(typeof(SecurityIdentifier)).Value;
@@ -92,6 +104,11 @@ namespace QzyriumRunner
         {
             try
             {
+                if (args.Length == 1 && args[0] == "--refresh-proxy")
+                {
+                    RefreshInternetSettings();
+                    return 0;
+                }
                 if (args.Length == 2 && args[0] == "--check-install") return SafeInstallation(args[1]) ? 0 : 1;
                 if (args.Length != 2 || !SafeInstallation(args[0])) return 1;
                 string arguments = File.Exists(args[1]) ? ReadArguments(args[1]) : "";

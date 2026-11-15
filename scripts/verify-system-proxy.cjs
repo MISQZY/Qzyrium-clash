@@ -44,7 +44,7 @@ async function verify() {
     if (name === '../utils/windows-proxy') return { WindowsProxySettings }
     if (name === '../utils/linux-proxy') return { LinuxProxySettings: class { async setManual() {} async setAuto() {} async disable() {} } }
     if (name === '../utils/logger') return { logger: { info() {}, error() {} } }
-    if (name === '../utils/network-transition') return { flushSystemDns() {} }
+    if (name === '../utils/network-transition') return { flushSystemDns() {}, notifySystemProxyChanged() {} }
     if (name === '../utils/pac') return loadTypeScript('src/main/utils/pac.ts')
     return require(name)
   }, { platform: 'win32' })

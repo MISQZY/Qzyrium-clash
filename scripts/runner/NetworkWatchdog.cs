@@ -18,6 +18,18 @@ static class NetworkWatchdog
     static readonly List<Process> Cores = new List<Process>();
     static readonly ManualResetEvent ParentGone = new ManualResetEvent(false);
 
+    [DllImport("wininet.dll", SetLastError = true)]
+    static extern bool InternetSetOption(IntPtr hInternet, int dwOption, IntPtr lpBuffer, int dwBufferLength);
+
+    const int INTERNET_OPTION_REFRESH = 37;
+    const int INTERNET_OPTION_SETTINGS_CHANGED = 39;
+
+    static void RefreshInternetSettings()
+    {
+        InternetSetOption(IntPtr.Zero, INTERNET_OPTION_SETTINGS_CHANGED, IntPtr.Zero, 0);
+        InternetSetOption(IntPtr.Zero, INTERNET_OPTION_REFRESH, IntPtr.Zero, 0);
+    }
+
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     static extern bool QueryFullProcessImageName(IntPtr process, int flags, StringBuilder name, ref int size);
 
@@ -78,6 +90,7 @@ static class NetworkWatchdog
             }
             key.Flush();
         }
+        RefreshInternetSettings();
         File.Delete(filename);
     }
 

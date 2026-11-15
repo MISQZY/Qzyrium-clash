@@ -1,6 +1,32 @@
 import { execFile } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { logger } from './logger'
 import { getSystemBinary } from './system-binaries'
+import { getAppPaths } from './paths'
+
+/**
+ * Notifies the operating system and WinINet subsystem that internet proxy
+ * settings have changed, causing running browsers (Chrome, Edge, etc.)
+ * to immediately pick up new proxy configurations without restart.
+ */
+export function notifySystemProxyChanged(): void {
+  if (process.platform === 'win32') {
+    try {
+      const runner = getAppPaths().runnerBinaryPath
+      if (existsSync(runner)) {
+        execFile(runner, ['--refresh-proxy'], { windowsHide: true }, (err) => {
+          if (err) {
+            logger.debug(`Failed to notify WinINet of proxy changes: ${String(err)}`)
+          } else {
+            logger.info('Notified WinINet of system proxy change')
+          }
+        })
+      }
+    } catch (err) {
+      logger.debug(`Could not invoke proxy refresh runner: ${String(err)}`)
+    }
+  }
+}
 
 /**
  * Flushes the operating system DNS resolver cache.
@@ -11,7 +37,7 @@ export function flushSystemDns(): void {
   if (process.platform === 'win32') {
     execFile(getSystemBinary('ipconfig.exe'), ['/flushdns'], { windowsHide: true }, (err) => {
       if (err) {
-        logger.warn(`Failed to flush Windows DNS cache: ${String(err)}`)
+        logger.debug(`Failed to flush Windows DNS cache: ${String(err)}`)
       } else {
         logger.info('Flushed Windows DNS cache successfully')
       }

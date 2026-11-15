@@ -4,7 +4,7 @@ import { logger } from '../utils/logger'
 import { BaseService } from './BaseService'
 import { SettingService } from './SettingService'
 import { pacScript } from '../utils/pac'
-import { flushSystemDns } from '../utils/network-transition'
+import { flushSystemDns, notifySystemProxyChanged } from '../utils/network-transition'
 import { WindowsProxySettings } from '../utils/windows-proxy'
 import { LinuxProxySettings } from '../utils/linux-proxy'
 
@@ -110,14 +110,17 @@ export class SysProxyService implements BaseService {
           await setRegistryValue('ProxyEnable', 'REG_DWORD', '1')
           this.enabled = true
           logger.info(`System proxy enabled on port ${port}`)
+          notifySystemProxyChanged()
         } else if (enable) {
           await setRegistryValue('ProxyEnable', 'REG_DWORD', '0')
           await setRegistryValue('AutoConfigURL', 'REG_SZ', pacUrl)
           this.enabled = true
+          notifySystemProxyChanged()
         } else {
           await this.registry.restore()
           this.enabled = false
           logger.info('System proxy disabled')
+          notifySystemProxyChanged()
           flushSystemDns()
         }
       } catch (err) {
