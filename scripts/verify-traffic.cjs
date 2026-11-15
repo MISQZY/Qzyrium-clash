@@ -2,6 +2,8 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const vm = require('node:vm')
 const ts = require('typescript')
+const { loadTypeScript } = require('./fixtures/typescript.cjs')
+const { SubscriptionTrafficAccounting } = loadTypeScript('src/main/core/SubscriptionTrafficAccounting.ts')
 
 // Exercise accounting without launching a core or changing OS network settings.
 const exportsObject = {}
@@ -17,6 +19,8 @@ vm.runInNewContext(code, { exports: exportsObject, require: name => name.endsWit
 async function verify() {
   const kernel = Object.create(exportsObject.KernelService.prototype)
   kernel.trafficAccounting = new accounting.TrafficAccounting()
+  kernel.subscriptionTraffic = new SubscriptionTrafficAccounting()
+  kernel.profileService = { getActiveProfile: () => null }
   kernel.resetDirectTraffic()
   let snapshot
   kernel.apiClient = { getConnections: async () => snapshot }

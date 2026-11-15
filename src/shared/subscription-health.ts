@@ -1,4 +1,9 @@
-import type { ProfileUserInfo } from './profile'
+import type { ProfileItem, ProfileUserInfo } from './profile'
+
+export function subscriptionTrafficKey(profile: Pick<ProfileItem, 'id' | 'lastFetchedAt' | 'userInfo'>): string {
+  const info = profile.userInfo
+  return JSON.stringify([profile.id, profile.lastFetchedAt ?? 0, info?.upload, info?.download, info?.total, info?.expire])
+}
 
 const validBytes = (value: number | undefined): value is number =>
   value !== undefined && Number.isFinite(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER

@@ -257,6 +257,7 @@ async function main() {
   const { KernelService: LifecycleKernel } = load('src/main/services/KernelService.ts', lifecycleDependencies)
   const lifecycle = Object.create(LifecycleKernel.prototype)
   lifecycle.trafficAccounting = new (load('src/main/core/TrafficAccounting.ts', {}).TrafficAccounting)()
+  lifecycle.subscriptionTraffic = new (load('src/main/core/SubscriptionTrafficAccounting.ts', {}).SubscriptionTrafficAccounting)()
   lifecycle.lifecycle = Promise.resolve()
   lifecycle.globeResolver = { invalidate() {} }
   lifecycle.settingService = { getSettings: () => ({ kernel: { tun: { enable: true } } }) }

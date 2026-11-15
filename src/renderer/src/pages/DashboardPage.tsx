@@ -13,7 +13,7 @@ import { connectionRoutes } from '../lib/globe'
 import { ConnectionGlobe } from '../components/ConnectionGlobe'
 import { Button } from '../components/ui/button'
 import { SubscriptionUsageBar } from '../components/SubscriptionUsageBar'
-import { subscriptionUsage } from '@shared/subscription-health'
+import { subscriptionUsage, subscriptionTrafficKey } from '@shared/subscription-health'
 import { SessionDuration } from '../components/dashboard/SessionDuration'
 import { SessionTrafficMetrics } from '../components/dashboard/SessionTrafficMetrics'
 
@@ -55,18 +55,8 @@ export function DashboardPage({
   const [locating, setLocating] = useState(false)
   const selectionKey = JSON.stringify(Object.entries(proxies).filter(([, node]) => node.now).map(([name, node]) => [name, node.now]))
 
-  const vpnBytes = (connections.vpnDownloadTotal ?? 0) + (connections.vpnUploadTotal ?? 0)
-  const profileKey = `${activeProfile?.id ?? ''}:${activeProfile?.updatedAt ?? 0}`
-  const [profileVpnBaseline, setProfileVpnBaseline] = useState({ key: '', baseline: 0 })
-
-  useEffect(() => {
-    if (profileVpnBaseline.key !== profileKey) {
-      setProfileVpnBaseline({ key: profileKey, baseline: vpnBytes })
-    }
-  }, [profileKey, profileVpnBaseline.key, vpnBytes])
-
-  const runtimeVpnDelta = profileVpnBaseline.key === profileKey && vpnBytes >= profileVpnBaseline.baseline
-    ? vpnBytes - profileVpnBaseline.baseline
+  const runtimeVpnDelta = activeProfile && connections.subscriptionTraffic?.key === subscriptionTrafficKey(activeProfile)
+    ? connections.subscriptionTraffic.runtimeDeltaBytes
     : 0
 
   useEffect(() => {

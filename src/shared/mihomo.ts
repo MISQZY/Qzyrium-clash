@@ -77,6 +77,7 @@ export interface ConnectionItem {
 }
 
 export interface ConnectionsSnapshot {
+  subscriptionTraffic?: { key: string; runtimeDeltaBytes: number }
   downloadTotal: number
   uploadTotal: number
   directDownloadTotal?: number

@@ -5,6 +5,7 @@ import { KernelGlobeResolver } from '../core/KernelGlobeResolver'
 import type { ActiveConfigBuilder } from '../core/ActiveConfigBuilder'
 import { restoreProxySelection } from '../core/ProxySelection'
 import type { TrafficAccounting } from '../core/TrafficAccounting'
+import { SubscriptionTrafficAccounting } from '../core/SubscriptionTrafficAccounting'
 import { nativeMessage } from '@shared/localization'
 import { IPC_CHANNELS } from '@shared/ipc'
 import yaml from 'yaml'
@@ -147,6 +148,7 @@ export class KernelService implements BaseService {
   private streamsPaused = false
   private startupRunning?: boolean
   private trafficAccounting: TrafficAccounting
+  private subscriptionTraffic = new SubscriptionTrafficAccounting()
 
   private resetDirectTraffic(): void {
     this.trafficAccounting.reset()
@@ -294,6 +296,7 @@ export class KernelService implements BaseService {
     await installGeoResources(paths)
 
     const activeProfile = await this.configBuilder.build(settings).catch(error => { throw this.reportFailure(error, 'configuration') })
+    this.subscriptionTraffic.beginSession(activeProfile)
 
     this.apiClient.reconfigure(
       '127.0.0.1',
@@ -511,7 +514,12 @@ export class KernelService implements BaseService {
   }
 
   async getConnections(): Promise<ConnectionsSnapshot> {
-    return this.trafficAccounting.sample(await this.apiClient.getConnections())
+    const snapshot = this.trafficAccounting.sample(await this.apiClient.getConnections())
+    return {
+      ...snapshot,
+      subscriptionTraffic: this.subscriptionTraffic.sample(this.profileService.getActiveProfile(),
+        (snapshot.vpnDownloadTotal ?? 0) + (snapshot.vpnUploadTotal ?? 0))
+    }
   }
 
   private invalidateGlobe(): void {
