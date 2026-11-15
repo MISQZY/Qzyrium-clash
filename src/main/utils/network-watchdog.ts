@@ -13,14 +13,18 @@ export class NetworkWatchdog {
   constructor(private failed: (error: Error) => void = () => {}) {}
 
   async start(): Promise<void> {
-    if (process.platform !== 'win32') return
+    if (process.platform !== 'win32' && process.platform !== 'linux') return
     if (this.child) throw new Error('Network watchdog is already started')
     this.buffer = ''
     this.stopping = false
     const paths = getAppPaths()
-    const binary = path.join(paths.geoFilesDir, 'qzyrium-watchdog.exe')
-    const child = spawn(binary, [String(process.pid), process.execPath, paths.coreBinaryPath, paths.userData], {
-      windowsHide: true, detached: true, stdio: ['pipe', 'pipe', 'pipe']
+    const linux = process.platform === 'linux'
+    const binary = linux ? process.execPath : path.join(paths.geoFilesDir, 'qzyrium-watchdog.exe')
+    const args = linux ? [path.join(paths.geoFilesDir, 'linux-proxy-watchdog.cjs'), paths.userData]
+      : [String(process.pid), process.execPath, paths.coreBinaryPath, paths.userData]
+    const child = spawn(binary, args, {
+      windowsHide: true, detached: true, stdio: ['pipe', 'pipe', 'pipe'],
+      ...(linux ? { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } } : {})
     })
     this.child = child
     const fail = (error: Error) => {

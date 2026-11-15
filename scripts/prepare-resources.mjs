@@ -46,7 +46,9 @@ async function prepareGeoFiles() {
 async function prepareRunner() {
   if (platform === 'linux') {
     fs.mkdirSync(FILES_DIR, { recursive: true })
-    fs.copyFileSync(path.join(cwd, 'resources', 'linux-core-supervisor.cjs'), path.join(FILES_DIR, 'linux-core-supervisor.cjs'))
+    for (const file of ['linux-core-supervisor.cjs', 'linux-proxy-watchdog.cjs', 'linux-proxy-recovery.cjs']) {
+      fs.copyFileSync(path.join(cwd, 'resources', file), path.join(FILES_DIR, file))
+    }
   }
   if (platform !== 'win32') return
   fs.mkdirSync(FILES_DIR, { recursive: true })

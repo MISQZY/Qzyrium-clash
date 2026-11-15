@@ -17,6 +17,10 @@ electronLanguages:
 extraResources:
   - from: resources/linux-core-supervisor.cjs
     to: files/linux-core-supervisor.cjs
+  - from: resources/linux-proxy-watchdog.cjs
+    to: files/linux-proxy-watchdog.cjs
+  - from: resources/linux-proxy-recovery.cjs
+    to: files/linux-proxy-recovery.cjs
   - from: LICENSE
     to: licenses/GPL-3.0.txt
   - from: resources/licenses/

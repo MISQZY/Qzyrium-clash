@@ -16,7 +16,7 @@ if (stage === 'version') {
   assert.ok(!fs.existsSync(path.join('extra', 'files', 'qzyrium-windows.exe')), 'Removed Windows helper must not be bundled')
   const expectedFiles = process.platform === 'win32'
     ? ['sidecar/mihomo.exe', 'files/country.mmdb', 'files/geosite.dat', 'files/geoip.dat', 'files/qzyrium-run.exe', 'files/qzyrium-watchdog.exe']
-    : ['sidecar/mihomo', 'files/country.mmdb', 'files/geosite.dat', 'files/geoip.dat', 'files/linux-core-supervisor.cjs']
+    : ['sidecar/mihomo', 'files/country.mmdb', 'files/geosite.dat', 'files/geoip.dat', 'files/linux-core-supervisor.cjs', 'files/linux-proxy-watchdog.cjs', 'files/linux-proxy-recovery.cjs']
   for (const file of expectedFiles) {
     assert.ok(fs.statSync(path.join('extra', file)).size > 0, `Missing or empty runtime resource: ${file}`)
   }
