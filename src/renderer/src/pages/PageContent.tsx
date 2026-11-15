@@ -23,11 +23,11 @@ function DashboardContent() {
   const { activeProfile, profiles, switchActiveProfile } = useProfiles()
   const { proxies, delays, updateDelays } = useProxies()
   const { traffic } = useTraffic()
-  const { connections } = useConnections()
+  const { connections, subscriptionTraffic } = useConnections()
   const { rules } = useRules()
   return <DashboardPage visible={visible} coreStatus={coreStatus} sessionStartedAt={sessionStartedAt} traffic={traffic}
     activeProfile={activeProfile} profiles={profiles} proxies={proxies} delays={delays} onSwitchProfile={switchActiveProfile}
-    onUpdateDelays={updateDelays} settings={settings} connections={connections} sysProxy={sysProxy} busy={busy} rules={rules}
+    onUpdateDelays={updateDelays} settings={settings} connections={connections} subscriptionTraffic={subscriptionTraffic} sysProxy={sysProxy} busy={busy} rules={rules}
     onRestart={restartKernel} onToggleKernel={toggleKernel} onToggleSysProxy={toggleSysProxy}
     onToggleTun={() => { void saveSettings({ kernel: { ...settings.kernel, tun: { ...settings.kernel.tun, enable: !settings.kernel.tun.enable } } }).catch(() => {}) }}
     onUpdateMode={mode => { void saveSettings({ kernel: { ...settings.kernel, mode } }).catch(() => {}) }}

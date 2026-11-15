@@ -12,6 +12,13 @@ export class SubscriptionTrafficAccounting {
     this.lastBytes = 0
   }
 
+  get(profile: ProfileItem | null): { key: string; runtimeDeltaBytes: number } | undefined {
+    if (!profile) return undefined
+    const key = subscriptionTrafficKey(profile)
+    const entry = this.profiles.get(profile.id)
+    return entry?.key === key ? { ...entry } : { key, runtimeDeltaBytes: 0 }
+  }
+
   sample(profile: ProfileItem | null, observedBytes: number): { key: string; runtimeDeltaBytes: number } | undefined {
     if (!profile) { this.currentKey = null; this.lastBytes = observedBytes; return undefined }
     const key = subscriptionTrafficKey(profile)

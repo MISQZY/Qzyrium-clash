@@ -4,6 +4,7 @@ import { EMPTY_CONNECTIONS, type StoreCoordinator } from './types'
 
 export interface ConnectionsStore {
   connections: ConnectionsSnapshot
+  subscriptionTraffic: ConnectionsSnapshot['subscriptionTraffic']
   setConnections: React.Dispatch<React.SetStateAction<ConnectionsSnapshot>>
 }
 
@@ -14,6 +15,7 @@ export function useConnectionsStore(
   loading: boolean
 ): ConnectionsStore {
   const [connections, setConnections] = useState<ConnectionsSnapshot>(EMPTY_CONNECTIONS)
+  const [subscriptionTraffic, setSubscriptionTraffic] = useState<ConnectionsSnapshot['subscriptionTraffic']>()
   const connectionRequest = useRef<Promise<ConnectionsSnapshot> | null>(null)
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export function useConnectionsStore(
   useEffect(() => {
     if (
       !window.api ||
-      coord.coreStatus !== 'running' ||
+      coord.coreStatus === 'starting' ||
       busy ||
       refreshing ||
       loading ||
@@ -63,12 +65,13 @@ export function useConnectionsStore(
           !coord.actionInProgress.current &&
           revision === coord.statusRevision.current
         ) {
-          setConnections(snapshot)
+          if (coord.coreStatus === 'running') setConnections(snapshot)
+          setSubscriptionTraffic(snapshot.subscriptionTraffic)
         }
       } catch {
         /* A restarting core can briefly reject a snapshot. */
       }
-      if (!disposed) {
+      if (!disposed && coord.coreStatus === 'running') {
         timer = setTimeout(poll, coord.settings.general.connectionInterval ?? 2000)
       }
     }
@@ -93,6 +96,7 @@ export function useConnectionsStore(
 
   return useMemo(() => ({
     connections,
+    subscriptionTraffic,
     setConnections
-  }), [connections, setConnections])
+  }), [connections, subscriptionTraffic, setConnections])
 }

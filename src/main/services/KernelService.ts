@@ -514,6 +514,10 @@ export class KernelService implements BaseService {
   }
 
   async getConnections(): Promise<ConnectionsSnapshot> {
+    if (this.getStatus() !== 'running') {
+      return { downloadTotal: 0, uploadTotal: 0, connections: [],
+        subscriptionTraffic: this.subscriptionTraffic.get(this.profileService.getActiveProfile()) }
+    }
     const snapshot = this.trafficAccounting.sample(await this.apiClient.getConnections())
     return {
       ...snapshot,

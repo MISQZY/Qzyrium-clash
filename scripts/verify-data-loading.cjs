@@ -222,7 +222,8 @@ async function run() {
   await flush()
 
   rules.resolve([{ type: 'MATCH', payload: '', proxy: 'PROXY' }])
-  connections.resolve({ uploadTotal: 1, downloadTotal: 2, connections: [] })
+  connections.resolve({ uploadTotal: 1, downloadTotal: 2, connections: [],
+    subscriptionTraffic: { key: 'subscription-snapshot', runtimeDeltaBytes: 200 } })
   await flush()
   assert.equal(view.rules.length, 0, 'late rules response cannot retain data on an unrelated page')
   assert.equal(view.connections.downloadTotal, 0, 'snapshot for an old view is discarded')
@@ -232,6 +233,7 @@ async function run() {
   assert.equal(view.rules.length, 1, 'dashboard summary loads independently')
   assert.equal(view.traffic.up, 42)
   assert.equal(connectionsCalls, 2)
+  assert.equal(view.subscriptionTraffic.runtimeDeltaBytes, 200)
   document.visibilityState = 'hidden'
   listeners.get('visibilitychange')()
   await flush()
@@ -244,6 +246,7 @@ async function run() {
   assert.equal(view.coreStatus, 'stopped')
   assert.equal(view.sessionStartedAt, null, 'stopping the core ends the session')
   assert.equal(view.connections.downloadTotal, 0)
+  assert.equal(view.subscriptionTraffic.runtimeDeltaBytes, 200, 'hiding and stopping preserves subscription usage')
   const beforeStart = baseCalls, beforeProxies = proxyCalls
   assert.equal(await view.toggleKernel(), true)
   await flush()
@@ -298,6 +301,7 @@ async function run() {
   assert.equal(view.coreStatus, 'error')
   assert.equal(view.traffic.down, 0, 'unexpected core exit clears traffic without navigation or refresh')
   assert.equal(view.connections.downloadTotal, 0, 'unexpected core exit releases connections')
+  assert.equal(view.subscriptionTraffic.runtimeDeltaBytes, 200, 'unexpected core exit preserves subscription usage')
   assert.equal([...timers].filter(t => t.ms === 2000).length, 0, 'unexpected core exit stops polling')
   console.log('PASS renderer store: progressive loading, independent retry, single snapshot owner, buffered logs, relevant traffic, visibility pause, stale result protection')
 }

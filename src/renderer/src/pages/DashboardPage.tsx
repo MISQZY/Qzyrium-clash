@@ -23,6 +23,7 @@ interface DashboardPageProps {
   sessionStartedAt: number | null
   profiles: ProfileItem[]; proxies: Record<string, ProxyNode>; delays: Record<string, number>
   settings: AppConfig; connections: ConnectionsSnapshot; sysProxy: SysProxyStatus; busy: boolean
+  subscriptionTraffic?: ConnectionsSnapshot['subscriptionTraffic']
   rules?: MihomoRule[]
   onRestart: () => void; onToggleKernel: () => void; onToggleSysProxy: () => void
   onToggleTun: () => void; onUpdateMode: (mode: TunnelMode) => void; onNavigate?: (tab: NavTab) => void
@@ -40,6 +41,7 @@ export function DashboardPage({
   delays,
   settings,
   connections,
+  subscriptionTraffic,
   busy,
   rules,
   onToggleKernel,
@@ -57,8 +59,8 @@ export function DashboardPage({
   const [locating, setLocating] = useState(false)
   const selectionKey = JSON.stringify(Object.entries(proxies).filter(([, node]) => node.now).map(([name, node]) => [name, node.now]))
 
-  const runtimeVpnDelta = activeProfile && connections.subscriptionTraffic?.key === subscriptionTrafficKey(activeProfile)
-    ? connections.subscriptionTraffic.runtimeDeltaBytes
+  const runtimeVpnDelta = activeProfile && subscriptionTraffic?.key === subscriptionTrafficKey(activeProfile)
+    ? subscriptionTraffic.runtimeDeltaBytes
     : 0
 
   useEffect(() => {
