@@ -5,10 +5,10 @@ import { formatBytes } from '../lib/format'
 import { HelpCircle } from 'lucide-react'
 import { Tooltip } from 'radix-ui'
 
-export function SubscriptionUsageBar({ info, compact = false }: { info?: ProfileUserInfo; compact?: boolean }) {
+export function SubscriptionUsageBar({ info, compact = false, runtimeDelta = 0 }: { info?: ProfileUserInfo; compact?: boolean; runtimeDelta?: number }) {
   const t = useTranslations('profiles')
   const locale = useLocale()
-  const usage = subscriptionUsage(info)
+  const usage = subscriptionUsage(info, runtimeDelta)
   if (!usage) return null
   const percent = Math.floor(usage.percent)
   const tone = usage.status === 'exhausted' ? 'bg-destructive' : usage.status === 'near' ? 'bg-warning' : 'bg-primary'
@@ -25,6 +25,7 @@ export function SubscriptionUsageBar({ info, compact = false }: { info?: Profile
           </button></Tooltip.Trigger>
           <Tooltip.Portal><Tooltip.Content side="top" sideOffset={6} className="sidebar-tooltip max-w-56 text-center text-[11px] leading-snug">
             <p>{t('trafficSnapshotHint')}</p>
+            {usage.runtimeDelta > 0 && <p className="mt-1 text-[10px] font-medium text-primary">{t('runtimeTrafficDelta', { delta: formatBytes(usage.runtimeDelta, locale) })}</p>}
             {usage.status !== 'normal' && <p className="mt-1">{t(usage.status === 'exhausted' ? 'trafficExhausted' : 'trafficNearlyExhausted')}</p>}
             <Tooltip.Arrow className="fill-popover" />
           </Tooltip.Content></Tooltip.Portal>

@@ -130,5 +130,6 @@
   "yamlAppendComment": "Rules in append are inserted before the final MATCH rule",
   "yamlDeleteComment": "Rules in delete remove matching subscription rules",
   "yamlExamplesComment": "Examples:",
-  "ruleValidationError": "Rule disabled due to an error. Click the row to edit. Save checks the rule again."
+  "ruleValidationError": "Rule disabled due to an error. Click the row to edit. Save checks the rule again.",
+  "runtimeTrafficDelta": "Session: +{delta}"
 }

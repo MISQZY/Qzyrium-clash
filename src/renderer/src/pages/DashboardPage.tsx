@@ -55,6 +55,20 @@ export function DashboardPage({
   const [locating, setLocating] = useState(false)
   const selectionKey = JSON.stringify(Object.entries(proxies).filter(([, node]) => node.now).map(([name, node]) => [name, node.now]))
 
+  const vpnBytes = (connections.vpnDownloadTotal ?? 0) + (connections.vpnUploadTotal ?? 0)
+  const profileKey = `${activeProfile?.id ?? ''}:${activeProfile?.updatedAt ?? 0}`
+  const [profileVpnBaseline, setProfileVpnBaseline] = useState({ key: '', baseline: 0 })
+
+  useEffect(() => {
+    if (profileVpnBaseline.key !== profileKey) {
+      setProfileVpnBaseline({ key: profileKey, baseline: vpnBytes })
+    }
+  }, [profileKey, profileVpnBaseline.key, vpnBytes])
+
+  const runtimeVpnDelta = profileVpnBaseline.key === profileKey && vpnBytes >= profileVpnBaseline.baseline
+    ? vpnBytes - profileVpnBaseline.baseline
+    : 0
+
   useEffect(() => {
     if (!running) {
       setLocations(EMPTY_LOCATIONS)
@@ -172,9 +186,9 @@ export function DashboardPage({
               onlyVpnTraffic={settings.general.onlyVpnTraffic !== false}
             />
 
-            {subscriptionUsage(activeProfile?.userInfo) && (
+            {subscriptionUsage(activeProfile?.userInfo, runtimeVpnDelta) && (
               <div className="overview-panel-section overview-quota-section">
-                <SubscriptionUsageBar info={activeProfile?.userInfo} compact />
+                <SubscriptionUsageBar info={activeProfile?.userInfo} runtimeDelta={runtimeVpnDelta} compact />
               </div>
             )}
 
