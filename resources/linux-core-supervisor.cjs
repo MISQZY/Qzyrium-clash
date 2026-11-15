@@ -1,7 +1,16 @@
 const fs = require('node:fs')
 const { spawn, execFileSync } = require('node:child_process')
 
-const runIp = args => execFileSync('ip', args, { encoding: 'utf8', timeout: 5000 })
+const ipBinary = () => ['/usr/sbin/ip', '/sbin/ip', '/usr/bin/ip', '/bin/ip'].find(file => fs.existsSync(file)) || 'ip'
+const runIp = args => execFileSync(ipBinary(), args, { encoding: 'utf8', timeout: 5000, env: { ...process.env, LC_ALL: 'C' } })
+
+function runPrivilegedIp(args) {
+  if (args.length !== 5 || !['-4', '-6'].includes(args[0]) || args[1] !== 'rule' || args[2] !== 'del' ||
+      args[3] !== 'priority' || !/^\d+$/.test(args[4])) throw new Error('Invalid privileged TUN cleanup command')
+  const binary = ipBinary()
+  if (!binary.startsWith('/')) throw new Error('Cannot locate the system ip binary for TUN recovery')
+  return execFileSync('/usr/bin/pkexec', [binary, ...args], { encoding: 'utf8', timeout: 30_000 })
+}
 
 function descriptor(tun) {
   if (!tun?.enable || tun['auto-route'] === false) return null
@@ -72,6 +81,21 @@ function restoreRouting(tun, ip = runIp, exists = device => fs.existsSync(`/sys/
   }
 }
 
+function restoreRoutingWithPrivileges(tun, ip = runIp, elevate = runPrivilegedIp, exists) {
+  let privileged = false
+  restoreRouting(tun, args => {
+    if (args[1] !== 'rule' || args[2] !== 'del') return ip(args)
+    if (!privileged) {
+      try { return ip(args) }
+      catch (error) {
+        if (!/Operation not permitted|Permission denied/.test(`${error.message}\n${error.stderr ?? ''}`)) throw error
+        privileged = true
+      }
+    }
+    return elevate(args)
+  }, exists)
+}
+
 function supervise(binary, tun, args) {
   prepareRouting(tun)
   const core = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] })
@@ -99,7 +123,7 @@ function supervise(binary, tun, args) {
     finished = true
     clearTimeout(timer)
     try {
-      restoreRouting(tun)
+      restoreRoutingWithPrivileges(tun)
       console.error(`Mihomo supervision finished (${signal ?? code}); Linux TUN policy rules restored`)
       process.exit(requestedStop ? 0 : code ?? 1)
     } catch (error) {
@@ -109,7 +133,7 @@ function supervise(binary, tun, args) {
   })
 }
 
-module.exports = { descriptor, rules, owned, prepareRouting, restoreRouting }
+module.exports = { descriptor, rules, owned, prepareRouting, restoreRouting, restoreRoutingWithPrivileges, runPrivilegedIp }
 
 if (require.main === module) {
   try {

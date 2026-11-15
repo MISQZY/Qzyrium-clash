@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict')
-const { descriptor, rules, prepareRouting, restoreRouting } = require('../resources/linux-core-supervisor.cjs')
+const { descriptor, rules, prepareRouting, restoreRouting, restoreRoutingWithPrivileges, runPrivilegedIp } = require('../resources/linux-core-supervisor.cjs')
 
 const tun = descriptor({ enable: true, device: 'qzyrium-test' })
 const baseline = ['0: from all lookup local', '12000: from all lookup main', '32766: from all lookup main', '32767: from all lookup default']
@@ -73,4 +73,24 @@ assert.throws(() => restoreRouting(tun, args => {
   return changing.ip(args)
 }, () => false), /changed during/)
 assert.equal(changing.deleted.length, 0)
+
+const restricted = fixture(added, ['9000: from all lookup unspec unreachable'])
+let escalations = 0
+const unprivileged = args => {
+  if (args[2] === 'del') throw new Error('RTNETLINK answers: Operation not permitted')
+  return restricted.ip(args)
+}
+restoreRoutingWithPrivileges(tun, unprivileged, args => { escalations++; return restricted.ip(args) }, () => false)
+assert.equal(escalations, 8)
+assert.deepEqual(restricted.state['-4'], baseline)
+assert.deepEqual(restricted.state['-6'], baseline)
+const unsafe = fixture([...added, '9001: from all lookup 100'])
+assert.throws(() => restoreRoutingWithPrivileges(tun, unsafe.ip, () => { throw new Error('Must not elevate foreign rules') }, () => false), /Foreign/)
+const denied = fixture(added)
+assert.throws(() => restoreRoutingWithPrivileges(tun, args => {
+  if (args[2] === 'del') throw new Error('Operation not permitted')
+  return denied.ip(args)
+}, () => { throw new Error('Authentication cancelled') }, () => false), /Authentication cancelled/)
+assert.equal(denied.deleted.length, 0)
+assert.throws(() => runPrivilegedIp(['-4', 'route', 'flush', 'table', 'main']), /Invalid privileged/)
 console.log('PASS: Linux TUN rule ownership, IPv4/IPv6 cleanup, custom indexes, collision refusal and preservation of unrelated policies')

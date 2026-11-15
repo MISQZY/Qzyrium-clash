@@ -249,7 +249,7 @@ export class MihomoProcessManager extends EventEmitter {
       const timer = setTimeout(() => {
         child.removeListener('exit', onExit)
         reject(new Error('Timed out waiting for Mihomo to stop'))
-      }, process.platform === 'linux' ? 8000 : 5000)
+      }, process.platform === 'linux' ? 65_000 : 5000)
       child.once('exit', onExit)
       try {
         if (process.platform === 'win32' && child.pid) {

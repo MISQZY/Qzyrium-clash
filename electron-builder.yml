@@ -72,6 +72,9 @@ linux:
   description: Fast and secure proxy/VPN client powered by Mihomo
 deb:
   depends:
+    - iproute2
+    - libcap2-bin
+    - pkexec
     - libnotify4
     - libxtst6
     - libnss3
@@ -80,6 +83,9 @@ deb:
   afterRemove: build/linux/after-remove.sh
 rpm:
   depends:
+    - iproute
+    - libcap
+    - polkit
     - libnotify
     - libXtst
     - nss
