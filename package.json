@@ -44,6 +44,7 @@
     "test:connections": "node scripts/verify-connections.cjs",
     "test:ipc": "node scripts/verify-ipc.cjs",
     "test:subscriptions": "node scripts/verify-subscriptions.cjs",
+    "test:subscriptions:converter": "node scripts/verify-subscription-converter.cjs",
     "test:ipc:ui": "electron scripts/verify-ipc-ui.cjs",
     "test:subscriptions:ui": "electron scripts/verify-subscriptions-ui.cjs",
     "test:rules:ui": "electron scripts/verify-rules-ui.cjs",

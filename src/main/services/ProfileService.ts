@@ -11,6 +11,7 @@ import type { SettingService } from './SettingService'
 import { DEFAULT_APP_CONFIG } from '@shared/app-config'
 import { prepareProfileContent, validateProfileContent } from '../utils/profile-validator'
 import { SubscriptionDownloadError } from '../utils/subscription-error'
+import { convertSubscriptionToClashYaml } from '@shared/subscription-converter'
 
 export class ProfileService implements BaseService {
   private activeProfileId: string | null = null
@@ -94,8 +95,9 @@ export class ProfileService implements BaseService {
   }
 
   async saveProfileContent(id: string, content: string, downloaded = false): Promise<boolean> {
-    return this.repository.saveContent(id, content, profile =>
-      this.validateContent(content, profile.customRules, downloaded))
+    const normalized = convertSubscriptionToClashYaml(content)
+    return this.repository.saveContent(id, normalized, profile =>
+      this.validateContent(normalized, profile.customRules, downloaded))
   }
 
   private async validateContent(content: string, rules?: CustomRuleItem[], downloaded = false): Promise<void> {
@@ -167,6 +169,7 @@ export class ProfileService implements BaseService {
       if (deviceStatus) throw new SubscriptionDownloadError(deviceStatus === 'limit' ? 'device-limit' : 'hwid-required', (this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG).general)
     }
 
+    content = convertSubscriptionToClashYaml(content)
     await this.validateContent(content, undefined, dto.type === 'remote')
 
     const item: ProfileItem = {

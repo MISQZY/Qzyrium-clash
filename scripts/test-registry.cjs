@@ -1,6 +1,6 @@
 const path = require('node:path')
 
-const functional = ['test-runner', 'release-config', 'profile-activation', 'subscription-traffic', 'ipc', 'subscriptions', 'remnawave', 'updates', 'startup', 'elevation', 'i18n',
+const functional = ['test-runner', 'release-config', 'profile-activation', 'subscription-traffic', 'ipc', 'subscriptions', 'subscription-converter', 'remnawave', 'updates', 'startup', 'elevation', 'i18n',
   'kernel-lifecycle', 'kernel-failures', 'providers', 'core-inheritance', 'linux-routing', 'linux-proxy', 'profile-loading', 'profile-import', 'data-loading', 'connections', 'offline-proxies', 'proxy-latency', 'settings', 'themes',
   'globe', 'globe-layout', 'recovery', 'system-proxy', 'network-watchdog', 'linux-proxy-watchdog', 'resources', 'traffic', 'diff-editor', 'rule-recovery', 'logs', 'log-batching', 'window-behavior', 'backup', 'diagnostics']
 const ui = ['ipc-ui', 'subscriptions-ui', 'ui', 'virtual-lists-ui', 'rules-ui', 'display-ui', 'globe-ui', 'theme-contrast-ui',

@@ -1,7 +1,9 @@
 import yaml from 'yaml'
+import { convertSubscriptionToClashYaml } from './subscription-converter'
 
 export function parseProfileConfig(content: string): Record<string, unknown> {
-  const config: unknown = yaml.parse(content)
+  const normalized = convertSubscriptionToClashYaml(content)
+  const config: unknown = yaml.parse(normalized)
   if (!config || typeof config !== 'object' || Array.isArray(config) || Object.keys(config).length === 0) {
     throw new Error('Profile must contain a non-empty Clash/Mihomo YAML object')
   }
