@@ -14,6 +14,8 @@ async function verify() {
   await validateConfiguration(config, { add() {} })
   assert.ok(config.linux.target.some(item => item.target === 'deb'))
   assert.ok(config.linux.target.some(item => item.target === 'rpm'))
+  assert.ok(config.rpm.depends.includes('libayatana-appindicator-gtk3'))
+  assert.ok(!config.rpm.depends.includes('libayatana-appindicator3-1'))
   const metadata = require('../package.json')
   for (const target of ['deb', 'rpm']) {
     const meta = await FpmTarget.prototype.computeFpmMetaInfoOptions.call({
