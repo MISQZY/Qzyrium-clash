@@ -167,7 +167,6 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
                       <NodeIcon
                         icon={nodeData?.icon}
                         name={nodeName}
-                        isSelected={isSelected}
                       />
                       <div className="flex flex-col min-w-0 flex-1">
                         <span

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { ProxiesIcon } from '../lib/icons'
-import { cn } from '../lib/utils'
 
 export const GroupIcon: React.FC<{ icon?: string; name: string }> = ({ icon, name }) => {
   const [hasError, setHasError] = useState(false)
@@ -30,10 +29,9 @@ export const GroupIcon: React.FC<{ icon?: string; name: string }> = ({ icon, nam
   )
 }
 
-export const NodeIcon: React.FC<{ icon?: string; name: string; isSelected: boolean }> = ({
+export const NodeIcon: React.FC<{ icon?: string; name: string }> = ({
   icon,
-  name,
-  isSelected
+  name
 }) => {
   const [hasError, setHasError] = useState(false)
 
@@ -53,14 +51,7 @@ export const NodeIcon: React.FC<{ icon?: string; name: string; isSelected: boole
     )
   }
 
-  return (
-    <div
-      className={cn(
-        'size-2 rounded-full shrink-0 transition-colors',
-        isSelected ? 'bg-primary shadow-xs shadow-primary' : 'bg-muted-foreground/30'
-      )}
-    />
-  )
+  return null
 }
 
 export const getGroupTypeStyle = (type?: string): { label: string; className: string } => {
