@@ -899,7 +899,6 @@ input, textarea, pre { user-select: text; }
   .overview-quota-section { padding: 6px 14px; }
   .overview-eyebrow { margin-bottom: 5px; }
   .overview-traffic { gap: 8px; }
-  .overview-traffic p { font-size: 17px !important; min-height: 1.5rem !important; line-height: 1.5rem !important; }
   .overview-support-section { padding: 7px 12px; }
   .overview-support-section button { height: 32px; }
   .overview-map-notes { padding: 4px 4px 0; gap: 2px; }
@@ -915,7 +914,6 @@ input, textarea, pre { user-select: text; }
   .overview-quota-section { padding: 4px 10px; }
   .overview-eyebrow { margin-bottom: 3px; }
   .overview-traffic { gap: 6px; }
-  .overview-traffic p { font-size: 14px !important; min-height: 1.25rem !important; line-height: 1.25rem !important; }
   .overview-support-section { padding: 5px 10px; }
   .overview-support-section button { height: 28px; }
   .overview-map-notes { padding: 2px 4px 0; }
