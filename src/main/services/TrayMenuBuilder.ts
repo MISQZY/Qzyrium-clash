@@ -1,0 +1,284 @@
+import type { MenuItemConstructorOptions } from 'electron'
+import type { AppConfig } from '@shared/app-config'
+import type { SysProxyStatus } from '@shared/ipc'
+import type { ProxyGroup, ProxyNode } from '@shared/mihomo'
+import type { ProfileItem } from '@shared/profile'
+import type { CoreState, TunnelMode } from '@shared/types'
+
+export interface TrayMenuActions {
+  onOpen: () => void
+  onToggleCore: () => Promise<void> | void
+  onSelectProfile: (id: string) => Promise<void> | void
+  onSetRoutingType: (type: 'off' | 'sysproxy' | 'tun') => Promise<void> | void
+  onSetRoutingMode: (mode: TunnelMode) => Promise<void> | void
+  onSelectProxy: (group: string, node: string) => Promise<void> | void
+  onToggleCoreOnly: () => void
+  onRestart: () => Promise<void> | void
+  onQuit: () => void
+}
+
+export interface TrayMenuContext {
+  coreStatus: CoreState
+  sysProxyStatus: SysProxyStatus
+  settings: AppConfig
+  messages: Record<string, string>
+  cachedProxies: Record<string, ProxyNode>
+  profiles: ProfileItem[]
+  activeProfileId?: string
+  isCoreOnly: boolean
+  actions: TrayMenuActions
+}
+
+export function buildProfileMenu(
+  profiles: ProfileItem[],
+  activeId: string | undefined,
+  messages: Record<string, string>,
+  onSelectProfile: (id: string) => void
+): MenuItemConstructorOptions | null {
+  if (!profiles || profiles.length === 0) return null
+
+  const activeName = profiles.find((p) => p.id === activeId)?.name || ''
+
+  return {
+    label: `${messages.profiles || 'Profiles'} (${activeName || '—'})`,
+    submenu: profiles.map((p) => {
+      const isSelected = p.id === activeId
+      const label = p.name.length > 40 ? `${p.name.slice(0, 37)}...` : p.name
+      return {
+        label,
+        type: 'radio',
+        checked: isSelected,
+        click: () => onSelectProfile(p.id)
+      }
+    })
+  }
+}
+
+export function buildModeMenu(
+  currentMode: TunnelMode,
+  messages: Record<string, string>,
+  onSetRoutingMode: (mode: TunnelMode) => void
+): MenuItemConstructorOptions {
+  const modeNames: Record<TunnelMode, string> = {
+    rule: messages.modeRule || 'Rule',
+    global: messages.modeGlobal || 'Global',
+    direct: messages.modeDirect || 'Direct'
+  }
+  const currentName = modeNames[currentMode] || messages.modeRule || 'Rule'
+
+  return {
+    label: `${messages.routingMode || 'Routing mode'} (${currentName})`,
+    submenu: [
+      {
+        label: messages.modeRule || 'Rule',
+        type: 'radio',
+        checked: currentMode === 'rule',
+        click: () => onSetRoutingMode('rule')
+      },
+      {
+        label: messages.modeGlobal || 'Global',
+        type: 'radio',
+        checked: currentMode === 'global',
+        click: () => onSetRoutingMode('global')
+      },
+      {
+        label: messages.modeDirect || 'Direct',
+        type: 'radio',
+        checked: currentMode === 'direct',
+        click: () => onSetRoutingMode('direct')
+      }
+    ]
+  }
+}
+
+export function buildRoutingTypeMenu(
+  settings: AppConfig,
+  sysProxyStatus: SysProxyStatus,
+  messages: Record<string, string>,
+  onSetRoutingType: (type: 'off' | 'sysproxy' | 'tun') => void
+): MenuItemConstructorOptions {
+  const tunEnabled = Boolean(settings.kernel?.tun?.enable)
+  const sysProxyEnabled = Boolean(sysProxyStatus.enabled || settings.sysProxy?.enable)
+  const currentRoutingType: 'off' | 'sysproxy' | 'tun' = tunEnabled
+    ? 'tun'
+    : sysProxyEnabled
+      ? 'sysproxy'
+      : 'off'
+
+  const typeNames: Record<'off' | 'sysproxy' | 'tun', string> = {
+    off: messages.routingTypeDisabled || 'Disabled',
+    sysproxy: messages.routingTypeProxy || messages.proxy || 'System proxy',
+    tun: messages.routingTypeTun || 'TUN'
+  }
+  const currentName = typeNames[currentRoutingType]
+
+  return {
+    label: `${messages.routingType || 'Routing type'} (${currentName})`,
+    submenu: [
+      {
+        label: messages.routingTypeDisabled || 'Disabled',
+        type: 'radio',
+        checked: currentRoutingType === 'off',
+        click: () => onSetRoutingType('off')
+      },
+      {
+        label: messages.routingTypeProxy || messages.proxy || 'System proxy',
+        type: 'radio',
+        checked: currentRoutingType === 'sysproxy',
+        click: () => onSetRoutingType('sysproxy')
+      },
+      {
+        label: messages.routingTypeTun || 'TUN',
+        type: 'radio',
+        checked: currentRoutingType === 'tun',
+        click: () => onSetRoutingType('tun')
+      }
+    ]
+  }
+}
+
+export function buildProxyGroupMenus(
+  cachedProxies: Record<string, ProxyNode>,
+  currentMode: TunnelMode,
+  isRunning: boolean,
+  onSelectProxy: (group: string, node: string) => void
+): MenuItemConstructorOptions[] {
+  if (!isRunning) return []
+
+  const eligibleGroupNames: string[] = []
+  for (const [name, node] of Object.entries(cachedProxies)) {
+    const group = node as unknown as ProxyGroup
+    if (!group || !Array.isArray(group.all) || group.all.length === 0) continue
+    if (group.hidden) continue
+    const rawType = (group.type || '').toLowerCase()
+    if (rawType !== 'selector' && rawType !== 'select') continue
+    if (name === 'GLOBAL' && currentMode !== 'global') continue
+    eligibleGroupNames.push(name)
+  }
+
+  if (eligibleGroupNames.length === 0 && cachedProxies['GLOBAL']) {
+    const g = cachedProxies['GLOBAL'] as unknown as ProxyGroup
+    const rawType = (g.type || '').toLowerCase()
+    if ((rawType === 'selector' || rawType === 'select') && Array.isArray(g.all) && g.all.length > 0) {
+      eligibleGroupNames.push('GLOBAL')
+    }
+  }
+
+  if (eligibleGroupNames.length === 0) return []
+
+  const configuredOrder = [
+    ...new Set([
+      ...((cachedProxies.GLOBAL as ProxyGroup | undefined)?.all ?? []),
+      ...Object.keys(cachedProxies)
+    ])
+  ]
+  const order = new Map(configuredOrder.map((name, index) => [name, index]))
+  if (currentMode === 'global') order.set('GLOBAL', -1)
+  eligibleGroupNames.sort((a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity))
+
+  return eligibleGroupNames.map((groupName) => {
+    const group = cachedProxies[groupName] as unknown as ProxyGroup
+    const activeNode = group.now
+      ? group.now.length > 30
+        ? `${group.now.slice(0, 27)}...`
+        : group.now
+      : ''
+    const groupLabel = activeNode ? `${groupName}: ${activeNode}` : groupName
+
+    const nodeItems: MenuItemConstructorOptions[] = (group.all || []).map((nodeName: string) => {
+      const isSelected = group.now === nodeName
+      const displayLabel = nodeName.length > 50 ? `${nodeName.slice(0, 47)}...` : nodeName
+      return {
+        label: displayLabel,
+        type: 'radio',
+        checked: isSelected,
+        click: () => onSelectProxy(groupName, nodeName)
+      }
+    })
+
+    return {
+      label: groupLabel,
+      submenu: nodeItems
+    }
+  })
+}
+
+export function buildTrayContextMenu(context: TrayMenuContext): MenuItemConstructorOptions[] {
+  const {
+    coreStatus,
+    sysProxyStatus,
+    settings,
+    messages,
+    cachedProxies,
+    profiles,
+    activeProfileId,
+    isCoreOnly,
+    actions
+  } = context
+
+  const currentMode: TunnelMode = (settings.kernel?.mode as TunnelMode) || 'rule'
+  const isRunning = coreStatus === 'running'
+  const proxyGroupMenus = buildProxyGroupMenus(
+    cachedProxies,
+    currentMode,
+    isRunning,
+    actions.onSelectProxy
+  )
+  const profileMenu = buildProfileMenu(
+    profiles,
+    activeProfileId,
+    messages,
+    actions.onSelectProfile
+  )
+
+  const template: MenuItemConstructorOptions[] = [
+    {
+      label: messages.open,
+      click: actions.onOpen
+    },
+    {
+      label: coreStatus === 'running' ? messages.disconnect : messages.connect,
+      click: () => void actions.onToggleCore()
+    }
+  ]
+
+  if (profileMenu) {
+    template.push({ type: 'separator' })
+    template.push(profileMenu)
+  }
+
+  template.push({ type: 'separator' })
+  template.push(
+    buildRoutingTypeMenu(settings, sysProxyStatus, messages, actions.onSetRoutingType)
+  )
+
+  template.push({ type: 'separator' })
+  template.push(buildModeMenu(currentMode, messages, actions.onSetRoutingMode))
+
+  if (proxyGroupMenus.length > 0) {
+    template.push({ type: 'separator' })
+    template.push(...proxyGroupMenus)
+  }
+
+  template.push({ type: 'separator' })
+  template.push(
+    {
+      label: messages.coreOnlyMode,
+      type: 'checkbox',
+      checked: isCoreOnly,
+      click: actions.onToggleCoreOnly
+    },
+    {
+      label: messages.restart,
+      click: () => void actions.onRestart()
+    }
+  )
+
+  template.push({ type: 'separator' })
+  template.push({
+    label: messages.quit,
+    click: actions.onQuit
+  })
+
+  return template
+}

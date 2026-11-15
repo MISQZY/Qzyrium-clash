@@ -1,6 +1,5 @@
 import type { NetworkModeController } from './NetworkModeController'
 import { app, Menu, nativeImage, Tray, NativeImage, Notification } from 'electron'
-import type { MenuItemConstructorOptions } from 'electron'
 import path from 'path'
 import { BaseService } from './BaseService'
 import { KernelService } from './KernelService'
@@ -11,13 +10,12 @@ import type { ProfileService } from './ProfileService'
 import { nativeMessages } from '@shared/localization'
 import { getVpnStatus, type VpnStatus } from '@shared/vpn-status'
 import { createTrayIcon } from '../utils/tray-icon'
-import type { ProxyNode, ProxyGroup } from '@shared/mihomo'
+import type { ProxyNode } from '@shared/mihomo'
 import type { TunnelMode } from '@shared/types'
-import type { AppConfig } from '@shared/app-config'
-import type { SysProxyStatus } from '@shared/ipc'
 import { formatBytes } from '@shared/format'
 import type { TrafficStats } from '@shared/types'
 import { activateProfile } from '../utils/activate-profile'
+import { buildTrayContextMenu } from './TrayMenuBuilder'
 
 export class TrayService implements BaseService {
   private tray: Tray | null = null
@@ -165,65 +163,6 @@ export class TrayService implements BaseService {
     }
   }
 
-  private buildProfileMenu(messages: Record<string, string>): MenuItemConstructorOptions | null {
-    if (!this.profileService) return null
-    const profiles = this.profileService.getProfiles()
-    if (!profiles || profiles.length === 0) return null
-
-    const activeId = this.profileService.getActiveProfile()?.id
-    const activeName = profiles.find((p) => p.id === activeId)?.name || ''
-
-    return {
-      label: `${messages.profiles || 'Profiles'} (${activeName || '—'})`,
-      submenu: profiles.map((p) => {
-        const isSelected = p.id === activeId
-        const label = p.name.length > 40 ? `${p.name.slice(0, 37)}...` : p.name
-        return {
-          label,
-          type: 'radio',
-          checked: isSelected,
-          click: () => this.selectProfile(p.id)
-        }
-      })
-    }
-  }
-
-  private buildModeMenu(
-    currentMode: TunnelMode,
-    messages: Record<string, string>
-  ): MenuItemConstructorOptions {
-    const modeNames: Record<TunnelMode, string> = {
-      rule: messages.modeRule || 'Rule',
-      global: messages.modeGlobal || 'Global',
-      direct: messages.modeDirect || 'Direct'
-    }
-    const currentName = modeNames[currentMode] || messages.modeRule || 'Rule'
-
-    return {
-      label: `${messages.routingMode || 'Routing mode'} (${currentName})`,
-      submenu: [
-        {
-          label: messages.modeRule || 'Rule',
-          type: 'radio',
-          checked: currentMode === 'rule',
-          click: () => void this.setRoutingMode('rule')
-        },
-        {
-          label: messages.modeGlobal || 'Global',
-          type: 'radio',
-          checked: currentMode === 'global',
-          click: () => void this.setRoutingMode('global')
-        },
-        {
-          label: messages.modeDirect || 'Direct',
-          type: 'radio',
-          checked: currentMode === 'direct',
-          click: () => void this.setRoutingMode('direct')
-        }
-      ]
-    }
-  }
-
   private async setRoutingType(type: 'off' | 'sysproxy' | 'tun'): Promise<void> {
     try {
       if (type === 'tun') {
@@ -259,127 +198,7 @@ export class TrayService implements BaseService {
     }
   }
 
-  private buildRoutingTypeMenu(
-    settings: AppConfig,
-    sysProxyStatus: SysProxyStatus,
-    messages: Record<string, string>
-  ): MenuItemConstructorOptions {
-    const tunEnabled = Boolean(settings.kernel?.tun?.enable)
-    const sysProxyEnabled = Boolean(sysProxyStatus.enabled || settings.sysProxy?.enable)
-    const currentRoutingType: 'off' | 'sysproxy' | 'tun' = tunEnabled
-      ? 'tun'
-      : sysProxyEnabled
-        ? 'sysproxy'
-        : 'off'
-
-    const typeNames: Record<'off' | 'sysproxy' | 'tun', string> = {
-      off: messages.routingTypeDisabled || 'Disabled',
-      sysproxy: messages.routingTypeProxy || messages.proxy || 'System proxy',
-      tun: messages.routingTypeTun || 'TUN'
-    }
-    const currentName = typeNames[currentRoutingType]
-
-    return {
-      label: `${messages.routingType || 'Routing type'} (${currentName})`,
-      submenu: [
-        {
-          label: messages.routingTypeDisabled || 'Disabled',
-          type: 'radio',
-          checked: currentRoutingType === 'off',
-          click: () => void this.setRoutingType('off')
-        },
-        {
-          label: messages.routingTypeProxy || messages.proxy || 'System proxy',
-          type: 'radio',
-          checked: currentRoutingType === 'sysproxy',
-          click: () => void this.setRoutingType('sysproxy')
-        },
-        {
-          label: messages.routingTypeTun || 'TUN',
-          type: 'radio',
-          checked: currentRoutingType === 'tun',
-          click: () => void this.setRoutingType('tun')
-        }
-      ]
-    }
-  }
-
-  private buildProxyGroupMenus(
-    currentMode: TunnelMode,
-    isRunning: boolean
-  ): MenuItemConstructorOptions[] {
-    if (!isRunning) {
-      return []
-    }
-
-    const eligibleGroupNames: string[] = []
-    for (const [name, node] of Object.entries(this.cachedProxies)) {
-      const group = node as unknown as ProxyGroup
-      if (!group || !Array.isArray(group.all) || group.all.length === 0) continue
-      if (group.hidden) continue
-      const rawType = (group.type || '').toLowerCase()
-      if (rawType !== 'selector' && rawType !== 'select') continue
-      if (name === 'GLOBAL' && currentMode !== 'global') continue
-      eligibleGroupNames.push(name)
-    }
-
-    if (eligibleGroupNames.length === 0 && this.cachedProxies['GLOBAL']) {
-      const g = this.cachedProxies['GLOBAL'] as unknown as ProxyGroup
-      const rawType = (g.type || '').toLowerCase()
-      if ((rawType === 'selector' || rawType === 'select') && Array.isArray(g.all) && g.all.length > 0) {
-        eligibleGroupNames.push('GLOBAL')
-      }
-    }
-
-    if (eligibleGroupNames.length === 0) {
-      return []
-    }
-
-    // Match the provider order used by the proxy page, falling back to API order.
-    const configuredOrder = [...new Set([
-      ...((this.cachedProxies.GLOBAL as ProxyGroup | undefined)?.all ?? []),
-      ...Object.keys(this.cachedProxies)
-    ])]
-    const order = new Map(configuredOrder.map((name, index) => [name, index]))
-    if (currentMode === 'global') order.set('GLOBAL', -1)
-    eligibleGroupNames.sort((a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity))
-
-    return eligibleGroupNames.map((groupName) => {
-      const group = this.cachedProxies[groupName] as unknown as ProxyGroup
-      const activeNode = group.now ? (group.now.length > 30 ? `${group.now.slice(0, 27)}...` : group.now) : ''
-      const groupLabel = activeNode ? `${groupName}: ${activeNode}` : groupName
-
-      const nodeItems: MenuItemConstructorOptions[] = (group.all || []).map((nodeName: string) => {
-        const isSelected = group.now === nodeName
-        const displayLabel = nodeName.length > 50 ? `${nodeName.slice(0, 47)}...` : nodeName
-        return {
-          label: displayLabel,
-          type: 'radio',
-          checked: isSelected,
-          click: async () => {
-            if (group.now === nodeName) return
-            try {
-              if (typeof this.kernelService.selectProxy === 'function') {
-                await this.kernelService.selectProxy(groupName, nodeName)
-              }
-              this.setProxySelection(groupName, nodeName)
-              this.windowService.broadcast?.('event:settings-changed', null)
-            } catch (err) {
-              console.error(`Failed to select proxy ${nodeName} in group ${groupName}:`, err)
-            }
-          }
-        }
-      })
-
-      return {
-        label: groupLabel,
-        submenu: nodeItems
-      }
-    })
-  }
-
   private createTray(): void {
-    // Generate a default 16x16 icon in memory if file is not found
     let icon: NativeImage
     const iconPath = path.join(app.getAppPath(), 'resources', 'icon.png')
 
@@ -416,7 +235,6 @@ export class TrayService implements BaseService {
     const settings = this.settingService.getSettings()
     const messages = nativeMessages(settings.general)
     const status = getVpnStatus(coreStatus)
-    const statusMessage = messages[status === 'on' ? 'vpnOn' : status === 'off' ? 'vpnOff' : status]
     this.tray.setImage(this.statusIcons[status]!)
 
     if (coreStatus === 'running' && Object.keys(this.cachedProxies).length === 0 && !this.isRefreshingProxies) {
@@ -429,78 +247,58 @@ export class TrayService implements BaseService {
       this.cachedProxies = {}
     }
 
-    const currentMode: TunnelMode = (settings.kernel?.mode as TunnelMode) || 'rule'
-    const isRunning = coreStatus === 'running'
-    const proxyGroupMenus = this.buildProxyGroupMenus(currentMode, isRunning)
-    const profileMenu = this.buildProfileMenu(messages)
-
     if (coreStatus !== 'running') {
       this.traffic = { up: 0, down: 0, totalUp: 0, totalDown: 0 }
     }
     this.updateToolTip()
 
-    const template: MenuItemConstructorOptions[] = [
-      {
-        label: messages.open,
-        click: () => this.windowService.show()
-      },
-      {
-        label: coreStatus === 'running' ? messages.disconnect : messages.connect,
-        click: async () => {
+    const template = buildTrayContextMenu({
+      coreStatus,
+      sysProxyStatus,
+      settings,
+      messages,
+      cachedProxies: this.cachedProxies,
+      profiles: this.profileService?.getProfiles() || [],
+      activeProfileId: this.profileService?.getActiveProfile()?.id,
+      isCoreOnly: this.windowService.isCoreOnlyMode(),
+      actions: {
+        onOpen: () => this.windowService.show(),
+        onToggleCore: async () => {
           if (coreStatus === 'running') {
             await this.kernelService.stop()
           } else {
             await this.kernelService.start()
           }
           this.updateContextMenu()
-        }
-      }
-    ]
-
-    if (profileMenu) {
-      template.push({ type: 'separator' })
-      template.push(profileMenu)
-    }
-
-    template.push({ type: 'separator' })
-    template.push(this.buildRoutingTypeMenu(settings, sysProxyStatus, messages))
-
-    template.push({ type: 'separator' })
-    template.push(this.buildModeMenu(currentMode, messages))
-
-    if (proxyGroupMenus.length > 0) {
-      template.push({ type: 'separator' })
-      template.push(...proxyGroupMenus)
-    }
-
-    template.push({ type: 'separator' })
-    template.push(
-      {
-        label: messages.coreOnlyMode,
-        type: 'checkbox',
-        checked: this.windowService.isCoreOnlyMode(),
-        click: () => this.windowService.setCoreOnlyMode(!this.windowService.isCoreOnlyMode())
-      },
-      {
-        label: messages.restart,
-        click: async () => {
+        },
+        onSelectProfile: (id) => void this.selectProfile(id),
+        onSetRoutingType: (type) => void this.setRoutingType(type),
+        onSetRoutingMode: (mode) => void this.setRoutingMode(mode),
+        onSelectProxy: async (groupName, nodeName) => {
+          if (this.cachedProxies[groupName]?.now === nodeName) return
+          try {
+            if (typeof this.kernelService.selectProxy === 'function') {
+              await this.kernelService.selectProxy(groupName, nodeName)
+            }
+            this.setProxySelection(groupName, nodeName)
+            this.windowService.broadcast?.('event:settings-changed', null)
+          } catch (err) {
+            console.error(`Failed to select proxy ${nodeName} in group ${groupName}:`, err)
+          }
+        },
+        onToggleCoreOnly: () => this.windowService.setCoreOnlyMode(!this.windowService.isCoreOnlyMode()),
+        onRestart: async () => {
           await this.kernelService.restart()
           this.updateContextMenu()
+        },
+        onQuit: () => {
+          this.windowService.setQuitting(true)
+          app.quit()
         }
-      }
-    )
-
-    template.push({ type: 'separator' })
-    template.push({
-      label: messages.quit,
-      click: () => {
-        this.windowService.setQuitting(true)
-        app.quit()
       }
     })
 
     const contextMenu = Menu.buildFromTemplate(template)
-
     this.tray.setContextMenu(contextMenu)
   }
 }
