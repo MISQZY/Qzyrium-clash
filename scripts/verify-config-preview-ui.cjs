@@ -22,6 +22,7 @@ if (process.type === 'renderer') {
     const win = new BrowserWindow({ show: false, width: 1100, height: 760, webPreferences: {
       preload: __filename, sandbox: false, contextIsolation: true, backgroundThrottling: false
     } })
+    if (process.env.GITHUB_ACTIONS === 'true') win.showInactive()
     const evaluate = code => win.webContents.executeJavaScript(code)
     const waitFor = async code => {
       for (let attempt = 0; attempt < 100; attempt++) {
@@ -29,6 +30,29 @@ if (process.type === 'renderer') {
         await new Promise(resolve => setTimeout(resolve, 50))
       }
       throw new Error(`Timed out: ${code}`)
+    }
+    const measureLayout = () => evaluate(`(() => {
+      const dialog = document.querySelector('[role="dialog"]').getBoundingClientRect()
+      const merge = document.querySelector('.cm-mergeView')
+      const box = merge.getBoundingClientRect()
+      return { viewport: { width: innerWidth, height: innerHeight }, dialog: dialog.toJSON(), editor: box.toJSON(),
+        checks: { dialogFits: dialog.x >= 0 && dialog.right <= innerWidth + 1 && dialog.y >= 0 && dialog.bottom <= innerHeight + 1,
+          editorFits: box.bottom <= dialog.bottom && box.height > 50,
+          scrollable: merge.scrollHeight > merge.clientHeight && getComputedStyle(merge).overflowY === 'auto' } }
+    })()`)
+    const resizeAndZoom = async (width, height, zoom) => {
+      win.setSize(width, height)
+      win.webContents.setZoomFactor(zoom)
+      const [contentWidth, contentHeight] = win.getContentSize()
+      // Native resize and Chromium zoom reach the renderer asynchronously.
+      await waitFor(`Math.abs(innerWidth * ${zoom} - ${contentWidth}) <= ${zoom} && Math.abs(innerHeight * ${zoom} - ${contentHeight}) <= ${zoom}`)
+      let layout
+      for (let attempt = 0; attempt < 100; attempt++) {
+        layout = await measureLayout()
+        if (Object.values(layout.checks).every(Boolean)) break
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+      assert.deepEqual(layout.checks, { dialogFits: true, editorFits: true, scrollable: true }, `${width}x${height} zoom ${zoom}: ${JSON.stringify(layout)}`)
     }
     try {
       await win.loadFile(path.resolve('out/renderer/index.html'))
@@ -58,18 +82,7 @@ if (process.type === 'renderer') {
         assert.notEqual(lineColors[0], lineColors[1], 'Original and modified lines have distinct colors')
       }
       for (const [width, height, zoom] of [[1100, 760, 1], [840, 600, 1], [1100, 760, 1.5]]) {
-        win.setSize(width, height)
-        win.webContents.setZoomFactor(zoom)
-        await new Promise(resolve => setTimeout(resolve, 200))
-        const layout = await evaluate(`(() => {
-          const dialog = document.querySelector('[role="dialog"]').getBoundingClientRect()
-          const merge = document.querySelector('.cm-mergeView')
-          const box = merge.getBoundingClientRect()
-          return { dialogFits: dialog.x >= 0 && dialog.right <= innerWidth + 1 && dialog.y >= 0 && dialog.bottom <= innerHeight + 1,
-            editorFits: box.bottom <= dialog.bottom && box.height > 50,
-            scrollable: merge.scrollHeight > merge.clientHeight && getComputedStyle(merge).overflowY === 'auto' }
-        })()`)
-        assert.deepEqual(layout, { dialogFits: true, editorFits: true, scrollable: true }, `${width}x${height} zoom ${zoom}`)
+        await resizeAndZoom(width, height, zoom)
         await evaluate(`document.querySelector('.cm-mergeView').scrollTop = document.querySelector('.cm-mergeView').scrollHeight`)
         await waitFor(`document.querySelector('.cm-mergeView').scrollTop > 1000`)
         await waitFor(`(() => {
@@ -78,9 +91,7 @@ if (process.type === 'renderer') {
         })()`)
         await evaluate(`document.querySelector('.cm-mergeView').scrollTop = 0`)
       }
-      win.webContents.setZoomFactor(1)
-      win.setSize(1100, 760)
-      await new Promise(resolve => setTimeout(resolve, 150))
+      await resizeAndZoom(1100, 760, 1)
       const point = await evaluate(`(() => { const r = document.querySelector('.cm-mergeView').getBoundingClientRect(); return { x: Math.round(r.x + 100), y: Math.round(r.y + 50) } })()`)
       // Dispatch directly to Chromium so wheel input also works in a hidden test window.
       win.webContents.debugger.attach('1.3')
