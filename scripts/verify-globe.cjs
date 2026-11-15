@@ -243,6 +243,7 @@ async function main() {
     '../utils/globe-profile': profileHelpers,
     '../utils/elevation': { isProcessElevated: () => true },
     fs: { constants: { COPYFILE_EXCL: 1 }, promises: { copyFile: async () => {}, writeFile: async () => {} } },
+    '../utils/atomicWrite': { writeFileAtomicAsync: async () => {} },
     '../core/MihomoApiClient': {}, '../core/MihomoProcessManager': {},
     './MihomoConfigFactory': { MihomoConfigFactory: { synthesize: (_raw, _settings, rules) => { syntheses++; assert.deepEqual(rules, customRules); return 'fixture' } } },
     '../utils/profile-validator': { prepareProfileContent: async (_raw, _settings, rules) => {

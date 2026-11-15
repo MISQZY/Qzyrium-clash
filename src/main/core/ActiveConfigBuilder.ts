@@ -1,10 +1,10 @@
-import fs from 'fs'
 import { createHash } from 'node:crypto'
 import type { AppConfig } from '@shared/app-config'
 import type { CustomRuleItem, ProfileItem } from '@shared/profile'
 import { getAppPaths } from '../utils/paths'
 import { prepareProfileContent } from '../utils/profile-validator'
 import { MihomoConfigFactory } from './MihomoConfigFactory'
+import { writeFileAtomicAsync } from '../utils/atomicWrite'
 
 export interface ProfileConfigSource {
   getActiveProfile(): ProfileItem | null
@@ -40,7 +40,7 @@ export class ActiveConfigBuilder {
       !this.cached || this.cached.digest !== digest || this.cached.key !== key) {
       this.cached = { digest, key, yaml: await this.prepare(content, settings, profile?.id, binaryPath, persistRules) }
     }
-    await fs.promises.writeFile(getAppPaths().activeConfigPath, this.cached.yaml, 'utf-8')
+    await writeFileAtomicAsync(getAppPaths().activeConfigPath, this.cached.yaml, 'utf-8')
     return profile
   }
 }
