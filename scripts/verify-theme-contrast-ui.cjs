@@ -96,6 +96,46 @@ app.whenReady().then(async () => {
         await screenshot(`${id}-${running ? 'connected' : 'disconnected'}`)
       }
     }
-    console.log('PASS: light/dark and low-contrast custom themes: readable text, tinted badges, theme switching, connected/disconnected globe')
+    await evaluate(`document.querySelector('.sidebar-link[aria-label="Settings"]').click()`)
+    await waitFor(`!!document.querySelector('select[aria-label="Appearance"]')`)
+    await evaluate(`Array.from(document.querySelectorAll('summary')).find(node => node.textContent.trim() === 'Custom themes').click()`)
+    const readPacks = () => evaluate(`JSON.parse(localStorage.getItem('qzyrium:customThemeCache'))`)
+    const importTheme = async pack => {
+      await evaluate(`window.api.uiTest.setConfigFile(${JSON.stringify(JSON.stringify(pack))})`)
+      await evaluate(`Array.from(document.querySelectorAll('button')).find(node => node.textContent.trim() === 'Upload theme').click()`)
+      await waitFor(`document.querySelector('[role="alertdialog"]')?.textContent.includes('Theme already installed')`)
+    }
+    const chooseImport = async label => {
+      await evaluate(`Array.from(document.querySelectorAll('[role="alertdialog"] button')).find(node => node.textContent.trim() === ${JSON.stringify(label)}).click()`)
+      await waitFor(`!document.querySelector('[role="alertdialog"]') && !Array.from(document.querySelectorAll('button')).find(node => node.textContent.trim() === 'Upload theme')?.disabled`)
+    }
+    const updated = { id: 'CONTRAST-VIOLET', name: 'Updated Violet', mode: 'light', colors: { '--background': '#eef3fa', '--primary': '#245577' } }
+    const before = await readPacks()
+    await importTheme(updated)
+    assert.deepEqual(await readPacks(), before, 'opening the conflict dialog does not save')
+    await chooseImport('Cancel')
+    assert.deepEqual(await readPacks(), before, 'cancel leaves themes unchanged')
+    await importTheme(updated)
+    await chooseImport('Create copy')
+    const copied = await readPacks()
+    assert.equal(copied.length, before.length + 1)
+    assert.equal(copied.find(pack => pack.id === 'contrast-violet-2').name, 'Updated Violet (copy)')
+    assert.deepEqual(copied.find(pack => pack.id === 'contrast-violet'), before.find(pack => pack.id === 'contrast-violet'), 'copy preserves the original')
+    await evaluate(`(() => {
+      const select = document.querySelector('select[aria-label="Appearance"]');
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'contrast-violet');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`)
+    await evaluate(`document.querySelector('button[form="settings-settings"]').click()`)
+    await waitFor(`document.documentElement.dataset.theme === 'contrast-violet' && document.documentElement.style.colorScheme === 'dark'`)
+    await importTheme(updated)
+    await chooseImport('Update theme')
+    await waitFor(`document.documentElement.dataset.theme === 'contrast-violet' && document.documentElement.style.colorScheme === 'light'`)
+    const replaced = await readPacks()
+    assert.equal(replaced.length, copied.length, 'replacement does not create another theme')
+    assert.equal(replaced.find(pack => pack.id === 'contrast-violet').colors['--background'], '#eef3fa')
+    assert.equal(await evaluate(`window.api.settings.get().then(settings => settings.general.theme)`), 'contrast-violet', 'active preference survives replacement')
+    await screenshot('theme-import-replaced')
+    console.log('PASS: theme contrast, switching, globe and import conflict dialog: cancel, copy and active theme replacement')
   } finally { win.destroy(); app.quit() }
 }).catch(error => { console.error(error); app.exit(1) })

@@ -46,10 +46,12 @@ function writeCache(value: CustomThemePack[]): void {
 }
 
 export type UploadOutcome = 'ok' | 'invalid' | 'cancelled'
+export type ThemeImportChoice = 'replace' | 'copy' | 'cancel'
+export type ResolveThemeConflict = (theme: ThemeDefinition) => Promise<ThemeImportChoice>
 
 interface CustomThemesContextValue {
   customThemes: ThemeDefinition[]
-  uploadTheme: () => Promise<UploadOutcome>
+  uploadTheme: (resolveConflict?: ResolveThemeConflict) => Promise<UploadOutcome>
   deleteCustomTheme: (id: string) => Promise<void>
   downloadExampleTheme: () => Promise<boolean>
   loadFailed: boolean
@@ -110,7 +112,7 @@ export function CustomThemesProvider({ children }: { children: ReactNode }) {
     [cacheThemePacks]
   )
 
-  const uploadTheme = useCallback(async (): Promise<UploadOutcome> => {
+  const uploadTheme = useCallback(async (resolveConflict?: ResolveThemeConflict): Promise<UploadOutcome> => {
     if (!window.api?.theme?.openConfigFile) return 'cancelled'
     const file = await window.api.theme.openConfigFile()
     if (!file) return 'cancelled'
@@ -131,9 +133,16 @@ export function CustomThemesProvider({ children }: { children: ReactNode }) {
     if (payload.mode === undefined && payload.colors === undefined) return 'invalid'
 
     const mode = payload.mode === 'light' ? 'light' : 'dark'
-    const name = typeof payload.name === 'string' && payload.name.trim() ? payload.name.trim() : t('customThemeDefaultName')
+    let name = typeof payload.name === 'string' && payload.name.trim() ? payload.name.trim() : t('customThemeDefaultName')
     const existingIds = [...BUILTIN_THEMES.map((t) => t.id), ...customThemes.map((t) => t.id)]
-    const id = uniqueThemeId(payload.id || name, existingIds)
+    const sourceId = payload.id || name
+    const candidateId = uniqueThemeId(sourceId, [])
+    const existing = customThemes.find(theme => theme.id.toLowerCase() === sourceId.toLowerCase())
+      ?? customThemes.find(theme => theme.id.toLowerCase() === candidateId)
+    const choice = existing ? await resolveConflict?.(existing) ?? 'cancel' : 'copy'
+    if (choice === 'cancel') return 'cancelled'
+    const id = choice === 'replace' && existing ? existing.id : uniqueThemeId(sourceId, existingIds)
+    if (choice === 'copy' && existing) name = t('themeCopyName', { name: name.slice(0, 100) })
     const base = BUILTIN_THEMES.find((t) => t.mode === mode) ?? BUILTIN_THEMES[0]
     const colors = deepMerge(base.colors, (payload.colors as Record<string, string>) ?? {})
     const pack: CustomThemePack = {

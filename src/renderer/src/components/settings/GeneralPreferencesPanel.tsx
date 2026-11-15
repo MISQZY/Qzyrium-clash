@@ -1,7 +1,7 @@
 import { NativeSelect } from '../ui/native-select'
 
 import { useTranslations } from '../../i18n'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Download, Upload, Trash2, Palette, Power, Gauge, Keyboard, FileText, Activity, RefreshCw } from 'lucide-react'
 
 import type { AppConfig } from '@shared/app-config'
@@ -16,9 +16,9 @@ import { ShortcutSettings } from '../ShortcutSettings'
 import { ThemeSelect } from '../ThemeSelect'
 import { SettingsDisclosure } from '../SettingsDisclosure'
 import { CustomLocalizationSettings } from '../CustomLocalizationSettings'
-import { useCustomThemes } from '../../providers/CustomThemesProvider'
+import { useCustomThemes, type ThemeImportChoice } from '../../providers/CustomThemesProvider'
 import { ScrollArea } from '../ui/scroll-area'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog'
 import { generalFields } from '@shared/settings-fields'
 import { DEFAULT_APP_CONFIG } from '@shared/app-config'
 
@@ -34,12 +34,23 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
   const [themeBusy, setThemeBusy] = useState(false)
   const [themeError, setThemeError] = useState(false)
   const [invalidFileNotice, setInvalidFileNotice] = useState<'theme' | null>(null)
+  const [conflictingTheme, setConflictingTheme] = useState<string | null>(null)
+  const resolveImport = useRef<((choice: ThemeImportChoice) => void) | null>(null)
+  useEffect(() => () => { resolveImport.current?.('cancel') }, [])
+  const finishImportChoice = (choice: ThemeImportChoice): void => {
+    resolveImport.current?.(choice)
+    resolveImport.current = null
+    setConflictingTheme(null)
+  }
   const handleUploadTheme = async (): Promise<void> => {
     setUploadingTheme(true)
     setThemeBusy(true)
     setThemeError(false)
     try {
-      const result = await uploadTheme()
+      const result = await uploadTheme(theme => new Promise<ThemeImportChoice>(resolve => {
+        resolveImport.current = resolve
+        setConflictingTheme(theme.name ?? theme.id)
+      }))
       if (result === 'invalid') setInvalidFileNotice('theme')
     } catch {
       setThemeError(true)
@@ -203,6 +214,17 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
 
         </SettingsGroup>
       </>
+    <AlertDialog open={conflictingTheme !== null} onOpenChange={open => { if (!open) finishImportChoice('cancel') }}>
+      <AlertDialogContent>
+        <AlertDialogTitle>{t('themeImportConflictTitle')}</AlertDialogTitle>
+        <AlertDialogDescription>{t('themeImportConflictDescription', { name: conflictingTheme ?? '' })}</AlertDialogDescription>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => finishImportChoice('cancel')}>{t('cancel')}</AlertDialogCancel>
+          <AlertDialogAction variant="outline" onClick={() => finishImportChoice('copy')}>{t('themeImportCopy')}</AlertDialogAction>
+          <AlertDialogAction onClick={() => finishImportChoice('replace')}>{t('themeImportReplace')}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     <AlertDialog open={invalidFileNotice !== null} onOpenChange={(open) => !open && setInvalidFileNotice(null)}>
       <AlertDialogContent>
         <AlertDialogTitle>

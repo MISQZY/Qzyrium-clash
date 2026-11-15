@@ -140,7 +140,7 @@ async function verifyImports() {
   const { CustomThemesProvider } = load('src/renderer/src/providers/CustomThemesProvider.tsx', {
     react: { ...require('react'), useState: initial => [typeof initial === 'function' ? initial() : initial, () => {}],
       useEffect: () => {}, useCallback: fn => fn, useMemo: fn => fn() },
-    '../i18n': { useTranslations: () => key => key }
+    '../i18n': { useTranslations: () => (key, values) => key === 'themeCopyName' ? `${values.name} (copy)` : key }
   })
   const context = CustomThemesProvider({ children: null }).props.value
   assert.deepEqual(context.customThemes, [], 'non-array cache must not crash startup')
@@ -151,11 +151,43 @@ async function verifyImports() {
   assert.equal(await context.uploadTheme(), 'invalid')
   fileContent = ' '.repeat(256 * 1024 + 1)
   assert.equal(await context.uploadTheme(), 'invalid')
+  const original = { id: 'My-Theme', name: 'Original theme', mode: 'dark', colors: { '--primary': '#123456' } }
+  localStorage.getItem = () => JSON.stringify([original])
+  const conflictContext = CustomThemesProvider({ children: null }).props.value
+  fileContent = JSON.stringify({ id: 'MY-THEME', name: 'Updated theme', mode: 'light', colors: { '--primary': '#654321' } })
+  saved = null
+  assert.equal(await conflictContext.uploadTheme(), 'cancelled', 'duplicates require an explicit decision')
+  assert.equal(saved, null)
+  assert.equal(await conflictContext.uploadTheme(async theme => {
+    assert.equal(theme.id, original.id)
+    return 'cancel'
+  }), 'cancelled')
+  assert.equal(saved, null, 'cancelling must not write a theme')
+  let resolveChoice
+  const pendingImport = conflictContext.uploadTheme(() => new Promise(resolve => { resolveChoice = resolve }))
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(saved, null, 'the file stays unchanged while the decision is pending')
+  resolveChoice('replace')
+  assert.equal(await pendingImport, 'ok')
+  assert.equal(saved.id, original.id, 'replacement preserves the exact ID, including casing')
+  assert.equal(saved.name, 'Updated theme')
+  assert.equal(saved.mode, 'light')
+  assert.equal(saved.colors['--primary'], '#654321')
+  assert.equal(await conflictContext.uploadTheme(async () => 'copy'), 'ok')
+  assert.equal(saved.id, 'my-theme-2')
+  assert.equal(saved.name, 'Updated theme (copy)')
+  assert.equal(original.colors['--primary'], '#123456')
+  fileContent = JSON.stringify({ id: 'my theme', mode: 'dark' })
+  assert.equal(await conflictContext.uploadTheme(async () => 'replace'), 'ok', 'normalized IDs match existing themes')
+  assert.equal(saved.id, original.id)
+  fileContent = JSON.stringify({ name: 'My Theme', mode: 'dark' })
+  assert.equal(await conflictContext.uploadTheme(async () => 'replace'), 'ok', 'imports without IDs match by generated ID')
+  assert.equal(saved.id, original.id)
   window.api.theme.openConfigFile = async () => { throw new Error('Read failed') }
   await assert.rejects(context.uploadTheme(), /Read failed/)
   window.api.theme.openConfigFile = async () => ({ content: '{"mode":"dark"}' })
   window.api.theme.saveCustomTheme = async () => { throw new Error('Write failed') }
   await assert.rejects(context.uploadTheme(), /Write failed/)
-  console.log('PASS: import validation, reserved IDs, corrupt cache and file errors')
+  console.log('PASS: import validation, reserved IDs, corrupt cache, replace/copy/cancel conflicts and file errors')
 }
 verifyImports().catch(error => { console.error(error); process.exitCode = 1 })
