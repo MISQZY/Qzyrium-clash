@@ -8,5 +8,7 @@
   "noMatchingEntries": "Нет записей, соответствующих фильтру.",
   "logSource": "Тип журнала",
   "applicationLogs": "Приложение",
-  "connectionLogs": "Подключения"
+  "connectionLogs": "Подключения",
+  "copyLogs": "Скопировать журнал",
+  "copied": "Скопировано"
 }

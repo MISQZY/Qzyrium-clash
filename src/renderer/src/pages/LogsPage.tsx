@@ -1,12 +1,13 @@
 import { useTranslations, useLocale } from '../i18n'
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Copy, Check } from 'lucide-react'
 import { AutoscrollIcon } from '../lib/icons'
 import { LogEntry } from '@shared/types'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { VirtualList } from '../components/VirtualList'
 import { cleanLogMessage, normalizeLogLevel } from '@shared/logs'
+import { copyToClipboard } from '../lib/clipboard'
 
 interface LogsPageProps {
   logs: LogEntry[]
@@ -31,8 +32,16 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
   })
   const [autoScroll, setAutoScroll] = useState(() => readPreference('logs_auto_scroll') !== 'false')
   const [search, setSearch] = useState('')
+  const [copied, setCopied] = useState(false)
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const scrollPosition = useRef(0)
+
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current) clearTimeout(copyTimer.current)
+    }
+  }, [])
 
   useEffect(() => {
     try {
@@ -113,6 +122,22 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
     }
   }
 
+  const handleCopy = async () => {
+    if (!filteredLogs.length) return
+    const text = filteredLogs
+      .map(
+        (item) =>
+          `[${displayTime(item.time)}] [${normalizeLogLevel(item.type).toUpperCase()}] ${cleanLogMessage(item.payload)}`
+      )
+      .join('\n')
+    const success = await copyToClipboard(text)
+    if (success) {
+      setCopied(true)
+      if (copyTimer.current) clearTimeout(copyTimer.current)
+      copyTimer.current = setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
   return (
     <div className="flex-1 min-w-0 min-h-0 h-full p-5 flex flex-col gap-4 overflow-hidden">
       {/* Header & Controls */}
@@ -149,6 +174,21 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
           >
             <AutoscrollIcon className="size-3.5" />
             <span className="text-[11px]">{t('autoscroll')}</span>
+          </Button>
+
+          <Button
+            onClick={() => void handleCopy()}
+            variant="outline"
+            size="icon-sm"
+            disabled={filteredLogs.length === 0}
+            title={copied ? t('copied') : t('copyLogs')}
+            aria-label={copied ? t('copied') : t('copyLogs')}
+          >
+            {copied ? (
+              <Check className="size-3.5 text-primary" />
+            ) : (
+              <Copy className="size-3.5 text-muted-foreground hover:text-foreground" />
+            )}
           </Button>
 
           <Button

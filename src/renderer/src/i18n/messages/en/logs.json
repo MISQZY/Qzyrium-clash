@@ -8,5 +8,7 @@
   "noMatchingEntries": "No matching log entries.",
   "logSource": "Log type",
   "applicationLogs": "Application",
-  "connectionLogs": "Connections"
+  "connectionLogs": "Connections",
+  "copyLogs": "Copy logs",
+  "copied": "Copied"
 }
