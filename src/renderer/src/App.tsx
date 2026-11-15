@@ -50,7 +50,10 @@ function AppContent() {
 }
 
 function Workspace() {
-  const store = { ...useNavigation(), ...useKernel(), ...useSettings(), ...useProfiles() }
+  const { activeTab, setActiveTab, busy, error, dismissError } = useNavigation()
+  const { coreStatus } = useKernel()
+  const { settings, sysProxy, saveSettings } = useSettings()
+  const { activeProfile, updateActiveProfile: fetchActiveProfileUpdate } = useProfiles()
   const t = useTranslations('app')
   const common = useTranslations('common')
   const profileT = useTranslations('profiles')
@@ -80,14 +83,13 @@ function Workspace() {
       window.removeEventListener('blur', handleBlur)
     }
   }, [])
-  const { activeTab, setActiveTab, coreStatus, sysProxy, activeProfile, settings, busy, error } = store
   const [updatingProfile, setUpdatingProfile] = useState(false)
   const profileUpdatePending = useRef(false)
   const updateActiveProfile = async () => {
     if (profileUpdatePending.current || busy || !activeProfile?.url || !window.api) return
     profileUpdatePending.current = true
     setUpdatingProfile(true)
-    try { await store.updateActiveProfile() } finally {
+    try { await fetchActiveProfileUpdate() } finally {
       profileUpdatePending.current = false
       setUpdatingProfile(false)
     }
@@ -153,8 +155,8 @@ function Workspace() {
     return () => media.removeEventListener('change', apply)
   }, [settings.general.theme, themes])
 
-  const saveSettingsRef = useRef(store.saveSettings)
-  saveSettingsRef.current = store.saveSettings
+  const saveSettingsRef = useRef(saveSettings)
+  saveSettingsRef.current = saveSettings
   // A deleted custom theme shouldn't leave the app pointed at a preference that no longer resolves
   useEffect(() => {
     if (settings.general.theme === 'system' || settings.general.theme === 'dark' || settings.general.theme === 'light') return
@@ -167,7 +169,7 @@ function Workspace() {
     <TitleBar />
     <WhatsNewDialog />
     <div className="app-workspace">
-      <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} coreStatus={coreStatus} open={sidebarOpen} onToggle={toggleSidebar} mode={settings.kernel.mode} captureEnabled={sysProxy.enabled || settings.kernel.tun.enable} tunEnabled={settings.kernel.tun.enable} busy={busy} onUpdateMode={(mode) => { void store.saveSettings({ kernel: { ...settings.kernel, mode } }).catch(() => {}) }} />
+      <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} coreStatus={coreStatus} open={sidebarOpen} onToggle={toggleSidebar} mode={settings.kernel.mode} captureEnabled={sysProxy.enabled || settings.kernel.tun.enable} tunEnabled={settings.kernel.tun.enable} busy={busy} onUpdateMode={(mode) => { void saveSettings({ kernel: { ...settings.kernel, mode } }).catch(() => {}) }} />
       <main className="app-main relative">
         <header className="workspace-header">
           <nav aria-label={common('breadcrumb')} className="min-w-0"><ol className="flex min-w-0 items-center gap-2 text-xs"><li className="min-w-0 text-muted-foreground"><span className="truncate">{common(group.id)}</span></li><li aria-hidden="true"><ChevronRight className="size-3 shrink-0 text-muted-foreground/60" /></li><li aria-current="page" className="flex min-w-0 items-center gap-2 font-medium"><Icon className="size-3.5 shrink-0" /><span className="truncate">{common(activeTab)}</span></li></ol></nav>
@@ -204,7 +206,7 @@ function Workspace() {
             <button
               type="button"
               aria-label={t('dismissError')}
-              onClick={store.dismissError}
+              onClick={dismissError}
               className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors flex items-center justify-center cursor-pointer"
             >
               <X className="size-4" />

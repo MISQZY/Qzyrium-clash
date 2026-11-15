@@ -32,11 +32,12 @@ export function RulesPage({
   const [type, setType] = useState('all')
   const [page, setPage] = useState(0)
 
+  const deferredQuery = React.useDeferredValue(query)
   const types = useMemo(() => [...new Set(rules.map((rule) => rule.type))].sort(), [rules])
 
   // Keep indexes rather than cloning every rule for a 100-row page.
   const filteredIndexes = useMemo(() => {
-    const search = query.toLowerCase()
+    const search = deferredQuery.trim().toLowerCase()
     const indexes: number[] = []
     for (let index = 0; index < rules.length; index++) {
       const rule = rules[index]
@@ -45,7 +46,7 @@ export function RulesPage({
       indexes.push(index)
     }
     return indexes
-  }, [rules, query, type])
+  }, [rules, deferredQuery, type])
 
   const lastPage = Math.max(0, Math.ceil(filteredIndexes.length / 100) - 1)
   const currentPage = Math.min(page, lastPage)
