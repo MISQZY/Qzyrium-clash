@@ -89,6 +89,7 @@ const appliedThemeKeys = new Set<string>()
 export function applyThemeToDocument(theme: ThemeDefinition): void {
   document.documentElement.dataset.theme = theme.id
   document.documentElement.classList.toggle('dark', theme.mode === 'dark')
+  document.documentElement.style.colorScheme = theme.mode
 
   // Clean up any stale custom properties from previously applied themes
   for (const oldKey of appliedThemeKeys) {

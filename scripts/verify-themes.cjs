@@ -7,7 +7,8 @@ const ts = require('typescript')
 function load(file, dependencies = {}) {
   const exports = {}
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true }
+    fileName: file,
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX }
   }).outputText
   const requireModule = (name) => {
     if (dependencies[name]) return dependencies[name]
@@ -16,7 +17,7 @@ function load(file, dependencies = {}) {
       : name.startsWith('.')
         ? path.resolve(path.dirname(file), name + '.ts')
         : null
-    return target && fs.existsSync(target) ? load(target) : require(name)
+    return target && fs.existsSync(target) ? load(target, dependencies) : require(name)
   }
   vm.runInThisContext(`(function(exports, require, process) {\n${code}\n})`, { filename: file })(exports, requireModule, process)
   return exports
@@ -31,6 +32,7 @@ const { BUILTIN_THEMES, DEFAULT_DARK_THEME_ID } = load('src/shared/theme.ts')
 const { cssColorToHex, deriveTitleBarOverlay } = load('src/renderer/src/lib/color.ts')
 const { slugify, uniqueUrlKey } = load('src/renderer/src/lib/slug.ts')
 const { deepMerge, normalizeThemePack, resolveTheme } = load('src/renderer/src/lib/theme.ts')
+const { validateThemePack, validateThemeInput, uniqueThemeId } = load('src/shared/theme-validation.ts')
 
 // 1. Test color utilities
 assert.equal(cssColorToHex('#123'), '#112233')
@@ -65,6 +67,21 @@ const pack = {
   }
 }
 const normalized = normalizeThemePack(pack)
+validateThemePack(pack)
+for (const invalid of [null, [], {}, { ...pack, mode: 'auto' }, { ...pack, id: 'Dark' },
+  { ...pack, id: 'con' }, { ...pack, id: 'a'.repeat(65) }, { ...pack, colors: [] },
+  { ...pack, colors: { '--background': 42 } }, { ...pack, colors: { '--background': '#zzzzzz' } },
+  { ...pack, colors: { '--background': 'notacolor' } }, { ...pack, colors: { '--unknown': '#123' } },
+  { ...pack, colors: { '--background': 'url(https://example.com)' } },
+  { ...pack, colors: { '--background': 'var(--card)', '--card': 'var(--background)' } },
+  { ...pack, colors: { '--radius': '-1rem' } }, { ...pack, titleBarOverlay: { color: '#fff', symbolColor: 'bad' } }
+]) assert.throws(() => validateThemePack(invalid))
+validateThemeInput({ colors: { '--primary': 'hsl(42 95% 75%)' } })
+assert.equal(uniqueThemeId('My Theme', ['my-theme']), 'my-theme-2')
+assert.equal(uniqueThemeId('MY-THEME', ['My-Theme']), 'my-theme-2')
+assert.equal(uniqueThemeId('Dark', []), 'dark-2')
+assert.equal(uniqueThemeId('CON', []), 'con-2')
+assert.equal(uniqueThemeId('a'.repeat(200), ['a'.repeat(64)]).length, 64)
 assert.equal(normalized.colors['--primary'], '#00ffcc')
 assert.equal(normalized.colors['--background'], '#050505')
 // Should inherit missing fields from dark base theme
@@ -92,6 +109,14 @@ assert.equal(loadedThemes[0].colors['--primary'], '#00ffcc')
 // Path traversal prevention
 assert.throws(() => store.saveTheme({ ...pack, id: '../escaped' }))
 assert.throws(() => store.deleteTheme('../escaped'))
+assert.throws(() => store.saveTheme({ ...pack, colors: { '--background': 42 } }))
+assert.throws(() => store.saveTheme({ ...pack, id: 'CUSTOM-NEON' }))
+for (const [filename, content] of Object.entries({
+  'broken.json': '{', 'bad-palette.json': JSON.stringify({ ...pack, id: 'bad-palette', colors: { '--background': 42 } }),
+  'mismatch.json': JSON.stringify(pack), 'huge.json': ' '.repeat(256 * 1024 + 1)
+})) fs.writeFileSync(path.join(tmpDir, 'themes', filename), content)
+assert.deepEqual(store.listThemes().map(theme => theme.id), ['custom-neon'])
+assert.deepEqual(store.getSkippedFiles(), ['bad-palette.json', 'broken.json', 'huge.json', 'mismatch.json'])
 
 // Delete theme
 const afterDelete = store.deleteTheme('custom-neon')
@@ -102,3 +127,35 @@ assert.deepEqual(store.listThemes(), [])
 fs.rmSync(tmpDir, { recursive: true, force: true })
 
 console.log('PASS: Custom theme persistence, color parsing, deepMerge, normalization, and theme resolution')
+
+// Exercise the real import callback with dialog/storage failures and corrupt caches.
+async function verifyImports() {
+  let fileContent, saved
+  global.CSS = { supports: () => true }
+  global.localStorage = { getItem: () => '{}', setItem: () => {} }
+  global.window = { api: { theme: {
+    openConfigFile: async () => ({ content: fileContent }),
+    saveCustomTheme: async pack => { saved = pack; return [pack] }
+  } } }
+  const { CustomThemesProvider } = load('src/renderer/src/providers/CustomThemesProvider.tsx', {
+    react: { ...require('react'), useState: initial => [typeof initial === 'function' ? initial() : initial, () => {}],
+      useEffect: () => {}, useCallback: fn => fn, useMemo: fn => fn() },
+    '../i18n': { useTranslations: () => key => key }
+  })
+  const context = CustomThemesProvider({ children: null }).props.value
+  assert.deepEqual(context.customThemes, [], 'non-array cache must not crash startup')
+  fileContent = JSON.stringify({ id: 'Dark', mode: 'dark', colors: { '--primary': '#123456' } })
+  assert.equal(await context.uploadTheme(), 'ok')
+  assert.equal(saved.id, 'dark-2')
+  fileContent = JSON.stringify({ mode: 'invalid' })
+  assert.equal(await context.uploadTheme(), 'invalid')
+  fileContent = ' '.repeat(256 * 1024 + 1)
+  assert.equal(await context.uploadTheme(), 'invalid')
+  window.api.theme.openConfigFile = async () => { throw new Error('Read failed') }
+  await assert.rejects(context.uploadTheme(), /Read failed/)
+  window.api.theme.openConfigFile = async () => ({ content: '{"mode":"dark"}' })
+  window.api.theme.saveCustomTheme = async () => { throw new Error('Write failed') }
+  await assert.rejects(context.uploadTheme(), /Write failed/)
+  console.log('PASS: import validation, reserved IDs, corrupt cache and file errors')
+}
+verifyImports().catch(error => { console.error(error); process.exitCode = 1 })

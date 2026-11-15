@@ -9,17 +9,32 @@ import {
   type CustomThemePack
 } from '../lib/theme'
 import { deriveTitleBarOverlay } from '../lib/color'
-import { slugify, uniqueUrlKey } from '../lib/slug'
+import { MAX_THEME_BYTES, uniqueThemeId, validateThemeInput, validateThemePack } from '@shared/theme-validation'
 
 const THEME_CACHE_KEY = 'qzyrium:customThemeCache'
 
 function readCache(): CustomThemePack[] {
   try {
     const raw = localStorage.getItem(THEME_CACHE_KEY)
-    return raw ? (JSON.parse(raw) as CustomThemePack[]) : []
+    return raw ? validPacks(JSON.parse(raw)) : []
   } catch {
     return []
   }
+}
+
+function validPacks(value: unknown): CustomThemePack[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  return value.filter((pack): pack is CustomThemePack => {
+    try {
+      validateThemePack(pack)
+      if (Object.entries(pack.colors).some(([key, value]) => !CSS.supports(key === '--radius' ? 'border-radius' : 'color', value))) return false
+      const id = pack.id.toLowerCase()
+      if (seen.has(id)) return false
+      seen.add(id)
+      return true
+    } catch { return false }
+  })
 }
 
 function writeCache(value: CustomThemePack[]): void {
@@ -37,12 +52,16 @@ interface CustomThemesContextValue {
   uploadTheme: () => Promise<UploadOutcome>
   deleteCustomTheme: (id: string) => Promise<void>
   downloadExampleTheme: () => Promise<boolean>
+  loadFailed: boolean
+  skippedThemes: boolean
 }
 
 const CustomThemesContext = createContext<CustomThemesContextValue | null>(null)
 
 export function CustomThemesProvider({ children }: { children: ReactNode }) {
   const t = useTranslations('networksettings')
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [skippedThemes, setSkippedThemes] = useState(false)
   const [customThemes, setCustomThemes] = useState<ThemeDefinition[]>(() => {
     const cached = readCache().map(packToThemeDefinition)
     const boot = window.api?.bootAppearance?.theme
@@ -51,7 +70,7 @@ export function CustomThemesProvider({ children }: { children: ReactNode }) {
   })
 
   const cacheThemePacks = useCallback((packs: CustomThemePack[]): CustomThemePack[] => {
-    const normalized = packs.map(normalizeThemePack)
+    const normalized = validPacks(packs).map(normalizeThemePack)
     writeCache(normalized)
     return normalized
   }, [])
@@ -61,12 +80,14 @@ export function CustomThemesProvider({ children }: { children: ReactNode }) {
     if (window.api?.theme?.getCustomThemes) {
       window.api.theme
         .getCustomThemes()
-        .then((packs) => {
-          if (!cancelled && Array.isArray(packs)) {
-            setCustomThemes(cacheThemePacks(packs).map(packToThemeDefinition))
-          }
+        .then((result) => {
+          if (cancelled) return
+          const packs = result.themes
+          const valid = cacheThemePacks(packs)
+          setSkippedThemes(valid.length !== packs.length || result.skippedFiles.length > 0)
+          setCustomThemes(valid.map(packToThemeDefinition))
         })
-        .catch(() => {})
+        .catch(() => { if (!cancelled) setLoadFailed(true) })
     }
     return () => {
       cancelled = true
@@ -96,7 +117,12 @@ export function CustomThemesProvider({ children }: { children: ReactNode }) {
 
     let parsed: unknown
     try {
+      if (new TextEncoder().encode(file.content).length > MAX_THEME_BYTES) return 'invalid'
       parsed = JSON.parse(file.content)
+      validateThemeInput(parsed)
+      for (const [key, value] of Object.entries(parsed.colors ?? {})) {
+        if (!CSS.supports(key === '--radius' ? 'border-radius' : 'color', value)) return 'invalid'
+      }
     } catch {
       return 'invalid'
     }
@@ -107,10 +133,7 @@ export function CustomThemesProvider({ children }: { children: ReactNode }) {
     const mode = payload.mode === 'light' ? 'light' : 'dark'
     const name = typeof payload.name === 'string' && payload.name.trim() ? payload.name.trim() : t('customThemeDefaultName')
     const existingIds = [...BUILTIN_THEMES.map((t) => t.id), ...customThemes.map((t) => t.id)]
-    const id =
-      typeof payload.id === 'string' && payload.id && !existingIds.includes(payload.id)
-        ? slugify(payload.id)
-        : uniqueUrlKey(name, existingIds)
+    const id = uniqueThemeId(payload.id || name, existingIds)
     const base = BUILTIN_THEMES.find((t) => t.mode === mode) ?? BUILTIN_THEMES[0]
     const colors = deepMerge(base.colors, (payload.colors as Record<string, string>) ?? {})
     const pack: CustomThemePack = {
@@ -142,9 +165,11 @@ export function CustomThemesProvider({ children }: { children: ReactNode }) {
       customThemes,
       uploadTheme,
       deleteCustomTheme,
-      downloadExampleTheme
+      downloadExampleTheme,
+      loadFailed,
+      skippedThemes
     }),
-    [customThemes, uploadTheme, deleteCustomTheme, downloadExampleTheme]
+    [customThemes, uploadTheme, deleteCustomTheme, downloadExampleTheme, loadFailed, skippedThemes]
   )
 
   return <CustomThemesContext.Provider value={value}>{children}</CustomThemesContext.Provider>

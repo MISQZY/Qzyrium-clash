@@ -1,16 +1,14 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import { writeFileAtomic } from '../utils/atomicWrite'
 import type { CustomThemePack } from '@shared/theme'
-
-const RESERVED_DEVICE_NAMES = new Set([
-  'con', 'prn', 'aux', 'nul',
-  'com1', 'com2', 'com3', 'com4', 'com5', 'com6', 'com7', 'com8', 'com9',
-  'lpt1', 'lpt2', 'lpt3', 'lpt4', 'lpt5', 'lpt6', 'lpt7', 'lpt8', 'lpt9'
-])
+import { isCustomThemeId, MAX_THEME_BYTES, validateThemePack } from '@shared/theme-validation'
 
 export class ThemeStore {
   private readonly dir: string
+  private skippedFiles: string[] = []
+
+  getSkippedFiles(): string[] { return [...this.skippedFiles] }
 
   constructor(userDataDir: string) {
     this.dir = join(userDataDir, 'themes')
@@ -18,11 +16,8 @@ export class ThemeStore {
   }
 
   private pathFor(id: string): string {
-    if (!id || typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(id)) {
+    if (!isCustomThemeId(id)) {
       throw new Error(`Invalid theme id: ${id}`)
-    }
-    if (RESERVED_DEVICE_NAMES.has(id.toLowerCase())) {
-      throw new Error(`Reserved device name: ${id}`)
     }
     const boundary = this.dir.endsWith(sep) ? this.dir : this.dir + sep
     const filePath = resolve(join(this.dir, `${id}.json`))
@@ -33,13 +28,21 @@ export class ThemeStore {
   }
 
   listThemes(): CustomThemePack[] {
+    this.skippedFiles = []
     if (!existsSync(this.dir)) return []
     return readdirSync(this.dir)
       .filter((f) => f.endsWith('.json'))
       .map((f) => {
         try {
-          return JSON.parse(readFileSync(join(this.dir, f), 'utf-8')) as CustomThemePack
+          const path = join(this.dir, f)
+          if (statSync(path).size > MAX_THEME_BYTES) throw new Error('Theme is too large')
+          const pack: unknown = JSON.parse(readFileSync(path, 'utf-8'))
+          validateThemePack(pack)
+          if (f !== `${pack.id}.json`) throw new Error('Theme id does not match filename')
+          return pack
         } catch {
+          this.skippedFiles.push(f)
+          console.warn(`Skipped invalid custom theme: ${f}`)
           return null
         }
       })
@@ -47,6 +50,9 @@ export class ThemeStore {
   }
 
   saveTheme(theme: CustomThemePack): CustomThemePack[] {
+    validateThemePack(theme)
+    const collision = this.listThemes().find(pack => pack.id.toLowerCase() === theme.id.toLowerCase() && pack.id !== theme.id)
+    if (collision) throw new Error('Theme id already exists with different casing')
     writeFileAtomic(this.pathFor(theme.id), JSON.stringify(theme, null, 2))
     return this.listThemes()
   }

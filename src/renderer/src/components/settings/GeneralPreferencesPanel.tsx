@@ -29,23 +29,40 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
   const t = useTranslations('networksettings')
   const common = useTranslations('common')
   const { form, dirty, updateGeneral } = draft
-  const { customThemes, uploadTheme, deleteCustomTheme, downloadExampleTheme } = useCustomThemes()
+  const { customThemes, uploadTheme, deleteCustomTheme, downloadExampleTheme, loadFailed, skippedThemes } = useCustomThemes()
   const [uploadingTheme, setUploadingTheme] = useState(false)
+  const [themeBusy, setThemeBusy] = useState(false)
+  const [themeError, setThemeError] = useState(false)
   const [invalidFileNotice, setInvalidFileNotice] = useState<'theme' | null>(null)
   const handleUploadTheme = async (): Promise<void> => {
     setUploadingTheme(true)
+    setThemeBusy(true)
+    setThemeError(false)
     try {
       const result = await uploadTheme()
       if (result === 'invalid') setInvalidFileNotice('theme')
+    } catch {
+      setThemeError(true)
     } finally {
       setUploadingTheme(false)
+      setThemeBusy(false)
     }
   }
   const handleDeleteTheme = async (id: string): Promise<void> => {
-    await deleteCustomTheme(id)
-    if (form.general.theme === id) {
-      updateGeneral({ theme: 'dark' })
-    }
+    setThemeBusy(true)
+    setThemeError(false)
+    try {
+      await deleteCustomTheme(id)
+      if (form.general.theme === id) updateGeneral({ theme: 'dark' })
+    } catch { setThemeError(true) }
+    finally { setThemeBusy(false) }
+  }
+  const handleDownloadTheme = async (): Promise<void> => {
+    setThemeBusy(true)
+    setThemeError(false)
+    try { await downloadExampleTheme() }
+    catch { setThemeError(true) }
+    finally { setThemeBusy(false) }
   }
   const renderGeneralFields = (keys: string[]) => <SettingsFields
     prefix="general" inherit={false}
@@ -76,7 +93,8 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => void downloadExampleTheme()}
+                onClick={() => void handleDownloadTheme()}
+                disabled={themeBusy}
               >
                 <Download className="size-3.5" />
                 {t('downloadExample')}
@@ -86,12 +104,15 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
                 variant="outline"
                 size="sm"
                 onClick={handleUploadTheme}
-                disabled={uploadingTheme}
+                disabled={themeBusy}
               >
                 <Upload className="size-3.5" />
                 {uploadingTheme ? t('uploading') : t('upload')}
               </Button>
             </div>
+            {themeError && <p role="alert" className="text-xs text-destructive">{t('themeFileError')}</p>}
+            {loadFailed && <p role="alert" className="text-xs text-destructive">{t('themeLoadError')}</p>}
+            {skippedThemes && <p role="alert" className="text-xs text-destructive">{t('themeSkippedWarning')}</p>}
             {customThemes.length > 0 && (
               <ScrollArea className="max-h-48">
                 <ul className="flex flex-col gap-1.5 pr-2">
@@ -112,6 +133,7 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
                               variant="ghost"
                               size="icon-sm"
                               aria-label={t('deleteCustom')}
+                              disabled={themeBusy}
                               className="text-muted-foreground hover:text-destructive"
                             >
                               <Trash2 className="size-3.5" />
@@ -125,6 +147,7 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
                               <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
                               <AlertDialogAction
                                 variant="destructive"
+                                disabled={themeBusy}
                                 onClick={() => void handleDeleteTheme(theme.id)}
                               >
                                 {t('deleteCustom')}

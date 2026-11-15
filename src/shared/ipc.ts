@@ -192,7 +192,7 @@ export interface IElectronApi {
     setTitleBarOverlay: (overlay: { color?: string; symbolColor?: string }) => Promise<void>
   }
   theme: {
-    getCustomThemes: () => Promise<CustomThemePack[]>
+    getCustomThemes: () => Promise<{ themes: CustomThemePack[]; skippedFiles: string[] }>
     saveCustomTheme: (pack: CustomThemePack) => Promise<CustomThemePack[]>
     deleteCustomTheme: (id: string) => Promise<CustomThemePack[]>
     openConfigFile: () => Promise<{ fileName: string; content: string } | null>

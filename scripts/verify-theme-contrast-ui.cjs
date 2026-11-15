@@ -58,6 +58,7 @@ app.whenReady().then(async () => {
       await evaluate(`document.querySelector('button[form="settings-settings"]').click()`)
       await waitFor(`document.documentElement.dataset.theme === ${JSON.stringify(id)}`)
       await delay(250)
+      assert.equal(await evaluate(`document.documentElement.style.colorScheme`), id === 'light' || id === 'contrast-sand' ? 'light' : 'dark', 'native controls follow theme switches')
       const ratios = await evaluate(`(() => {
         const probe = document.createElement('span'); document.body.append(probe);
         // The reduced-motion rule gives every element a short transition.

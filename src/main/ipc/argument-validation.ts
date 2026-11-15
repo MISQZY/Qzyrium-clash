@@ -1,6 +1,7 @@
 import { IPC_CHANNELS } from '@shared/ipc'
 import { DEFAULT_APP_CONFIG } from '@shared/app-config'
 import { validateLocalizationPack } from '@shared/custom-localization'
+import { validateThemePack } from '@shared/theme-validation'
 
 type Check = (value: unknown) => boolean
 type InvokeChannel = Exclude<typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS], `event:${string}`>
@@ -62,8 +63,9 @@ const rule = object({ id: name, type: name, payload: text, proxy: text,
 const profilePatch = object(optionalFields({ name: text, url: text, autoUpdate: boolean,
   updateViaProxy: boolean, sendHwid: boolean, interval: value => value === null || integer(15, 43200)(value), customUA: text }))
 const overlay = object(optionalFields({ color: text, symbolColor: text }))
-const theme = object({ id: name, name: text, mode: oneOf('light', 'dark'), colors: record(text),
-  titleBarOverlay: optional(object({ color: text, symbolColor: text })) })
+const theme: Check = value => {
+  try { validateThemePack(value); return true } catch { return false }
+}
 const id: Check = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(value)
 const httpUrl: Check = value => {
   if (!name(value)) return false

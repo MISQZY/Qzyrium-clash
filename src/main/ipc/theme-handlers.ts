@@ -1,6 +1,6 @@
 import { nativeMessage } from '@shared/localization'
 import { dialog } from 'electron'
-import { readFile, writeFile } from 'node:fs/promises'
+import { open, writeFile } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { IPC_CHANNELS } from '@shared/ipc'
 import type { CustomThemePack } from '@shared/theme'
@@ -11,8 +11,9 @@ export function registerThemeHandlers(
   handle: TrustedRegistrar,
   services: Pick<ServiceManager, 'themeStore' | 'windowService' | 'settingService'>
 ): void {
-  handle(IPC_CHANNELS.THEME_GET_CUSTOM_THEMES, (): CustomThemePack[] => {
-    return services.themeStore.listThemes()
+  handle(IPC_CHANNELS.THEME_GET_CUSTOM_THEMES, () => {
+    const themes = services.themeStore.listThemes()
+    return { themes, skippedFiles: services.themeStore.getSkippedFiles() }
   })
 
   handle(IPC_CHANNELS.THEME_SAVE_CUSTOM_THEME, (_event, pack: CustomThemePack): CustomThemePack[] => {
@@ -36,7 +37,22 @@ export function registerThemeHandlers(
     })
     if (result.canceled || result.filePaths.length === 0) return null
     const filePath = result.filePaths[0]
-    const content = await readFile(filePath, 'utf-8')
+    const file = await open(filePath, 'r')
+    let content: string
+    try {
+      // Also used for localization imports; bound the read before allocating the file.
+      const limit = 2 * 1024 * 1024
+      const buffer = Buffer.alloc(limit + 1)
+      if (!(await file.stat()).isFile()) throw new Error('Expected a regular JSON file')
+      let size = 0
+      while (size <= limit) {
+        const { bytesRead } = await file.read(buffer, size, buffer.length - size, null)
+        if (!bytesRead) break
+        size += bytesRead
+      }
+      if (size > limit) throw new Error('JSON file exceeds 2 MB')
+      content = buffer.subarray(0, size).toString('utf-8')
+    } finally { await file.close() }
     return { fileName: basename(filePath), content }
   })
 

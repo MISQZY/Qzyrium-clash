@@ -35,7 +35,7 @@ if (process.type === 'renderer') {
   const api = {
     uiTest: { setConfigFile: (content) => { configFile = content === null ? null : { name: 'fixture.json', content } }, getSavedConfig: () => savedConfig, emitLogs: (count) => { for (let i = 0; i < count; i++) logCallback?.({ type: 'info', payload: `Journal regression ${Date.now()} ${i} ` + 'payload '.repeat(40), time: new Date().toISOString(), source: 'mihomo' }) }, increaseTraffic: () => { connections = connections.map(c => ({ ...c, download: c.download + 4096 })) } },
     theme: {
-      getCustomThemes: async () => customThemes,
+      getCustomThemes: async () => ({ themes: customThemes, skippedFiles: [] }),
       saveCustomTheme: async (pack) => { customThemes = [...customThemes.filter(theme => theme.id !== pack.id), pack]; return customThemes },
       deleteCustomTheme: async (id) => { customThemes = customThemes.filter(theme => theme.id !== id); return customThemes },
       openConfigFile: async () => { const file = configFile; configFile = null; return file },
