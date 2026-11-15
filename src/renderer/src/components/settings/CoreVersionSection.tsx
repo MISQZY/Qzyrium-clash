@@ -87,12 +87,12 @@ export function CoreVersionSection({ channel, onChannelChange }: CoreVersionSect
 
   return (
     <div className="mb-6 flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-foreground flex flex-wrap items-center gap-2">
             <span>{t('coreChannelTitle')}</span>
             <span
-              className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+              className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                 isAlpha
                   ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
                   : 'bg-primary/15 text-primary border border-primary/30'
@@ -114,7 +114,7 @@ export function CoreVersionSection({ channel, onChannelChange }: CoreVersionSect
               void handleInstallOrSwitch(nextChannel)
             }
           }}
-          className="w-36 text-xs"
+          className="w-max shrink-0 whitespace-nowrap text-xs"
         >
           <option value="stable">{t('channelStable')}</option>
           <option value="alpha">{t('channelAlpha')}</option>

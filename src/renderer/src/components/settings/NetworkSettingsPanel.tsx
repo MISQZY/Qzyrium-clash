@@ -102,7 +102,7 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
               <option value="profile">{t('valueFromProfile')}</option><option value="override">{t('valueOverride')}</option>
             </NativeSelect>
           </SettingRow>
-          <div className="adaptive-grid mb-3">
+          <div className="adaptive-grid mt-4 mb-3">
             <label className="flex flex-col gap-2 text-xs font-medium">{t('mixedPortHTTPSOCKS5')}<Input type="number" min={1} max={65535} required disabled={!!form.kernel.inheritMixedPort} value={form.kernel.mixedPort || ''} onChange={(event) => updateKernel({ mixedPort: Number(event.target.value) })} /></label>
             <label className="flex flex-col gap-2 text-xs font-medium">{t('controllerPort')}<Input type="number" min={1} max={65535} required value={form.kernel.controllerPort || ''} onChange={(event) => updateKernel({ controllerPort: Number(event.target.value) })} /></label>
           </div>
