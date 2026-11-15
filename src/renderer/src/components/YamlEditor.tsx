@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
+import type { EditorView } from '@codemirror/view'
 import { createYamlEditorExtensions, yamlEditorBasicSetup } from '../lib/yaml-editor-extensions'
 import { useIsDarkTheme } from '../lib/theme'
 
@@ -9,6 +10,7 @@ export interface YamlEditorProps {
   theme?: string
   className?: string
   readOnly?: boolean
+  onCreateEditor?: (view: EditorView) => void
 }
 
 export default function YamlEditor({
@@ -16,7 +18,8 @@ export default function YamlEditor({
   onChange,
   theme,
   className,
-  readOnly = false
+  readOnly = false,
+  onCreateEditor
 }: YamlEditorProps) {
   const activeIsDark = useIsDarkTheme()
   const isDark = theme ? theme.includes('dark') : activeIsDark
@@ -24,7 +27,8 @@ export default function YamlEditor({
   const extensions = useMemo(() => createYamlEditorExtensions(isDark), [isDark])
 
   return (
-    <div className={`monaco-editor cm-editor-wrapper h-full w-full flex-1 min-h-0 overflow-hidden ${className || ''}`}>
+    <div className={`monaco-editor cm-editor-wrapper relative h-full w-full flex-1 min-h-0 overflow-hidden ${className || ''}`}>
+      <textarea tabIndex={-1} aria-hidden="true" className="sr-only opacity-0 pointer-events-none absolute size-0" readOnly />
       <CodeMirror
         value={value}
         height="100%"
@@ -34,6 +38,7 @@ export default function YamlEditor({
         className="h-full w-full flex-1 min-h-0"
         extensions={extensions}
         onChange={(val) => onChange?.(val)}
+        onCreateEditor={onCreateEditor}
         basicSetup={yamlEditorBasicSetup}
       />
     </div>

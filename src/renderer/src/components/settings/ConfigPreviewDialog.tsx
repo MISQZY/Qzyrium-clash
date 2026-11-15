@@ -2,16 +2,17 @@ import { useEffect, useState } from 'react'
 import type { AppConfig } from '@shared/app-config'
 import type { ConfigPreview } from '@shared/effective-core'
 import { useTranslations } from '../../i18n'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
+import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
 import { Button } from '../ui/button'
-import YamlEditor from '../YamlEditor'
-import { CodeMirrorDiffEditor } from '../CodeMirrorDiffEditor'
+import { FileEditorComparisonControls, FileEditorContent, FileEditorDialogContent } from '../FileEditor'
 
 export default function ConfigPreviewDialog({ kernel, onClose }: { kernel: AppConfig['kernel']; onClose: () => void }) {
   const t = useTranslations('networksettings')
+  const common = useTranslations('common')
   const [preview, setPreview] = useState<ConfigPreview | null>(null)
   const [error, setError] = useState(false)
   const [diff, setDiff] = useState(false)
+  const [sideBySide, setSideBySide] = useState(true)
   useEffect(() => {
     let active = true
     setPreview(null); setError(false)
@@ -20,22 +21,24 @@ export default function ConfigPreviewDialog({ kernel, onClose }: { kernel: AppCo
     return () => { active = false }
   }, [kernel])
   return <Dialog open onOpenChange={open => { if (!open) onClose() }}>
-    <DialogContent className="flex h-[80dvh] min-h-0 w-[calc(100vw-2rem)] max-w-5xl flex-col overflow-hidden p-4 sm:p-6">
-      <DialogHeader className="shrink-0 pr-6">
+    <FileEditorDialogContent>
+      <DialogHeader className="shrink-0 border-b border-border/60 pb-2 pr-6">
         <DialogTitle>{t('configPreviewTitle')}</DialogTitle>
         <DialogDescription>{t('configPreviewHint')}</DialogDescription>
         {preview?.profileName && <p className="truncate text-xs text-muted-foreground" title={preview.profileName}>{preview.profileName}</p>}
       </DialogHeader>
-      <div className="flex shrink-0 flex-wrap gap-2">
-        <Button size="sm" variant={diff ? 'outline' : 'default'} aria-pressed={!diff} onClick={() => setDiff(false)}>{t('configPreviewYaml')}</Button>
-        <Button size="sm" variant={diff ? 'default' : 'outline'} aria-pressed={diff} onClick={() => setDiff(true)}>{t('configPreviewDiff')}</Button>
-      </div>
-      {error ? <p role="alert" className="text-sm text-destructive">{t('configPreviewFailed')}</p> : preview ? <>
-        {diff && <div className="grid shrink-0 grid-cols-2 gap-3 text-xs text-muted-foreground"><span>{t('configPreviewOriginal')}</span><span>{t('configPreviewYaml')}</span></div>}
-        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-md border border-border" data-config-preview={diff ? 'diff' : 'yaml'}>
-          {diff ? <CodeMirrorDiffEditor original={preview.original} modified={preview.effective} readOnly /> : <YamlEditor value={preview.effective} readOnly />}
+      {error ? <p role="alert" className="text-sm text-destructive">{t('configPreviewFailed')}</p> : <>
+        {preview && diff && sideBySide && <div className="grid shrink-0 grid-cols-2 gap-3 text-xs text-muted-foreground"><span>{t('configPreviewOriginal')}</span><span>{t('configPreviewYaml')}</span></div>}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-config-preview={diff ? 'diff' : 'yaml'}>
+          <FileEditorContent original={preview?.original ?? ''} value={preview?.effective ?? ''}
+            isDiff={diff} sideBySide={sideBySide} loading={!preview} readOnly />
         </div>
-      </> : <p role="status" className="text-sm text-muted-foreground">{t('effectiveCoreLoading')}</p>}
-    </DialogContent>
+      </>}
+      <DialogFooter className="shrink-0 flex flex-wrap items-center justify-between gap-2 pt-1 sm:justify-between">
+        <FileEditorComparisonControls isDiff={diff} onIsDiffChange={setDiff} sideBySide={sideBySide}
+          onSideBySideChange={setSideBySide} disabled={!preview} />
+        <Button type="button" size="sm" variant="outline" onClick={onClose}>{common('close')}</Button>
+      </DialogFooter>
+    </FileEditorDialogContent>
   </Dialog>
 }

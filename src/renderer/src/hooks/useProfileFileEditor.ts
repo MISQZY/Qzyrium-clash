@@ -1,7 +1,5 @@
-import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react'
 import type { EditorView } from '@uiw/react-codemirror'
-import { ReactCodeMirrorRef } from '@uiw/react-codemirror'
-import { createYamlEditorExtensions } from '../lib/yaml-editor-extensions'
 import { useIsDarkTheme } from '../lib/theme'
 import yamlParser from 'yaml'
 import type { ProfileItem } from '@shared/profile'
@@ -39,7 +37,6 @@ export function useProfileFileEditor({
 
   const contentRef = useRef(content)
   const containerRef = useRef<HTMLDivElement>(null)
-  const cmRef = useRef<ReactCodeMirrorRef>(null)
   const activeViewRef = useRef<EditorView | null>(null)
 
   const editorRef = useRef<EditorHandle>({
@@ -56,7 +53,6 @@ export function useProfileFileEditor({
   })
 
   const isDark = useIsDarkTheme()
-  const extensions = useMemo(() => createYamlEditorExtensions(isDark), [isDark])
 
   useLayoutEffect(() => () => {
     activeViewRef.current = null
@@ -150,9 +146,7 @@ export function useProfileFileEditor({
     setError,
     editorRef,
     containerRef,
-    cmRef,
     isDark,
-    extensions,
     handleCreateEditor,
     handleSave,
     t

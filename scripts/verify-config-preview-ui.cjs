@@ -39,7 +39,8 @@ if (process.type === 'renderer') {
       await waitFor(`Array.from(document.querySelectorAll('button')).some(button => button.textContent.includes('Preview final configuration') && !button.disabled)`)
       await evaluate(`Array.from(document.querySelectorAll('button')).find(button => button.textContent.includes('Preview final configuration')).click()`)
       await waitFor(`!!document.querySelector('[data-config-preview="yaml"] .cm-editor')`)
-      await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(button => button.textContent.includes('Compare with profile')).click()`)
+      const toggle = label => evaluate(`Array.from(document.querySelectorAll('[role="dialog"] label')).find(label => label.textContent.includes(${JSON.stringify(label)})).querySelector('[role="switch"]').click()`)
+      await toggle('Show changes')
       await waitFor(`document.querySelectorAll('[data-config-preview="diff"] .cm-editor').length === 2`)
       for (const dark of [false, true]) {
         await evaluate(`document.documentElement.classList.toggle('dark', ${dark})`)
@@ -88,7 +89,21 @@ if (process.type === 'renderer') {
       } finally { win.webContents.debugger.detach() }
       await waitFor(`document.querySelector('.cm-mergeView').scrollTop > 0`)
       fs.writeFileSync(path.join(output, 'comparison.png'), (await win.webContents.capturePage()).toPNG())
-      console.log('PASS: configuration comparison fits small/zoomed windows, both panes reach the final line, mouse wheel scrolls')
+      await toggle('Side by side')
+      await waitFor(`document.querySelectorAll('[data-config-preview="diff"] .cm-editor').length === 1 && !!document.querySelector('.cm-deletedChunk')`)
+      assert.equal(await evaluate(`document.querySelectorAll('[role="dialog"] .cm-content[contenteditable="true"]').length`), 0, 'Unified preview must remain read-only')
+      await evaluate(`document.querySelector('[data-config-preview="diff"] .cm-scroller').scrollTop = 1000`)
+      await waitFor(`document.querySelector('[data-config-preview="diff"] .cm-scroller').scrollTop > 0`)
+      await toggle('Show changes')
+      await waitFor(`!!document.querySelector('[data-config-preview="yaml"] .cm-editor')`)
+      assert.equal(await evaluate(`document.querySelectorAll('[role="dialog"] .cm-content[contenteditable="true"]').length`), 0, 'Plain preview must remain read-only')
+      assert.ok(await evaluate(`document.querySelector('[data-config-preview="yaml"] .cm-content').textContent.includes('PROXY')`))
+      assert.equal(await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).some(button => button.textContent.includes('Save & Apply'))`), false, 'Preview must not offer profile editing actions')
+      await toggle('Show changes')
+      await waitFor(`document.querySelectorAll('[data-config-preview="diff"] .cm-editor').length === 1`)
+      await toggle('Side by side')
+      await waitFor(`document.querySelectorAll('[data-config-preview="diff"] .cm-editor').length === 2`)
+      console.log('PASS: shared file editor controls, read-only plain/unified/side-by-side preview, highlights, small/zoomed layout and scrolling')
     } finally { win.destroy(); app.quit() }
   }).catch(error => { console.error(error); app.exit(1) })
 }
