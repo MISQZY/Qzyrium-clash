@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  dompurify: ^3.4.17
+  minimatch: ^11.0.1
   tar: '>=7.5.19'
   builder-util-runtime: '>=9.7.0'
 
@@ -95,9 +95,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      dompurify:
-        specifier: ^3.4.17
-        version: 3.4.17
       electron:
         specifier: ^44.9.1
         version: 44.9.1
@@ -564,6 +561,9 @@ packages:
   '@isaacs/fs-minipass@4.0.1':
     resolution: {integrity: sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w==}
     engines: {node: '>=18.0.0'}
+
+  '@isaacs/nonrecursive-glob-match@1.1.0':
+    resolution: {integrity: sha512-GPm/Dbvk5RLmhRnxXIa7nTpK0xtl4E0wj0MslsuNiJ1FIROU+2+9lgUC/dgF7Ey4QCWhfEsgxilMRMCdHPfDfw==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -1636,9 +1636,6 @@ packages:
   '@types/responselike@1.0.3':
     resolution: {integrity: sha512-H/+L+UkTV33uf49PH5pCAUBVPNj2nDBXTN+qS1dOwyyg24l3CcicicCA7ca+HMvJBZcFgl5r8e+RR6elsb4Lyw==}
 
-  '@types/trusted-types@2.0.7':
-    resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
-
   '@types/ws@8.18.2':
     resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
@@ -1815,9 +1812,6 @@ packages:
   axios@1.21.0:
     resolution: {integrity: sha512-YCzXMB53Q9PZBsh7yN7wtapit4WepwcHS2fP8QhGsBxSz5YtgYobV7GGlWlAJi+RxfU77GQTQi2DSLUma42EYA==}
 
-  balanced-match@1.0.2:
-    resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
-
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
@@ -1836,12 +1830,6 @@ packages:
   boolean@3.2.0:
     resolution: {integrity: sha512-d0II/GO9uf9lfUHH2BQsjxzRJZBdsjgsBiW4BvhWk/3qoKwQFjIDVN19PfX8F2D/r9PCMTtLWjYVCFrpeYUzsw==}
     deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
-
-  brace-expansion@1.1.21:
-    resolution: {integrity: sha512-9zeA+KLZNNzglF2TPKRQEDyx6Yby7daAkuy8MiPzpXPsYDWi/DRM8jmwUDxokQjYqBpv5DgPiwD4h4ZZSy1Ujw==}
-
-  brace-expansion@2.1.7:
-    resolution: {integrity: sha512-uZbew1NqdmPDTMJ8ah1y+b+9QEJrfkXFk3RcTQw3X0jW/xRUvFKsg1CfQdSYGdTbXZWExtU3J3ccxtnfw1Fi0g==}
 
   brace-expansion@5.0.12:
     resolution: {integrity: sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==}
@@ -1948,9 +1936,6 @@ packages:
     resolution: {integrity: sha512-pJDh5/4wrEnXX/VWRZvruAGHkzKdr46z11OlTPN+VrATlWWhSKewNCJ1futCO5C7eJB3nPMFZA1LeYtcFboZ2A==}
     engines: {node: '>=0.10.0'}
 
-  concat-map@0.0.1:
-    resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
-
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
@@ -2017,9 +2002,6 @@ packages:
 
   dmg-builder@26.18.0:
     resolution: {integrity: sha512-ozCGC54wi2C1RkS2v69y9lQxvoQ1Coh+iT8CmWiyY8y1ZuOKVvuNson2Hd+HEOs9+EZNNsOBbzKgQZ4SNqWd0w==}
-
-  dompurify@3.4.17:
-    resolution: {integrity: sha512-B/pSlYVHQ58kqISD/yDjuJ1yfzI34m1gF4lAod2bwSRhiN4K5Cl3H8Af7hqB2PmTL911tdEudnnXn5FnhRoz0w==}
 
   dotenv-expand@11.0.7:
     resolution: {integrity: sha512-zIHwmZPRshsCdpMDyVsqGmgyP0yT8GAgXUnkdAoJisxvf33k7yO6OuoKmcTGuXPWSsm8Oh88nZicRLA9Y0rUeA==}
@@ -2632,20 +2614,9 @@ packages:
     resolution: {integrity: sha512-z0yWI+4FDrrweS8Zmt4Ej5HdJmky15+L2e6Wgn3+iK5fWzb6T3fhNFq2+MeTRb064c6Wr4N/wv0DzQTjNzHNGQ==}
     engines: {node: '>=10'}
 
-  minimatch@10.2.6:
-    resolution: {integrity: sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==}
-    engines: {node: 18 || 20 || >=22}
-
-  minimatch@3.1.5:
-    resolution: {integrity: sha512-VgjWUsnnT6n+NUk6eZq77zeFdpW2LWDzP6zFGrCbHXiYNul5Dzqk2HHQ5uFH2DNW5Xbp8+jVzaeNt94ssEEl4w==}
-
-  minimatch@5.1.9:
-    resolution: {integrity: sha512-7o1wEA2RyMP7Iu7GNba9vc0RWWGACJOCZBJX2GJWip0ikV+wcOsgVuY9uE8CPiyQhkGFSlhuSkZPavN7u1c2Fw==}
-    engines: {node: '>=10'}
-
-  minimatch@9.0.9:
-    resolution: {integrity: sha512-OBwBN9AL4dqmETlpS2zasx+vTeWclWzkblfZk7KTA5j3jeOONz/tRCnZomUyvNg83wL5Zv9Ss6HMJXAgL8R2Yg==}
-    engines: {node: '>=16 || 14 >=14.17'}
+  minimatch@11.0.8:
+    resolution: {integrity: sha512-nFQuYSTVrGvysVBps5Ih+0BdnYFN/Cj3C816r6+p7yK+FHrVLGE4O4N9AFwykrlNlvM2HYt+Rad1Uiro6h88Ig==}
+    engines: {node: 20 || >=22}
 
   minimist@1.2.8:
     resolution: {integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==}
@@ -3493,7 +3464,7 @@ snapshots:
     dependencies:
       commander: 5.1.0
       glob: 7.2.3
-      minimatch: 3.1.5
+      minimatch: 11.0.8
 
   '@electron/fuses@1.8.0':
     dependencies:
@@ -3565,7 +3536,7 @@ snapshots:
       debug: 4.4.3
       dir-compare: 4.2.0
       fs-extra: 11.4.1
-      minimatch: 9.0.9
+      minimatch: 11.0.8
       plist: 3.1.1
     transitivePeerDependencies:
       - supports-color
@@ -3670,7 +3641,7 @@ snapshots:
     dependencies:
       '@eslint/object-schema': 3.0.5
       debug: 4.4.3
-      minimatch: 10.2.6
+      minimatch: 11.0.8
     transitivePeerDependencies:
       - supports-color
 
@@ -3729,6 +3700,8 @@ snapshots:
   '@isaacs/fs-minipass@4.0.1':
     dependencies:
       minipass: 7.1.3
+
+  '@isaacs/nonrecursive-glob-match@1.1.0': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -4799,9 +4772,6 @@ snapshots:
     dependencies:
       '@types/node': 22.20.5
 
-  '@types/trusted-types@2.0.7':
-    optional: true
-
   '@types/ws@8.18.2':
     dependencies:
       '@types/node': 22.20.5
@@ -4873,7 +4843,7 @@ snapshots:
       '@typescript-eslint/types': 8.72.2
       '@typescript-eslint/visitor-keys': 8.72.2
       debug: 4.4.3
-      minimatch: 10.2.6
+      minimatch: 11.0.8
       semver: 7.8.6
       tinyglobby: 0.2.17
       ts-api-utils: 2.5.0(typescript@5.9.3)
@@ -5012,7 +4982,7 @@ snapshots:
       js-yaml: 4.3.2
       json5: 2.2.3
       lazy-val: 1.0.5
-      minimatch: 10.2.6
+      minimatch: 11.0.8
       pkijs: 3.4.3
       plist: 3.1.0
       proper-lockfile: 4.1.2
@@ -5058,8 +5028,6 @@ snapshots:
       - debug
       - supports-color
 
-  balanced-match@1.0.2: {}
-
   balanced-match@4.0.4: {}
 
   base64-js@1.5.1: {}
@@ -5070,15 +5038,6 @@ snapshots:
 
   boolean@3.2.0:
     optional: true
-
-  brace-expansion@1.1.21:
-    dependencies:
-      balanced-match: 1.0.2
-      concat-map: 0.0.1
-
-  brace-expansion@2.1.7:
-    dependencies:
-      balanced-match: 1.0.2
 
   brace-expansion@5.0.12:
     dependencies:
@@ -5207,8 +5166,6 @@ snapshots:
 
   compare-version@0.1.2: {}
 
-  concat-map@0.0.1: {}
-
   convert-source-map@2.0.0: {}
 
   core-util-is@1.0.3: {}
@@ -5263,7 +5220,7 @@ snapshots:
 
   dir-compare@4.2.0:
     dependencies:
-      minimatch: 3.1.5
+      minimatch: 11.0.8
       p-limit: 3.1.0
 
   dmg-builder@26.18.0(electron-builder-squirrel-windows@26.18.0):
@@ -5275,10 +5232,6 @@ snapshots:
     transitivePeerDependencies:
       - electron-builder-squirrel-windows
       - supports-color
-
-  dompurify@3.4.17:
-    optionalDependencies:
-      '@types/trusted-types': 2.0.7
 
   dotenv-expand@11.0.7:
     dependencies:
@@ -5505,7 +5458,7 @@ snapshots:
       imurmurhash: 0.1.4
       is-glob: 4.0.3
       json-stable-stringify-without-jsonify: 1.0.1
-      minimatch: 10.2.6
+      minimatch: 11.0.8
       natural-compare: 1.4.0
       optionator: 0.9.4
     optionalDependencies:
@@ -5551,7 +5504,7 @@ snapshots:
 
   filelist@1.0.6:
     dependencies:
-      minimatch: 5.1.9
+      minimatch: 11.0.8
 
   find-up@5.0.0:
     dependencies:
@@ -5657,7 +5610,7 @@ snapshots:
       fs.realpath: 1.0.0
       inflight: 1.0.6
       inherits: 2.0.4
-      minimatch: 3.1.5
+      minimatch: 11.0.8
       once: 1.4.0
       path-is-absolute: 1.0.1
 
@@ -5947,21 +5900,10 @@ snapshots:
 
   mimic-response@3.1.0: {}
 
-  minimatch@10.2.6:
+  minimatch@11.0.8:
     dependencies:
+      '@isaacs/nonrecursive-glob-match': 1.1.0
       brace-expansion: 5.0.12
-
-  minimatch@3.1.5:
-    dependencies:
-      brace-expansion: 1.1.21
-
-  minimatch@5.1.9:
-    dependencies:
-      brace-expansion: 2.1.7
-
-  minimatch@9.0.9:
-    dependencies:
-      brace-expansion: 2.1.7
 
   minimist@1.2.8: {}
 

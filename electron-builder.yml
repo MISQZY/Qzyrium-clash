@@ -11,22 +11,15 @@ directories:
 files:
   - 'out/**'
   - 'resources/**'
+  - '!resources/linux-*.cjs'
 electronLanguages:
   - 'en'
   - 'ru'
 extraResources:
-  - from: resources/linux-core-supervisor.cjs
-    to: files/linux-core-supervisor.cjs
-  - from: resources/linux-proxy-watchdog.cjs
-    to: files/linux-proxy-watchdog.cjs
-  - from: resources/linux-proxy-recovery.cjs
-    to: files/linux-proxy-recovery.cjs
   - from: LICENSE
     to: licenses/GPL-3.0.txt
   - from: resources/licenses/
     to: licenses/
-  - from: './extra/'
-    to: ''
 protocols:
   name: 'Qzyrium-clash URI Scheme'
   schemes:
@@ -34,6 +27,13 @@ protocols:
     - 'mihomo'
     - 'qzyrium'
 win:
+  extraResources:
+    - from: './extra/'
+      to: ''
+      filter:
+        - '**/*'
+        - '!sidecar/mihomo'
+        - '!files/linux-*.cjs'
   icon: resources/icon.ico
   executableName: Qzyrium-clash
   requestedExecutionLevel: asInvoker
@@ -51,6 +51,19 @@ nsis:
   createDesktopShortcut: true
   include: build/nsis/installer.nsh
 linux:
+  extraResources:
+    - from: './extra/'
+      to: ''
+      filter:
+        - '**/*'
+        - '!**/*.exe'
+        - '!files/linux-*.cjs'
+    - from: resources/linux-core-supervisor.cjs
+      to: files/linux-core-supervisor.cjs
+    - from: resources/linux-proxy-watchdog.cjs
+      to: files/linux-proxy-watchdog.cjs
+    - from: resources/linux-proxy-recovery.cjs
+      to: files/linux-proxy-recovery.cjs
   icon: resources/icon.png
   category: Network
   executableName: Qzyrium-clash
