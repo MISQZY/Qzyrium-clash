@@ -144,70 +144,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
           <h1 className="text-xl font-semibold tracking-tight">{t('proxies')}</h1>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Node Sorting Control */}
-          {groupNames.length > 0 && (
-            <div className="flex items-center gap-1 bg-muted/60 rounded-md p-0.5 border border-border/60">
-              <span className="sr-only">{t('sort')}</span>
-              <button
-                type="button"
-                onClick={() => setSortMode('default')}
-                className={cn(
-                  'px-2 py-1 text-[11px] rounded transition-colors font-medium',
-                  sortMode === 'default'
-                    ? 'bg-background text-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                title={t('sortDefault')}
-              >
-                {t('sortDefault')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setSortMode('latency')}
-                className={cn(
-                  'px-2 py-1 text-[11px] rounded transition-colors font-medium flex items-center gap-1',
-                  sortMode === 'latency'
-                    ? 'bg-background text-primary shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                title={t('sortLatency')}
-              >
-                <ArrowUpDown className="size-3" />
-                <span>{t('sortLatency')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSortMode('name')}
-                className={cn(
-                  'px-2 py-1 text-[11px] rounded transition-colors font-medium',
-                  sortMode === 'name'
-                    ? 'bg-background text-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                title={t('sortName')}
-              >
-                {t('sortName')}
-              </button>
-            </div>
-          )}
-
-          {groupNames.length > 0 && (
-            <Button
-              variant={onlyAvailable ? 'secondary' : 'outline'}
-              size="sm"
-              onClick={() => setOnlyAvailable((prev) => !prev)}
-              className={cn(
-                'text-xs gap-1.5 transition-colors',
-                onlyAvailable && 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15'
-              )}
-              title={t('onlyAvailable')}
-            >
-              <CheckCircle2 className="size-3.5" />
-              <span>{t('onlyAvailable')}</span>
-            </Button>
-          )}
-
+        <div className="flex items-center gap-2">
           {groupNames.length > 0 && (
             <Button
               variant="outline"
@@ -253,28 +190,96 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 
       {!running && <p className="text-xs leading-relaxed text-muted-foreground">{t('offlineSelectionHint')}</p>}
 
-      {/* Search Input with Clear Button */}
+      {/* Search and Filters Toolbar */}
       {groupNames.length > 0 && (
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-          <Input
-            aria-label={t('searchProxyNodes')}
-            title={t('searchProxyNodes')}
-            placeholder={t('searchProxyNodes')}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="pl-9 pr-8 text-xs"
-          />
-          {query && (
-            <button
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          {/* Search Input with Clear Button */}
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+            <Input
+              aria-label={t('searchProxyNodes')}
+              title={t('searchProxyNodes')}
+              placeholder={t('searchProxyNodes')}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="pl-9 pr-8 text-xs h-8"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                aria-label={t('clearSearch')}
+              >
+                <X className="size-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Filters & Sorting Controls */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Available Only Toggle Button */}
+            <Button
               type="button"
-              onClick={() => setQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
-              aria-label={t('clearSearch')}
+              variant={onlyAvailable ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={() => setOnlyAvailable((prev) => !prev)}
+              className={cn(
+                'text-xs h-8 gap-1.5 transition-colors shrink-0',
+                onlyAvailable && 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15'
+              )}
+              title={t('onlyAvailable')}
+              aria-pressed={onlyAvailable}
             >
-              <X className="size-4" />
-            </button>
-          )}
+              <CheckCircle2 className="size-3.5" />
+              <span>{t('onlyAvailable')}</span>
+            </Button>
+
+            {/* Node Sorting Control */}
+            <div className="flex items-center gap-0.5 bg-muted/60 rounded-md p-0.5 border border-border/60 shrink-0 h-8">
+              <span className="sr-only">{t('sort')}</span>
+              <button
+                type="button"
+                onClick={() => setSortMode('default')}
+                className={cn(
+                  'px-2 py-1 text-[11px] rounded transition-colors font-medium h-7',
+                  sortMode === 'default'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                title={t('sortDefault')}
+              >
+                {t('sortDefault')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortMode('latency')}
+                className={cn(
+                  'px-2 py-1 text-[11px] rounded transition-colors font-medium flex items-center gap-1 h-7',
+                  sortMode === 'latency'
+                    ? 'bg-background text-primary shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                title={t('sortLatency')}
+              >
+                <ArrowUpDown className="size-3" />
+                <span>{t('sortLatency')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortMode('name')}
+                className={cn(
+                  'px-2 py-1 text-[11px] rounded transition-colors font-medium h-7',
+                  sortMode === 'name'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                title={t('sortName')}
+              >
+                {t('sortName')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
