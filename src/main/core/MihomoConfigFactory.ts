@@ -120,6 +120,9 @@ export class MihomoConfigFactory {
           enable: true
         }
       }
+    } else if (parsed.tun && typeof parsed.tun === 'object' && !Array.isArray(parsed.tun)) {
+      // Keep the profile's TUN parameters visible while the app controls activation.
+      parsed.tun = { ...parsed.tun as Record<string, unknown>, enable: false }
     } else {
       delete parsed['tun']
     }

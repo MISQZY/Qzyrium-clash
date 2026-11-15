@@ -43,11 +43,13 @@ async function verify() {
   assert.equal((await kernel.getEffectiveCore({ kernel: { ...config.kernel, inheritMixedPort: false } })).ports['mixed-port'].source, 'override')
   assert.equal(config.kernel.inheritMixedPort, true, 'draft preview never mutates saved settings')
   assert.equal(reads, 2, 'preview reads the profile without starting a core or writing runtime files')
+  profile.tun = { enable: true, stack: 'system', mtu: 1450, 'dns-hijack': ['any:53'] }
   const preview = await kernel.getConfigPreview()
   assert.equal(preview.original, yaml.stringify(profile))
   assert.equal(preview.profileName, 'Fixture')
   assert.equal(yaml.parse(preview.effective)['mixed-port'], 8100)
   assert.equal(yaml.parse(preview.effective).rules[0], 'DOMAIN,example.com,DIRECT')
+  assert.deepEqual(yaml.parse(preview.effective).tun, { ...profile.tun, enable: false }, 'comparison retains the profile TUN block and shows its disabled state')
   kernel.profileService.getActiveProfile = () => null
   assert.equal((await kernel.getConfigPreview()).original, '', 'no profile still previews the default config')
   const { SubscriptionClient } = load('src/main/core/SubscriptionClient.ts', { axios: { get: async (_url, options) => {

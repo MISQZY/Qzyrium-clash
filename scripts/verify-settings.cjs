@@ -135,6 +135,19 @@ function verifyConfiguration() {
   config.kernel.tun.enable = false
   fs.writeFileSync(filename, MihomoConfigFactory.synthesize(profile, config))
   execFileSync(path.resolve('extra/sidecar/mihomo.exe'), ['-t', '-d', dir, '-f', filename], { windowsHide: true, timeout: 15000, stdio: 'pipe' })
+  const profileTun = { enable: true, stack: 'mixed', mtu: 1350, 'auto-route': true,
+    'dns-hijack': ['any:53'], 'route-exclude-address': ['192.168.0.0/16'] }
+  for (const enable of [true, false, undefined]) {
+    const tun = { ...profileTun, enable }
+    if (enable === undefined) delete tun.enable
+    const withTun = { ...yaml.parse(profile), tun }
+    const result = yaml.parse(MihomoConfigFactory.synthesize(yaml.stringify(withTun), config))
+    assert.deepEqual(result.tun, { ...tun, enable: false }, 'disabled TUN retains profile parameters without applying active-mode overrides')
+    assert.deepEqual(withTun.tun, tun, 'synthesis must not modify the source profile')
+  }
+  assert.equal(yaml.parse(MihomoConfigFactory.synthesize(profile, config)).tun, undefined, 'profiles without TUN do not gain a synthetic block')
+  fs.writeFileSync(filename, MihomoConfigFactory.synthesize(yaml.stringify({ ...yaml.parse(profile), tun: profileTun }), config))
+  execFileSync(path.resolve('extra/sidecar/mihomo.exe'), ['-t', '-d', dir, '-f', filename], { windowsHide: true, timeout: 15000, stdio: 'pipe' })
 }
 
 async function verifyPac() {
