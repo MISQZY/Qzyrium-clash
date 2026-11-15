@@ -129,6 +129,27 @@ assert.equal(parsedTrojan.sni, 'trojan.example.com')
 assert.deepEqual(parsedTrojan.alpn, ['h2', 'http/1.1'])
 assert.deepEqual(parsedTrojan['ws-opts'], { path: '/tr' })
 
+// gRPC must retain the core default, independently of WebSocket's default path.
+for (const prefix of [
+  'vless://550e8400-e29b-41d4-a716-446655440000@127.0.0.1:443',
+  'trojan://secret@127.0.0.1:443'
+]) {
+  for (const [params, expected] of [
+    ['', ''],
+    ['&serviceName=', ''],
+    ['&serviceName=custom', 'custom'],
+    ['&path=legacy', 'legacy'],
+    ['&serviceName=custom&path=ignored', 'custom'],
+    ['&serviceName=&path=ignored', ''],
+    ['&serviceName=%2Fcustom%2FTun', '/custom/Tun']
+  ]) {
+    const input = `${prefix}?type=grpc${params}`
+    assert.equal(parseProxyUri(input)['grpc-opts']['grpc-service-name'], expected)
+    assert.equal(parseProfileConfig(convertSubscriptionToClashYaml(input)).proxies[0]['grpc-opts']['grpc-service-name'], expected)
+  }
+  assert.equal(parseProxyUri(`${prefix}?type=ws`)['ws-opts'].path, '/')
+}
+
 // 5. Hysteria 2
 const hy2Uri = 'hy2://hy2pass@hy2.example.com:8443?sni=hy2.example.com&obfs=salamander&obfs-password=obfspass#Hysteria2-Node'
 const parsedHy2 = parseHysteria2Uri(hy2Uri)

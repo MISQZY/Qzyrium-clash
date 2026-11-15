@@ -265,7 +265,7 @@ export function parseVlessUri(uri: string): ProxyNodeConfig | null {
       }
     } else if (network === 'grpc') {
       node['grpc-opts'] = {
-        'grpc-service-name': serviceName || path || ''
+        'grpc-service-name': serviceName ?? params.get('path') ?? ''
       }
     }
 
@@ -314,7 +314,7 @@ export function parseTrojanUri(uri: string): ProxyNodeConfig | null {
       }
     } else if (network === 'grpc') {
       node['grpc-opts'] = {
-        'grpc-service-name': serviceName || path || ''
+        'grpc-service-name': serviceName ?? params.get('path') ?? ''
       }
     }
 

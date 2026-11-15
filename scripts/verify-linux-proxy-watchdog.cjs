@@ -3,7 +3,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { spawn } = require('node:child_process')
 const { PassThrough } = require('node:stream')
-const { watch } = require('../resources/linux-proxy-watchdog.cjs')
+const { watch, acquireLease } = require('../resources/linux-proxy-watchdog.cjs')
 const { entries } = require('../resources/linux-proxy-recovery.cjs')
 
 async function verify() {
@@ -11,6 +11,39 @@ async function verify() {
   fs.mkdirSync(root, { recursive: true })
   const directory = fs.mkdtempSync(path.join(root, 'run-'))
   const filename = path.join(directory, 'linux-proxy-recovery.json')
+  const lock = path.join(directory, 'linux-proxy-recovery.lock')
+  for (const malformed of ['', '{"pid":', '{}', 'null']) {
+    fs.writeFileSync(lock, malformed)
+    const release = await acquireLease(lock)
+    assert.equal(JSON.parse(fs.readFileSync(lock, 'utf8')).pid, process.pid, 'abandoned malformed leases are recovered')
+    assert.ok(!fs.readdirSync(directory).some(name => name.endsWith('.tmp')), 'publication removes the candidate file')
+    release()
+    assert.ok(!fs.existsSync(lock))
+  }
+
+  // A legacy writer completing its JSON must become a live lease, not be reclaimed.
+  fs.writeFileSync(lock, '')
+  let acquired = false
+  const waiting = acquireLease(lock).then(release => { acquired = true; return release })
+  await new Promise(resolve => setTimeout(resolve, 100))
+  fs.writeFileSync(lock, JSON.stringify({ pid: process.pid, token: 'legacy-live' }))
+  await new Promise(resolve => setTimeout(resolve, 2200))
+  assert.equal(acquired, false, 'a live owner must retain its lease beyond malformed-write grace')
+  fs.unlinkSync(lock)
+  const releaseWaiting = await waiting
+  releaseWaiting()
+
+  // Contenders must serialize, including while reclaiming the same malformed file.
+  fs.writeFileSync(lock, '')
+  const contenders = await Promise.all([1, 2, 3].map(async () => {
+    const release = await acquireLease(lock)
+    const token = JSON.parse(fs.readFileSync(lock, 'utf8')).token
+    await new Promise(resolve => setTimeout(resolve, 100))
+    assert.equal(JSON.parse(fs.readFileSync(lock, 'utf8')).token, token, 'contenders cannot replace a live lease')
+    release()
+    return token
+  }))
+  assert.equal(new Set(contenders).size, 3)
   const snapshot = { version: 1, backend: 'gnome', binary: 'gsettings',
     values: entries('gnome').map(entry => ({ ...entry, value: entry.key === 'mode' ? "'auto'" : "'original'" })) }
   fs.writeFileSync(filename, JSON.stringify(snapshot))

@@ -9,34 +9,57 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 async function acquireLease(filename) {
   const token = randomUUID()
-  for (let attempt = 0; attempt < 250; attempt++) {
-    try {
-      fs.writeFileSync(filename, JSON.stringify({ pid: process.pid, token }), { flag: 'wx', mode: 0o600 })
-      return () => {
-        if (JSON.parse(fs.readFileSync(filename, 'utf8')).token === token) fs.unlinkSync(filename)
-      }
-    } catch (error) {
-      if (error.code !== 'EEXIST') throw error
-      let text
-      try { text = fs.readFileSync(filename, 'utf8') }
-      catch (readError) { if (readError.code === 'ENOENT') continue; throw readError }
+  const candidate = `${filename}.${process.pid}.${token}.tmp`
+  // Publish a complete lease atomically: a crash while writing cannot leave an empty lock.
+  fs.writeFileSync(candidate, JSON.stringify({ pid: process.pid, token }), { flag: 'wx', mode: 0o600 })
+  let invalidLease, invalidSince = 0
+  try {
+    for (let attempt = 0; attempt < 250; attempt++) {
       try {
-        const { pid } = JSON.parse(text)
-        if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error('Invalid Linux proxy recovery lease', { cause: error })
-        try { process.kill(pid, 0) }
-        catch (probeError) {
-          if (probeError.code !== 'ESRCH') throw probeError
-          if (fs.readFileSync(filename, 'utf8') === text) fs.unlinkSync(filename)
-          continue
+        fs.linkSync(candidate, filename)
+        return () => {
+          if (JSON.parse(fs.readFileSync(filename, 'utf8')).token === token) fs.unlinkSync(filename)
         }
-      } catch (parseError) {
-        // A concurrent watcher may still be writing its new lease.
-        if (!(parseError instanceof SyntaxError)) throw parseError
+      } catch (error) {
+        if (error.code !== 'EEXIST') throw error
+      }
+      try {
+        const text = fs.readFileSync(filename, 'utf8')
+        let lease
+        try { lease = JSON.parse(text) }
+        catch (parseError) { if (!(parseError instanceof SyntaxError)) throw parseError }
+        if (Number.isSafeInteger(lease?.pid) && lease.pid > 0) {
+          invalidLease = undefined
+          try { process.kill(lease.pid, 0) }
+          catch (probeError) {
+            if (probeError.code !== 'ESRCH') throw probeError
+            if (fs.readFileSync(filename, 'utf8') === text) fs.unlinkSync(filename)
+            continue
+          }
+        } else {
+          // Older watchers wrote in place. Give an unfinished write time to complete,
+          // then recover a stable malformed lock left by a crashed writer.
+          const stat = fs.statSync(filename)
+          const identity = JSON.stringify([text, stat.dev, stat.ino, stat.size, stat.mtimeMs, stat.ctimeMs])
+          if (invalidLease !== identity) {
+            invalidLease = identity
+            invalidSince = Date.now()
+          } else if (Date.now() - invalidSince >= 2000 && fs.readFileSync(filename, 'utf8') === text) {
+            fs.unlinkSync(filename)
+            continue
+          }
+        }
+      } catch (error) {
+        // The owner or another waiting watcher may have removed the previous lease.
+        if (error.code === 'ENOENT') continue
+        throw error
       }
       await delay(100)
     }
+    throw new Error('Previous Linux proxy recovery is still running')
+  } finally {
+    fs.unlinkSync(candidate)
   }
-  throw new Error('Previous Linux proxy recovery is still running')
 }
 
 async function watch(input, directory, execute = promisify(execFile), { ready = () => {}, graceMs = 6000 } = {}) {
