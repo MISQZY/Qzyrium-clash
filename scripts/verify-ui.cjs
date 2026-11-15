@@ -639,6 +639,9 @@ if (process.type === 'renderer') {
       await evaluate(`document.querySelector('button[aria-label="Stop core"]').click()`)
       await waitFor(`document.querySelector('.sidebar-vpn-badge').dataset.state === 'off'`)
       await waitFor(`document.querySelector('.overview-power-section').dataset.powerState === 'stopped'`)
+      // The state attribute can update before Chromium settles inherited visibility.
+      // Wait for the rendered timer as well; a timer that stays visible still fails.
+      await waitFor(`getComputedStyle(document.querySelector('.overview-session-duration')).visibility === 'hidden'`)
       assert.equal(await evaluate(`getComputedStyle(document.querySelector('.overview-session-duration')).visibility`), 'hidden', 'timer is hidden when disconnected')
       assert.equal(await evaluate(`document.querySelector('.overview-duration-slot').getAttribute('aria-hidden')`), 'true', 'disconnected timer is hidden from assistive technology')
       assert.equal(await evaluate(`document.querySelector('.overview-power-section [role="status"]').textContent`), 'Disconnected')
@@ -651,6 +654,7 @@ if (process.type === 'renderer') {
       await waitFor(`document.querySelector('button[aria-label="Stop core"]') && document.querySelector('.overview-power-section [role="status"]').textContent === 'Connected'`)
       await waitFor(`document.querySelector('.sidebar-vpn-badge').dataset.state === 'on'`)
       await waitFor(`document.querySelector('.overview-session-duration')?.textContent.startsWith('00:00:')`)
+      await waitFor(`getComputedStyle(document.querySelector('.overview-session-duration')).visibility === 'visible'`)
       assert.equal(await evaluate(`getComputedStyle(document.querySelector('.overview-session-duration')).visibility`), 'visible', 'timer becomes visible after reconnecting')
       assert.equal(await evaluate(`document.querySelector('.overview-duration-slot').getAttribute('aria-hidden')`), 'false', 'connected timer is accessible again')
       result.checks.push('Rules/Global keep the running core indicator on, including without capture; stopping turns it off')
@@ -697,7 +701,11 @@ if (process.type === 'renderer') {
     } catch (err) {
       const layout = await evaluate(`(() => {
         const page = document.querySelector('.page-scroll'), bounds = page?.getBoundingClientRect();
+        const timer = document.querySelector('.overview-session-duration'), slot = timer?.closest('.overview-duration-slot');
         return { width: innerWidth, height: innerHeight, dpr: devicePixelRatio,
+          timer: timer && { visibility: getComputedStyle(timer).visibility, text: timer.textContent,
+            slotClass: slot?.className, slotVisibility: slot && getComputedStyle(slot).visibility,
+            ariaHidden: slot?.getAttribute('aria-hidden'), powerState: document.querySelector('.overview-power-section')?.dataset.powerState },
           page: page && { width: page.clientWidth, scrollWidth: page.scrollWidth, height: page.clientHeight, scrollHeight: page.scrollHeight },
           overflowing: bounds && Array.from(page.querySelectorAll('*')).map(el => {
             const r = el.getBoundingClientRect();
