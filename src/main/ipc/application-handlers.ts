@@ -1,33 +1,21 @@
 import { app, clipboard, shell } from 'electron'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
 import { IPC_CHANNELS } from '@shared/ipc'
 import type { ServiceManager } from '../services/ServiceManager'
 import { logger } from '../utils/logger'
 import { isProcessElevated, restartAsAdmin } from '../utils/elevation'
 import { saveRestartState, clearRestartState } from '../utils/restart-state'
+import { getProcessIconDataUrl, clearProcessIconCache } from '../utils/process-icon'
 import type { TrustedRegistrar } from './trusted-handler'
 
 export function registerApplicationHandlers(
   handle: TrustedRegistrar,
   services: Pick<ServiceManager, 'windowService' | 'kernelService' | 'sysProxyService' | 'desktopService' | 'updateService' | 'settingService' | 'profileService'>
 ): void {
-  const MAX_ICON_CACHE = 80
   handle(IPC_CHANNELS.APP_IMPORT_RENDERER_READY, () => services.windowService.importRendererReady())
   handle(IPC_CHANNELS.APP_COMPLETE_PROFILE_IMPORT, (_, id: string) => services.windowService.completeProfileImport(id))
 
-  const iconCache = new Map<string, string>()
-
-  const setCachedIcon = (key: string, value: string) => {
-    if (iconCache.size >= MAX_ICON_CACHE) {
-      const oldest = iconCache.keys().next().value
-      if (oldest) iconCache.delete(oldest)
-    }
-    iconCache.set(key, value)
-  }
-
   handle(IPC_CHANNELS.APP_ENTER_CORE_ONLY, () => {
-    iconCache.clear()
+    clearProcessIconCache()
     // Let the IPC response finish before destroying its sender.
     setImmediate(() => services.windowService.setCoreOnlyMode(true))
   })
@@ -84,58 +72,7 @@ export function registerApplicationHandlers(
   })
 
   handle(IPC_CHANNELS.APP_GET_PROCESS_ICON, async (_, processPath: string) => {
-    if (!processPath || typeof processPath !== 'string') return null
-    if (iconCache.has(processPath)) return iconCache.get(processPath) || null
-    try {
-      const trimmed = processPath.trim()
-      if (process.platform === 'win32') {
-        // Disallow UNC paths, network shares, namespaces, and control characters to prevent NTLM leak / SMB probe
-        if (/^([\\/]{2}|\\\\?\?\\)/i.test(trimmed) || trimmed.includes('\0')) {
-          setCachedIcon(processPath, '')
-          return null
-        }
-      }
-
-      const lower = trimmed.toLowerCase()
-      if (lower.includes('qzyrium') || lower === 'qzyrium-clash.exe' || lower === 'qzyrium-clash') {
-        const appIcon = await app.getFileIcon(process.execPath, { size: 'normal' }).catch(() => null)
-        if (appIcon && !appIcon.isEmpty()) {
-          const dataUrl = appIcon.toDataURL()
-          setCachedIcon(processPath, dataUrl)
-          return dataUrl
-        }
-      }
-
-      let targetPath = trimmed
-      if (!existsSync(targetPath)) {
-        if (process.platform === 'win32') {
-          if (/^[a-zA-Z0-9_.-]+\.exe$/i.test(trimmed)) {
-            const windir = process.env.WINDIR || process.env.SystemRoot || 'C:\\Windows'
-            const candidate = join(windir, 'System32', trimmed)
-            if (existsSync(candidate)) {
-              targetPath = candidate
-            }
-          }
-        }
-      }
-
-      const isLocalAbsolute = process.platform === 'win32'
-        ? /^[a-zA-Z]:[\\/]/.test(targetPath)
-        : targetPath.startsWith('/')
-
-      if (isLocalAbsolute && existsSync(targetPath)) {
-        const icon = await app.getFileIcon(targetPath, { size: 'normal' })
-        if (icon && !icon.isEmpty()) {
-          const dataUrl = icon.toDataURL()
-          setCachedIcon(processPath, dataUrl)
-          return dataUrl
-        }
-      }
-    } catch {
-      // Ignore file icon extraction failures
-    }
-    setCachedIcon(processPath, '')
-    return null
+    return getProcessIconDataUrl(processPath)
   })
 
   handle(IPC_CHANNELS.APP_GET_APP_VERSION, () => {
