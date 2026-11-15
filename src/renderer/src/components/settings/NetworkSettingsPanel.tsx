@@ -1,27 +1,21 @@
 import { NativeSelect } from '../ui/native-select'
-
 import { type SettingsSection } from '@shared/settings-config'
 import { SETTINGS_SECTIONS } from '../../lib/settings-sections'
 import { useTranslations } from '../../i18n'
-
 import { SettingsDisclosure } from '../SettingsDisclosure'
-
 import type { AppConfig } from '@shared/app-config'
 import type { SysProxyStatus } from '@shared/ipc'
 import type { LogLevel } from '@shared/types'
-
 import { SettingRow } from '../Page'
 import { Card, CardContent } from '../ui/card'
-
 import { Input } from '../ui/input'
 import { Textarea } from '../ui/textarea'
 import { Switch } from '../ui/switch'
 import { SettingsFields } from '../SettingsFields'
-
 import { coreFields, tunFields } from '@shared/settings-fields'
-
 import type { SettingsDraft } from '../../hooks/useSettingsDraft'
 import { EffectiveCoreSummary } from './EffectiveCoreSummary'
+import { AdminElevationNotice } from './AdminElevationNotice'
 
 export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy, onToggleSysProxy,
   isElevated, restartingAdmin, handleRestartAsAdmin, setTunAdminPrompt }: {
@@ -38,19 +32,11 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Icon className="size-4 text-primary" />{title}</h2>
         {section === 'tun' && <>
           {isElevated === false && (
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3.5 text-xs text-warning">
-              <span className="min-w-0 flex-1 leading-relaxed">
-                {t('tunAdminExplanation')}
-              </span>
-              <button
-                type="button"
-                disabled={restartingAdmin}
-                onClick={() => void handleRestartAsAdmin()}
-                className="shrink-0 rounded bg-amber-500 px-2.5 py-1 text-[11px] font-medium text-black transition-transform hover:opacity-90 active:scale-95"
-              >
-                {restartingAdmin ? common('restarting') || 'Restarting...' : common('restartAsAdministrator')}
-              </button>
-            </div>
+            <AdminElevationNotice
+              className="mb-4 p-3.5"
+              restartingAdmin={restartingAdmin}
+              onRestartAsAdmin={handleRestartAsAdmin}
+            />
           )}
           <SettingRow
             title={t('enableTUN')}
