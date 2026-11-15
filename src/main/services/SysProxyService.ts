@@ -31,12 +31,13 @@ export class SysProxyService implements BaseService {
   async initialize(): Promise<void> {
     // Restore only changes owned by this app, preserving somebody else's proxy.
     if (process.platform === 'win32') await this.registry.restore()
+    if (process.platform === 'linux') await this.linuxProxy.disable()
   }
 
   async dispose(): Promise<void> {
     this.coreRunning = false
     await this.proxyUpdate
-    if (this.enabled || process.platform === 'win32') {
+    if (this.enabled || process.platform === 'win32' || process.platform === 'linux') {
       await this.applySysProxy(false)
     }
     this.closePacServer()
@@ -145,6 +146,11 @@ export class SysProxyService implements BaseService {
           flushSystemDns()
         }
       } catch (err) {
+        if (enable) {
+          await this.linuxProxy.disable().then(() => { this.enabled = false })
+            .catch(error => logger.error('Failed to restore Linux proxy after a partial update', error))
+        }
+        if (!hadServer) this.closePacServer()
         logger.error('Failed to update Linux system proxy settings', err)
         throw err
       }

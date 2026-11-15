@@ -1,8 +1,13 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { logger } from './logger'
+import path from 'node:path'
+import { getAppPaths } from './paths'
+import { writeFileAtomicAsync } from './atomicWrite'
+import { entries, readSnapshot, restoreSnapshot, type LinuxProxySnapshot } from '../../../resources/linux-proxy-recovery.cjs'
 
-const execute = promisify(execFile)
+const executeFile = promisify(execFile)
+const execute = (binary: string, args: string[], options = { timeout: 5000 }) => executeFile(binary, args, options)
 
 function toGVariantString(value: string): string {
   return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
@@ -11,6 +16,38 @@ function toGVariantString(value: string): string {
 export class LinuxProxySettings {
   private gsettingsAvailable: boolean | null = null
   private kwriteconfigBin: string | null | undefined = undefined
+
+  constructor(private filename = () => path.join(getAppPaths().userData, 'linux-proxy-recovery.json')) {}
+
+  private async capture(): Promise<LinuxProxySnapshot> {
+    const previous = readSnapshot(this.filename())
+    if (previous) return previous
+    const kde = this.isKde() ? await this.findKwriteconfig() : null
+    const backend = kde ? 'kde' : await this.isGnomeAvailable() ? 'gnome' : 'kde'
+    const binary = backend === 'gnome' ? 'gsettings' : kde ?? await this.findKwriteconfig()
+    if (!binary) throw new Error('Failed to find a supported Linux proxy backend')
+    const snapshot: LinuxProxySnapshot = { version: 1, backend, binary, values: [] }
+    const absent = `qzyrium-absent-${Math.random().toString(36).slice(2)}`
+    for (const entry of entries(backend)) {
+      const { stdout } = await execute(backend === 'gnome' ? binary : binary.replace('kwriteconfig', 'kreadconfig'),
+        backend === 'gnome' ? ['get', entry.schema, entry.key]
+          : ['--file', 'kioslaverc', '--group', entry.schema, '--key', entry.key, '--default', absent], { timeout: 5000 })
+      const value = stdout.replace(/\r?\n$/, '')
+      snapshot.values.push({ ...entry, value: backend === 'kde' && value === absent ? null : value })
+    }
+    await writeFileAtomicAsync(this.filename(), JSON.stringify(snapshot))
+    return snapshot
+  }
+
+  private async apply(change: (snapshot: LinuxProxySnapshot) => Promise<boolean>): Promise<void> {
+    const snapshot = await this.capture()
+    try {
+      if (!await change(snapshot)) throw new Error('Failed to apply Linux system proxy settings')
+    } catch (error) {
+      await this.disable().catch(recoveryError => logger.error('Failed to restore Linux proxy after partial update', recoveryError))
+      throw error
+    }
+  }
 
   private isKde(): boolean {
     const desktop = (process.env.XDG_CURRENT_DESKTOP || '').toLowerCase()
@@ -110,20 +147,6 @@ export class LinuxProxySettings {
     }
   }
 
-  private async disableKde(): Promise<boolean> {
-    const bin = await this.findKwriteconfig()
-    if (!bin) return false
-    try {
-      await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'ProxyType', '0'])
-      await this.reloadKde()
-      logger.info('Linux KDE system proxy disabled')
-      return true
-    } catch (err) {
-      logger.warn(`Failed to disable KDE proxy settings: ${String(err)}`)
-      return false
-    }
-  }
-
   private async setGnomeManual(host: string, port: number, bypass: string[] = []): Promise<boolean> {
     if (!(await this.isGnomeAvailable())) return false
     try {
@@ -158,48 +181,16 @@ export class LinuxProxySettings {
     }
   }
 
-  private async disableGnome(): Promise<boolean> {
-    if (!(await this.isGnomeAvailable())) return false
-    try {
-      await execute('gsettings', ['set', 'org.gnome.system.proxy', 'mode', "'none'"])
-      logger.info('Linux GNOME system proxy disabled')
-      return true
-    } catch (err) {
-      logger.warn(`Failed to disable GNOME proxy settings: ${String(err)}`)
-      return false
-    }
-  }
-
   async setManual(host: string, port: number, bypass: string[] = []): Promise<void> {
-    if (this.isKde()) {
-      const ok = await this.setKdeManual(host, port, bypass)
-      if (ok) return
-    }
-    const gnomeOk = await this.setGnomeManual(host, port, bypass)
-    if (gnomeOk) return
-    if (!this.isKde() && await this.setKdeManual(host, port, bypass)) return
-    throw new Error('Failed to apply Linux system proxy settings')
+    await this.apply(snapshot => snapshot.backend === 'kde'
+      ? this.setKdeManual(host, port, bypass) : this.setGnomeManual(host, port, bypass))
   }
 
   async setAuto(pacUrl: string): Promise<void> {
-    if (this.isKde()) {
-      const ok = await this.setKdeAuto(pacUrl)
-      if (ok) return
-    }
-    const gnomeOk = await this.setGnomeAuto(pacUrl)
-    if (gnomeOk) return
-    if (!this.isKde() && await this.setKdeAuto(pacUrl)) return
-    throw new Error('Failed to apply Linux automatic proxy settings')
+    await this.apply(snapshot => snapshot.backend === 'kde' ? this.setKdeAuto(pacUrl) : this.setGnomeAuto(pacUrl))
   }
 
   async disable(): Promise<void> {
-    if (this.isKde()) {
-      const ok = await this.disableKde()
-      if (ok) return
-    }
-    const gnomeOk = await this.disableGnome()
-    if (gnomeOk) return
-    if (!this.isKde() && await this.disableKde()) return
-    throw new Error('Failed to disable Linux system proxy settings')
+    await restoreSnapshot(this.filename(), execute)
   }
 }

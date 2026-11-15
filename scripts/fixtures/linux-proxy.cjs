@@ -11,6 +11,7 @@ function loadLinuxProxy(execute, env = {}, filename) {
     if (name === './logger') return { logger: { info() {}, warn() {}, error() {} } }
     if (name === './paths') return { getAppPaths: () => { throw new Error('Tests must not access userData') } }
     if (name === './atomicWrite') return require('./typescript.cjs').loadTypeScript('src/main/utils/atomicWrite.ts')
+    if (name === '../../../resources/linux-proxy-recovery.cjs') return require('../../resources/linux-proxy-recovery.cjs')
     return require(name)
   }, { platform: 'linux', env })
   return new exports.LinuxProxySettings(filename ? () => filename : undefined)

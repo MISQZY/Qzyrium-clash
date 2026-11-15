@@ -10,6 +10,7 @@ function load(file, dependencies = {}) {
   }).outputText
   new vm.Script(`(function(exports, require){${code}\n})`, { filename: file }).runInThisContext()(exports, name => {
     if (name in dependencies) return dependencies[name]
+    if (name.startsWith('.') && name.endsWith('.cjs')) return require(path.resolve(path.dirname(file), name))
     const target = name.startsWith('@shared/') ? path.resolve('src/shared', name.slice(8) + '.ts')
       : name.startsWith('.') ? path.resolve(path.dirname(file), name + '.ts') : null
     if (name.startsWith('.') && name.endsWith('.json')) return require(path.resolve(path.dirname(file), name))
