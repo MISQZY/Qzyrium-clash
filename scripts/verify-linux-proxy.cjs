@@ -20,6 +20,11 @@ async function verify() {
     await proxy.setManual('127.0.0.1', 7895, [])
     const writes = commands.filter(command => command.includes(desktop === 'GNOME' ? 'ignore-hosts' : 'NoProxyFor'))
     assert.equal(writes.at(-1).at(-1), desktop === 'GNOME' ? '[]' : '')
+    if (desktop === 'KDE') {
+      await proxy.setManual('::1', 7895)
+      assert.equal(commands.filter(command => command.includes('httpProxy')).at(-1).at(-1), 'http://[::1]:7895')
+      assert.equal(commands.filter(command => command.includes('socksProxy')).at(-1).at(-1), 'socks://[::1]:7895')
+    }
   }
   console.log('PASS: Linux proxy backend failures propagate to the caller')
 }

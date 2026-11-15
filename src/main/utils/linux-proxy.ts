@@ -79,11 +79,12 @@ export class LinuxProxySettings {
     const bin = await this.findKwriteconfig()
     if (!bin) return false
     try {
-      const url = `http://${host}:${port}`
+      const address = host.includes(':') ? `[${host}]` : host
+      const url = `http://${address}:${port}`
       await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'ProxyType', '1'])
       await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'httpProxy', url])
       await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'httpsProxy', url])
-      await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'socksProxy', `socks://${host}:${port}`])
+      await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'socksProxy', `socks://${address}:${port}`])
       await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'NoProxyFor', bypass.join(',')])
       await this.reloadKde()
       logger.info(`Linux KDE system proxy set to manual: ${host}:${port}`)
