@@ -1,28 +1,119 @@
-import { useState, useEffect, ReactNode } from 'react'
+import { useState, useEffect, ReactNode, CSSProperties } from 'react'
 
 interface ProfileLogoProps {
   url?: string
   className?: string
   fallback: ReactNode
+  loaderClassName?: string
+  loaderSize?: number
 }
 
-export function ProfileLogo({ url, className, fallback }: ProfileLogoProps) {
+const loadedUrls = new Set<string>()
+
+export function ProfileLogo({ url, className, fallback, loaderClassName, loaderSize }: ProfileLogoProps) {
   const [hasError, setHasError] = useState(false)
+  const [isLoading, setIsLoading] = useState(() => Boolean(url && !loadedUrls.has(url)))
+  const [prevUrl, setPrevUrl] = useState(url)
+
+  if (url !== prevUrl) {
+    setPrevUrl(url)
+    setHasError(false)
+    setIsLoading(Boolean(url && !loadedUrls.has(url)))
+  }
 
   useEffect(() => {
-    setHasError(false)
+    if (!url) {
+      setHasError(false)
+      setIsLoading(false)
+      return
+    }
+
+    if (loadedUrls.has(url)) {
+      setHasError(false)
+      setIsLoading(false)
+      return
+    }
+
+    let active = true
+    const img = new Image()
+
+    const handleSuccess = () => {
+      if (!active) return
+      clearTimeout(timer)
+      loadedUrls.add(url)
+      setIsLoading(false)
+    }
+
+    const handleError = () => {
+      if (!active) return
+      clearTimeout(timer)
+      loadedUrls.delete(url)
+      setHasError(true)
+      setIsLoading(false)
+    }
+
+    const timer = setTimeout(handleError, 10000)
+
+    img.onload = handleSuccess
+    img.onerror = handleError
+    img.src = url
+
+    if (img.complete) {
+      clearTimeout(timer)
+      if (img.naturalWidth > 0) {
+        handleSuccess()
+      } else {
+        handleError()
+      }
+      return () => {
+        active = false
+      }
+    }
+
+    return () => {
+      active = false
+      clearTimeout(timer)
+      img.onload = null
+      img.onerror = null
+    }
   }, [url])
 
-  if (url && !hasError) {
+  if (!url || hasError) {
+    return <>{fallback}</>
+  }
+
+  const isLarge = className?.includes('size-7')
+  const size = loaderSize ?? (isLarge ? 18 : undefined)
+  const loaderStyle: CSSProperties = {
+    '--latency-loader-margin': '0px',
+    ...(size
+      ? {
+          '--latency-loader-size': `${size}px`,
+          '--latency-loader-border': size >= 16 ? '2px' : '1.5px'
+        }
+      : {})
+  } as CSSProperties
+
+  if (isLoading) {
     return (
-      <img
-        src={url}
-        alt=""
-        className={className}
-        onError={() => setHasError(true)}
+      <span
+        className={`latency-loader shrink-0 ${loaderClassName ?? ''}`.trim()}
+        style={loaderStyle}
+        aria-hidden="true"
       />
     )
   }
 
-  return <>{fallback}</>
+  return (
+    <img
+      src={url}
+      alt=""
+      className={className}
+      onError={() => {
+        loadedUrls.delete(url)
+        setHasError(true)
+      }}
+    />
+  )
 }
+
