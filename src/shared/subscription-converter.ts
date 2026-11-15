@@ -269,6 +269,130 @@ export function parseVlessUri(uri: string): ProxyNodeConfig | null {
       }
     }
 
+    const packetEncoding = params.get('packetEncoding') || params.get('packet-encoding')
+    if (packetEncoding) node['packet-encoding'] = packetEncoding
+    const alpn = params.get('alpn')
+    if (alpn) node.alpn = alpn.split(',').map((s) => s.trim())
+
+    return node
+  } catch {
+    return null
+  }
+}
+
+export function parseWireGuardUri(uri: string): ProxyNodeConfig | null {
+  try {
+    const url = new URL(uri)
+    const server = cleanServerHost(url.hostname)
+    const port = Number(url.port || 51820)
+    const privateKey = safeDecodeURIComponent(url.username)
+    if (!server || !port || isNaN(port) || !privateKey) return null
+
+    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `WireGuard-${server}:${port}`
+    const params = url.searchParams
+    const publicKey = params.get('publickey') || params.get('public-key') || params.get('pk')
+    const ip = params.get('ip') || params.get('address')
+    const presharedKey = params.get('pre-shared-key') || params.get('presharedkey') || params.get('preshared-key') || params.get('psk')
+    const mtu = params.get('mtu') ? Number(params.get('mtu')) : undefined
+    const reserved = params.get('reserved')
+
+    if (!publicKey || !ip) return null
+
+    const node: ProxyNodeConfig = {
+      name,
+      type: 'wireguard',
+      server,
+      port,
+      ip,
+      'public-key': publicKey,
+      'private-key': privateKey,
+      udp: true
+    }
+
+    if (presharedKey) node['pre-shared-key'] = presharedKey
+    if (mtu && !isNaN(mtu)) node.mtu = mtu
+    if (reserved) {
+      try {
+        node.reserved = reserved.split(',').map(Number)
+      } catch {}
+    }
+
+    return node
+  } catch {
+    return null
+  }
+}
+
+export function parseHysteriaUri(uri: string): ProxyNodeConfig | null {
+  try {
+    const url = new URL(uri)
+    const server = cleanServerHost(url.hostname)
+    const port = Number(url.port || 443)
+    if (!server || !port || isNaN(port)) return null
+
+    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `Hysteria-${server}:${port}`
+    const params = url.searchParams
+    const auth = params.get('auth') || url.username || ''
+    const peer = params.get('peer') || params.get('sni')
+    const up = params.get('up') || params.get('upmbps')
+    const down = params.get('down') || params.get('downmbps')
+    const insecure = params.get('insecure') === '1'
+    const alpn = params.get('alpn')
+    const protocol = params.get('protocol') || 'udp'
+
+    const node: ProxyNodeConfig = {
+      name,
+      type: 'hysteria',
+      server,
+      port,
+      protocol,
+      udp: true
+    }
+
+    if (auth) node['auth-str'] = auth
+    if (up) node.up = up
+    if (down) node.down = down
+    if (peer) node.sni = peer
+    if (insecure) node['skip-cert-verify'] = true
+    if (alpn) node.alpn = alpn.split(',').map((s) => s.trim())
+
+    return node
+  } catch {
+    return null
+  }
+}
+
+export function parseSnellUri(uri: string): ProxyNodeConfig | null {
+  try {
+    const url = new URL(uri)
+    const server = cleanServerHost(url.hostname)
+    const port = Number(url.port)
+    const psk = safeDecodeURIComponent(url.username)
+    if (!server || !port || isNaN(port) || !psk) return null
+
+    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `Snell-${server}:${port}`
+    const params = url.searchParams
+    const version = params.get('version') ? Number(params.get('version')) : 1
+    const obfs = params.get('obfs')
+    const obfsHost = params.get('obfs-host')
+
+    const node: ProxyNodeConfig = {
+      name,
+      type: 'snell',
+      server,
+      port,
+      psk,
+      version: isNaN(version) ? 1 : version,
+      udp: true
+    }
+
+    if (obfs) {
+      node['obfs-opts'] = {
+        mode: obfs,
+        ...(obfsHost ? { host: obfsHost } : {})
+      }
+    }
+
     return node
   } catch {
     return null
@@ -433,6 +557,9 @@ export function parseProxyUri(rawLine: string): ProxyNodeConfig | null {
   if (/^vless:\/\//i.test(line)) return parseVlessUri(line)
   if (/^trojan:\/\//i.test(line)) return parseTrojanUri(line)
   if (/^(?:hysteria2|hy2):\/\//i.test(line)) return parseHysteria2Uri(line)
+  if (/^hysteria:\/\//i.test(line)) return parseHysteriaUri(line)
+  if (/^wireguard:\/\//i.test(line)) return parseWireGuardUri(line)
+  if (/^snell:\/\//i.test(line)) return parseSnellUri(line)
   if (/^tuic:\/\//i.test(line)) return parseTuicUri(line)
   if (/^(?:socks5|socks|http):\/\//i.test(line)) return parseSocksHttpUri(line)
 
