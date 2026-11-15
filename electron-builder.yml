@@ -66,8 +66,6 @@ linux:
   artifactName: Qzyrium-clash_${version}_${arch}.${ext}
   synopsis: Qzyrium Clash VPN Client
   description: Fast and secure proxy/VPN client powered by Mihomo
-  desktop:
-    StartupWMClass: Qzyrium-clash
 deb:
   depends:
     - libnotify4
