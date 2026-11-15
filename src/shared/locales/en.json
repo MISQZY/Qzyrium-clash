@@ -52,6 +52,7 @@
   "tunRequiresAdmin": "TUN mode requires Administrator privileges. Restart as Administrator.",
   "jsonConfig": "JSON configuration",
   "routingMode": "Routing mode",
+  "profiles": "Profiles",
   "modeRule": "Rule",
   "modeGlobal": "Global",
   "modeDirect": "Direct",

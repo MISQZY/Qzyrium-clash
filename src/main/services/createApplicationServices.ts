@@ -43,7 +43,8 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
       kernelService,
       sysProxyService,
       settingService,
-      networkModeController
+      networkModeController,
+      profileService
     )
     const desktopService = new types.DesktopService(settingService, profileService, kernelService, sysProxyService, windowService, () => {
       windowService.broadcast('event:settings-changed', null)

@@ -111,7 +111,8 @@ app.whenReady().then(async () => {
     getStatus: () => core,
     getProxies: async () => proxiesData,
     selectProxy: async (g, p) => { selectedProxy = { group: g, proxy: p }; proxiesData[g].now = p },
-    patchConfigs: async () => {}
+    patchConfigs: async () => {},
+    reloadConfig: async () => {}
   }
   const testSettings = {
     general: { language: 'ru' },
@@ -192,6 +193,39 @@ app.whenReady().then(async () => {
   assert.ok(innerProxyOption, 'Inner group PROXY must exist in GLOBAL group')
   assert.equal(innerProxyOption.checked, true, 'Inner group PROXY must be checked')
   await fullService.dispose()
+
+  // Verify Profiles menu when ProfileService is provided
+  const testProfiles = [
+    { id: 'sub-1', name: 'Profile One' },
+    { id: 'sub-2', name: 'Profile Two' }
+  ]
+  let activeProfileId = 'sub-1'
+  const mockProfileService = {
+    getProfiles: () => testProfiles,
+    getActiveProfile: () => testProfiles.find(p => p.id === activeProfileId),
+    setActiveProfile: async id => { activeProfileId = id }
+  }
+  const profileTrayService = new TrayService(
+    testWinService,
+    testKernel,
+    { getStatus: () => ({ enabled: false }), setSysProxy: async () => {} },
+    testSettingService,
+    { setRoutingMode: async () => {} },
+    mockProfileService
+  )
+  await profileTrayService.initialize()
+  profileTrayService.updateContextMenu()
+  const profilesMenu = currentTray.menu.find(item => item.label?.startsWith('Профили'))
+  assert.ok(profilesMenu, 'Profiles menu item must exist')
+  assert.equal(profilesMenu.submenu.length, 2, 'Must have 2 profile options')
+  assert.equal(profilesMenu.submenu.find(i => i.label === 'Profile One').checked, true)
+  assert.equal(profilesMenu.submenu.find(i => i.label === 'Profile Two').checked, false)
+  await profilesMenu.submenu.find(i => i.label === 'Profile Two').click()
+  assert.equal(activeProfileId, 'sub-2', 'Selecting profile in tray must update active profile')
+  profileTrayService.updateContextMenu()
+  const updatedProfilesMenu = currentTray.menu.find(item => item.label?.startsWith('Профили'))
+  assert.equal(updatedProfilesMenu.submenu.find(i => i.label === 'Profile Two').checked, true)
+  await profileTrayService.dispose()
 
   console.log('PASS: VPN state, rounded transparent corners, four colors, DPI scales and live tray updates')
   app.exit(0)

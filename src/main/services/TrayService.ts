@@ -7,6 +7,7 @@ import { KernelService } from './KernelService'
 import { SysProxyService } from './SysProxyService'
 import { WindowService } from './WindowService'
 import { SettingService } from './SettingService'
+import type { ProfileService } from './ProfileService'
 import { nativeMessages } from '@shared/localization'
 import { getVpnStatus, type VpnStatus } from '@shared/vpn-status'
 import { createTrayIcon } from '../utils/tray-icon'
@@ -27,7 +28,8 @@ export class TrayService implements BaseService {
     kernelService: KernelService,
     sysProxyService: SysProxyService,
     private settingService: SettingService,
-    private commands: NetworkModeController
+    private commands: NetworkModeController,
+    private profileService?: ProfileService
   ) {
     this.windowService = windowService
     this.kernelService = kernelService
@@ -99,6 +101,49 @@ export class TrayService implements BaseService {
       this.updateContextMenu()
     } catch (err) {
       console.error(`Failed to set routing mode to ${mode}:`, err)
+    }
+  }
+
+  private async selectProfile(id: string): Promise<void> {
+    if (!this.profileService) return
+    const active = this.profileService.getActiveProfile()
+    if (active?.id === id) return
+    try {
+      await this.profileService.setActiveProfile(id)
+      const status = this.kernelService.getStatus()
+      if (typeof this.kernelService.reloadConfig === 'function' && (status === 'running' || status === 'starting')) {
+        await this.kernelService.reloadConfig()
+      }
+      this.windowService.broadcast?.('event:settings-changed', null)
+      if (this.kernelService.getStatus() === 'running') {
+        await this.refreshProxies()
+      }
+      this.updateContextMenu()
+    } catch (err) {
+      console.error(`Failed to activate profile ${id} from tray:`, err)
+    }
+  }
+
+  private buildProfileMenu(messages: Record<string, string>): MenuItemConstructorOptions | null {
+    if (!this.profileService) return null
+    const profiles = this.profileService.getProfiles()
+    if (!profiles || profiles.length === 0) return null
+
+    const activeId = this.profileService.getActiveProfile()?.id
+    const activeName = profiles.find((p) => p.id === activeId)?.name || ''
+
+    return {
+      label: `${messages.profiles || 'Profiles'} (${activeName || '—'})`,
+      submenu: profiles.map((p) => {
+        const isSelected = p.id === activeId
+        const label = p.name.length > 40 ? `${p.name.slice(0, 37)}...` : p.name
+        return {
+          label,
+          type: 'radio',
+          checked: isSelected,
+          click: () => void this.selectProfile(p.id)
+        }
+      })
     }
   }
 
@@ -264,6 +309,7 @@ export class TrayService implements BaseService {
     const currentMode: TunnelMode = (settings.kernel?.mode as TunnelMode) || 'rule'
     const isRunning = coreStatus === 'running'
     const proxyGroupMenus = this.buildProxyGroupMenus(currentMode, isRunning)
+    const profileMenu = this.buildProfileMenu(messages)
 
     const contextMenu = Menu.buildFromTemplate([
       {
@@ -300,6 +346,7 @@ export class TrayService implements BaseService {
         }
       },
       { type: 'separator' },
+      ...(profileMenu ? [profileMenu] : []),
       this.buildModeMenu(currentMode, messages),
       ...proxyGroupMenus,
       { type: 'separator' },
