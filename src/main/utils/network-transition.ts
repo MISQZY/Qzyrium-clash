@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { logger } from './logger'
 import { getSystemBinary } from './system-binaries'
 import { getAppPaths } from './paths'
+import { app } from 'electron'
 
 /**
  * Notifies the operating system and WinINet subsystem that internet proxy
@@ -10,7 +11,7 @@ import { getAppPaths } from './paths'
  * to immediately pick up new proxy configurations without restart.
  */
 export function notifySystemProxyChanged(): void {
-  if (process.platform === 'win32') {
+  if (process.platform === 'win32' && typeof app?.getPath === 'function') {
     try {
       const runner = getAppPaths().runnerBinaryPath
       if (existsSync(runner)) {
