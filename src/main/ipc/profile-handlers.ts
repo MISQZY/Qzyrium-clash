@@ -2,6 +2,7 @@ import { type AddProfileDto, IPC_CHANNELS } from '@shared/ipc'
 import type { CustomRuleItem, ProfileInfoPatch } from '@shared/profile'
 import type { ServiceManager } from '../services/ServiceManager'
 import type { TrustedRegistrar } from './trusted-handler'
+import { activateProfile } from '../utils/activate-profile'
 
 export function registerProfileHandlers(
   handle: TrustedRegistrar,
@@ -25,15 +26,7 @@ export function registerProfileHandlers(
   })
 
   handle(IPC_CHANNELS.PROFILE_SET_ACTIVE, async (_, id: string) => {
-    const previousId = services.profileService.getActiveProfile()?.id
-    await services.profileService.setActiveProfile(id)
-    if (previousId !== id) {
-      try { await applyActiveProfile(id) }
-      catch (error) {
-        if (previousId) await services.profileService.setActiveProfile(previousId)
-        throw error
-      }
-    }
+    await activateProfile(services.profileService, services.kernelService, id)
   })
 
   handle(IPC_CHANNELS.PROFILE_ADD, async (_, dto: AddProfileDto) => {

@@ -17,6 +17,7 @@ import type { AppConfig } from '@shared/app-config'
 import type { SysProxyStatus } from '@shared/ipc'
 import { formatBytes } from '@shared/format'
 import type { TrafficStats } from '@shared/types'
+import { activateProfile } from '../utils/activate-profile'
 
 export class TrayService implements BaseService {
   private tray: Tray | null = null
@@ -150,21 +151,17 @@ export class TrayService implements BaseService {
 
   private async selectProfile(id: string): Promise<void> {
     if (!this.profileService) return
-    const active = this.profileService.getActiveProfile()
-    if (active?.id === id) return
     try {
-      await this.profileService.setActiveProfile(id)
-      const status = this.kernelService.getStatus()
-      if (typeof this.kernelService.reloadConfig === 'function' && (status === 'running' || status === 'starting')) {
-        await this.kernelService.reloadConfig()
-      }
-      this.windowService.broadcast?.('event:settings-changed', null)
+      await activateProfile(this.profileService, this.kernelService, id)
       if (this.kernelService.getStatus() === 'running') {
         await this.refreshProxies()
       }
       this.updateContextMenu()
     } catch (err) {
       console.error(`Failed to activate profile ${id} from tray:`, err)
+    } finally {
+      this.windowService.broadcast?.('event:settings-changed', null)
+      this.updateContextMenu()
     }
   }
 
@@ -185,7 +182,7 @@ export class TrayService implements BaseService {
           label,
           type: 'radio',
           checked: isSelected,
-          click: () => void this.selectProfile(p.id)
+          click: () => this.selectProfile(p.id)
         }
       })
     }
