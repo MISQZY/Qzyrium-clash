@@ -10,9 +10,8 @@
     "strict": true,
     "resolveJsonModule": true,
     "types": ["node"],
-    "baseUrl": ".",
     "paths": {
-      "@shared/*": ["src/shared/*"]
+      "@shared/*": ["./src/shared/*"]
     }
   },
   "include": [
