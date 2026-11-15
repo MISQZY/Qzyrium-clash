@@ -4,7 +4,10 @@
   "version": "0.3.2",
   "description": "Qzyrium-clash",
   "main": "./out/main/index.js",
-  "author": "MISQZY",
+  "author": {
+    "name": "MISQZY",
+    "email": "npershutov@gmail.com"
+  },
   "license": "GPL-3.0-only",
   "packageManager": "pnpm@10.34.7",
   "scripts": {
