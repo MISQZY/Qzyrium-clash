@@ -84,9 +84,7 @@ export class LinuxProxySettings {
       await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'httpProxy', url])
       await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'httpsProxy', url])
       await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'socksProxy', `socks://${host}:${port}`])
-      if (bypass.length) {
-        await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'NoProxyFor', bypass.join(',')])
-      }
+      await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'NoProxyFor', bypass.join(',')])
       await this.reloadKde()
       logger.info(`Linux KDE system proxy set to manual: ${host}:${port}`)
       return true
@@ -136,10 +134,8 @@ export class LinuxProxySettings {
       await execute('gsettings', ['set', 'org.gnome.system.proxy.https', 'port', String(port)])
       await execute('gsettings', ['set', 'org.gnome.system.proxy.socks', 'host', gvHost])
       await execute('gsettings', ['set', 'org.gnome.system.proxy.socks', 'port', String(port)])
-      if (bypass.length) {
-        const ignoreHosts = '[' + bypass.map(toGVariantString).join(', ') + ']'
-        await execute('gsettings', ['set', 'org.gnome.system.proxy', 'ignore-hosts', ignoreHosts])
-      }
+      const ignoreHosts = '[' + bypass.map(toGVariantString).join(', ') + ']'
+      await execute('gsettings', ['set', 'org.gnome.system.proxy', 'ignore-hosts', ignoreHosts])
       logger.info(`Linux GNOME system proxy set to manual: ${host}:${port}`)
       return true
     } catch (err) {
