@@ -17,7 +17,7 @@ static class WatchdogTests
         {
             using (Process core = Process.Start(new ProcessStartInfo(executable, "--core") { UseShellExecute = false, CreateNoWindow = true }))
             {
-                try { track.Invoke(null, new object[] { core.Id, executable, DateTime.UtcNow.AddMinutes(-1) }); }
+                try { track.Invoke(null, new object[] { core.Id, new string[] { executable }, DateTime.UtcNow.AddMinutes(-1) }); }
                 finally { if (!core.HasExited) core.Kill(); core.WaitForExit(); }
             }
         }

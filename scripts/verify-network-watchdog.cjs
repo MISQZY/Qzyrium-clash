@@ -20,6 +20,13 @@ async function verify() {
   const coreSource = path.join(directory, 'Core.cs')
   fs.writeFileSync(coreSource, 'class Core { static void Main() { System.Threading.Thread.Sleep(60000); } }')
   compile([`/out:${fixture}`, coreSource])
+  const stable = path.join(directory, 'cores', 'stable', 'mihomo.exe')
+  const alpha = path.join(directory, 'cores', 'alpha', 'mihomo.exe')
+  const foreign = path.join(directory, 'cores', 'other', 'mihomo.exe')
+  for (const destination of [stable, alpha, foreign]) {
+    fs.mkdirSync(path.dirname(destination), { recursive: true })
+    fs.copyFileSync(fixture, destination)
+  }
   const parentScript = path.join(directory, 'parent.cjs')
   fs.writeFileSync(parentScript, `
     const { spawn } = require('node:child_process');
@@ -39,11 +46,23 @@ async function verify() {
       });
       const core = spawn(${JSON.stringify(fixture)}, [], { windowsHide: true, stdio: 'ignore' });
       await watcher.trackCore(core.pid);
+      const stable = spawn(${JSON.stringify(stable)}, [], { windowsHide: true, stdio: 'ignore' });
+      await watcher.trackCore(stable.pid);
+      const alpha = spawn(${JSON.stringify(alpha)}, [], { windowsHide: true, stdio: 'ignore' });
+      await watcher.trackCore(alpha.pid);
       let rejected = false;
       try { await watcher.trackCore(process.pid); } catch { rejected = true; }
       if (!rejected) throw new Error('Foreign executable accepted');
+      const foreign = spawn(${JSON.stringify(foreign)}, [], { windowsHide: true, stdio: 'ignore' });
+      try {
+        let rejected = false;
+        try { await watcher.trackCore(foreign.pid); } catch { rejected = true; }
+        if (!rejected) throw new Error('Unapproved core directory accepted');
+      } finally { foreign.kill(); }
       const unregistered = spawn(${JSON.stringify(fixture)}, [], { windowsHide: true, stdio: 'ignore' });
-      process.send({ ready: true, core: core.pid, unregistered: unregistered.pid });
+      const unregisteredAlpha = spawn(${JSON.stringify(alpha)}, [], { windowsHide: true, stdio: 'ignore' });
+      process.send({ ready: true, core: core.pid, stable: stable.pid, alpha: alpha.pid,
+        unregistered: unregistered.pid, unregisteredAlpha: unregisteredAlpha.pid });
     })().catch(error => { process.send({ error: error.stack }); process.exit(1); });
   `)
   const parent = spawn(process.execPath, [parentScript], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
@@ -60,7 +79,7 @@ async function verify() {
       parent.once('exit', code => { clearTimeout(timer); reject(new Error(`Parent exited ${code}: ${output}`)) })
     })
     assert.ok(message.ready, message.error)
-    pids.push(message.core, message.unregistered)
+    pids.push(message.core, message.stable, message.alpha, message.unregistered, message.unregisteredAlpha)
     assert.ok(pids.every(alive))
     // Kill only the parent, leaving the detached watcher and cores to recover.
     parent.kill()
@@ -84,16 +103,17 @@ async function verify() {
         graceful.once('message', message => { clearTimeout(timer); resolve(message) })
       })
       assert.ok(next.ready, next.error)
-      pids.push(next.core, next.unregistered)
+      const gracefulPids = [next.core, next.stable, next.alpha, next.unregistered, next.unregisteredAlpha]
+      pids.push(...gracefulPids)
       const stopped = new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('Graceful watchdog shutdown timed out')), 30_000)
         graceful.once('message', message => { clearTimeout(timer); resolve(message) })
       })
       graceful.send('stop')
       assert.ok((await stopped).stopped)
-      assert.ok(!alive(next.core) && !alive(next.unregistered), 'graceful shutdown completes before installer replaces helper files')
+      assert.ok(gracefulPids.every(pid => !alive(pid)), 'graceful shutdown completes before installer replaces helper files')
     } finally { if (graceful.exitCode === null) graceful.kill() }
-    console.log('PASS: native watchdog handshake, executable validation, parent crash, stable core handles, spawn/registration race and isolated registry recovery')
+    console.log('PASS: bundled/Stable/Alpha core supervision, foreign path rejection, parent crash, stable process handles, spawn/registration race and isolated registry recovery')
   } finally {
     if (parent.exitCode === null) parent.kill()
     for (const pid of pids) if (alive(pid)) process.kill(pid)

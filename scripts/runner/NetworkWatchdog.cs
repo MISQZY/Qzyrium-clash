@@ -100,14 +100,18 @@ static class NetworkWatchdog
             ? unchecked((int)Convert.ToUInt32(data.Substring(2), 16)) : unchecked((int)Convert.ToUInt32(data));
     }
 
-    static void TrackCore(int pid, string executable, DateTime parentStarted)
+    static void TrackCore(int pid, string[] executables, DateTime parentStarted)
     {
         Process core = Process.GetProcessById(pid);
         try
         {
             // Open a process handle now; never kill by a recycled PID later.
             IntPtr handle = core.Handle;
-            if (!SamePath(ExecutablePath(core), executable) || core.StartTime.ToUniversalTime() < parentStarted)
+            string executable = ExecutablePath(core);
+            bool allowed = false;
+            foreach (string candidate in executables)
+                if (SamePath(executable, candidate)) { allowed = true; break; }
+            if (!allowed || core.StartTime.ToUniversalTime() < parentStarted)
                 throw new InvalidDataException("Unexpected core process");
             lock (Cores)
             {
@@ -130,6 +134,13 @@ static class NetworkWatchdog
                 if (!SamePath(ExecutablePath(parent), args[1])) return 1;
                 DateTime started = parent.StartTime.ToUniversalTime();
                 string directory = Path.GetFullPath(args[3]);
+                // Core updates live in userData. Accept only the two installed
+                // channel paths alongside the bundled core, never arbitrary paths.
+                string[] executables = {
+                    args[2],
+                    Path.Combine(directory, "cores", "stable", "mihomo.exe"),
+                    Path.Combine(directory, "cores", "alpha", "mihomo.exe")
+                };
                 using (FileStream session = LockSession(Path.Combine(directory, "network-session.lock")))
                 {
                     var waiter = new Thread(delegate() { try { parent.WaitForExit(); } catch { } finally { ParentGone.Set(); } });
@@ -145,7 +156,7 @@ static class NetworkWatchdog
                                 if (line.Length > 64) break;
                                 int pid;
                                 if (!int.TryParse(line, out pid) || pid <= 0) break;
-                                try { TrackCore(pid, args[2], started); Console.WriteLine("CORE " + pid); Console.Out.Flush(); }
+                                try { TrackCore(pid, executables, started); Console.WriteLine("CORE " + pid); Console.Out.Flush(); }
                                 catch (Exception error)
                                 {
                                     Console.Error.WriteLine("Unable to track core " + pid + ": " + error);
@@ -171,7 +182,7 @@ static class NetworkWatchdog
                         {
                             foreach (ManagementObject child in children)
                             {
-                                try { TrackCore(Convert.ToInt32(child["ProcessId"]), args[2], started); }
+                                try { TrackCore(Convert.ToInt32(child["ProcessId"]), executables, started); }
                                 catch { /* A child may already have exited. */ }
                                 finally { child.Dispose(); }
                             }
