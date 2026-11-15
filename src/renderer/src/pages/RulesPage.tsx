@@ -82,6 +82,7 @@ export function RulesPage({
           <Search className="absolute left-3 top-2.5 size-3.5 text-muted-foreground pointer-events-none" />
           <Input
             aria-label={t('searchRules')}
+            title={t('searchDomainsNetworksOrOutboundGroups')}
             placeholder={t('searchDomainsNetworksOrOutboundGroups')}
             className="pl-9 h-8 text-xs"
             value={query}

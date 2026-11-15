@@ -225,6 +225,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
           <Input
             aria-label={t('searchProxyNodes')}
+            title={t('searchProxyNodes')}
             placeholder={t('searchProxyNodes')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}

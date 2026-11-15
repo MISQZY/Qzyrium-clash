@@ -3,7 +3,7 @@
   "mihomoEvaluatesRulesInOrderTheFirstMatchDeterminesTheRoute": "Mihomo evaluates rules in order. The first match determines the route.",
   "refresh": "Refresh",
   "searchRules": "Search rules",
-  "searchDomainsNetworksOrOutboundGroups": "Search domains, networks or outbound groups…",
+  "searchDomainsNetworksOrOutboundGroups": "Search",
   "ruleType": "Rule type",
   "allTypes": "All types",
   "type": "Type",

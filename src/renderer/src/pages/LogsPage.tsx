@@ -173,7 +173,7 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
           ))}
         </div>
         <Input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
-          placeholder={t('searchLogs')} aria-label={t('searchLogs')} className="max-w-sm" />
+          placeholder={t('searchLogs')} aria-label={t('searchLogs')} title={t('searchLogs')} className="max-w-sm" />
         <span className="text-xs text-muted-foreground tabular-nums shrink-0">{filteredLogs.length} / {sourceLogs.length}</span>
       </div>
 

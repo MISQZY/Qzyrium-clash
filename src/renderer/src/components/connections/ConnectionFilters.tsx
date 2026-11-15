@@ -24,6 +24,7 @@ export function ConnectionFilters({ query, setQuery, protocolFilter, setProtocol
           <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
           <Input
             aria-label={t('searchConnections')}
+            title={t('searchHostProcessOrRoutingRule')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="pl-9 h-9 text-xs"

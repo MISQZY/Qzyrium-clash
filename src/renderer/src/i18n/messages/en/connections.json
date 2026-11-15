@@ -4,7 +4,7 @@
   "liveSessionsRoutedThroughMihomoUpdatesEveryTwoSeconds": "Live sessions routed through Mihomo. Updates every two seconds.",
   "closeAll": "Close all",
   "searchConnections": "Search connections",
-  "searchHostProcessOrRoutingRule": "Search app, host, IP or routing rule…",
+  "searchHostProcessOrRoutingRule": "Search",
   "destination": "Destination",
   "networkApp": "Network / App",
   "transfer": "Transfer",

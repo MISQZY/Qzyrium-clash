@@ -52,6 +52,8 @@ export function RuleListPanel({ editor }: RuleListPanelProps) {
                   <Input
                     type="text"
                     placeholder={t('searchRulesPlaceholder')}
+                    title={t('searchRulesPlaceholder')}
+                    aria-label={t('searchRulesPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="h-8 pl-8 text-xs font-mono"
