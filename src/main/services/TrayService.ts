@@ -408,42 +408,42 @@ export class TrayService implements BaseService {
       template.push(profileMenu)
     }
 
+    template.push({ type: 'separator' })
+    template.push(this.buildRoutingTypeMenu(settings, sysProxyStatus, messages))
+
+    template.push({ type: 'separator' })
+    template.push(this.buildModeMenu(currentMode, messages))
+
     if (proxyGroupMenus.length > 0) {
       template.push({ type: 'separator' })
       template.push(...proxyGroupMenus)
     }
 
     template.push({ type: 'separator' })
-    template.push(this.buildModeMenu(currentMode, messages))
-
-    template.push({ type: 'separator' })
-    template.push(this.buildRoutingTypeMenu(settings, sysProxyStatus, messages))
-
-    template.push({ type: 'separator' })
-    template.push({
-      label: messages.coreOnlyMode,
-      type: 'checkbox',
-      checked: this.windowService.isCoreOnlyMode(),
-      click: () => this.windowService.setCoreOnlyMode(!this.windowService.isCoreOnlyMode())
-    })
-
-    template.push({ type: 'separator' })
     template.push(
+      {
+        label: messages.coreOnlyMode,
+        type: 'checkbox',
+        checked: this.windowService.isCoreOnlyMode(),
+        click: () => this.windowService.setCoreOnlyMode(!this.windowService.isCoreOnlyMode())
+      },
       {
         label: messages.restart,
         click: async () => {
           await this.kernelService.restart()
           this.updateContextMenu()
         }
-      },
-      {
-        label: messages.quit,
-        click: () => {
-          this.windowService.setQuitting(true)
-          app.quit()
-        }
       }
     )
+
+    template.push({ type: 'separator' })
+    template.push({
+      label: messages.quit,
+      click: () => {
+        this.windowService.setQuitting(true)
+        app.quit()
+      }
+    })
 
     const contextMenu = Menu.buildFromTemplate(template)
 
