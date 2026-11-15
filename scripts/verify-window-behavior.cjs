@@ -71,10 +71,11 @@ const code = ts.transpileModule(fs.readFileSync('src/main/services/WindowService
 }).outputText
 const exportsObject = {}
 const timers = new Map()
+const runtime = { platform: 'linux', env: {}, argv: ['app'] }
 vm.runInNewContext(code, {
   exports: exportsObject,
   require: name => dependencies[name] ?? require(name),
-  process: { platform: 'linux', env: {} },
+  process: runtime,
   __dirname, setImmediate, Date: class extends Date { static now() { return clock } },
   setTimeout(callback, delay) {
     const timer = { at: clock + delay, unref() {} }
@@ -92,6 +93,21 @@ async function advance(milliseconds) {
 }
 
 ;(async () => {
+  for (const flag of [undefined, '--silent', '-s']) {
+    for (const silentStart of [false, true]) {
+      for (const visible of [undefined, false, true]) {
+        runtime.argv = ['app', ...(flag ? [flag] : [])]
+        const service = new exportsObject.WindowService({ getSettings: () => ({ general: { silentStart } }) })
+        let win
+        service.createWindow = async () => { win = new FixtureWindow({ show: !service.startHidden }); return win }
+        if (visible !== undefined) service.setStartupVisibility(visible)
+        await service.initialize()
+        assert.equal(win.isVisible(), visible ?? !(flag || silentStart), 'CLI silent flags respect explicit restart visibility')
+        await service.dispose()
+      }
+    }
+  }
+  runtime.argv = ['app']
   for (const minimizeToTray of [false, true]) {
     for (const mode of ['rule', 'global', 'direct']) {
       const service = new exportsObject.WindowService({ getSettings: () => ({ general: { minimizeToTray }, kernel: { mode } }) })

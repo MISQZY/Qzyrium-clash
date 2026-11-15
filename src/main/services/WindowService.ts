@@ -125,7 +125,10 @@ export class WindowService implements BaseService {
   async initialize(): Promise<void> {
     nativeTheme.on('updated', this.updateTheme)
     if (this.coreOnly) return
-    this.startHidden = this.startupVisible === undefined ? !!this.settingService.getSettings().general.silentStart : !this.startupVisible
+    const isSilentArg = process.argv.includes('--silent') || process.argv.includes('-s')
+    this.startHidden = this.startupVisible === undefined
+      ? (isSilentArg || !!this.settingService.getSettings().general.silentStart)
+      : !this.startupVisible
     await this.createWindow()
     if (this.startHidden) {
       this.visibilityHandler?.(false)
