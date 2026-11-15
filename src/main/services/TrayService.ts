@@ -311,12 +311,11 @@ export class TrayService implements BaseService {
     const proxyGroupMenus = this.buildProxyGroupMenus(currentMode, isRunning)
     const profileMenu = this.buildProfileMenu(messages)
 
-    const contextMenu = Menu.buildFromTemplate([
+    const template: MenuItemConstructorOptions[] = [
       {
-        label: `Qzyrium-clash [${messages[coreStatus]}]`,
-        enabled: false
+        label: messages.open,
+        click: () => this.windowService.show()
       },
-      { type: 'separator' },
       {
         label: coreStatus === 'running' ? messages.disconnect : messages.connect,
         click: async () => {
@@ -327,17 +326,24 @@ export class TrayService implements BaseService {
           }
           this.updateContextMenu()
         }
-      },
-      {
-        label: messages.open,
-        click: () => this.windowService.show()
-      },
-      {
-        label: messages.coreOnlyMode,
-        type: 'checkbox',
-        checked: this.windowService.isCoreOnlyMode(),
-        click: () => this.windowService.setCoreOnlyMode(!this.windowService.isCoreOnlyMode())
-      },
+      }
+    ]
+
+    if (profileMenu) {
+      template.push({ type: 'separator' })
+      template.push(profileMenu)
+    }
+
+    if (proxyGroupMenus.length > 0) {
+      template.push({ type: 'separator' })
+      template.push(...proxyGroupMenus)
+    }
+
+    template.push({ type: 'separator' })
+    template.push(this.buildModeMenu(currentMode, messages))
+
+    template.push({ type: 'separator' })
+    template.push(
       {
         label: `${messages.proxy} (${sysProxyStatus.enabled ? messages.on : messages.off})`,
         click: async () => {
@@ -345,11 +351,16 @@ export class TrayService implements BaseService {
           this.updateContextMenu()
         }
       },
-      { type: 'separator' },
-      ...(profileMenu ? [profileMenu] : []),
-      this.buildModeMenu(currentMode, messages),
-      ...proxyGroupMenus,
-      { type: 'separator' },
+      {
+        label: messages.coreOnlyMode,
+        type: 'checkbox',
+        checked: this.windowService.isCoreOnlyMode(),
+        click: () => this.windowService.setCoreOnlyMode(!this.windowService.isCoreOnlyMode())
+      }
+    )
+
+    template.push({ type: 'separator' })
+    template.push(
       {
         label: messages.restart,
         click: async () => {
@@ -364,7 +375,9 @@ export class TrayService implements BaseService {
           app.quit()
         }
       }
-    ])
+    )
+
+    const contextMenu = Menu.buildFromTemplate(template)
 
     this.tray.setContextMenu(contextMenu)
   }
