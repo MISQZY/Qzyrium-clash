@@ -401,7 +401,7 @@ export function parseSocksHttpUri(uri: string): ProxyNodeConfig | null {
   try {
     const url = new URL(uri)
     const server = cleanServerHost(url.hostname)
-    const port = Number(url.port)
+    const port = Number(url.port || (url.protocol.toLowerCase() === 'http:' ? 80 : 0))
     if (!server || !port || isNaN(port)) return null
 
     const isHttp = url.protocol.toLowerCase().startsWith('http')
@@ -460,12 +460,15 @@ function reserveUniqueName(base: string, occupied: Set<string>): string {
   return name
 }
 
+// Mihomo installs these policies and its synthetic GLOBAL selector in the proxy namespace.
+const BUILTIN_PROXY_NAMES = new Set(['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE', 'GLOBAL'])
+
 export function deduplicateProxyNames(nodes: ProxyNodeConfig[]): void {
   const names = nodes.map(node => typeof node.name === 'string' && node.name.trim()
     ? node.name.trim() : `${node.server}:${node.port}`)
   // Preserve original names even when they match a suffix generated for an earlier duplicate.
-  const occupied = new Set(names)
-  const seen = new Set<string>()
+  const occupied = new Set([...BUILTIN_PROXY_NAMES, ...names])
+  const seen = new Set(BUILTIN_PROXY_NAMES)
   for (const [index, node] of nodes.entries()) {
     const name = names[index]
     node.name = seen.has(name) ? reserveUniqueName(name, occupied) : name

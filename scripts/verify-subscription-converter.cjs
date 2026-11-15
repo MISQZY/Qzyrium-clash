@@ -167,6 +167,27 @@ assert.equal(parsedTuic.uuid, 'c8d20391-768a-4cbb-a400-f6551bca463e')
 assert.equal(parsedTuic.password, 'tuicpass')
 assert.equal(parsedTuic['congestion-controller'], 'bbr')
 
+// WHATWG URL removes an explicitly specified default HTTP port.
+for (const [authority, expectedServer, expectedPort] of [
+  ['example.com', 'example.com', 80],
+  ['example.com:80', 'example.com', 80],
+  ['example.com:8080', 'example.com', 8080],
+  ['[::1]:80', '::1', 80]
+]) {
+  const input = `http://user:p%40ss@${authority}#http-test`
+  const node = parseProxyUri(input)
+  assert.ok(node)
+  assert.equal(node.type, 'http')
+  assert.equal(node.server, expectedServer)
+  assert.equal(node.port, expectedPort)
+  assert.equal(node.username, 'user')
+  assert.equal(node.password, 'p@ss')
+  assert.equal(parseProfileConfig(convertSubscriptionToClashYaml(input)).proxies.length, 1)
+}
+assert.equal(parseProxyUri('http://example.com:0'), null)
+assert.equal(parseProxyUri('socks5://example.com'), null)
+assert.equal(parseProxyUri('socks5://example.com:1080').port, 1080)
+
 // 7. Multi-line list and name deduplication
 const rawList = `
 # Comment line
@@ -189,11 +210,15 @@ deduplicateProxyNames(collidingNodes)
 assert.equal(new Set(collidingNodes.map(node => node.name)).size, collidingNodes.length)
 
 // Group names share Mihomo's namespace with nodes; references must follow any rename.
-for (const names of [['AUTO'], ['PROXY'], ['AUTO', 'AUTO (1)', 'PROXY', 'PROXY (1)'], collidingNames]) {
+const builtinNames = ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE', 'GLOBAL']
+const reservedNames = [...builtinNames, ...builtinNames, ...builtinNames.map(name => `${name} (1)`)]
+for (const names of [['AUTO'], ['PROXY'], ['AUTO', 'AUTO (1)', 'PROXY', 'PROXY (1)'], collidingNames,
+  ...builtinNames.map(name => [name]), reservedNames]) {
   const input = names.map(name => `trojan://secret@127.0.0.1:443#${encodeURIComponent(name)}`).join('\n')
   for (const payload of [input, Buffer.from(input).toString('base64')]) {
     const config = parseProfileConfig(convertSubscriptionToClashYaml(payload))
     const nodeNames = config.proxies.map(node => node.name)
+    assert.ok(nodeNames.every(name => !builtinNames.includes(name)), 'nodes must not shadow built-in policies')
     const [select, auto] = config['proxy-groups']
     const allNames = [...nodeNames, select.name, auto.name]
     assert.equal(new Set(allNames).size, allNames.length)
