@@ -179,9 +179,9 @@ export class LinuxProxySettings {
       if (ok) return
     }
     const gnomeOk = await this.setGnomeManual(host, port, bypass)
-    if (!gnomeOk && !this.isKde()) {
-      await this.setKdeManual(host, port, bypass)
-    }
+    if (gnomeOk) return
+    if (!this.isKde() && await this.setKdeManual(host, port, bypass)) return
+    throw new Error('Failed to apply Linux system proxy settings')
   }
 
   async setAuto(pacUrl: string): Promise<void> {
@@ -190,9 +190,9 @@ export class LinuxProxySettings {
       if (ok) return
     }
     const gnomeOk = await this.setGnomeAuto(pacUrl)
-    if (!gnomeOk && !this.isKde()) {
-      await this.setKdeAuto(pacUrl)
-    }
+    if (gnomeOk) return
+    if (!this.isKde() && await this.setKdeAuto(pacUrl)) return
+    throw new Error('Failed to apply Linux automatic proxy settings')
   }
 
   async disable(): Promise<void> {
@@ -201,8 +201,8 @@ export class LinuxProxySettings {
       if (ok) return
     }
     const gnomeOk = await this.disableGnome()
-    if (!gnomeOk && !this.isKde()) {
-      await this.disableKde()
-    }
+    if (gnomeOk) return
+    if (!this.isKde() && await this.disableKde()) return
+    throw new Error('Failed to disable Linux system proxy settings')
   }
 }
