@@ -338,9 +338,15 @@ async function verifyCoreServiceInstallation() {
   let failPromotion = false
   let failStartup = false
   let failJournalCommit = false
+  let failCapabilities = false
   let digest = `sha256:${hash}`
   let active = '/bundled/mihomo'
   const { CoreService } = load('src/main/services/CoreService.ts', {
+    '../utils/linux-core-capabilities': { grantLinuxCoreCapabilities: async candidate => {
+      assert.ok(files.has(candidate), 'capabilities apply to the fully written candidate')
+      assert.ok(candidate.endsWith('.tmp'), 'capabilities are granted before promotion')
+      if (failCapabilities) throw new Error('setcap authorization declined')
+    } },
     '../utils/paths': { getAppPaths: () => ({ coresDir: '/cores' }) },
     '../utils/logger': { logger: { info() {}, warn() {}, error() {} } },
     '../utils/atomicWrite': { writeFileAtomicAsync: async (file, data) => {
@@ -415,6 +421,14 @@ async function verifyCoreServiceInstallation() {
   await assert.rejects(service.installCore('alpha'), /SHA-256 verification mismatch/)
   assert.equal(files.get(binary).toString(), 'previous executable')
   digest = `sha256:${hash}`
+
+  failCapabilities = true
+  await assert.rejects(service.installCore('alpha'), /setcap authorization declined/)
+  assert.equal(files.get(binary).toString(), 'previous executable')
+  assert.equal(settings.kernel.channel, 'stable')
+  assert.equal(active, '/bundled/mihomo')
+  assert.ok(![...files.keys()].some(file => file.endsWith('.tmp')), 'failed authorization cleans the candidate')
+  failCapabilities = false
 
   failPromotion = true
   await assert.rejects(service.installCore('alpha'), /EPERM/)
@@ -581,6 +595,7 @@ async function verifySubscriptionProtocols() {
 }
 
 async function main() {
+  await verifyLinuxCapabilities()
   await verifyCoreVersionHelpers()
   await verifyBinaryResolution()
   await verifyUnifiedValidationAndLaunch()
@@ -590,6 +605,38 @@ async function main() {
   await verifySettingsAndCoreCoordination()
   await verifySubscriptionProtocols()
   console.log('PASS: core updates, mandatory SHA-256, candidate validation, rollback, crash recovery, concurrent settings/channel changes, and subscription authentication fields')
+}
+
+async function verifyLinuxCapabilities() {
+  const ts = require('typescript')
+  const code = ts.transpileModule(require('node:fs').readFileSync('src/main/utils/linux-core-capabilities.ts', 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+  }).outputText
+  for (const platform of ['win32', 'darwin', 'linux']) {
+    for (const root of [false, true]) {
+      const calls = []
+      let missing = false, declined = false
+      const exports = {}
+      new Function('exports', 'require', 'process', code)(exports, name => {
+        if (name === 'node:fs') return { existsSync: file => !missing && file === '/usr/sbin/setcap' }
+        if (name === 'node:child_process') return { execFile: (file, args, options, callback) => {
+          calls.push({ file, args, options })
+          callback(declined ? new Error('declined') : null, '', '')
+        } }
+        return require(name)
+      }, { platform, getuid: () => root ? 0 : 1000 })
+      const binary = '/user data/cores/alpha/mihomo.tmp'
+      await exports.grantLinuxCoreCapabilities(binary)
+      assert.equal(calls.length, platform === 'linux' ? 1 : 0)
+      if (platform !== 'linux') continue
+      assert.equal(calls[0].file, root ? '/usr/sbin/setcap' : '/usr/bin/pkexec')
+      assert.deepEqual(calls[0].args, [...(root ? [] : ['/usr/sbin/setcap']), 'cap_net_admin,cap_net_bind_service+ep', binary])
+      declined = true
+      await assert.rejects(exports.grantLinuxCoreCapabilities(binary), /Authorize the setcap request/)
+      missing = true
+      await assert.rejects(exports.grantLinuxCoreCapabilities(binary), /install libcap2-bin/)
+    }
+  }
 }
 
 main().catch(err => {

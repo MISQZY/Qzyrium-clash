@@ -26,6 +26,7 @@ import type { KernelService } from './KernelService'
 import type { SettingService } from './SettingService'
 import type { NetworkModeController } from './NetworkModeController'
 import { writeFileAtomicAsync } from '../utils/atomicWrite'
+import { grantLinuxCoreCapabilities } from '../utils/linux-core-capabilities'
 
 const runFile = promisify(execFile)
 
@@ -420,6 +421,7 @@ export class CoreService implements BaseService {
       await fsPromises.writeFile(tempPath, executableBytes, {
         mode: process.platform === 'win32' ? 0o644 : 0o755
       })
+      await grantLinuxCoreCapabilities(tempPath)
 
       // Test candidate binary before overwriting current installation
       this.setStatus({ state: 'testing', version: remoteVersion })
