@@ -4,7 +4,8 @@ const path = require('node:path')
 const ts = require('typescript')
 const { EditorState } = require('@codemirror/state')
 const { keymap } = require('@codemirror/view')
-const { unifiedMergeView } = require('@codemirror/merge')
+const { unifiedMergeView, Chunk } = require('@codemirror/merge')
+const { Text } = require('@codemirror/state')
 const { undo, redo } = require('@codemirror/commands')
 
 function load(file) {
@@ -33,4 +34,30 @@ for (const isDark of [true, false]) {
     assert.ok(bindings.some(binding => binding.key === 'Tab'))
   }
 }
-console.log('PASS: diff editor undo/redo and keyboard bindings in both layouts and themes')
+const { yamlDiffConfig } = load('src/renderer/src/lib/diff-editor-config.ts')
+const original = 'rules:\n' + Array.from({ length: 400 }, (_, i) => `  - DOMAIN,service-${i}.example.com,DIRECT`).join('\n')
+const modified = original.replaceAll('DIRECT', 'PROXY')
+const chunks = Chunk.build(Text.of(original.split('\n')), Text.of(modified.split('\n')), yamlDiffConfig)
+const ranges = chunks.flatMap(chunk => chunk.changes.map(change => ({
+  before: original.slice(chunk.fromA + change.fromA, chunk.fromA + change.toA),
+  after: modified.slice(chunk.fromB + change.fromB, chunk.fromB + change.toB)
+})))
+assert.equal(ranges.length, 400, 'Repeated value changes must not highlight unchanged domains')
+assert.ok(ranges.every(range => range.before === 'DIRECT' && range.after === 'PROXY'))
+
+let seed = 12345
+const random = limit => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed % limit }
+const pairs = [['', ''], ['', 'mode: rule\n'], ['mode: rule\n', ''], ['a\nb\n', 'a\nb'], ['a\nb', 'a\nb\n']]
+for (let trial = 0; trial < 100; trial++) {
+  const before = Array.from({ length: 20 }, () => `key-${random(8)}: ${random(4)}`)
+  const after = [...before]
+  for (let edit = 0; edit < 5; edit++) after.splice(random(after.length + 1), random(2), ...Array.from({ length: random(3) }, () => `value: ${random(10)}`))
+  pairs.push([before.join('\n'), after.join('\n')])
+}
+for (const [before, after] of pairs) {
+  const changes = yamlDiffConfig.override(before, after)
+  let rebuilt = before
+  for (const change of [...changes].reverse()) rebuilt = rebuilt.slice(0, change.fromA) + after.slice(change.fromB, change.toB) + rebuilt.slice(change.toA)
+  assert.equal(rebuilt, after, 'Diff ranges must reconstruct insertions, deletions, replacements and final newlines')
+}
+console.log('PASS: diff undo/redo, exact repeated value changes, and insertion/deletion/replacement ranges')

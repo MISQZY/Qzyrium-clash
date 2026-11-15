@@ -20,19 +20,19 @@ export default function ConfigPreviewDialog({ kernel, onClose }: { kernel: AppCo
     return () => { active = false }
   }, [kernel])
   return <Dialog open onOpenChange={open => { if (!open) onClose() }}>
-    <DialogContent className="flex h-[80vh] max-w-5xl flex-col overflow-hidden">
+    <DialogContent className="flex h-[80dvh] min-h-0 w-[calc(100vw-2rem)] max-w-5xl flex-col overflow-hidden p-4 sm:p-6">
       <DialogHeader className="shrink-0 pr-6">
         <DialogTitle>{t('configPreviewTitle')}</DialogTitle>
         <DialogDescription>{t('configPreviewHint')}</DialogDescription>
-        {preview?.profileName && <p className="break-all text-xs text-muted-foreground">{preview.profileName}</p>}
+        {preview?.profileName && <p className="truncate text-xs text-muted-foreground" title={preview.profileName}>{preview.profileName}</p>}
       </DialogHeader>
       <div className="flex shrink-0 flex-wrap gap-2">
         <Button size="sm" variant={diff ? 'outline' : 'default'} aria-pressed={!diff} onClick={() => setDiff(false)}>{t('configPreviewYaml')}</Button>
         <Button size="sm" variant={diff ? 'default' : 'outline'} aria-pressed={diff} onClick={() => setDiff(true)}>{t('configPreviewDiff')}</Button>
       </div>
       {error ? <p role="alert" className="text-sm text-destructive">{t('configPreviewFailed')}</p> : preview ? <>
-        {diff && <div className="flex shrink-0 justify-between text-xs text-muted-foreground"><span>{t('configPreviewOriginal')}</span><span>{t('configPreviewYaml')}</span></div>}
-        <div className="flex min-h-0 flex-1 overflow-hidden rounded-md border border-border" data-config-preview={diff ? 'diff' : 'yaml'}>
+        {diff && <div className="grid shrink-0 grid-cols-2 gap-3 text-xs text-muted-foreground"><span>{t('configPreviewOriginal')}</span><span>{t('configPreviewYaml')}</span></div>}
+        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-md border border-border" data-config-preview={diff ? 'diff' : 'yaml'}>
           {diff ? <CodeMirrorDiffEditor original={preview.original} modified={preview.effective} readOnly /> : <YamlEditor value={preview.effective} readOnly />}
         </div>
       </> : <p role="status" className="text-sm text-muted-foreground">{t('effectiveCoreLoading')}</p>}

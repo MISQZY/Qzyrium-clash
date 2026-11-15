@@ -226,36 +226,26 @@ export function createEditorTheme(isDark: boolean): Extension[] {
         color: 'var(--accent-foreground)'
       },
 
-      // Merge / Diff Editor Styling
-      '.cm-mergeView': {
-        height: '100%',
-        width: '100%',
-        overflow: 'hidden',
-        backgroundColor: 'var(--background)'
-      },
-      '.cm-mergeViewEditors': {
-        height: '100%',
-        width: '100%',
-        display: 'flex'
-      },
-      '.cm-mergeViewEditor': {
-        height: '100%',
-        flex: '1 1 50%',
-        overflow: 'hidden'
-      },
-      '.cm-mergeViewEditor:first-child': {
-        borderRight: '1px solid var(--border)'
-      },
       // Deleted lines (A / Original side)
-      '.cm-merge-a .cm-changedLine': {
+      '&.cm-merge-a .cm-changedLine': {
         backgroundColor: isDark ? 'rgba(244, 63, 94, 0.16) !important' : 'rgba(239, 68, 68, 0.12) !important'
       },
       // Added lines (B / Modified side)
-      '.cm-merge-b .cm-changedLine': {
+      '&.cm-merge-b .cm-changedLine, .cm-inlineChangedLine': {
         backgroundColor: isDark ? 'rgba(16, 185, 129, 0.16) !important' : 'rgba(34, 197, 94, 0.12) !important'
       },
       '.cm-deletedChunk': {
         backgroundColor: isDark ? 'rgba(244, 63, 94, 0.16) !important' : 'rgba(239, 68, 68, 0.12) !important'
+      },
+      '&.cm-merge-a .cm-changedText, .cm-deletedChunk .cm-deletedText': {
+        background: isDark ? 'rgba(244, 63, 94, 0.32)' : 'rgba(239, 68, 68, 0.24)',
+        textDecoration: 'none',
+        borderRadius: '2px'
+      },
+      '&.cm-merge-b .cm-changedText': {
+        background: isDark ? 'rgba(16, 185, 129, 0.32)' : 'rgba(34, 197, 94, 0.24)',
+        textDecoration: 'none',
+        borderRadius: '2px'
       },
       '.cm-insertedChunk': {
         backgroundColor: isDark ? 'rgba(16, 185, 129, 0.16) !important' : 'rgba(34, 197, 94, 0.12) !important'
@@ -269,10 +259,10 @@ export function createEditorTheme(isDark: boolean): Extension[] {
       '.cm-changedLineGutter': {
         backgroundColor: 'transparent'
       },
-      '.cm-merge-a .cm-changedLineGutter': {
+      '&.cm-merge-a .cm-changedLineGutter, .cm-deletedLineGutter': {
         borderLeft: '3px solid #f43f5e'
       },
-      '.cm-merge-b .cm-changedLineGutter': {
+      '&.cm-merge-b .cm-changedLineGutter, .cm-inlineChangedLineGutter': {
         borderLeft: '3px solid #10b981'
       },
       '.cm-merge-revert': {

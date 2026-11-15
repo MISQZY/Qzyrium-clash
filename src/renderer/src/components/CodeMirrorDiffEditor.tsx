@@ -4,6 +4,7 @@ import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { createDiffEditorExtensions } from '../lib/diff-editor-extensions'
 import { useIsDarkTheme } from '../lib/theme'
+import { yamlDiffConfig } from '../lib/diff-editor-config'
 
 export interface CodeMirrorDiffEditorProps {
   original: string
@@ -69,7 +70,8 @@ export function CodeMirrorDiffEditor({
           ]
         },
         parent: container,
-        orientation: 'a-b'
+        orientation: 'a-b',
+        diffConfig: yamlDiffConfig
       })
 
       // Add "modified" class to the B editor container for styling & test compatibility
@@ -93,7 +95,7 @@ export function CodeMirrorDiffEditor({
           doc: modifiedRef.current,
           extensions: [
             ...baseExtensions,
-            unifiedMergeView({ original, mergeControls: !readOnly }),
+            unifiedMergeView({ original, mergeControls: !readOnly, diffConfig: yamlDiffConfig }),
             EditorView.updateListener.of((update) => {
               if (update.docChanged) {
                 onChangeRef.current?.(update.state.doc.toString())
@@ -125,8 +127,8 @@ export function CodeMirrorDiffEditor({
   }, [original, sideBySide, isDark, readOnly])
 
   return (
-    <div className="monaco-diff-editor cm-diff-wrapper h-full w-full flex-1 min-h-0 relative flex flex-col">
-      <div ref={containerRef} className="h-full w-full flex-1 min-h-0 overflow-hidden" />
+    <div className="monaco-diff-editor cm-diff-wrapper h-full w-full flex-1 min-h-0 min-w-0 relative flex flex-col">
+      <div ref={containerRef} className="h-full w-full flex-1 min-h-0 min-w-0 overflow-hidden" />
       <div ref={modifiedContainerRef} className="modified hidden pointer-events-none absolute size-0">
         <textarea tabIndex={-1} aria-hidden="true" className="sr-only opacity-0 pointer-events-none" readOnly />
       </div>
