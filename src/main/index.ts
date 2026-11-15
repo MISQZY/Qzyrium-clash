@@ -135,6 +135,18 @@ if (!gotTheLock) {
   console.warn('[Qzyrium-clash] If no window is visible, please check the system tray or close existing electron processes in Task Manager.\n')
   app.quit()
 } else {
+  // macOS can deliver protocol links before app.ready and service initialization.
+  app.on('open-url', (event, url) => {
+    event.preventDefault()
+    const protocolUrl = extractProtocolUrl([url])
+    if (!protocolUrl) return
+    if (services && servicesReady) {
+      services.windowService.queueProfileImport(protocolUrl)
+    } else {
+      pendingProtocolUrls.push(protocolUrl)
+    }
+  })
+
   for (const name of ['settings.json', 'settings.json.bak']) {
     try {
       logger.configureSettings(normalizeSettings(JSON.parse(readFileSync(path.join(app.getPath('userData'), name), 'utf8'))).general)
