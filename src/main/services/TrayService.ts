@@ -13,6 +13,8 @@ import { getVpnStatus, type VpnStatus } from '@shared/vpn-status'
 import { createTrayIcon } from '../utils/tray-icon'
 import type { ProxyNode, ProxyGroup } from '@shared/mihomo'
 import type { TunnelMode } from '@shared/types'
+import type { AppConfig } from '@shared/app-config'
+import type { SysProxyStatus } from '@shared/ipc'
 
 export class TrayService implements BaseService {
   private tray: Tray | null = null
@@ -183,6 +185,78 @@ export class TrayService implements BaseService {
     }
   }
 
+  private async setRoutingType(type: 'off' | 'sysproxy' | 'tun'): Promise<void> {
+    try {
+      if (type === 'tun') {
+        if (typeof this.commands.setTunEnabled === 'function') {
+          await this.commands.setTunEnabled(true)
+        }
+      } else if (type === 'sysproxy') {
+        if (typeof this.commands.setSystemProxy === 'function') {
+          await this.commands.setSystemProxy(true)
+        }
+      } else {
+        const settings = this.settingService.getSettings()
+        if (settings.kernel?.tun?.enable && typeof this.commands.setTunEnabled === 'function') {
+          await this.commands.setTunEnabled(false)
+        }
+        if (typeof this.commands.setSystemProxy === 'function' && (this.sysProxyService.getStatus().enabled || settings.sysProxy?.enable)) {
+          await this.commands.setSystemProxy(false)
+        }
+      }
+      this.windowService.broadcast?.('event:settings-changed', null)
+    } catch (err) {
+      console.error(`Failed to set routing type to ${type}:`, err)
+    } finally {
+      this.updateContextMenu()
+    }
+  }
+
+  private buildRoutingTypeMenu(
+    settings: AppConfig,
+    sysProxyStatus: SysProxyStatus,
+    messages: Record<string, string>
+  ): MenuItemConstructorOptions {
+    const tunEnabled = Boolean(settings.kernel?.tun?.enable)
+    const sysProxyEnabled = Boolean(sysProxyStatus.enabled || settings.sysProxy?.enable)
+    const currentRoutingType: 'off' | 'sysproxy' | 'tun' = tunEnabled
+      ? 'tun'
+      : sysProxyEnabled
+        ? 'sysproxy'
+        : 'off'
+
+    const typeNames: Record<'off' | 'sysproxy' | 'tun', string> = {
+      off: messages.routingTypeDisabled || 'Disabled',
+      sysproxy: messages.routingTypeProxy || messages.proxy || 'System proxy',
+      tun: messages.routingTypeTun || 'TUN'
+    }
+    const currentName = typeNames[currentRoutingType]
+
+    return {
+      label: `${messages.routingType || 'Routing type'} (${currentName})`,
+      submenu: [
+        {
+          label: messages.routingTypeDisabled || 'Disabled',
+          type: 'radio',
+          checked: currentRoutingType === 'off',
+          click: () => void this.setRoutingType('off')
+        },
+        {
+          label: messages.routingTypeProxy || messages.proxy || 'System proxy',
+          type: 'radio',
+          checked: currentRoutingType === 'sysproxy',
+          click: () => void this.setRoutingType('sysproxy')
+        },
+        {
+          label: messages.routingTypeTun || 'TUN',
+          type: 'radio',
+          checked: currentRoutingType === 'tun',
+          click: () => void this.setRoutingType('tun')
+        }
+      ]
+    }
+  }
+
   private buildProxyGroupMenus(
     currentMode: TunnelMode,
     isRunning: boolean
@@ -343,21 +417,15 @@ export class TrayService implements BaseService {
     template.push(this.buildModeMenu(currentMode, messages))
 
     template.push({ type: 'separator' })
-    template.push(
-      {
-        label: `${messages.proxy} (${sysProxyStatus.enabled ? messages.on : messages.off})`,
-        click: async () => {
-          await this.commands.setSystemProxy(!sysProxyStatus.enabled)
-          this.updateContextMenu()
-        }
-      },
-      {
-        label: messages.coreOnlyMode,
-        type: 'checkbox',
-        checked: this.windowService.isCoreOnlyMode(),
-        click: () => this.windowService.setCoreOnlyMode(!this.windowService.isCoreOnlyMode())
-      }
-    )
+    template.push(this.buildRoutingTypeMenu(settings, sysProxyStatus, messages))
+
+    template.push({ type: 'separator' })
+    template.push({
+      label: messages.coreOnlyMode,
+      type: 'checkbox',
+      checked: this.windowService.isCoreOnlyMode(),
+      click: () => this.windowService.setCoreOnlyMode(!this.windowService.isCoreOnlyMode())
+    })
 
     template.push({ type: 'separator' })
     template.push(

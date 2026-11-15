@@ -65,7 +65,7 @@ app.whenReady().then(async () => {
   })
   let coreOnly = false
   const windowService = { isCoreOnlyMode: () => coreOnly, setCoreOnlyMode: value => { coreOnly = value; service.updateContextMenu() }, show: () => { coreOnly = false; service.updateContextMenu() } }
-  const service = new TrayService(windowService, { getStatus: () => core }, { getStatus: () => ({ enabled: proxy }), setSysProxy: async enabled => { proxy = enabled } }, { getSettings: () => settings }, { setSystemProxy: async enabled => { proxy = enabled } })
+  const service = new TrayService(windowService, { getStatus: () => core }, { getStatus: () => ({ enabled: proxy }), setSysProxy: async enabled => { proxy = enabled } }, { getSettings: () => settings }, { setSystemProxy: async enabled => { proxy = enabled }, setTunEnabled: async enabled => { settings.kernel.tun.enable = enabled } })
   await service.initialize()
   currentTray.menu.find(item => item.label === 'Core only').click()
   assert.equal(currentTray.menu.find(item => item.label === 'Core only').checked, true)
@@ -77,9 +77,21 @@ app.whenReady().then(async () => {
   service.updateContextMenu()
   assert.notEqual(currentTray.image, off, 'running core without capture must be on')
   const on = currentTray.image
-  await currentTray.menu.find(item => item.label?.startsWith('System proxy')).click()
+  const routingTypeMenu = currentTray.menu.find(item => item.label?.startsWith('Routing type'))
+  assert.ok(routingTypeMenu, 'Routing type menu item must exist')
+  assert.equal(routingTypeMenu.submenu.length, 3, 'Must have 3 routing type options')
+  await routingTypeMenu.submenu.find(item => item.label?.startsWith('System proxy')).click()
   assert.match(currentTray.tooltip, /VPN on/)
   assert.notEqual(currentTray.image, off)
+  // Verify switching to TUN via tray routing type menu
+  await routingTypeMenu.submenu.find(item => item.label === 'TUN').click()
+  assert.equal(settings.kernel.tun.enable, true, 'TUN must be enabled')
+  // Verify switching to Disabled via tray routing type menu
+  await routingTypeMenu.submenu.find(item => item.label === 'Disabled').click()
+  assert.equal(settings.kernel.tun.enable, false, 'TUN must be disabled')
+  assert.equal(proxy, false, 'Proxy must be disabled')
+  // Re-enable proxy for remaining assertions
+  await routingTypeMenu.submenu.find(item => item.label?.startsWith('System proxy')).click()
   settings.kernel.mode = 'direct'
   service.updateContextMenu()
   assert.equal(currentTray.image, on, 'Direct must keep the running core indicator on')
@@ -236,10 +248,14 @@ app.whenReady().then(async () => {
   assert.ok(routingModeIdx > 5, 'Routing mode comes after selectors')
   assert.equal(currentTray.menu[routingModeIdx - 1].type, 'separator', 'Separator before routing mode')
   assert.equal(currentTray.menu[routingModeIdx + 1].type, 'separator', 'Separator after routing mode')
-  const sysProxyIdx = currentTray.menu.findIndex(i => i.label?.startsWith('Системный прокси'))
+  const routingTypeIdx = currentTray.menu.findIndex(i => i.label?.startsWith('Тип маршрутизации'))
+  assert.ok(routingTypeIdx > routingModeIdx, 'Routing type comes after routing mode')
+  assert.equal(currentTray.menu[routingTypeIdx - 1].type, 'separator', 'Separator before routing type')
+  assert.equal(currentTray.menu[routingTypeIdx + 1].type, 'separator', 'Separator after routing type')
   const coreOnlyIdx = currentTray.menu.findIndex(i => i.label === 'Только ядро')
-  assert.ok(sysProxyIdx > routingModeIdx, 'Additional settings (proxy) at bottom section')
-  assert.ok(coreOnlyIdx > routingModeIdx, 'Additional settings (core only) at bottom section')
+  assert.ok(coreOnlyIdx > routingTypeIdx, 'Core only comes after routing type')
+  assert.equal(currentTray.menu[coreOnlyIdx - 1].type, 'separator', 'Separator before core only')
+  assert.equal(currentTray.menu[coreOnlyIdx + 1].type, 'separator', 'Separator after core only')
   const restartIdx = currentTray.menu.findIndex(i => i.label === 'Перезапустить ядро')
   assert.equal(currentTray.menu[restartIdx - 1].type, 'separator', 'Separator before restart/quit')
 
