@@ -50,6 +50,8 @@ export function DashboardPage({
   const locale = useLocale()
   const running = coreStatus === 'running'
   const connecting = coreStatus === 'starting'
+  const switching = busy || connecting
+  const powerState = switching ? 'pending' : coreStatus === 'error' ? 'error' : running ? 'running' : 'stopped'
   const liteMode = Boolean(settings.general.liteDashboard)
   const [locations, setLocations] = useState<GlobeLocations>(EMPTY_LOCATIONS)
   const [locating, setLocating] = useState(false)
@@ -151,22 +153,23 @@ export function DashboardPage({
         <div className="overview-panel-column">
           {liteMode && announcePill}
           <aside className="overview-panel" aria-label={t('connectionControls')}>
-            <div className="overview-power-section">
-              <p className={`text-sm font-medium ${coreStatus === 'error' ? 'text-destructive' : ''}`} role="status">
+            <div className="overview-power-section" data-power-state={powerState}>
+              <p className="overview-power-status text-sm font-medium" role="status">
                 {statusLabel}
               </p>
               <button
                 data-tour="connect"
-                className={`overview-power ${running ? 'is-running' : ''} ${coreStatus === 'error' ? 'border-destructive text-destructive' : ''}`}
+                className={`overview-power ${running ? 'is-running' : ''}`}
                 onClick={onToggleKernel}
-                disabled={busy || connecting}
+                disabled={switching}
                 aria-label={running ? t('stopCore') : t('startCore')}
                 aria-pressed={running}
+                aria-busy={switching}
               >
-                {busy || connecting ? <LoaderCircle className="size-12 animate-spin" /> : <Power className="size-12" strokeWidth={1.5} />}
+                {switching ? <LoaderCircle className="size-12 animate-spin" aria-hidden="true" /> : <Power className="size-12" strokeWidth={1.8} aria-hidden="true" />}
               </button>
-              <div className="overview-duration-slot">
-                {running && <SessionDuration startedAt={sessionStartedAt} running={running} ariaLabel={t('sessionDuration')} />}
+              <div className={`overview-duration-slot${running ? '' : ' invisible'}`} aria-hidden={!running}>
+                <SessionDuration startedAt={sessionStartedAt} running={running} ariaLabel={t('sessionDuration')} />
               </div>
             </div>
 
@@ -202,8 +205,8 @@ export function DashboardPage({
               </div>
             )}
           </aside>
-          {!liteMode && running && (
-            <div className="overview-map-notes" role="status">
+          {!liteMode && (
+            <div className={`overview-map-notes${running ? '' : ' invisible'}`} role="status" aria-hidden={!running}>
               <p>{locating ? t('locatingRoutes') : statusMessage}</p>
             </div>
           )}
