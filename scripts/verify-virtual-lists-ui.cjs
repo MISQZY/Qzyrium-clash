@@ -69,12 +69,28 @@ if (process.type === 'renderer') {
       await evaluate(`document.querySelector('[aria-label="Edit rules"]').click()`)
       await wait(`document.querySelector('[role="dialog"] [data-virtual-list="true"] [data-index]')`)
       assert.ok(await evaluate(`document.querySelectorAll('[role="dialog"] [draggable]').length < 100`), 'rule DOM stays bounded')
-      await scrollToEnd('[role="dialog"] [data-virtuoso-scroller]', `document.querySelector('[role="dialog"]').textContent.includes('rule-1999.example')`)
+      await scrollToEnd('[role="dialog"] [data-virtuoso-scroller]', `(() => {
+        const row = document.querySelector('[role="dialog"] [title="rule-1999.example"]')?.closest('[draggable]')
+        const scroller = document.querySelector('[role="dialog"] [data-virtuoso-scroller]')
+        const bounds = row?.getBoundingClientRect(), viewport = scroller.getBoundingClientRect()
+        return bounds && bounds.top >= viewport.top && bounds.bottom <= viewport.bottom + 1
+      })()`)
       await evaluate(`Array.from(document.querySelectorAll('[draggable]')).find(el => el.textContent.includes('rule-1999.example')).click()`)
-      await wait(`document.querySelector('fieldset input')?.value === 'rule-1999.example'`)
+      // Expanding the last row changes its measured height and the scroll range.
+      // Keep it in the viewport until Virtuoso has rendered the inline editor.
+      await scrollToEnd('[role="dialog"] [data-virtuoso-scroller]', `document.querySelector('[role="dialog"] fieldset input')?.value === 'rule-1999.example'`)
       console.log('PASS: 2000 proxies, processes and rules keep a bounded DOM; final rows remain reachable and editable')
     } catch (error) {
       console.error(error)
+      const layout = await evaluate(`({ page: document.querySelector('h1')?.textContent,
+        viewport: { width: innerWidth, height: innerHeight },
+        expanded: [...document.querySelectorAll('[aria-expanded]')].map(el => ({ text: el.textContent, value: el.getAttribute('aria-expanded') })),
+        inputs: [...document.querySelectorAll('fieldset input')].map(el => ({ value: el.value, type: el.type })),
+        scrollers: [...document.querySelectorAll('[data-virtuoso-scroller]')].map(el => ({ top: el.scrollTop, height: el.scrollHeight, viewport: el.clientHeight,
+          rows: [...el.querySelectorAll('[data-index]')].map(row => row.dataset.index) })) })`).catch(() => null)
+      fs.writeFileSync(path.join(output, 'failure.json'), JSON.stringify(layout, null, 2))
+      await win.webContents.capturePage().then(image => fs.writeFileSync(path.join(output, 'failure.png'), image.toPNG())).catch(() => {})
+      console.error('Failure layout:', JSON.stringify(layout))
       failed = true
     } finally { win.destroy(); app.exit(failed ? 1 : 0) }
   })
