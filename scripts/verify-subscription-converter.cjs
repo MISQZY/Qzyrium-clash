@@ -28,6 +28,17 @@ assert.equal(parsedSs1.port, 8388)
 assert.equal(parsedSs1.cipher, 'aes-256-gcm')
 assert.equal(parsedSs1.password, 'password')
 
+// SIP002 permits a slash after the port, including before plugin parameters.
+for (const endpoint of ['example.com:8388', '[::1]:8388']) {
+  for (const tail of ['/#test', '/?plugin=v2ray-plugin%3Btls#test']) {
+    const node = parseShadowsocksUri(`ss://YWVzLTI1Ni1nY206cGFzc3dvcmQ=@${endpoint}${tail}`)
+    assert.ok(node, `valid SIP002 endpoint: ${endpoint}${tail}`)
+    assert.equal(node.port, 8388)
+    assert.equal(node.server, endpoint.startsWith('[') ? '::1' : 'example.com')
+    if (tail.includes('plugin=')) assert.equal(node.plugin, 'v2ray-plugin')
+  }
+}
+
 const ssAllBase64 = 'ss://' + Buffer.from('chacha20-ietf-poly1305:secret@5.6.7.8:9000').toString('base64') + '#SS-All'
 const parsedSs2 = parseShadowsocksUri(ssAllBase64)
 assert.ok(parsedSs2)
@@ -134,6 +145,29 @@ deduplicateProxyNames(parsedList)
 assert.equal(parsedList[0].name, 'Сервер 1')
 assert.equal(parsedList[1].name, 'VLESS-Reality')
 assert.equal(parsedList[2].name, 'VLESS-Reality (1)')
+
+const collidingNames = ['Node', 'Node', 'Node (1)', 'Node (2)', 'Node']
+const collidingNodes = collidingNames.map(name => ({ name, type: 'trojan', server: '127.0.0.1', port: 443 }))
+deduplicateProxyNames(collidingNodes)
+assert.deepEqual(collidingNodes.map(node => node.name), ['Node', 'Node (3)', 'Node (1)', 'Node (2)', 'Node (4)'])
+deduplicateProxyNames(collidingNodes)
+assert.equal(new Set(collidingNodes.map(node => node.name)).size, collidingNodes.length)
+
+// Group names share Mihomo's namespace with nodes; references must follow any rename.
+for (const names of [['AUTO'], ['PROXY'], ['AUTO', 'AUTO (1)', 'PROXY', 'PROXY (1)'], collidingNames]) {
+  const input = names.map(name => `trojan://secret@127.0.0.1:443#${encodeURIComponent(name)}`).join('\n')
+  for (const payload of [input, Buffer.from(input).toString('base64')]) {
+    const config = parseProfileConfig(convertSubscriptionToClashYaml(payload))
+    const nodeNames = config.proxies.map(node => node.name)
+    const [select, auto] = config['proxy-groups']
+    const allNames = [...nodeNames, select.name, auto.name]
+    assert.equal(new Set(allNames).size, allNames.length)
+    assert.deepEqual(select.proxies, [auto.name, ...nodeNames])
+    assert.deepEqual(auto.proxies, nodeNames)
+    assert.deepEqual(config.rules, [`MATCH,${select.name}`])
+    assert.equal(config.proxies.length, names.length)
+  }
+}
 
 // 8. Conversion to Clash YAML from raw list
 const generatedYaml = convertSubscriptionToClashYaml(rawList)

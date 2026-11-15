@@ -71,7 +71,7 @@ export function parseShadowsocksUri(uri: string): ProxyNodeConfig | null {
     if (mainPart.includes('@')) {
       const atIndex = mainPart.lastIndexOf('@')
       const userInfoPart = mainPart.slice(0, atIndex)
-      const serverPortPart = mainPart.slice(atIndex + 1)
+      const serverPortPart = mainPart.slice(atIndex + 1).replace(/\/$/, '')
 
       if (userInfoPart.includes(':')) {
         const colonIndex = userInfoPart.indexOf(':')
@@ -446,16 +446,23 @@ export function parseProxyList(text: string): ProxyNodeConfig[] {
   return proxies
 }
 
+function reserveUniqueName(base: string, occupied: Set<string>): string {
+  let name = base
+  for (let suffix = 1; occupied.has(name); suffix++) name = `${base} (${suffix})`
+  occupied.add(name)
+  return name
+}
+
 export function deduplicateProxyNames(nodes: ProxyNodeConfig[]): void {
-  const counts = new Map<string, number>()
-  for (const node of nodes) {
-    let name = typeof node.name === 'string' && node.name.trim() ? node.name.trim() : `${node.server}:${node.port}`
-    const seen = counts.get(name) ?? 0
-    counts.set(name, seen + 1)
-    if (seen > 0) {
-      name = `${name} (${seen})`
-    }
-    node.name = name
+  const names = nodes.map(node => typeof node.name === 'string' && node.name.trim()
+    ? node.name.trim() : `${node.server}:${node.port}`)
+  // Preserve original names even when they match a suffix generated for an earlier duplicate.
+  const occupied = new Set(names)
+  const seen = new Set<string>()
+  for (const [index, node] of nodes.entries()) {
+    const name = names[index]
+    node.name = seen.has(name) ? reserveUniqueName(name, occupied) : name
+    seen.add(name)
   }
 }
 
@@ -499,16 +506,19 @@ export function convertSubscriptionToClashYaml(content: string): string {
   if (proxies.length > 0) {
     deduplicateProxyNames(proxies)
     const proxyNames = proxies.map((p) => p.name)
+    const occupied = new Set(proxyNames)
+    const selectGroupName = reserveUniqueName('PROXY', occupied)
+    const autoGroupName = reserveUniqueName('AUTO', occupied)
     const config = {
       proxies,
       'proxy-groups': [
         {
-          name: 'PROXY',
+          name: selectGroupName,
           type: 'select',
-          proxies: ['AUTO', ...proxyNames]
+          proxies: [autoGroupName, ...proxyNames]
         },
         {
-          name: 'AUTO',
+          name: autoGroupName,
           type: 'url-test',
           url: 'https://www.gstatic.com/generate_204',
           interval: 300,
@@ -517,7 +527,7 @@ export function convertSubscriptionToClashYaml(content: string): string {
         }
       ],
       rules: [
-        'MATCH,PROXY'
+        `MATCH,${selectGroupName}`
       ]
     }
     return yaml.stringify(config)
