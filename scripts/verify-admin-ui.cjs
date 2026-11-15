@@ -6,6 +6,7 @@ const path = require('node:path')
 if (process.type === 'renderer') {
   const expose = contextBridge.exposeInMainWorld.bind(contextBridge)
   contextBridge.exposeInMainWorld = (name, api) => {
+    api.platform = process.argv.find(arg => arg.startsWith('--test-admin-platform='))?.split('=')[1] ?? 'win32'
     let calls = 0
     const getSettings = api.settings.get
     api.settings.get = async () => {
@@ -68,7 +69,26 @@ if (process.type === 'renderer') {
       await evaluate(`document.querySelector('[role="alert"] button[aria-label]').click()`)
       await waitFor(`!document.querySelector('[role="alert"]')`)
       assert.deepEqual(await evaluate(`document.querySelector('.page-viewport').getBoundingClientRect().toJSON()`), pageBeforeDismiss)
-      console.log('PASS: Russian admin error, clean message, responsive layout, pending state, duplicate clicks, cancellation, rejection, retry and dismiss')
+      for (const platform of ['linux', 'darwin']) {
+        const otherWindow = new BrowserWindow({ show: false, webPreferences: {
+          preload: __filename, sandbox: false, contextIsolation: true, backgroundThrottling: false,
+          additionalArguments: [`--test-admin-platform=${platform}`]
+        } })
+        try {
+          await otherWindow.loadFile(path.resolve(__dirname, '../out/renderer/index.html'))
+          const otherEvaluate = code => otherWindow.webContents.executeJavaScript(code)
+          let alertReady = false
+          for (let attempt = 0; attempt < 100; attempt++) {
+            alertReady = await otherEvaluate(`document.documentElement.lang === 'ru' && !!document.querySelector('[role="alert"]')`)
+            if (alertReady) break
+            await new Promise(resolve => setTimeout(resolve, 50))
+          }
+          assert.ok(alertReady, `${platform}: the permission error is displayed`)
+          assert.equal(await otherEvaluate(`document.querySelectorAll('[role="alert"] button:not([aria-label])').length`), 0, `${platform}: administrator restart is unavailable`)
+          assert.equal(await otherEvaluate('window.adminTest.calls()'), 0)
+        } finally { otherWindow.destroy() }
+      }
+      console.log('PASS: Russian admin error, clean message, responsive layout, pending state, duplicate clicks, cancellation, rejection, retry, dismiss and Linux/macOS elevation guards')
     } finally { win.destroy(); app.quit() }
   }).catch(error => { console.error(error); app.exit(1) })
 }

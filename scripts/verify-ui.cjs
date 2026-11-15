@@ -33,6 +33,7 @@ if (process.type === 'renderer') {
   const noop = async () => {}
   const providerCalls = []
   const api = {
+    platform: process.platform,
     uiTest: { setConfigFile: (content) => { configFile = content === null ? null : { name: 'fixture.json', content } }, getSavedConfig: () => savedConfig, emitLogs: (count) => { for (let i = 0; i < count; i++) logCallback?.({ type: 'info', payload: `Journal regression ${Date.now()} ${i} ` + 'payload '.repeat(40), time: new Date().toISOString(), source: 'mihomo' }) }, increaseTraffic: () => { connections = connections.map(c => ({ ...c, download: c.download + 4096 })) } },
     theme: {
       getCustomThemes: async () => ({ themes: customThemes, skippedFiles: [] }),
@@ -310,7 +311,7 @@ if (process.type === 'renderer') {
       await evaluate(`Array.from(document.querySelectorAll('button')).find(button => button.textContent.trim() === 'Preview final configuration').click()`)
       await waitFor(`document.querySelector('[data-config-preview="yaml"] .cm-content')?.textContent.includes('mixed-port: 7895')`)
       assert.equal(await evaluate(`document.querySelector('[data-config-preview="yaml"] .cm-content').getAttribute('contenteditable')`), 'false')
-      await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(button => button.textContent.trim() === 'Compare with profile').click()`)
+      await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] label')).find(label => label.textContent.trim() === 'Show changes').querySelector('[role="switch"]').click()`)
       await waitFor(`document.querySelectorAll('[data-config-preview="diff"] .cm-content[contenteditable="false"]').length === 2`)
       await screenshot('configuration-preview')
       await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(button => button.textContent.trim() === 'Close').click()`)
