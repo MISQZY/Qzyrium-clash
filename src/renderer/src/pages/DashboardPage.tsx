@@ -1,7 +1,7 @@
 import { selectedLocalization } from '@shared/custom-localization'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocale, useTranslations } from '../i18n'
-import { ArrowDown, ArrowUp, ExternalLink, HelpCircle, LoaderCircle, Power } from 'lucide-react'
+import { ExternalLink, HelpCircle, LoaderCircle, Power } from 'lucide-react'
 import type { CoreState, TrafficStats, TunnelMode } from '@shared/types'
 import type { ProfileItem } from '@shared/profile'
 import type { AppConfig } from '@shared/app-config'
@@ -9,13 +9,13 @@ import type { ConnectionsSnapshot, MihomoRule, ProxyNode } from '@shared/mihomo'
 import type { GlobeLocations } from '@shared/geo'
 import type { SysProxyStatus } from '@shared/ipc'
 import type { NavTab } from '../lib/navigation'
-import { formatBytes, formatDuration } from '../lib/format'
 import { connectionRoutes } from '../lib/globe'
 import { ConnectionGlobe } from '../components/ConnectionGlobe'
 import { Button } from '../components/ui/button'
-import { Tooltip } from 'radix-ui'
 import { SubscriptionUsageBar } from '../components/SubscriptionUsageBar'
 import { subscriptionUsage } from '@shared/subscription-health'
+import { SessionDuration } from '../components/dashboard/SessionDuration'
+import { SessionTrafficMetrics } from '../components/dashboard/SessionTrafficMetrics'
 
 interface DashboardPageProps {
   visible?: boolean
@@ -31,86 +31,6 @@ interface DashboardPageProps {
 }
 const EMPTY_LOCATIONS: GlobeLocations = { origin: null, routes: [] }
 
-function SessionDuration({ startedAt, running, ariaLabel }: { startedAt: number | null; running: boolean; ariaLabel: string }) {
-  const [now, setNow] = useState(Date.now)
-  useEffect(() => {
-    if (!running) return
-    const sync = () => setNow(Date.now())
-    sync()
-    const timer = setInterval(sync, 1000)
-    document.addEventListener('visibilitychange', sync)
-    window.addEventListener('focus', sync)
-    return () => {
-      clearInterval(timer)
-      document.removeEventListener('visibilitychange', sync)
-      window.removeEventListener('focus', sync)
-    }
-  }, [running])
-
-  return (
-    <output aria-label={ariaLabel} className="overview-session-duration">
-      {formatDuration(startedAt ? now - startedAt : 0)}
-    </output>
-  )
-}
-
-function AutoFitTrafficText({ text }: { text: string }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const textRef = useRef<HTMLSpanElement>(null)
-
-  const fontSize = useMemo(() => {
-    if (text.length <= 5) return 19
-    if (text.length <= 7) return 17
-    if (text.length <= 8) return 15
-    if (text.length <= 10) return 13.5
-    if (text.length <= 12) return 12
-    return 11
-  }, [text])
-
-  useLayoutEffect(() => {
-    const container = containerRef.current
-    const textEl = textRef.current
-    if (!container || !textEl) return
-
-    const updateScale = () => {
-      textEl.style.transform = 'none'
-      const containerWidth = container.clientWidth
-      const textWidth = textEl.scrollWidth
-      if (containerWidth > 0 && textWidth > 0 && textWidth > containerWidth) {
-        const scale = Math.max(0.65, (containerWidth - 1) / textWidth)
-        textEl.style.transform = `scale(${scale})`
-      } else {
-        textEl.style.transform = ''
-      }
-    }
-
-    updateScale()
-    const observer = new ResizeObserver(updateScale)
-    observer.observe(container)
-    return () => observer.disconnect()
-  }, [text, fontSize])
-
-  return (
-    <div
-      ref={containerRef}
-      className="mt-1.5 w-full flex items-center justify-center overflow-visible"
-      style={{ minHeight: '1.65rem', height: '1.65rem' }}
-    >
-      <span
-        ref={textRef}
-        className="overview-traffic-value font-medium tabular-nums text-center whitespace-nowrap select-text inline-block will-change-transform"
-        style={{
-          fontSize: `${fontSize}px`,
-          lineHeight: '1.65rem',
-          transformOrigin: 'center center'
-        }}
-      >
-        {text}
-      </span>
-    </div>
-  )
-}
-
 export function DashboardPage({
   coreStatus,
   sessionStartedAt,
@@ -124,8 +44,6 @@ export function DashboardPage({
   rules,
   onToggleKernel,
   onUpdateDelays,
-  onNavigate,
-  onToggleOnlyVpn,
   visible = true
 }: DashboardPageProps) {
   const t = useTranslations('dashboard')
@@ -212,154 +130,81 @@ export function DashboardPage({
     </div>
   ) : null
 
-  return <section className="page-scroll overview-page">
-    <header className="page-heading">
-      <h1 className="text-xl font-semibold tracking-tight">{t('overview')}</h1>
-      {!liteMode && announcePill}
-    </header>
-    <div className={`overview-layout${liteMode ? ' is-lite' : ''}`}>
-      {!liteMode && visible && (
-        <ConnectionGlobe
-          running={running}
-          routes={routes}
-          pendingNodes={locations.pendingNodes}
-        />
-      )}
-      <div className="overview-panel-column">
-        {liteMode && announcePill}
-        <aside className="overview-panel" aria-label={t('connectionControls')}>
-          <div className="overview-power-section">
-            <p className={`text-sm font-medium ${coreStatus === 'error' ? 'text-destructive' : ''}`} role="status">
-              {statusLabel}
-            </p>
-            <button
-              data-tour="connect"
-              className={`overview-power ${running ? 'is-running' : ''} ${coreStatus === 'error' ? 'border-destructive text-destructive' : ''}`}
-              onClick={onToggleKernel}
-              disabled={busy || connecting}
-              aria-label={running ? t('stopCore') : t('startCore')}
-              aria-pressed={running}
-            >
-              {busy || connecting ? <LoaderCircle className="size-12 animate-spin" /> : <Power className="size-12" strokeWidth={1.5} />}
-            </button>
-            <div className="overview-duration-slot">
-              {running && <SessionDuration startedAt={sessionStartedAt} running={running} ariaLabel={t('sessionDuration')} />}
-            </div>
-          </div>
-
-          {(() => {
-            const onlyVpn = settings.general.onlyVpnTraffic !== false
-            const vpnDownload = connections.vpnDownloadTotal ?? 0
-            const vpnUpload = connections.vpnUploadTotal ?? 0
-            const trafficMetrics = [
-              {
-                label: t('download'),
-                value: onlyVpn ? vpnDownload : connections.downloadTotal,
-                vpnValue: vpnDownload,
-                totalValue: connections.downloadTotal,
-                rate: traffic.down,
-                icon: ArrowDown
-              },
-              {
-                label: t('upload'),
-                value: onlyVpn ? vpnUpload : connections.uploadTotal,
-                vpnValue: vpnUpload,
-                totalValue: connections.uploadTotal,
-                rate: traffic.up,
-                icon: ArrowUp
-              }
-            ]
-
-            return (
-              <Tooltip.Provider delayDuration={150}>
-                <div className="overview-panel-section text-center">
-                  <div className="flex items-center justify-center gap-1.5 mb-2">
-                    <h3 className="overview-eyebrow !mb-0 text-center">{t('sessionTraffic')}</h3>
-                    <Tooltip.Root>
-                      <Tooltip.Trigger asChild>
-                        <button
-                          type="button"
-                          className="inline-flex items-center justify-center text-muted-foreground/60 hover:text-foreground transition-colors cursor-help rounded-full focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                          aria-label={onlyVpn ? t('trafficExplanationVpn') : t('trafficExplanationAll')}
-                        >
-                          <HelpCircle className="size-3 shrink-0" />
-                        </button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Portal>
-                        <Tooltip.Content side="top" sideOffset={6} className="sidebar-tooltip max-w-56 text-center">
-                          <p className="text-[11px] leading-snug">
-                            {onlyVpn ? t('trafficExplanationVpn') : t('trafficExplanationAll')}
-                          </p>
-                          <Tooltip.Arrow className="fill-popover" />
-                        </Tooltip.Content>
-                      </Tooltip.Portal>
-                    </Tooltip.Root>
-                  </div>
-                  <div className="overview-traffic text-center">
-                    {trafficMetrics.map(({ label, value, vpnValue, totalValue, rate, icon: Icon }) => (
-                      <Tooltip.Root key={label}>
-                        <Tooltip.Trigger asChild>
-                          <div className="flex flex-col items-center text-center min-w-0 cursor-help select-none">
-                            <span className="flex items-center justify-center gap-1.5 text-xs leading-4 text-muted-foreground">
-                              <Icon className="size-4 text-muted-foreground shrink-0" />
-                              {label}
-                            </span>
-                            <AutoFitTrafficText text={formatBytes(value, locale)} />
-                            <p className="mt-1 text-xs leading-4 text-muted-foreground tabular-nums text-center whitespace-nowrap overflow-hidden text-ellipsis w-full">
-                              {t('rate', { value: formatBytes(rate, locale) })}
-                            </p>
-                          </div>
-                        </Tooltip.Trigger>
-                        <Tooltip.Portal>
-                          <Tooltip.Content side="top" sideOffset={8} className="sidebar-tooltip">
-                            <div className="flex flex-col gap-1 text-[11px] min-w-36 text-left">
-                              <div className="flex items-center gap-1 font-semibold text-foreground/90 border-b border-border/50 pb-1">
-                                <span>{label}</span>
-                                <span>·</span>
-                                <span>{t('trafficBreakdown')}</span>
-                              </div>
-                              <div className="flex justify-between gap-3 text-muted-foreground">
-                                <span>{t('trafficVpn')}</span>
-                                <span className="font-mono text-foreground font-medium">{formatBytes(vpnValue, locale)}</span>
-                              </div>
-                              <div className="flex justify-between gap-3 text-muted-foreground">
-                                <span>{t('trafficTotal')}</span>
-                                <span className="font-mono text-foreground font-medium">{formatBytes(totalValue, locale)}</span>
-                              </div>
-                            </div>
-                            <Tooltip.Arrow className="fill-popover" />
-                          </Tooltip.Content>
-                        </Tooltip.Portal>
-                      </Tooltip.Root>
-                    ))}
-                  </div>
-                </div>
-              </Tooltip.Provider>
-            )
-          })()}
-          {subscriptionUsage(activeProfile?.userInfo) && <div className="overview-panel-section overview-quota-section"><SubscriptionUsageBar info={activeProfile?.userInfo} compact /></div>}
-          {activeProfile?.supportUrl?.startsWith('https://') && (
-            <div className="overview-panel-section overview-support-section">
-              <Button
-                variant="secondary"
-                className="w-full gap-2.5 text-xs font-semibold h-9 rounded-xl bg-secondary/80 hover:bg-secondary text-secondary-foreground border border-border/80 transition-[color,background-color,border-color,transform] active:scale-[0.98] cursor-pointer"
-                onClick={() => {
-                  if (window.api?.app?.openUrl) {
-                    void window.api.app.openUrl(activeProfile.supportUrl!)
-                  } else {
-                    window.open(activeProfile.supportUrl, '_blank')
-                  }
-                }}
+  return (
+    <section className="page-scroll overview-page">
+      <header className="page-heading">
+        <h1 className="text-xl font-semibold tracking-tight">{t('overview')}</h1>
+        {!liteMode && announcePill}
+      </header>
+      <div className={`overview-layout${liteMode ? ' is-lite' : ''}`}>
+        {!liteMode && visible && (
+          <ConnectionGlobe
+            running={running}
+            routes={routes}
+            pendingNodes={locations.pendingNodes}
+          />
+        )}
+        <div className="overview-panel-column">
+          {liteMode && announcePill}
+          <aside className="overview-panel" aria-label={t('connectionControls')}>
+            <div className="overview-power-section">
+              <p className={`text-sm font-medium ${coreStatus === 'error' ? 'text-destructive' : ''}`} role="status">
+                {statusLabel}
+              </p>
+              <button
+                data-tour="connect"
+                className={`overview-power ${running ? 'is-running' : ''} ${coreStatus === 'error' ? 'border-destructive text-destructive' : ''}`}
+                onClick={onToggleKernel}
+                disabled={busy || connecting}
+                aria-label={running ? t('stopCore') : t('startCore')}
+                aria-pressed={running}
               >
-                <HelpCircle className="size-4 text-muted-foreground shrink-0" />
-                <span className="font-medium">{t('support')}</span>
-                <ExternalLink className="size-3.5 ml-auto text-muted-foreground opacity-75" />
-              </Button>
+                {busy || connecting ? <LoaderCircle className="size-12 animate-spin" /> : <Power className="size-12" strokeWidth={1.5} />}
+              </button>
+              <div className="overview-duration-slot">
+                {running && <SessionDuration startedAt={sessionStartedAt} running={running} ariaLabel={t('sessionDuration')} />}
+              </div>
+            </div>
+
+            <SessionTrafficMetrics
+              connections={connections}
+              traffic={traffic}
+              onlyVpnTraffic={settings.general.onlyVpnTraffic !== false}
+            />
+
+            {subscriptionUsage(activeProfile?.userInfo) && (
+              <div className="overview-panel-section overview-quota-section">
+                <SubscriptionUsageBar info={activeProfile?.userInfo} compact />
+              </div>
+            )}
+
+            {activeProfile?.supportUrl?.startsWith('https://') && (
+              <div className="overview-panel-section overview-support-section">
+                <Button
+                  variant="secondary"
+                  className="w-full gap-2.5 text-xs font-semibold h-9 rounded-xl bg-secondary/80 hover:bg-secondary text-secondary-foreground border border-border/80 transition-[color,background-color,border-color,transform] active:scale-[0.98] cursor-pointer"
+                  onClick={() => {
+                    if (window.api?.app?.openUrl) {
+                      void window.api.app.openUrl(activeProfile.supportUrl!)
+                    } else {
+                      window.open(activeProfile.supportUrl, '_blank')
+                    }
+                  }}
+                >
+                  <HelpCircle className="size-4 text-muted-foreground shrink-0" />
+                  <span className="font-medium">{t('support')}</span>
+                  <ExternalLink className="size-3.5 ml-auto text-muted-foreground opacity-75" />
+                </Button>
+              </div>
+            )}
+          </aside>
+          {!liteMode && running && (
+            <div className="overview-map-notes" role="status">
+              <p>{locating ? t('locatingRoutes') : statusMessage}</p>
             </div>
           )}
-        </aside>
-        {!liteMode && running && <div className="overview-map-notes" role="status"><p>{locating ? t('locatingRoutes') : statusMessage}</p></div>}
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
+  )
 }
