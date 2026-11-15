@@ -3,6 +3,10 @@ export function formatDuration(milliseconds: number): string {
   return [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60].map((value) => String(value).padStart(2, '0')).join(':')
 }
 
+export function formatDurationFromStart(start: string | number): string {
+  return formatDuration(Math.max(0, Date.now() - new Date(start).getTime()))
+}
+
 export function formatBytes(value: number, locale: 'en' | 'ru' = 'en'): string {
   const bytes = Math.max(0, Number.isFinite(value) ? value : 0)
   const units = locale === 'ru' ? ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'] : ['B', 'KB', 'MB', 'GB', 'TB']

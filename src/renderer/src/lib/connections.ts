@@ -21,6 +21,16 @@ export function isIPv6(ip: string): boolean {
   return ip.includes(':')
 }
 
+export function getProcessDisplayName(processPath?: string, process?: string, fallback = 'System'): string {
+  return extractProcessName(processPath) || process || fallback
+}
+
+export function getNetworkBadgeClass(network: string): string {
+  return network.toLowerCase() === 'udp'
+    ? 'border-warning/40 text-warning bg-warning/10'
+    : 'border-primary/40 text-primary bg-primary/10'
+}
+
 export interface ProcessGroup {
   key: string
   name: string
@@ -31,4 +41,3 @@ export interface ProcessGroup {
   totalDownload: number
   latestStart: number
 }
-
