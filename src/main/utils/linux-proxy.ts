@@ -75,7 +75,7 @@ export class LinuxProxySettings {
     }
   }
 
-  private async setKdeManual(host: string, port: number): Promise<boolean> {
+  private async setKdeManual(host: string, port: number, bypass: string[] = []): Promise<boolean> {
     const bin = await this.findKwriteconfig()
     if (!bin) return false
     try {
@@ -84,6 +84,9 @@ export class LinuxProxySettings {
       await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'httpProxy', url])
       await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'httpsProxy', url])
       await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'socksProxy', `socks://${host}:${port}`])
+      if (bypass.length) {
+        await execute(bin, ['--file', 'kioslaverc', '--group', 'Proxy Settings', '--key', 'NoProxyFor', bypass.join(',')])
+      }
       await this.reloadKde()
       logger.info(`Linux KDE system proxy set to manual: ${host}:${port}`)
       return true
@@ -122,7 +125,7 @@ export class LinuxProxySettings {
     }
   }
 
-  private async setGnomeManual(host: string, port: number): Promise<boolean> {
+  private async setGnomeManual(host: string, port: number, bypass: string[] = []): Promise<boolean> {
     if (!(await this.isGnomeAvailable())) return false
     try {
       const gvHost = toGVariantString(host)
@@ -133,6 +136,10 @@ export class LinuxProxySettings {
       await execute('gsettings', ['set', 'org.gnome.system.proxy.https', 'port', String(port)])
       await execute('gsettings', ['set', 'org.gnome.system.proxy.socks', 'host', gvHost])
       await execute('gsettings', ['set', 'org.gnome.system.proxy.socks', 'port', String(port)])
+      if (bypass.length) {
+        const ignoreHosts = '[' + bypass.map(toGVariantString).join(', ') + ']'
+        await execute('gsettings', ['set', 'org.gnome.system.proxy', 'ignore-hosts', ignoreHosts])
+      }
       logger.info(`Linux GNOME system proxy set to manual: ${host}:${port}`)
       return true
     } catch (err) {
@@ -166,14 +173,14 @@ export class LinuxProxySettings {
     }
   }
 
-  async setManual(host: string, port: number): Promise<void> {
+  async setManual(host: string, port: number, bypass: string[] = []): Promise<void> {
     if (this.isKde()) {
-      const ok = await this.setKdeManual(host, port)
+      const ok = await this.setKdeManual(host, port, bypass)
       if (ok) return
     }
-    const gnomeOk = await this.setGnomeManual(host, port)
+    const gnomeOk = await this.setGnomeManual(host, port, bypass)
     if (!gnomeOk && !this.isKde()) {
-      await this.setKdeManual(host, port)
+      await this.setKdeManual(host, port, bypass)
     }
   }
 

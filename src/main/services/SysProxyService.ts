@@ -134,7 +134,7 @@ export class SysProxyService implements BaseService {
     } else if (process.platform === 'linux') {
       try {
         if (enable && mode === 'manual') {
-          await this.linuxProxy.setManual(host, port)
+          await this.linuxProxy.setManual(host, port, settings.sysProxy.bypass)
           this.enabled = true
         } else if (enable && mode === 'pac') {
           await this.linuxProxy.setAuto(pacUrl)
