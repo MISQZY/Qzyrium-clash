@@ -55,7 +55,7 @@ app.whenReady().then(async () => {
     setImage(image) { this.image = image }
     setToolTip(text) { this.tooltip = text }
     setContextMenu(menu) { this.menu = menu }
-    on() {}
+    on(event, handler) { this.listeners = this.listeners || new Map(); this.listeners.set(event, handler) }
     destroy() { this.destroyed = true }
   }
   const { TrayService } = load('src/main/services/TrayService.ts', {
@@ -67,6 +67,10 @@ app.whenReady().then(async () => {
   const windowService = { isCoreOnlyMode: () => coreOnly, setCoreOnlyMode: value => { coreOnly = value; service.updateContextMenu() }, show: () => { coreOnly = false; service.updateContextMenu() } }
   const service = new TrayService(windowService, { getStatus: () => core }, { getStatus: () => ({ enabled: proxy }), setSysProxy: async enabled => { proxy = enabled } }, { getSettings: () => settings }, { setSystemProxy: async enabled => { proxy = enabled }, setTunEnabled: async enabled => { settings.kernel.tun.enable = enabled } })
   await service.initialize()
+  assert.ok(currentTray.listeners?.has('click'), 'Tray click listener must be registered')
+  assert.ok(currentTray.listeners?.has('double-click'), 'Tray double-click listener must be registered')
+  assert.match(currentTray.tooltip, /Routing type:/)
+  assert.match(currentTray.tooltip, /Routing mode:/)
   currentTray.menu.find(item => item.label === 'Core only').click()
   assert.equal(currentTray.menu.find(item => item.label === 'Core only').checked, true)
   currentTray.menu.find(item => item.label === 'Core only').click()
@@ -237,6 +241,7 @@ app.whenReady().then(async () => {
   profileTrayService.updateContextMenu()
   const updatedProfilesMenu = currentTray.menu.find(item => item.label?.startsWith('Профили'))
   assert.equal(updatedProfilesMenu.submenu.find(i => i.label === 'Profile Two').checked, true)
+  assert.match(currentTray.tooltip, /Профили: Profile Two/, 'Active profile must appear in tray tooltip')
   // Verify menu structure order
   assert.equal(currentTray.menu[0].label, 'Открыть приложение', 'First item must be Open window')
   assert.equal(currentTray.menu[1].label, 'Отключить', 'Second item must be Connect/Disconnect')

@@ -1,5 +1,5 @@
 import type { NetworkModeController } from './NetworkModeController'
-import { app, Menu, nativeImage, Tray, NativeImage } from 'electron'
+import { app, Menu, nativeImage, Tray, NativeImage, Notification } from 'electron'
 import type { MenuItemConstructorOptions } from 'electron'
 import path from 'path'
 import { BaseService } from './BaseService'
@@ -207,6 +207,14 @@ export class TrayService implements BaseService {
       this.windowService.broadcast?.('event:settings-changed', null)
     } catch (err) {
       console.error(`Failed to set routing type to ${type}:`, err)
+      const settings = this.settingService.getSettings()
+      const messages = nativeMessages(settings.general)
+      if (type === 'tun' && typeof Notification?.isSupported === 'function' && Notification.isSupported()) {
+        new Notification({
+          title: 'Qzyrium-clash',
+          body: messages.tunRequiresAdmin || (err instanceof Error ? err.message : String(err))
+        }).show()
+      }
     } finally {
       this.updateContextMenu()
     }
@@ -354,6 +362,9 @@ export class TrayService implements BaseService {
     this.tray.on('click', () => {
       this.windowService.show()
     })
+    this.tray.on('double-click', () => {
+      this.windowService.show()
+    })
 
     this.updateContextMenu()
   }
@@ -368,7 +379,6 @@ export class TrayService implements BaseService {
     const status = getVpnStatus(coreStatus)
     const statusMessage = messages[status === 'on' ? 'vpnOn' : status === 'off' ? 'vpnOff' : status]
     this.tray.setImage(this.statusIcons[status]!)
-    this.tray.setToolTip(`Qzyrium-clash: ${statusMessage} (${messages[coreStatus]})`)
 
     if (coreStatus === 'running' && Object.keys(this.cachedProxies).length === 0 && !this.isRefreshingProxies) {
       void this.refreshProxies().then(() => {
@@ -384,6 +394,39 @@ export class TrayService implements BaseService {
     const isRunning = coreStatus === 'running'
     const proxyGroupMenus = this.buildProxyGroupMenus(currentMode, isRunning)
     const profileMenu = this.buildProfileMenu(messages)
+
+    const tunEnabled = Boolean(settings.kernel?.tun?.enable)
+    const sysProxyEnabled = Boolean(sysProxyStatus.enabled || settings.sysProxy?.enable)
+    const currentRoutingType: 'off' | 'sysproxy' | 'tun' = tunEnabled
+      ? 'tun'
+      : sysProxyEnabled
+        ? 'sysproxy'
+        : 'off'
+
+    const typeNames: Record<'off' | 'sysproxy' | 'tun', string> = {
+      off: messages.routingTypeDisabled || 'Disabled',
+      sysproxy: messages.routingTypeProxy || messages.proxy || 'System proxy',
+      tun: messages.routingTypeTun || 'TUN'
+    }
+    const currentRoutingTypeName = typeNames[currentRoutingType]
+
+    const modeNames: Record<TunnelMode, string> = {
+      rule: messages.modeRule || 'Rule',
+      global: messages.modeGlobal || 'Global',
+      direct: messages.modeDirect || 'Direct'
+    }
+    const currentModeName = modeNames[currentMode] || messages.modeRule || 'Rule'
+
+    const activeProfileName = this.profileService?.getActiveProfile()?.name
+    const tooltipLines = [
+      `Qzyrium-clash: ${statusMessage} (${messages[coreStatus]})`,
+      `${messages.routingType || 'Routing type'}: ${currentRoutingTypeName}`,
+      `${messages.routingMode || 'Routing mode'}: ${currentModeName}`
+    ]
+    if (activeProfileName) {
+      tooltipLines.push(`${messages.profiles || 'Profiles'}: ${activeProfileName}`)
+    }
+    this.tray.setToolTip(tooltipLines.join('\n'))
 
     const template: MenuItemConstructorOptions[] = [
       {
