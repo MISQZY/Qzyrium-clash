@@ -65,5 +65,10 @@
     "one": "{count} session",
     "other": "{count} sessions"
   },
-  "showMore": "Show more ({count} remaining)"
+  "showMore": "Show more ({count} remaining)",
+  "pause": "Pause",
+  "resume": "Resume",
+  "pauseLiveUpdates": "Pause live updates",
+  "resumeLiveUpdates": "Resume live updates",
+  "livePaused": "Live updates paused"
 }

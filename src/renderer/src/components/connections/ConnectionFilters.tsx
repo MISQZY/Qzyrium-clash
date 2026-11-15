@@ -13,9 +13,10 @@ interface ConnectionFiltersProps {
   sortBy: ConnectionSort; setSortBy: (value: ConnectionSort) => void
   viewMode: 'process' | 'flat'; selectedProcessKey: string | null
   processCount: number; connectionCount: number
+  paused?: boolean
 }
 
-export function ConnectionFilters({ query, setQuery, protocolFilter, setProtocolFilter, sortBy, setSortBy, viewMode, selectedProcessKey, processCount, connectionCount }: ConnectionFiltersProps) {
+export function ConnectionFilters({ query, setQuery, protocolFilter, setProtocolFilter, sortBy, setSortBy, viewMode, selectedProcessKey, processCount, connectionCount, paused }: ConnectionFiltersProps) {
   const t = useTranslations('connections')
 
   return (
@@ -62,6 +63,13 @@ export function ConnectionFilters({ query, setQuery, protocolFilter, setProtocol
             <option value="time">{t('sortByTime')}</option>
             <option value="process">{t('sortByProcess')}</option>
           </NativeSelect>
+
+          {paused && (
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">
+              <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+              <span>{t('livePaused')}</span>
+            </span>
+          )}
 
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground px-1">
             {viewMode === 'process' && !selectedProcessKey

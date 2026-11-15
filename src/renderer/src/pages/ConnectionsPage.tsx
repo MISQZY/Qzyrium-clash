@@ -31,11 +31,25 @@ export function ConnectionsPage({
   const [query, setQuery] = useState('')
   const [protocolFilter, setProtocolFilter] = useState<ConnectionProtocol>('all')
   const [sortBy, setSortBy] = useState<ConnectionSort>('traffic')
+  const [paused, setPaused] = useState(false)
+  const [frozenSnapshot, setFrozenSnapshot] = useState<ConnectionsSnapshot | null>(null)
   const actions = useConnectionActions(onRefresh)
+
+  const handleTogglePause = () => {
+    if (paused) {
+      setFrozenSnapshot(null)
+      setPaused(false)
+    } else {
+      setFrozenSnapshot(connections)
+      setPaused(true)
+    }
+  }
+
+  const activeSnapshot = paused && frozenSnapshot ? frozenSnapshot : connections
   const { selectedConnection, setSelectedConnection, copiedKey, closing, error, handleCopy, close } = actions
 
-  const matchingConnections = useMemo(() => filterConnections(connections.connections, query, protocolFilter),
-    [connections.connections, query, protocolFilter])
+  const matchingConnections = useMemo(() => filterConnections(activeSnapshot.connections, query, protocolFilter),
+    [activeSnapshot.connections, query, protocolFilter])
   const processGroups = useMemo(() => groupConnections(matchingConnections, sortBy, t('system')),
     [matchingConnections, sortBy, t])
   const filteredAndSortedList = useMemo(() => sortConnections(matchingConnections, sortBy, t('system')),
@@ -50,8 +64,8 @@ export function ConnectionsPage({
   // Keep selectedConnection fresh with real-time speed/data if it updates
   const activeDetail = useMemo(() => {
     if (!selectedConnection) return null
-    return connections.connections.find((c) => c.id === selectedConnection.id) || selectedConnection
-  }, [selectedConnection, connections.connections])
+    return activeSnapshot.connections.find((c) => c.id === selectedConnection.id) || selectedConnection
+  }, [selectedConnection, activeSnapshot.connections])
 
   const renderConnectionCard = (item: ConnectionItem) => <ConnectionCard key={item.id} item={item} actions={actions} />
 
@@ -61,7 +75,8 @@ export function ConnectionsPage({
       actions={
         <ConnectionToolbar viewMode={viewMode} selectedProcessKey={selectedProcessKey}
           setViewMode={setViewMode} setSelectedProcessKey={setSelectedProcessKey}
-          connectionCount={connections.connections.length} actions={actions} />
+          connectionCount={activeSnapshot.connections.length} actions={actions}
+          paused={paused} onTogglePause={handleTogglePause} />
       }
     >
       {/* Search & Filters Header */}
@@ -69,7 +84,8 @@ export function ConnectionsPage({
       <ConnectionFilters query={query} setQuery={setQuery} protocolFilter={protocolFilter}
         setProtocolFilter={setProtocolFilter} sortBy={sortBy} setSortBy={setSortBy}
         viewMode={viewMode} selectedProcessKey={selectedProcessKey}
-        processCount={processGroups.length} connectionCount={filteredAndSortedList.length} />
+        processCount={processGroups.length} connectionCount={filteredAndSortedList.length}
+        paused={paused} />
       </div>
 
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}

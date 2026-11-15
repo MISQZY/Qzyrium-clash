@@ -69,5 +69,10 @@
     "many": "{count} соединений",
     "other": "{count} соединения"
   },
-  "showMore": "Показать ещё ({count} осталось)"
+  "showMore": "Показать ещё ({count} осталось)",
+  "pause": "Пауза",
+  "resume": "Возобновить",
+  "pauseLiveUpdates": "Приостановить обновление",
+  "resumeLiveUpdates": "Возобновить обновление",
+  "livePaused": "Обновление на паузе"
 }

@@ -1,6 +1,6 @@
 import { useTranslations } from '../../i18n'
 
-import { Layers, ArrowLeft, ListFilter } from 'lucide-react'
+import { Layers, ArrowLeft, ListFilter, Pause, Play } from 'lucide-react'
 import { DisconnectIcon } from '../../lib/icons'
 
 import { Button } from '../ui/button'
@@ -14,9 +14,11 @@ interface ConnectionToolbarProps {
   setViewMode: (mode: 'process' | 'flat') => void
   connectionCount: number
   actions: Pick<ConnectionActions, 'closing' | 'close'>
+  paused?: boolean
+  onTogglePause?: () => void
 }
 
-export function ConnectionToolbar({ viewMode, selectedProcessKey, setSelectedProcessKey, setViewMode, connectionCount, actions }: ConnectionToolbarProps) {
+export function ConnectionToolbar({ viewMode, selectedProcessKey, setSelectedProcessKey, setViewMode, connectionCount, actions, paused, onTogglePause }: ConnectionToolbarProps) {
   const t = useTranslations('connections')
   const { closing, close } = actions
   return (
@@ -66,6 +68,21 @@ export function ConnectionToolbar({ viewMode, selectedProcessKey, setSelectedPro
               <span>{t('allConnections')}</span>
             </button>
           </div>
+
+          {onTogglePause && (
+            <Button
+              variant={paused ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={onTogglePause}
+              className={`gap-1.5 text-xs ${paused ? 'border-amber-500/50 text-amber-600 dark:text-amber-400 font-medium' : ''}`}
+              title={paused ? t('resumeLiveUpdates') : t('pauseLiveUpdates')}
+              aria-label={paused ? t('resumeLiveUpdates') : t('pauseLiveUpdates')}
+              aria-pressed={paused}
+            >
+              {paused ? <Play className="size-3.5 fill-current" /> : <Pause className="size-3.5" />}
+              <span>{paused ? t('resume') : t('pause')}</span>
+            </Button>
+          )}
 
           <Button
             onClick={() => close()}
