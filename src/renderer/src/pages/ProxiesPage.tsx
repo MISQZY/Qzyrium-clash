@@ -43,7 +43,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 }) => {
   const t = useTranslations('proxies')
 
-  const { delays, testingGroup, testingAll, testingNodes, testGroup, testAll } = useProxyLatency({
+  const { delays, testingGroups, testingAll, testingNodes, testGroup, testAll } = useProxyLatency({
     running, proxies, delays: externalDelays, onUpdateDelays, concurrency: testConcurrency
   })
 
@@ -159,7 +159,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 
           <Button
             onClick={() => testAll(allNodes)}
-            disabled={!running || testingAll || !!testingGroup || allNodes.length === 0}
+            disabled={!running || testingAll || testingGroups.size > 0 || allNodes.length === 0}
             title={!running ? t('latencyRequiresConnection') : undefined}
             variant="outline"
             size="sm"
@@ -290,7 +290,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
             group={proxies[groupName] as ProxyGroup} proxies={proxies} delays={delays}
             isExpanded={!!trimmedQuery || expandedGroups.has(groupName)} trimmedQuery={trimmedQuery} sortMode={sortMode}
             onlyAvailable={onlyAvailable}
-            running={running} testingGroup={testingGroup} testingAll={testingAll} testingNodes={testingNodes}
+            running={running} testingGroups={testingGroups} testingAll={testingAll} testingNodes={testingNodes}
             onToggle={toggleGroup} onTest={testGroup} onSelect={onSelectNode} />)}
         </div>
       ) : groupNames.length > 0 ? (

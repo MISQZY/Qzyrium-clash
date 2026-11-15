@@ -1,3 +1,49 @@
+const testConcurrency = (value: number) => Number.isFinite(value) ? Math.max(1, Math.min(32, Math.floor(value))) : 1
+
+/** Share the request budget and in-flight node tests between concurrently tested groups. */
+export function createLatencyTestPool(options: {
+  concurrency: number
+  signal: AbortSignal
+  test: (name: string) => Promise<number>
+}): (name: string) => Promise<number> {
+  const concurrency = testConcurrency(options.concurrency)
+  const pending = new Map<string, Promise<number>>()
+  const queue: { name: string; resolve: (delay: number) => void }[] = []
+  let active = 0
+  const drain = () => {
+    while (!options.signal.aborted && active < concurrency && queue.length) {
+      const job = queue.shift()!
+      active++
+      void (async () => {
+        let delay: number
+        try { delay = await options.test(job.name) }
+        catch { delay = -1 }
+        active--
+        pending.delete(job.name)
+        job.resolve(delay)
+        drain()
+      })()
+    }
+  }
+  options.signal.addEventListener('abort', () => {
+    for (const job of queue.splice(0)) {
+      pending.delete(job.name)
+      job.resolve(-1)
+    }
+  }, { once: true })
+  return name => {
+    if (options.signal.aborted) return Promise.resolve(-1)
+    const existing = pending.get(name)
+    if (existing) return existing
+    let resolve!: (delay: number) => void
+    const promise = new Promise<number>(done => { resolve = done })
+    pending.set(name, promise)
+    queue.push({ name, resolve })
+    drain()
+    return promise
+  }
+}
+
 export async function runLatencyTests(nodes: string[], options: {
   concurrency: number
   signal: AbortSignal
@@ -5,7 +51,7 @@ export async function runLatencyTests(nodes: string[], options: {
   publish: (delays: Record<string, number>) => void
 }): Promise<void> {
   const names = [...new Set(nodes)]
-  const concurrency = Number.isFinite(options.concurrency) ? Math.max(1, Math.min(32, Math.floor(options.concurrency))) : 1
+  const concurrency = testConcurrency(options.concurrency)
   let index = 0
   let batch: Record<string, number> = {}
   let timer: ReturnType<typeof setTimeout> | undefined

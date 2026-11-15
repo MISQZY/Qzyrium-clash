@@ -14,7 +14,7 @@ import { VirtualList } from './VirtualList'
 interface Props {
   groupName: string; group: ProxyGroup; proxies: Record<string, ProxyNode>; delays: Record<string, number>
   isExpanded: boolean; trimmedQuery: string; sortMode: ProxySortMode; running: boolean
-  testingGroup: string | null; testingAll: boolean; testingNodes: ReadonlySet<string>
+  testingGroups: ReadonlySet<string>; testingAll: boolean; testingNodes: ReadonlySet<string>
   onlyAvailable?: boolean
   onToggle: (name: string) => void
   onTest: (name: string, nodes: string[]) => Promise<void>
@@ -22,12 +22,12 @@ interface Props {
 }
 
 export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, trimmedQuery, sortMode,
-  running, testingGroup, testingAll, testingNodes, onlyAvailable, onToggle, onTest, onSelect }: Props) {
+  running, testingGroups, testingAll, testingNodes, onlyAvailable, onToggle, onTest, onSelect }: Props) {
   const t = useTranslations('proxies')
 
-              const nodes = group?.all || []
+  const nodes = group?.all || []
   const activeNow = group?.now || ''
-              const isGroupTesting = testingGroup === groupName
+  const isGroupTesting = testingGroups.has(groupName)
 
   const matchingNodes = nodes.filter((n) => {
     if (
