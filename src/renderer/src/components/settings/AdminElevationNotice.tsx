@@ -13,6 +13,7 @@ export function AdminElevationNotice({
 }: AdminElevationNoticeProps) {
   const t = useTranslations('networksettings')
   const common = useTranslations('common')
+  if (window.api?.platform !== 'win32') return null
 
   return (
     <div
