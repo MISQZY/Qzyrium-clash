@@ -19,7 +19,12 @@ import { CoreState, LogEntry, MihomoVersion, TrafficStats } from '@shared/types'
 import type { MihomoApiClient } from '../core/MihomoApiClient'
 import type { MihomoProcessManager } from '../core/MihomoProcessManager'
 import { logger } from '../utils/logger'
-import { getAppPaths } from '../utils/paths'
+import { execFile } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
+import path from 'node:path'
+import { promisify } from 'node:util'
+import { getAppPaths, resolveCoreBinaryPath } from '../utils/paths'
+import type { CoreChannel } from '@shared/core-version'
 import { BaseService } from './BaseService'
 import { ProfileService } from './ProfileService'
 import { SettingService } from './SettingService'
@@ -40,6 +45,8 @@ import { parseProfileConfig } from '@shared/profile-config'
 import { MihomoConfigFactory } from '../core/MihomoConfigFactory'
 import { classifyKernelFailure, kernelFailureDetails, KernelOperationError } from '../utils/kernel-failure'
 import { kernelFailureMessage, type KernelFailure, type KernelFailureReason } from '@shared/kernel-failure'
+
+const runFile = typeof promisify === 'function' ? promisify(execFile) : () => Promise.resolve({ stdout: '', stderr: '' })
 
 export class KernelService implements BaseService {
   private failure: KernelFailure | null = null
@@ -276,13 +283,12 @@ export class KernelService implements BaseService {
     })
   }
 
-  private async startCore(): Promise<void> {
+  private async startCore(settings = this.settingService.getSettings(), binaryPath?: string, persistRules = true): Promise<void> {
     if (this.getStatus() === 'running' || this.getStatus() === 'starting') return
     this.failure = null
     this.resetDirectTraffic()
     this.invalidateGlobe()
     const paths = getAppPaths()
-    const settings = this.settingService.getSettings()
 
     if (settings.kernel.tun.enable && process.platform === 'win32' && !isProcessElevated()) {
       throw new KernelOperationError('permission', 'TUN requires administrator privileges')
@@ -295,7 +301,7 @@ export class KernelService implements BaseService {
 
     await installGeoResources(paths)
 
-    const activeProfile = await this.configBuilder.build(settings).catch(error => { throw this.reportFailure(error, 'configuration') })
+    const activeProfile = await this.configBuilder.build(settings, false, binaryPath, persistRules).catch(error => { throw this.reportFailure(error, 'configuration') })
     this.subscriptionTraffic.beginSession(activeProfile)
 
     this.apiClient.reconfigure(
@@ -308,7 +314,8 @@ export class KernelService implements BaseService {
       paths.mihomoDir,
       paths.activeConfigPath,
       settings.kernel.controllerPort,
-      settings.kernel.controllerSecret
+      settings.kernel.controllerSecret,
+      binaryPath ?? settings.kernel.channel
     )
     this.warnInvalidRules(activeProfile?.id)
     await restoreProxySelection(activeProfile, this.apiClient)
@@ -379,6 +386,70 @@ export class KernelService implements BaseService {
     }).catch(error => {
       if (sequence === this.recoverySequence) this.scheduleCoreRestart()
       throw this.reportFailure(error)
+    })
+  }
+
+  setProcessBinaryPath(binaryPath: string | null): void {
+    this.processManager.setBinaryPath(binaryPath)
+  }
+
+  async switchCoreBinary(targetChannel: CoreChannel, candidateBinaryPath: string, installation?: {
+    promote: () => Promise<string>
+    rollback: () => Promise<void>
+    commit?: () => Promise<void>
+  }): Promise<void> {
+    return this.enqueueLifecycle(async () => {
+      const paths = getAppPaths()
+      const settings = this.settingService.getSettings()
+      const previousBinary = this.processManager.getBinaryPath() || resolveCoreBinaryPath(settings.kernel.channel ?? 'stable')
+      const wasRunning = ['running', 'starting'].includes(this.getStatus())
+      const testSettings = { ...settings, kernel: { ...settings.kernel, channel: targetChannel } }
+      const testConfigFile = path.join(paths.mihomoDir, `.test-core-${randomUUID()}.yaml`)
+      try {
+        const activeProfile = this.profileService.getActiveProfile()
+        const content = activeProfile ? await this.profileService.getProfileContent(activeProfile.id) : null
+        if (activeProfile && content === null) throw new Error('Active profile file is missing')
+        const configYaml = await this.configBuilder.prepare(content, testSettings, activeProfile?.id, candidateBinaryPath, false)
+        await fs.writeFile(testConfigFile, configYaml, 'utf8')
+        await runFile(candidateBinaryPath, ['-t', '-d', paths.mihomoDir, '-f', testConfigFile], {
+          windowsHide: true, timeout: 15_000, maxBuffer: 1024 * 1024
+        })
+      } catch (testError) {
+        const err = testError as Error & { stdout?: string; stderr?: string }
+        const output = [err.stderr, err.stdout, err.message].filter(Boolean).join('\n')
+        throw new Error(`Core configuration test failed (-t): ${output}`, { cause: testError })
+      } finally {
+        await fs.unlink(testConfigFile).catch(() => {})
+      }
+
+      let settingsSaved = false
+      try {
+        if (wasRunning) await this.stopCore()
+        // File promotion is part of the lifecycle transaction, after the old process stops.
+        const binary = installation ? await installation.promote() : candidateBinaryPath
+        this.processManager.setBinaryPath(binary)
+        if (wasRunning) await this.startCore(testSettings, binary, false)
+        await this.settingService.updateSettings({ kernel: { ...this.settingService.getSettings().kernel, channel: targetChannel } })
+        settingsSaved = true
+        await installation?.commit?.()
+      } catch (error) {
+        let rolledBack = false
+        try {
+          if (wasRunning) await this.stopCore()
+          if (installation) await installation.rollback()
+          if (settingsSaved) await this.settingService.updateSettings({ kernel: { ...this.settingService.getSettings().kernel, channel: settings.kernel.channel } })
+          this.processManager.setBinaryPath(previousBinary)
+          if (wasRunning) await this.startCore(settings, previousBinary, false)
+          rolledBack = true
+        } catch (rollbackError) {
+          logger.error('Failed to restore previous core', rollbackError)
+        }
+        throw Object.assign(new Error(
+          `Core switch failed: ${error instanceof Error ? error.message : String(error)}. ${rolledBack ? 'Rolled back to previous core.' : 'Rollback failed.'}`,
+          { cause: error }
+        ), { rolledBack })
+      }
+      this.broadcaster?.(IPC_CHANNELS.EVENT_SETTINGS_CHANGED, null)
     })
   }
 

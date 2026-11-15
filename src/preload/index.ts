@@ -51,7 +51,11 @@ const api: IElectronApi = {
     start: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_START),
     stop: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_STOP),
     restart: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_RESTART),
-    getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_VERSION)
+    getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_VERSION),
+    getCoreInfo: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_CORE_INFO),
+    checkCoreUpdate: (channel) => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_CHECK_CORE_UPDATE, channel),
+    installCoreUpdate: (channel) => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_INSTALL_CORE_UPDATE, channel),
+    switchChannel: (channel) => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_SWITCH_CHANNEL, channel)
   },
   mihomo: {
     getConfigs: () => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_CONFIGS),
@@ -187,6 +191,13 @@ const api: IElectronApi = {
       ipcRenderer.on(IPC_CHANNELS.EVENT_CORE_STATUS, listener)
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.EVENT_CORE_STATUS, listener)
+      }
+    },
+    onCoreUpdateStatus: (callback: (status: any) => void) => {
+      const listener = (_: IpcRendererEvent, status: any): void => callback(status)
+      ipcRenderer.on(IPC_CHANNELS.EVENT_CORE_UPDATE_STATUS, listener)
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.EVENT_CORE_UPDATE_STATUS, listener)
       }
     },
     onTunError: (callback: (errorText: string) => void) => {

@@ -3,10 +3,11 @@ import type { ServiceManager } from '../services/ServiceManager'
 import type { TrustedRegistrar } from './trusted-handler'
 import type { ProviderKind } from '@shared/mihomo'
 import type { AppConfig } from '@shared/app-config'
+import type { CoreChannel } from '@shared/core-version'
 
 export function registerKernelHandlers(
   handle: TrustedRegistrar,
-  services: Pick<ServiceManager, 'kernelService' | 'trayService'>
+  services: Pick<ServiceManager, 'kernelService' | 'trayService' | 'coreService'>
 ): void {
   handle(IPC_CHANNELS.KERNEL_GET_SESSION_STARTED_AT, () => services.kernelService.getSessionStartedAt())
 
@@ -31,6 +32,22 @@ export function registerKernelHandlers(
 
   handle(IPC_CHANNELS.KERNEL_GET_VERSION, async () => {
     return await services.kernelService.getVersion()
+  })
+
+  handle(IPC_CHANNELS.KERNEL_GET_CORE_INFO, () => {
+    return services.coreService.getInfo()
+  })
+
+  handle(IPC_CHANNELS.KERNEL_CHECK_CORE_UPDATE, (_, channel?: CoreChannel) => {
+    return services.coreService.checkUpdate(channel)
+  })
+
+  handle(IPC_CHANNELS.KERNEL_INSTALL_CORE_UPDATE, (_, channel: CoreChannel) => {
+    return services.coreService.installCore(channel)
+  })
+
+  handle(IPC_CHANNELS.KERNEL_SWITCH_CHANNEL, (_, channel: CoreChannel) => {
+    return services.coreService.switchChannel(channel)
   })
 
   handle(IPC_CHANNELS.MIHOMO_GET_CONFIGS, async () => {

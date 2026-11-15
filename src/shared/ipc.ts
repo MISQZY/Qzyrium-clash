@@ -8,6 +8,7 @@ import type { AppUpdaterStatus, WhatsNewPayload } from './updater'
 import type { BootAppearance } from './appearance'
 import type { EffectiveCoreValues, ConfigPreview } from './effective-core'
 import type { KernelFailure } from './kernel-failure'
+import type { CoreChannel, CoreUpdateStatus, CoreVersionInfo } from './core-version'
 
 export const IPC_CHANNELS = {
   // Kernel
@@ -18,6 +19,10 @@ export const IPC_CHANNELS = {
   KERNEL_STOP: 'kernel:stop',
   KERNEL_RESTART: 'kernel:restart',
   KERNEL_GET_VERSION: 'kernel:get-version',
+  KERNEL_GET_CORE_INFO: 'kernel:get-core-info',
+  KERNEL_CHECK_CORE_UPDATE: 'kernel:check-core-update',
+  KERNEL_INSTALL_CORE_UPDATE: 'kernel:install-core-update',
+  KERNEL_SWITCH_CHANNEL: 'kernel:switch-channel',
 
   // Mihomo Core API
   MIHOMO_GET_CONFIGS: 'mihomo:get-configs',
@@ -96,6 +101,7 @@ export const IPC_CHANNELS = {
   EVENT_UPDATER_STATUS: 'event:updater-status',
   EVENT_LOG: 'event:log',
   EVENT_CORE_STATUS: 'event:core-status',
+  EVENT_CORE_UPDATE_STATUS: 'event:core-update-status',
   EVENT_CORE_FAILURE: 'event:core-failure',
   EVENT_SETTINGS_CHANGED: 'event:settings-changed',
   EVENT_TUN_ERROR: 'event:tun-error',
@@ -143,6 +149,10 @@ export interface IElectronApi {
     stop: () => Promise<void>
     restart: () => Promise<void>
     getVersion: () => Promise<MihomoVersion>
+    getCoreInfo?: () => Promise<CoreVersionInfo>
+    checkCoreUpdate?: (channel?: CoreChannel) => Promise<CoreUpdateStatus>
+    installCoreUpdate?: (channel: CoreChannel) => Promise<CoreVersionInfo>
+    switchChannel?: (channel: CoreChannel) => Promise<CoreVersionInfo>
   }
   mihomo: {
     getConfigs: () => Promise<Record<string, unknown>>
@@ -224,6 +234,7 @@ export interface IElectronApi {
     onLog: (callback: (log: LogEntry) => void) => () => void
     onLogs?: (callback: (logs: LogEntry[]) => void) => () => void
     onCoreStatus: (callback: (status: CoreState) => void) => () => void
+    onCoreUpdateStatus?: (callback: (status: CoreUpdateStatus) => void) => () => void
     onTunError: (callback: (errorText: string) => void) => () => void
     onWarning: (callback: (message: string) => void) => () => void
     onImportProfile: (callback: (data: { id?: string; url: string; name?: string }) => void) => () => void

@@ -75,6 +75,9 @@ function verifyArgumentContracts() {
   const rule = { id: 'rule-1', type: 'DOMAIN', payload: 'example.com', proxy: 'DIRECT',
     sourceRule: 'DOMAIN,example.com,DIRECT', sourceOccurrence: 0, offset: 0, enabled: false }
   const examples = {
+    'kernel:check-core-update': ['stable'],
+    'kernel:install-core-update': ['alpha'],
+    'kernel:switch-channel': ['alpha'],
     'mihomo:patch-configs': [{ mode: 'rule', dns: { nameserver: ['https://dns.example/'] } }],
     'mihomo:select-proxy': ['Group', 'Node'],
     'mihomo:test-delay': ['Node', 'https://example.com/', 5000],

@@ -18,11 +18,12 @@ export class ServiceManager {
   get desktopService() { return this.application.desktopService }
   get themeStore() { return this.application.themeStore }
   get updateService() { return this.application.updateService }
+  get coreService() { return this.application.coreService }
   get networkModeController() { return this.application.networkModeController }
 
   async initialize(): Promise<void> {
     logger.info('Initializing application service container...')
-    const required = new Set<BaseService>([this.settingService, this.profileService, this.windowService, this.sysProxyService])
+    const required = new Set<BaseService>([this.settingService, this.profileService, this.windowService, this.sysProxyService, this.coreService])
     const failures: string[] = []
     for (const service of this.application.services) {
       try {

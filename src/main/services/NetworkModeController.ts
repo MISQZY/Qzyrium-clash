@@ -28,6 +28,10 @@ export class NetworkModeController {
     return task
   }
 
+  runExclusive<T>(action: () => Promise<T>): Promise<T> {
+    return this.enqueue(action)
+  }
+
   updateSettings(patch: Partial<AppConfig>): Promise<AppConfig> {
     const snapshot = structuredClone(patch)
     return this.enqueue(() => this.apply(snapshot))
@@ -56,6 +60,8 @@ export class NetworkModeController {
 
   private async apply(patch: Partial<AppConfig>, startProxy = false): Promise<AppConfig> {
     const previous = structuredClone(this.settings.getSettings())
+    // The core manager owns channel changes; a settings draft may predate a switch.
+    if (patch.kernel) patch = { ...patch, kernel: { ...patch.kernel, channel: previous.kernel.channel } }
     let candidate = mergeSettings(previous, patch)
     if (patch.kernel?.tun?.enable) {
       if (process.platform === 'win32' && !this.elevated()) throw new Error(nativeMessage(candidate.general.language, 'tunRequiresAdmin', candidate.general))

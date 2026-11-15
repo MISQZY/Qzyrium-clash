@@ -36,6 +36,7 @@
     "test:i18n": "node scripts/verify-i18n.cjs",
     "test:i18n:ui": "electron scripts/verify-localization-ui.cjs",
     "test:kernel": "node scripts/verify-kernel-lifecycle.cjs",
+    "test:core": "node scripts/verify-core-management.cjs",
     "test:logs": "node scripts/verify-logs.cjs",
     "test:backup": "node scripts/verify-backup.cjs",
     "test:diagnostics": "node scripts/verify-diagnostics.cjs",

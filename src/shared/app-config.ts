@@ -50,6 +50,7 @@ export interface AppConfig {
     shortcuts?: Record<string, string>
   }
   kernel: {
+    channel?: 'stable' | 'alpha'
     mode: TunnelMode
     logLevel: LogLevel
     inheritLogLevel?: boolean
@@ -136,6 +137,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     shortcuts: {}
   },
   kernel: {
+    channel: 'stable',
     mode: 'rule',
     logLevel: 'info',
     inheritLogLevel: false,

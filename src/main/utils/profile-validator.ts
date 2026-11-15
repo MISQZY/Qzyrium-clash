@@ -6,7 +6,7 @@ import { promisify } from 'node:util'
 import type { AppConfig } from '@shared/app-config'
 import type { CustomRuleItem } from '@shared/profile'
 import { MihomoConfigFactory } from '../core/MihomoConfigFactory'
-import { getAppPaths } from './paths'
+import { getAppPaths, resolveCoreBinaryPath } from './paths'
 
 const runFile = promisify(execFile)
 
@@ -16,9 +16,15 @@ export interface PreparedProfileConfig {
 }
 
 /** Ask the installed core to validate; only quarantine errors attributed to a user rule. */
-export async function prepareProfileContent(content: string | null, settings: AppConfig, rules: CustomRuleItem[] = []): Promise<PreparedProfileConfig> {
+export async function prepareProfileContent(
+  content: string | null,
+  settings: AppConfig,
+  rules: CustomRuleItem[] = [],
+  customBinaryPath?: string
+): Promise<PreparedProfileConfig> {
   const checkedRules: CustomRuleItem[] = rules.map((rule) => ({ ...rule, validationError: undefined }))
   const paths = getAppPaths()
+  const binary = customBinaryPath || (typeof resolveCoreBinaryPath === 'function' ? resolveCoreBinaryPath(settings.kernel?.channel) : paths.coreBinaryPath)
   const filename = path.join(paths.mihomoDir, `.validate-${randomUUID()}.yaml`)
   try {
     for (;;) {
@@ -26,7 +32,7 @@ export async function prepareProfileContent(content: string | null, settings: Ap
       const config = MihomoConfigFactory.synthesize(content, settings, checkedRules, ruleIds)
       await fs.writeFile(filename, config, { encoding: 'utf8' })
       try {
-        await runFile(paths.coreBinaryPath, ['-t', '-d', paths.mihomoDir, '-f', filename], {
+        await runFile(binary, ['-t', '-d', paths.mihomoDir, '-f', filename], {
           windowsHide: true, timeout: 15_000, maxBuffer: 1024 * 1024
         })
         return { config, rules: checkedRules }
@@ -49,6 +55,6 @@ export async function prepareProfileContent(content: string | null, settings: Ap
   }
 }
 
-export async function validateProfileContent(content: string, settings: AppConfig, rules?: CustomRuleItem[]): Promise<void> {
-  await prepareProfileContent(content, settings, rules)
+export async function validateProfileContent(content: string, settings: AppConfig, rules?: CustomRuleItem[], customBinaryPath?: string): Promise<void> {
+  await prepareProfileContent(content, settings, rules, customBinaryPath)
 }

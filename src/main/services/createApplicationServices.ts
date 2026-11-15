@@ -9,13 +9,14 @@ import { WindowService } from './WindowService'
 import { DesktopService } from './DesktopService'
 import { ThemeStore } from './ThemeStore'
 import { UpdateService } from './UpdateService'
+import { CoreService } from './CoreService'
 import type { TrafficStats } from '@shared/types'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 import { isProcessElevated } from '../utils/elevation'
 import { saveRestartState, readRestartState, clearRestartState } from '../utils/restart-state'
 
-const defaults = { SettingService, ProfileService, SysProxyService, KernelService, WindowService, TrayService, DesktopService, ThemeStore, UpdateService, NetworkModeController }
+const defaults = { SettingService, ProfileService, SysProxyService, KernelService, WindowService, TrayService, DesktopService, ThemeStore, UpdateService, NetworkModeController, CoreService }
 export type ServiceConstructors = typeof defaults
 
 /** Composition root: creation and event wiring happen before lifecycle startup. */
@@ -39,6 +40,8 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
         windowService.broadcast('event:settings-changed', null)
         trayService?.updateContextMenu()
       })
+    const coreService = new types.CoreService(settingService, kernelService,
+      (channel, payload) => windowService.broadcast(channel, payload), networkModeController)
     const trayService = new types.TrayService(
       windowService,
       kernelService,
@@ -111,12 +114,13 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
       profileService,
       windowService,
       updateService,
+      coreService,
       sysProxyService,
       trayService,
       kernelService,
       desktopService
     ]
-    return { settingService, profileService, sysProxyService, kernelService, windowService, trayService, desktopService, themeStore, updateService, networkModeController, services }
+    return { settingService, profileService, sysProxyService, kernelService, windowService, trayService, desktopService, themeStore, updateService, coreService, networkModeController, services }
 }
 
 export type ApplicationServices = ReturnType<typeof createApplicationServices>

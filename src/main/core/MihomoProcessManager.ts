@@ -6,7 +6,7 @@ import path from 'node:path'
 import yaml from 'yaml'
 import { EventEmitter } from 'events'
 import { CoreState, LogEntry } from '@shared/types'
-import { getAppPaths } from '../utils/paths'
+import { getAppPaths, resolveCoreBinaryPath } from '../utils/paths'
 import { logger } from '../utils/logger'
 import { LogLines } from '../utils/log-lines'
 import { parseMihomoLog } from '@shared/logs'
@@ -21,10 +21,20 @@ export class MihomoProcessManager extends EventEmitter {
   private childProcess: ChildProcess | null = null
   private state: CoreState = 'stopped'
   private binaryPath: string | null = null
+  private customBinaryPath: string | null = null
   private explicitStop = false
   private startSequence = 0
   private failure: KernelFailure | null = null
   private failureOutput: string[] = []
+
+  setBinaryPath(path: string | null): void {
+    this.customBinaryPath = path
+    this.binaryPath = path
+  }
+
+  getBinaryPath(): string | null {
+    return this.customBinaryPath || this.binaryPath
+  }
 
   getFailure(): KernelFailure | null { return this.failure }
 
@@ -51,15 +61,23 @@ export class MihomoProcessManager extends EventEmitter {
     }
   }
 
-  private async resolveBinaryPath(): Promise<string | null> {
-    if (this.binaryPath && existsSync(this.binaryPath)) return this.binaryPath
+  private async resolveBinaryPath(channel?: 'stable' | 'alpha'): Promise<string | null> {
+    if (this.customBinaryPath && existsSync(this.customBinaryPath)) {
+      this.binaryPath = this.customBinaryPath
+      return this.binaryPath
+    }
     const paths = getAppPaths()
-    if (existsSync(paths.coreBinaryPath)) {
+    const resolved = typeof resolveCoreBinaryPath === 'function' ? resolveCoreBinaryPath(channel) : paths.coreBinaryPath
+    if (resolved && existsSync(resolved)) {
+      this.binaryPath = resolved
+      return this.binaryPath
+    }
+    if (paths?.coreBinaryPath && existsSync(paths.coreBinaryPath)) {
       this.binaryPath = paths.coreBinaryPath
       return this.binaryPath
     }
 
-    logger.warn(`Mihomo binary not found at ${paths.coreBinaryPath}`)
+    logger.warn(`Mihomo binary not found at ${resolved || paths?.coreBinaryPath}`)
     this.binaryPath = null
     return null
   }
@@ -68,7 +86,8 @@ export class MihomoProcessManager extends EventEmitter {
     workDir: string,
     configPath: string,
     controllerPort: number,
-    secret: string
+    secret: string,
+    channelOrBinary?: string
   ): Promise<void> {
     if (this.state === 'running' || this.state === 'starting') {
       logger.warn('Mihomo core is already running or starting')
@@ -78,13 +97,23 @@ export class MihomoProcessManager extends EventEmitter {
       throw new Error('The previous Mihomo process has not stopped yet')
     }
 
+    if (channelOrBinary) {
+      if (channelOrBinary === 'stable' || channelOrBinary === 'alpha') {
+        this.customBinaryPath = null
+        await this.resolveBinaryPath(channelOrBinary)
+      } else {
+        this.setBinaryPath(channelOrBinary)
+      }
+    }
+
     const sequence = ++this.startSequence
     this.failure = null
     this.failureOutput = []
     this.explicitStop = false
     this.setState('starting')
 
-    const binary = await this.resolveBinaryPath()
+    const channel = (channelOrBinary === 'stable' || channelOrBinary === 'alpha') ? channelOrBinary : undefined
+    const binary = await this.resolveBinaryPath(channel)
     if (sequence !== this.startSequence || this.explicitStop || this.getState() !== 'starting') return
     if (!binary) {
       logger.warn('Cannot start Mihomo: executable is missing')

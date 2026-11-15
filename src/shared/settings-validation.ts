@@ -16,6 +16,7 @@ export function validateAppConfig(config: AppConfig): void {
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Ports must be between 1 and 65535')
   }
   if (!config.kernel.inheritMixedPort && config.kernel.mixedPort === config.kernel.controllerPort) throw new Error('Mixed and controller ports must be different')
+  if (config.kernel.channel !== undefined && !['stable', 'alpha'].includes(config.kernel.channel)) throw new Error('Invalid core channel')
   if (!['rule', 'global', 'direct'].includes(config.kernel.mode)) throw new Error('Invalid routing mode')
   if (!['info', 'warning', 'debug', 'error', 'silent'].includes(config.kernel.logLevel)) throw new Error('Invalid log level')
   if (!['system', 'gvisor', 'mixed'].includes(config.kernel.tun.stack)) throw new Error('Invalid TUN stack')
