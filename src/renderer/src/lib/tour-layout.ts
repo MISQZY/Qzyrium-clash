@@ -60,7 +60,7 @@ export function placeTourMascot(
   return null
 }
 
-function overlaps(a: TourBox, b: TourBox, margin: number): boolean {
+export function overlaps(a: TourBox, b: TourBox, margin = 0): boolean {
   return (
     a.left < b.left + b.width + margin &&
     a.left + a.width > b.left - margin &&

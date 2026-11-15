@@ -11,7 +11,7 @@ const STEP_POSES: Record<typeof TOUR_STEPS[number]['id'], MascotPose> = {
   welcome: 'smirk', navigation: 'navigate', profiles: 'file', proxies: 'cool',
   capture: 'guard', connect: 'power', routing: 'confused', connections: 'navigate', finish: 'peace'
 }
-import { placeTourMascot, type TourBox } from '../lib/tour-layout'
+import { placeTourMascot, overlaps, type TourBox } from '../lib/tour-layout'
 
 const clamp = (value: number, max: number) => Math.max(12, Math.min(value, max))
 
@@ -117,11 +117,10 @@ function TourStep({ index, next, back, stop }: { index: number; next: () => void
         if (best) { left = best.left; top = best.top }
       }
       const previous = lastPlacement.current
-      const overlaps = (box: TourBox, other: TourBox, gap = 10) => box.left < other.left + other.width + gap && box.left + box.width > other.left - gap && box.top < other.top + other.height + gap && box.top + box.height > other.top - gap
       // Once placed for this step, retain the anchor through harmless layout shifts.
       if (previous?.index === index && previous.w === w && previous.h === h) {
         const oldBox = { left: previous.left, top: previous.top, width, height }
-        if (oldBox.top >= minTop && oldBox.top + height <= h - 12 && (!rect || !overlaps(oldBox, rect))) {
+        if (oldBox.top >= minTop && oldBox.top + height <= h - 12 && (!rect || !overlaps(oldBox, rect, 10))) {
           left = previous.left
           top = previous.top
         }
@@ -134,7 +133,7 @@ function TourStep({ index, next, back, stop }: { index: number; next: () => void
         rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null
       )
       const oldMascot = previous?.mascot
-      if (previous?.index === index && previous.w === w && previous.h === h && oldMascot && !overlaps(oldMascot, { ...placed, width, height }) && (!rect || !overlaps(oldMascot, rect))) nextMascot = oldMascot
+      if (previous?.index === index && previous.w === w && previous.h === h && oldMascot && !overlaps(oldMascot, { ...placed, width, height }, 10) && (!rect || !overlaps(oldMascot, rect, 10))) nextMascot = oldMascot
       setMascot(nextMascot)
       lastPlacement.current = { index, w, h, ...placed, mascot: nextMascot }
     }
