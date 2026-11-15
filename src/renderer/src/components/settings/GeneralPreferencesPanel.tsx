@@ -1,7 +1,7 @@
 import { NativeSelect } from '../ui/native-select'
 
 import { useTranslations } from '../../i18n'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Download, Upload, Trash2, Palette, Power, Gauge, Keyboard, FileText, Activity, RefreshCw } from 'lucide-react'
 
 import type { AppConfig } from '@shared/app-config'
@@ -134,6 +134,27 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
                     >
                       <span className="min-w-0 flex-1 truncate font-medium">{theme.name ?? theme.id}</span>
                       <div className="flex shrink-0 items-center gap-2">
+                        <span
+                          role="img"
+                          aria-label={t('themePalette', { name: theme.name ?? theme.id })}
+                          className="flex shrink-0 items-center gap-1"
+                          style={{ ...theme.colors, colorScheme: theme.mode } as CSSProperties}
+                        >
+                          {([
+                            ['--background', 'themeColorBackground'],
+                            ['--card', 'themeColorSurface'],
+                            ['--primary', 'themeColorAccent'],
+                            ['--foreground', 'themeColorText']
+                          ] as const).map(([key, label]) => (
+                            <span
+                              key={key}
+                              aria-hidden="true"
+                              title={`${t(label)}: ${theme.colors[key]}`}
+                              className="size-3.5 shrink-0 rounded-full border border-black/20 shadow-[0_0_0_1px_#ffffff40]"
+                              style={{ backgroundColor: theme.colors[key] }}
+                            />
+                          ))}
+                        </span>
                         <span className="text-[10px] text-muted-foreground uppercase px-1.5 py-0.5 rounded bg-muted/80">
                           {theme.mode}
                         </span>
