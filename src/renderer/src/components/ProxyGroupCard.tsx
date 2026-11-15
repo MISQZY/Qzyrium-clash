@@ -170,7 +170,7 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
                       />
                       <div className="flex flex-col min-w-0 flex-1">
                         <span
-                          className="text-xs font-medium break-words [overflow-wrap:anywhere] leading-snug"
+                          className="text-xs font-medium wrap-anywhere leading-snug"
                           title={nodeName}
                         >
                           <EmojiText text={nodeName} />
