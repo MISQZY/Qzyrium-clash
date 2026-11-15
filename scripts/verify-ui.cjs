@@ -84,6 +84,20 @@ if (process.type === 'renderer') {
   }
   api.mihomo.getConfigPreview = async patch => ({ profileName: active.name, original: 'mixed-port: 8100\nrules: []\n',
     effective: `mixed-port: ${patch?.kernel?.inheritMixedPort ? 8100 : patch?.kernel?.mixedPort ?? settings.kernel.mixedPort}\nlog-level: info\nrules: [MATCH,DIRECT]\n` })
+  // Hold an IPC action until the test has inspected its pending UI state.
+  let heldAction, releaseAction
+  api.uiTest.holdAction = kind => { heldAction = kind }
+  for (const [kind, target] of [['settings', api.settings], ['profile', api.profiles]]) {
+    const update = target.update
+    target.update = async (...args) => {
+      if (heldAction === kind) {
+        heldAction = undefined
+        await new Promise(resolve => { releaseAction = resolve })
+      }
+      return update(...args)
+    }
+  }
+  api.uiTest.releaseAction = () => { releaseAction(); releaseAction = undefined }
   contextBridge.exposeInMainWorld('api', api)
 } else {
   const assert = require('node:assert/strict')
@@ -168,6 +182,25 @@ if (process.type === 'renderer') {
       await load()
       await waitFor(`document.querySelector('h1')?.textContent === 'Home' && document.querySelector('.overview-power[aria-pressed="true"]') !== null`)
       await waitFor(`document.querySelector('.overview-session-duration')?.textContent.startsWith('01:00:')`)
+      const headerProfile = `.workspace-header > div`
+      const headerRefresh = `${headerProfile} button`
+      const profileLabel = await evaluate(`document.querySelector('${headerProfile} > span').textContent`)
+      await evaluate(`window.api.uiTest.holdAction('settings'); document.querySelector('.sidebar-mode[aria-label="Global"]').click()`)
+      await waitFor(`document.querySelector('${headerRefresh}').disabled`)
+      assert.equal(await evaluate(`document.querySelector('${headerProfile} > span').textContent`), profileLabel, 'settings changes preserve the active subscription label')
+      assert.equal(await evaluate(`document.querySelector('${headerProfile} .animate-spin')`), null, 'settings changes do not show a subscription loader')
+      await evaluate(`window.api.uiTest.releaseAction()`)
+      await waitFor(`!document.querySelector('${headerRefresh}').disabled`)
+      await evaluate(`document.querySelector('.sidebar-mode[aria-label="Rules"]').click()`)
+      await waitFor(`document.querySelector('.sidebar-mode[aria-label="Rules"]').getAttribute('aria-pressed') === 'true' && !document.querySelector('${headerRefresh}').disabled`)
+      await evaluate(`window.api.uiTest.holdAction('profile'); document.querySelector('${headerRefresh}').click()`)
+      await waitFor(`document.querySelector('${headerRefresh}').getAttribute('aria-busy') === 'true'`)
+      assert.ok(await evaluate(`document.querySelector('${headerProfile} .animate-spin') !== null`), 'subscription update shows a loader')
+      assert.notEqual(await evaluate(`document.querySelector('${headerProfile} > span').textContent`), profileLabel, 'subscription update shows a pending label')
+      await evaluate(`window.api.uiTest.releaseAction()`)
+      await waitFor(`!document.querySelector('${headerRefresh}').disabled`)
+      assert.equal(await evaluate(`document.querySelector('${headerProfile} > span').textContent`), profileLabel, 'subscription label returns after updating')
+      result.checks.push('Header subscription loading is scoped to its update action, independent of settings changes')
       assert.equal(await evaluate(`document.querySelector('.overview-power-section [role="status"]').textContent`), 'Connected')
       assert.ok(await evaluate(`document.querySelector('.overview-power').getBoundingClientRect().width >= 128`))
       assert.equal(await evaluate(`document.querySelector('.overview-panel-section').textContent.includes('Connections')`), false)
@@ -604,7 +637,9 @@ if (process.type === 'renderer') {
       await navigate('Home')
       await evaluate(`document.querySelector('button[aria-label="Stop core"]').click()`)
       await waitFor(`document.querySelector('.sidebar-vpn-badge').dataset.state === 'off'`)
-      assert.equal(await evaluate(`document.querySelector('.overview-session-duration')`), null, 'timer is hidden when disconnected')
+      await waitFor(`document.querySelector('.overview-power-section').dataset.powerState === 'stopped'`)
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.overview-session-duration')).visibility`), 'hidden', 'timer is hidden when disconnected')
+      assert.equal(await evaluate(`document.querySelector('.overview-duration-slot').getAttribute('aria-hidden')`), 'true', 'disconnected timer is hidden from assistive technology')
       assert.equal(await evaluate(`document.querySelector('.overview-power-section [role="status"]').textContent`), 'Disconnected')
       await waitFor(`!document.querySelector('.globe-solid-surface.is-running')`)
       assert.equal(await evaluate(`document.querySelectorAll('.globe-route-track:not(.is-connecting)').length`), 0, 'stopped core displays preview routes without live connection styling')
@@ -615,6 +650,8 @@ if (process.type === 'renderer') {
       await waitFor(`document.querySelector('button[aria-label="Stop core"]') && document.querySelector('.overview-power-section [role="status"]').textContent === 'Connected'`)
       await waitFor(`document.querySelector('.sidebar-vpn-badge').dataset.state === 'on'`)
       await waitFor(`document.querySelector('.overview-session-duration')?.textContent.startsWith('00:00:')`)
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.overview-session-duration')).visibility`), 'visible', 'timer becomes visible after reconnecting')
+      assert.equal(await evaluate(`document.querySelector('.overview-duration-slot').getAttribute('aria-hidden')`), 'false', 'connected timer is accessible again')
       result.checks.push('Rules/Global keep the running core indicator on, including without capture; stopping turns it off')
       for (const [reason, text] of [['configuration', 'Check the active profile'], ['port-in-use', 'port is already in use'],
         ['permission', 'does not have permission'], ['watchdog', 'watchdog could not supervise']]) {
