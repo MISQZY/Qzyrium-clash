@@ -25,5 +25,6 @@
   "typeSelector": "Manual",
   "typeURLTest": "Auto",
   "typeFallback": "Fallback",
-  "typeLoadBalance": "Balance"
+  "typeLoadBalance": "Balance",
+  "onlyAvailable": "Available only"
 }

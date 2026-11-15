@@ -2,7 +2,7 @@ import { ProxyGroupCard } from '../components/ProxyGroupCard'
 import { useProxyLatency } from '../hooks/useProxyLatency'
 import { useTranslations } from '../i18n'
 import React, { useState, useEffect, useMemo } from 'react'
-import { ArrowUpDown, ChevronsUpDown, Search, X } from 'lucide-react'
+import { ArrowUpDown, CheckCircle2, ChevronsUpDown, Search, X } from 'lucide-react'
 import { LatencyIcon } from '../lib/icons'
 import type { ProxyGroup, ProxyNode, MihomoRule } from '@shared/mihomo'
 import type { TunnelMode } from '@shared/types'
@@ -71,6 +71,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 
   const [query, setQuery] = useState('')
   const [sortMode, setSortMode] = useState<ProxySortMode>('default')
+  const [onlyAvailable, setOnlyAvailable] = useState(false)
 
   // Collect all unique nodes across eligible groups
   const allNodes = useMemo(() => {
@@ -110,13 +111,30 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 
   // Filter groups: show group if its name matches OR if any of its nodes match
   const filteredGroups = useMemo(() => {
-    if (!trimmedQuery) return groupNames
+    const isNodeAvailable = (nodeName: string) => {
+      const nodeData = proxies[nodeName]
+      const delay = delays[nodeName] ?? nodeData?.history?.[nodeData?.history?.length - 1]?.delay
+      return delay !== undefined && delay > 0
+    }
+
     return groupNames.filter((name) => {
-      if (name.toLowerCase().includes(trimmedQuery)) return true
       const group = proxies[name] as unknown as ProxyGroup
-      return (group?.all || []).some((node) => node.toLowerCase().includes(trimmedQuery))
+      const groupNodes = group?.all || []
+
+      if (trimmedQuery) {
+        const matchesQuery =
+          name.toLowerCase().includes(trimmedQuery) ||
+          groupNodes.some((node) => node.toLowerCase().includes(trimmedQuery))
+        if (!matchesQuery) return false
+      }
+
+      if (onlyAvailable) {
+        return groupNodes.some(isNodeAvailable)
+      }
+
+      return true
     })
-  }, [groupNames, proxies, trimmedQuery])
+  }, [groupNames, proxies, trimmedQuery, onlyAvailable, delays])
 
   return (
     <div className="page-scroll">
@@ -172,6 +190,22 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
                 {t('sortName')}
               </button>
             </div>
+          )}
+
+          {groupNames.length > 0 && (
+            <Button
+              variant={onlyAvailable ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={() => setOnlyAvailable((prev) => !prev)}
+              className={cn(
+                'text-xs gap-1.5 transition-colors',
+                onlyAvailable && 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15'
+              )}
+              title={t('onlyAvailable')}
+            >
+              <CheckCircle2 className="size-3.5" />
+              <span>{t('onlyAvailable')}</span>
+            </Button>
           )}
 
           {groupNames.length > 0 && (
@@ -250,6 +284,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
           {filteredGroups.map(groupName => <ProxyGroupCard key={groupName} groupName={groupName}
             group={proxies[groupName] as ProxyGroup} proxies={proxies} delays={delays}
             isExpanded={!!trimmedQuery || expandedGroups.has(groupName)} trimmedQuery={trimmedQuery} sortMode={sortMode}
+            onlyAvailable={onlyAvailable}
             running={running} testingGroup={testingGroup} testingAll={testingAll} testingNodes={testingNodes}
             onToggle={toggleGroup} onTest={testGroup} onSelect={onSelectNode} />)}
         </div>

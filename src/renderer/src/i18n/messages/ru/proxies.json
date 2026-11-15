@@ -25,5 +25,6 @@
   "typeSelector": "Ручной",
   "typeURLTest": "Авто",
   "typeFallback": "Резерв",
-  "typeLoadBalance": "Балансир"
+  "typeLoadBalance": "Балансир",
+  "onlyAvailable": "Только доступные"
 }

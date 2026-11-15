@@ -15,26 +15,35 @@ interface Props {
   groupName: string; group: ProxyGroup; proxies: Record<string, ProxyNode>; delays: Record<string, number>
   isExpanded: boolean; trimmedQuery: string; sortMode: ProxySortMode; running: boolean
   testingGroup: string | null; testingAll: boolean; testingNodes: ReadonlySet<string>
+  onlyAvailable?: boolean
   onToggle: (name: string) => void
   onTest: (name: string, nodes: string[]) => Promise<void>
   onSelect: (group: string, node: string) => void
 }
 
 export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, trimmedQuery, sortMode,
-  running, testingGroup, testingAll, testingNodes, onToggle, onTest, onSelect }: Props) {
+  running, testingGroup, testingAll, testingNodes, onlyAvailable, onToggle, onTest, onSelect }: Props) {
   const t = useTranslations('proxies')
 
               const nodes = group?.all || []
   const activeNow = group?.now || ''
               const isGroupTesting = testingGroup === groupName
 
-  const matchingNodes = trimmedQuery
-    ? nodes.filter(
-        (n) =>
-          n.toLowerCase().includes(trimmedQuery) ||
-          groupName.toLowerCase().includes(trimmedQuery)
-      )
-    : nodes
+  const matchingNodes = nodes.filter((n) => {
+    if (
+      trimmedQuery &&
+      !n.toLowerCase().includes(trimmedQuery) &&
+      !groupName.toLowerCase().includes(trimmedQuery)
+    ) {
+      return false
+    }
+    if (onlyAvailable) {
+      const nodeData = proxies[n]
+      const delay = delays[n] ?? nodeData?.history?.[nodeData?.history?.length - 1]?.delay
+      return delay !== undefined && delay > 0
+    }
+    return true
+  })
 
   const sortedNodes = sortProxyNodes(matchingNodes, sortMode, proxies, delays)
   const typeMeta = getGroupTypeStyle(group?.type)
