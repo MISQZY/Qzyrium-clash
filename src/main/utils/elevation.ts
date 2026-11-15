@@ -53,9 +53,8 @@ export function restartAsAdmin(): Promise<boolean> {
       }
 
       if (process.platform !== 'win32') {
-        electronApp.relaunch()
-        electronApp.exit(0)
-        resolve(true)
+        logger.warn('Administrator restart is supported only on Windows. On Linux, configure Mihomo network capabilities with setcap/polkit.')
+        resolve(false)
         return
       }
 

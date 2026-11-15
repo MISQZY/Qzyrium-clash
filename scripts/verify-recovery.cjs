@@ -215,6 +215,16 @@ async function verifyProfileRepository() {
 }
 
 async function verifyElevationRecovery() {
+  for (const platform of ['linux', 'darwin']) {
+    const calls = []
+    const unexpected = () => { calls.push('unexpected launch') }
+    const { restartAsAdmin } = load('src/main/utils/elevation.ts', {
+      electron: { app: { relaunch: unexpected, exit: unexpected, releaseSingleInstanceLock: unexpected } },
+      './elevate-task': {}, child_process: { execFile: unexpected, execFileSync: unexpected }
+    }, { process: { platform } })
+    assert.equal(await restartAsAdmin(), false)
+    assert.deepEqual(calls, [], 'unsupported elevation must not restart, exit or release the lock')
+  }
   // Exercise the actual launcher without opening UAC or starting another process.
   for (const outcome of ['success', 'cancel', 'throw']) {
     const calls = []
