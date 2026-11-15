@@ -59,7 +59,7 @@ async function verify() {
   const registry = []
   config.sysProxy.enable = true
   const { SysProxyService } = load('src/main/services/SysProxyService.ts', {
-    '../utils/network-transition': { flushSystemDns() {} }
+    '../utils/network-transition': { flushSystemDns() {}, notifySystemProxyChanged() {} }
   })
   const proxy = new SysProxyService({ getSettings: () => config }, {
     capture: async () => {}, restore: async () => {}, set: async (...args) => registry.push(args)
