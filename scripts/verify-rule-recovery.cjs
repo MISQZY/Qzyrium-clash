@@ -16,7 +16,7 @@ function load(file, dependencies = {}) {
   vm.runInThisContext(`(function(exports, require) {\n${output}\n})`, { filename: file })(exports, (name) => {
     if (dependencies[name]) return dependencies[name]
     if (name.endsWith('/paths')) return { getAppPaths: () => ({ mihomoDir: workDir, coreBinaryPath }) }
-    if (name.endsWith('.json') && name.startsWith('.')) return require(path.resolve(path.dirname(file), name))
+    if (/\.(json|cjs)$/.test(name) && name.startsWith('.')) return require(path.resolve(path.dirname(file), name))
     const target = name.startsWith('@shared/') ? path.resolve('src/shared', name.slice(8) + '.ts') : name.startsWith('.') ? path.resolve(path.dirname(file), name + '.ts') : null
     return target && fs.existsSync(target) ? load(target, dependencies) : require(name)
   })

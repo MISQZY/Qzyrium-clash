@@ -19,7 +19,7 @@ function load(file, dependencies = {}) {
     if (dependencies[name]) return dependencies[name]
     const target = name.startsWith('@shared/') ? path.resolve('src/shared', name.slice(8))
       : name.startsWith('.') ? path.resolve(path.dirname(file), name) : null
-    if (target?.endsWith('.json')) return require(target)
+    if (target && /\.(json|cjs)$/.test(target)) return require(target)
     return target && fs.existsSync(target + '.ts') ? load(target + '.ts') : require(name)
   })
   return exports

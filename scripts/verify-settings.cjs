@@ -13,7 +13,7 @@ function load(file, dependencies = {}, overrides = {}) {
   const requireModule = name => {
     if (dependencies[name]) return dependencies[name]
     if (name === '../utils/atomicWrite' && dependencies.fs) return { writeFileAtomicAsync: (...args) => dependencies.fs.promises.writeFile(...args) }
-    if (name.endsWith('.json') && name.startsWith('.')) return require(path.resolve(path.dirname(file), name))
+    if (/\.(json|cjs)$/.test(name) && name.startsWith('.')) return require(path.resolve(path.dirname(file), name))
     const target = name.startsWith('@shared/') ? path.resolve('src/shared', name.slice(8) + '.ts') : name.startsWith('.') ? path.resolve(path.dirname(file), name + '.ts') : null
     return target && fs.existsSync(target) ? load(target) : require(name)
   }

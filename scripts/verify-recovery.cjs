@@ -15,7 +15,7 @@ function load(file, dependencies = {}, runtime = {}) {
   const requireModule = name => {
     if (name in dependencies) return dependencies[name]
     if (name.endsWith('/logger')) return { logger }
-    if (name.startsWith('.') && name.endsWith('.json')) return require(path.resolve(path.dirname(file), name))
+    if (name.startsWith('.') && /\.(json|cjs)$/.test(name)) return require(path.resolve(path.dirname(file), name))
     const target = name.startsWith('@shared/') ? path.resolve('src/shared', name.slice(8) + '.ts') : name.startsWith('.') ? path.resolve(path.dirname(file), name + '.ts') : null
     return target && fs.existsSync(target) ? load(target, dependencies, runtime) : require(name)
   }
