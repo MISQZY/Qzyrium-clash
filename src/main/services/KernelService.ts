@@ -119,7 +119,7 @@ export class KernelService implements BaseService {
         if (!current()) return
         try {
           await this.apiClient.getVersion()
-          if (current() && !this.streamsPaused && this.getStatus() === 'running') this.apiClient.startTrafficStream()
+          if (current() && this.getStatus() === 'running') this.apiClient.startTrafficStream()
         } catch {
           if (!current()) return
           logger.info('Recovering unresponsive core after wake-up')
@@ -199,7 +199,7 @@ export class KernelService implements BaseService {
       if (state === 'running') this.sessionStartedAt = Date.now()
       else this.sessionStartedAt = null
       this.broadcaster?.('event:core-status', state)
-      if (state === 'running' && !this.streamsPaused) {
+      if (state === 'running') {
         this.apiClient.startTrafficStream()
       } else if (state === 'stopped' || state === 'error') {
         this.apiClient.stopAllStreams()
@@ -328,7 +328,6 @@ export class KernelService implements BaseService {
 
   pauseStreams(): void {
     this.streamsPaused = true
-    this.apiClient.stopAllStreams()
     this.globeResolver.releaseCaches()
     this.geoIp.releaseWorker()
   }

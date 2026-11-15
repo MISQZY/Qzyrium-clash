@@ -15,6 +15,8 @@ import type { ProxyNode, ProxyGroup } from '@shared/mihomo'
 import type { TunnelMode } from '@shared/types'
 import type { AppConfig } from '@shared/app-config'
 import type { SysProxyStatus } from '@shared/ipc'
+import { formatBytes } from '@shared/format'
+import type { TrafficStats } from '@shared/types'
 
 export class TrayService implements BaseService {
   private tray: Tray | null = null
@@ -24,6 +26,7 @@ export class TrayService implements BaseService {
   private statusIcons: Partial<Record<VpnStatus, NativeImage>> = {}
   private cachedProxies: Record<string, ProxyNode> = {}
   private isRefreshingProxies = false
+  private traffic = { up: 0, down: 0, totalUp: 0, totalDown: 0 }
 
   constructor(
     windowService: WindowService,
@@ -52,6 +55,7 @@ export class TrayService implements BaseService {
     }
     this.statusIcons = {}
     this.cachedProxies = {}
+    this.traffic = { up: 0, down: 0, totalUp: 0, totalDown: 0 }
   }
 
   setProxySelection(group: string, proxy: string): void {
@@ -59,6 +63,44 @@ export class TrayService implements BaseService {
       this.cachedProxies[group].now = proxy
     }
     this.updateContextMenu()
+  }
+
+  updateTraffic(stats: TrafficStats): void {
+    if (!this.tray) return
+    const upRate = Math.max(0, Number.isFinite(stats.up) ? stats.up : 0)
+    const downRate = Math.max(0, Number.isFinite(stats.down) ? stats.down : 0)
+    this.traffic.up = upRate
+    this.traffic.down = downRate
+    this.traffic.totalUp += upRate
+    this.traffic.totalDown += downRate
+    if (this.kernelService.getStatus() === 'running') {
+      this.updateToolTip()
+    }
+  }
+
+  private updateToolTip(): void {
+    if (!this.tray) return
+    const coreStatus = this.kernelService.getStatus()
+    const settings = this.settingService.getSettings()
+    const messages = nativeMessages(settings.general)
+    const locale = settings.general?.language === 'ru' ? 'ru' : 'en'
+    const status = getVpnStatus(coreStatus)
+    const statusMessage = messages[status === 'on' ? 'vpnOn' : status === 'off' ? 'vpnOff' : status]
+
+    if (coreStatus !== 'running') {
+      this.tray.setToolTip(`Qzyrium-clash: ${statusMessage} (${messages[coreStatus]})`)
+      return
+    }
+
+    const rateUnit = locale === 'ru' ? '/с' : '/s'
+    const downRate = `${formatBytes(this.traffic.down, locale)}${rateUnit}`
+    const upRate = `${formatBytes(this.traffic.up, locale)}${rateUnit}`
+    const downTotal = formatBytes(this.traffic.totalDown, locale)
+    const upTotal = formatBytes(this.traffic.totalUp, locale)
+
+    this.tray.setToolTip(
+      `Qzyrium-clash: ${statusMessage} (${messages[coreStatus]})\n↓ ${downTotal} (${downRate})   ↑ ${upTotal} (${upRate})`
+    )
   }
 
   clearProxies(): void {
@@ -395,38 +437,10 @@ export class TrayService implements BaseService {
     const proxyGroupMenus = this.buildProxyGroupMenus(currentMode, isRunning)
     const profileMenu = this.buildProfileMenu(messages)
 
-    const tunEnabled = Boolean(settings.kernel?.tun?.enable)
-    const sysProxyEnabled = Boolean(sysProxyStatus.enabled || settings.sysProxy?.enable)
-    const currentRoutingType: 'off' | 'sysproxy' | 'tun' = tunEnabled
-      ? 'tun'
-      : sysProxyEnabled
-        ? 'sysproxy'
-        : 'off'
-
-    const typeNames: Record<'off' | 'sysproxy' | 'tun', string> = {
-      off: messages.routingTypeDisabled || 'Disabled',
-      sysproxy: messages.routingTypeProxy || messages.proxy || 'System proxy',
-      tun: messages.routingTypeTun || 'TUN'
+    if (coreStatus !== 'running') {
+      this.traffic = { up: 0, down: 0, totalUp: 0, totalDown: 0 }
     }
-    const currentRoutingTypeName = typeNames[currentRoutingType]
-
-    const modeNames: Record<TunnelMode, string> = {
-      rule: messages.modeRule || 'Rule',
-      global: messages.modeGlobal || 'Global',
-      direct: messages.modeDirect || 'Direct'
-    }
-    const currentModeName = modeNames[currentMode] || messages.modeRule || 'Rule'
-
-    const activeProfileName = this.profileService?.getActiveProfile()?.name
-    const tooltipLines = [
-      `Qzyrium-clash: ${statusMessage} (${messages[coreStatus]})`,
-      `${messages.routingType || 'Routing type'}: ${currentRoutingTypeName}`,
-      `${messages.routingMode || 'Routing mode'}: ${currentModeName}`
-    ]
-    if (activeProfileName) {
-      tooltipLines.push(`${messages.profiles || 'Profiles'}: ${activeProfileName}`)
-    }
-    this.tray.setToolTip(tooltipLines.join('\n'))
+    this.updateToolTip()
 
     const template: MenuItemConstructorOptions[] = [
       {

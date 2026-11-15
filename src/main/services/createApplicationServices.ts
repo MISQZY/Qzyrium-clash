@@ -9,6 +9,7 @@ import { WindowService } from './WindowService'
 import { DesktopService } from './DesktopService'
 import { ThemeStore } from './ThemeStore'
 import { UpdateService } from './UpdateService'
+import type { TrafficStats } from '@shared/types'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 import { isProcessElevated } from '../utils/elevation'
@@ -67,6 +68,9 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
     // Route kernel broadcasts to renderer via WindowService
     kernelService.setBroadcaster((channel, data) => {
       windowService.broadcast(channel, data)
+      if (channel === 'event:traffic') {
+        trayService.updateTraffic(data as TrafficStats)
+      }
       if (channel === 'event:settings-changed') {
         void sysProxyService.setCoreRunning(kernelService.getStatus() === 'running')
           .catch(error => logger.error('Failed to synchronize proxy after config update', error))
