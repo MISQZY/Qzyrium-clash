@@ -110,7 +110,7 @@ function Workspace() {
   const [adminRestartFailed, setAdminRestartFailed] = useState(false)
   const adminRestartPending = useRef(false)
   const errorMessage = error?.replace(/^Error invoking remote method '[^']+':\s*/i, '').replace(/^Error:\s*/i, '')
-  const requiresAdmin = !!errorMessage && /администратор|admin|tunrequiresadmin/i.test(errorMessage)
+  const requiresAdmin = !!errorMessage && /администратор|admin|tunrequiresadmin/i.test(errorMessage) && window.api?.platform === 'win32'
 
   useEffect(() => { setAdminRestartFailed(false) }, [error])
 

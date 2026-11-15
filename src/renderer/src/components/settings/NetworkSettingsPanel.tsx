@@ -41,7 +41,7 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
           <SettingRow
             title={t('enableTUN')}
             description={
-              isElevated === false
+              window.api?.platform === 'win32' && isElevated === false
                 ? t('tunAdminExplanation')
                 : sysProxy.enabled
                 ? t('tunDisabledDueToSysProxy')
@@ -53,7 +53,7 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
               checked={form.kernel.tun.enable}
               disabled={busy || sysProxy.enabled}
               onCheckedChange={(enable) => {
-                if (enable && isElevated === false) {
+                if (enable && window.api?.platform === 'win32' && isElevated === false) {
                   setTunAdminPrompt(true)
                   setMessage('tunRequiresAdmin')
                   return

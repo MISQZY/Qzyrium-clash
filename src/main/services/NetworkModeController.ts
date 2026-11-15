@@ -58,7 +58,7 @@ export class NetworkModeController {
     const previous = structuredClone(this.settings.getSettings())
     let candidate = mergeSettings(previous, patch)
     if (patch.kernel?.tun?.enable) {
-      if (!this.elevated()) throw new Error(nativeMessage(candidate.general.language, 'tunRequiresAdmin', candidate.general))
+      if (process.platform === 'win32' && !this.elevated()) throw new Error(nativeMessage(candidate.general.language, 'tunRequiresAdmin', candidate.general))
       candidate.sysProxy.enable = false
       patch = { ...patch, sysProxy: candidate.sysProxy }
     } else if (patch.sysProxy?.enable && candidate.kernel.tun.enable) {

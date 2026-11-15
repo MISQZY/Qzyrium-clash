@@ -72,8 +72,9 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
     if (busy) return
     setMessage('')
     if (mode === 'tun') {
+      const isWindows = window.api?.platform === 'win32'
       const elevated = isElevated ?? (await window.api?.app?.isElevated?.().catch(() => false))
-      if (!elevated) {
+      if (isWindows && !elevated) {
         setIsElevated(false)
         setTunAdminPrompt(true)
         setMessage('tunRequiresAdmin')
