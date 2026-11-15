@@ -87,7 +87,18 @@ export function ConnectionsPage({
       ) : viewMode === 'process' ? (
         /* Level 1: Process Cards List */
         <div className="flex flex-col gap-2">
-          <VirtualList data={processGroups} itemKey={group => group.key} renderItem={group => <ProcessGroupCard group={group} onSelect={setSelectedProcessKey} />} />
+          <VirtualList
+            data={processGroups}
+            itemKey={group => group.key}
+            renderItem={group => (
+              <ProcessGroupCard
+                group={group}
+                onSelect={setSelectedProcessKey}
+                onClose={actions.closeProcessConnections}
+                closing={actions.closing}
+              />
+            )}
+          />
 
           {!processGroups.length && (
             <ConnectionEmptyState query={query} />
