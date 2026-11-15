@@ -124,15 +124,22 @@ export function parseShadowsocksUri(uri: string): ProxyNodeConfig | null {
     const plugin = queryParams.get('plugin')
     if (plugin) {
       const [pluginName, ...pluginOpts] = plugin.split(';')
-      node.plugin = pluginName
-      if (pluginOpts.length > 0) {
-        const opts: Record<string, unknown> = {}
-        for (const opt of pluginOpts) {
-          const [k, v] = opt.split('=')
-          if (k) opts[k.trim()] = v ? safeDecodeURIComponent(v.trim()) : true
-        }
-        node['plugin-opts'] = opts
+      node.plugin = ['obfs-local', 'simple-obfs'].includes(pluginName) ? 'obfs' : pluginName
+      const opts: Record<string, unknown> = {}
+      for (const opt of pluginOpts) {
+        const separator = opt.indexOf('=')
+        const key = (separator === -1 ? opt : opt.slice(0, separator)).trim()
+        // URLSearchParams has already decoded the plugin value; preserve '=' inside options.
+        if (key) opts[key] = separator === -1 ? true : opt.slice(separator + 1)
       }
+      if (node.plugin === 'obfs') {
+        if (opts.obfs !== undefined) opts.mode = opts.obfs
+        if (opts['obfs-host'] !== undefined) opts.host = opts['obfs-host']
+        delete opts.obfs
+        delete opts['obfs-host']
+      }
+      if (node.plugin === 'v2ray-plugin') opts.mode ??= 'websocket'
+      if (Object.keys(opts).length) node['plugin-opts'] = opts
     }
 
     return node
@@ -322,7 +329,7 @@ export function parseHysteria2Uri(uri: string): ProxyNodeConfig | null {
     const url = new URL(uri.replace(/^hy2:\/\//i, 'hysteria2://'))
     const server = cleanServerHost(url.hostname)
     const port = Number(url.port || 443)
-    const password = safeDecodeURIComponent(url.username || url.password || '')
+    const password = safeDecodeURIComponent(url.password ? `${url.username}:${url.password}` : url.username)
     if (!server || !port || isNaN(port) || !password) return null
 
     const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `${server}:${port}`

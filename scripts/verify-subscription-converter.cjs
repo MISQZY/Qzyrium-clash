@@ -48,6 +48,28 @@ assert.equal(parsedSs2.port, 9000)
 assert.equal(parsedSs2.cipher, 'chacha20-ietf-poly1305')
 assert.equal(parsedSs2.password, 'secret')
 
+const ssPluginUri = plugin => `ss://YWVzLTI1Ni1nY206cGFzc3dvcmQ=@127.0.0.1:8388/?plugin=${encodeURIComponent(plugin)}#plugin-test`
+for (const plugin of ['obfs-local', 'simple-obfs', 'obfs']) {
+  const node = parseShadowsocksUri(ssPluginUri(`${plugin};obfs=http;obfs-host=example.com`))
+  assert.equal(node.plugin, 'obfs')
+  assert.deepEqual(node['plugin-opts'], { mode: 'http', host: 'example.com' })
+}
+assert.deepEqual(parseShadowsocksUri(ssPluginUri('obfs;mode=tls;host=example.com'))['plugin-opts'],
+  { mode: 'tls', host: 'example.com' })
+for (const [options, expected] of [
+  ['v2ray-plugin', { mode: 'websocket' }],
+  ['v2ray-plugin;tls;host=example.com', { mode: 'websocket', tls: true, host: 'example.com' }],
+  ['v2ray-plugin;mode=websocket;path=/ws?key=value==&encoded=%2F',
+    { mode: 'websocket', path: '/ws?key=value==&encoded=%2F' }],
+  ['v2ray-plugin;mode=quic', { mode: 'quic' }]
+]) {
+  const input = ssPluginUri(options)
+  const node = parseShadowsocksUri(input)
+  assert.equal(node.plugin, 'v2ray-plugin')
+  assert.deepEqual(node['plugin-opts'], expected)
+  assert.deepEqual(parseProfileConfig(convertSubscriptionToClashYaml(input)).proxies[0]['plugin-opts'], expected)
+}
+
 // 2. VMess
 const vmessJson = {
   v: '2',
@@ -119,6 +141,19 @@ assert.equal(parsedHy2.password, 'hy2pass')
 assert.equal(parsedHy2.sni, 'hy2.example.com')
 assert.equal(parsedHy2.obfs, 'salamander')
 assert.equal(parsedHy2['obfs-password'], 'obfspass')
+
+for (const scheme of ['hy2', 'hysteria2']) {
+  for (const [auth, expected] of [
+    ['user:pass', 'user:pass'],
+    ['user%40domain:p%3Ass%25word', 'user@domain:p:ss%word'],
+    ['user%3Apass', 'user:pass'],
+    ['token%25value', 'token%value']
+  ]) {
+    const input = `${scheme}://${auth}@127.0.0.1:443#auth-test`
+    assert.equal(parseHysteria2Uri(input).password, expected)
+    assert.equal(parseProfileConfig(convertSubscriptionToClashYaml(input)).proxies[0].password, expected)
+  }
+}
 
 // 6. TUIC
 const tuicUri = 'tuic://c8d20391-768a-4cbb-a400-f6551bca463e:tuicpass@tuic.example.com:8443?congestion_control=bbr&sni=tuic.example.com#TUIC-Node'
