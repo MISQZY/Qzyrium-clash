@@ -130,8 +130,6 @@ export function DashboardPage({
       ? t('pleaseWait')
       : coreStatus === 'error'
       ? t('connectionError')
-      : isTrafficUnprotected
-      ? t('localProxyIsAvailableEnableACaptureModeBelow')
       : running
       ? t('connectedState')
       : t('disconnectedState')
