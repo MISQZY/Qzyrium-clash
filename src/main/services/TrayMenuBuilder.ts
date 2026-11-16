@@ -1,7 +1,7 @@
 import type { MenuItemConstructorOptions } from 'electron'
 import type { AppConfig } from '@shared/app-config'
 import type { SysProxyStatus } from '@shared/ipc'
-import type { ProxyGroup, ProxyNode } from '@shared/mihomo'
+import { isProxyGroup, type ProxyGroup, type ProxyNode } from '@shared/mihomo'
 import type { ProfileItem } from '@shared/profile'
 import type { CoreState, TunnelMode } from '@shared/types'
 
@@ -147,20 +147,21 @@ export function buildProxyGroupMenus(
 
   const eligibleGroupNames: string[] = []
   for (const [name, node] of Object.entries(cachedProxies)) {
-    const group = node as unknown as ProxyGroup
-    if (!group || !Array.isArray(group.all) || group.all.length === 0) continue
-    if (group.hidden) continue
-    const rawType = (group.type || '').toLowerCase()
+    if (!isProxyGroup(node) || node.all.length === 0) continue
+    if (node.hidden) continue
+    const rawType = (node.type || '').toLowerCase()
     if (rawType !== 'selector' && rawType !== 'select') continue
     if (name === 'GLOBAL' && currentMode !== 'global') continue
     eligibleGroupNames.push(name)
   }
 
   if (eligibleGroupNames.length === 0 && cachedProxies['GLOBAL']) {
-    const g = cachedProxies['GLOBAL'] as unknown as ProxyGroup
-    const rawType = (g.type || '').toLowerCase()
-    if ((rawType === 'selector' || rawType === 'select') && Array.isArray(g.all) && g.all.length > 0) {
-      eligibleGroupNames.push('GLOBAL')
+    const g = cachedProxies['GLOBAL']
+    if (isProxyGroup(g)) {
+      const rawType = (g.type || '').toLowerCase()
+      if ((rawType === 'selector' || rawType === 'select') && g.all.length > 0) {
+        eligibleGroupNames.push('GLOBAL')
+      }
     }
   }
 
@@ -177,16 +178,18 @@ export function buildProxyGroupMenus(
   eligibleGroupNames.sort((a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity))
 
   return eligibleGroupNames.map((groupName) => {
-    const group = cachedProxies[groupName] as unknown as ProxyGroup
-    const activeNode = group.now
-      ? group.now.length > 30
-        ? `${group.now.slice(0, 27)}...`
-        : group.now
+    const group = cachedProxies[groupName]
+    const groupAll = isProxyGroup(group) ? group.all : []
+    const groupNow = isProxyGroup(group) ? group.now : ''
+    const activeNode = groupNow
+      ? groupNow.length > 30
+        ? `${groupNow.slice(0, 27)}...`
+        : groupNow
       : ''
     const groupLabel = activeNode ? `${groupName}: ${activeNode}` : groupName
 
-    const nodeItems: MenuItemConstructorOptions[] = (group.all || []).map((nodeName: string) => {
-      const isSelected = group.now === nodeName
+    const nodeItems: MenuItemConstructorOptions[] = groupAll.map((nodeName: string) => {
+      const isSelected = groupNow === nodeName
       const displayLabel = nodeName.length > 50 ? `${nodeName.slice(0, 47)}...` : nodeName
       return {
         label: displayLabel,

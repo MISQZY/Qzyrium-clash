@@ -1,4 +1,4 @@
-import type { ProxyGroup, ProxyNode, MihomoRule } from '@shared/mihomo'
+import { isProxyGroup, type ProxyGroup, type ProxyNode, type MihomoRule } from '@shared/mihomo'
 import type { TunnelMode } from '@shared/types'
 
 export type ProxySortMode = 'default' | 'latency' | 'name'
@@ -9,8 +9,8 @@ export function visibleProxyGroups(proxies: Record<string, ProxyNode>, rules: Mi
     const visited = new Set<string>()
 
     const isEligibleGroup = (name: string): boolean => {
-      const item = proxies[name] as unknown as ProxyGroup | undefined
-      if (!item || !Array.isArray(item.all)) return false
+      const item = proxies[name]
+      if (!isProxyGroup(item) || item.all.length === 0) return false
       if (item.hidden) return false
       if (name === 'GLOBAL' && mode !== 'global') return false
       const rawType = (item.type || '').toLowerCase()
@@ -27,10 +27,12 @@ export function visibleProxyGroups(proxies: Record<string, ProxyNode>, rules: Mi
       list.push(name)
 
       // Traverse sub-groups contained inside this group's .all
-      const group = proxies[name] as unknown as ProxyGroup
-      for (const childName of group.all || []) {
-        if (proxies[childName] && Array.isArray((proxies[childName] as unknown as ProxyGroup).all)) {
-          addGroup(childName)
+      const group = proxies[name]
+      if (isProxyGroup(group)) {
+        for (const childName of group.all || []) {
+          if (isProxyGroup(proxies[childName])) {
+            addGroup(childName)
+          }
         }
       }
     }

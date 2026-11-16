@@ -6,7 +6,7 @@ import { useTranslations } from '../i18n'
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { ArrowUpDown, CheckCircle2, ChevronsUpDown, Search, X } from 'lucide-react'
 import { LatencyIcon } from '../lib/icons'
-import type { ProxyGroup, ProxyNode, MihomoRule } from '@shared/mihomo'
+import { isProxyGroup, type ProxyGroup, type ProxyNode, type MihomoRule } from '@shared/mihomo'
 import type { TunnelMode } from '@shared/types'
 import { Button } from '../components/ui/button'
 
@@ -87,9 +87,11 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
   const allNodes = useMemo(() => {
     const set = new Set<string>()
     for (const name of groupNames) {
-      const group = proxies[name] as unknown as ProxyGroup
-      for (const node of group.all || []) {
-        set.add(node)
+      const group = proxies[name]
+      if (isProxyGroup(group)) {
+        for (const node of group.all || []) {
+          set.add(node)
+        }
       }
     }
     return Array.from(set)
@@ -128,8 +130,8 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
     }
 
     return groupNames.filter((name) => {
-      const group = proxies[name] as unknown as ProxyGroup
-      const groupNodes = group?.all || []
+      const group = proxies[name]
+      const groupNodes = isProxyGroup(group) ? group.all : []
 
       if (trimmedQuery) {
         const matchesQuery =
