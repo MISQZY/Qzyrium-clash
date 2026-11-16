@@ -31,6 +31,12 @@ export interface ProxyGroup extends ProxyNode {
   icon?: string
 }
 
+export type ProxyItem = ProxyNode | ProxyGroup
+
+export function isProxyGroup(item?: ProxyNode | null): item is ProxyGroup {
+  return !!item && Array.isArray((item as ProxyGroup).all)
+}
+
 export interface MihomoRule {
   type: string
   payload: string

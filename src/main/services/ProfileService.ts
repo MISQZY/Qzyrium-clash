@@ -173,9 +173,10 @@ export class ProfileService implements BaseService {
     content = convertSubscriptionToClashYaml(content)
     await this.validateContent(content, undefined, dto.type === 'remote')
 
+    const defaultName = (this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG).general?.language === 'ru' ? 'Без названия' : 'Untitled'
     const item: ProfileItem = {
       id,
-      name: dto.name?.trim() || providerName || 'Без названия',
+      name: dto.name?.trim() || providerName || defaultName,
       nameSource: dto.name?.trim() ? 'manual' : providerName ? 'subscription' : 'fallback',
       url: targetUrl,
       type: dto.type,

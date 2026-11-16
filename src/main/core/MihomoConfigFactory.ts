@@ -2,7 +2,7 @@ import yaml from 'yaml'
 import { AppConfig } from '@shared/app-config'
 import { CustomRuleItem } from '@shared/profile'
 import { resolveEffectiveRules } from '@shared/rules'
-import { parseProfileConfig } from '../utils/profile-config'
+import { parseProfileConfig } from '@shared/profile-config'
 import { resolveEffectiveCore, CORE_PORT_KEYS } from '@shared/effective-core'
 
 export class MihomoConfigFactory {
