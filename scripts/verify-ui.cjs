@@ -71,6 +71,10 @@ if (process.type === 'renderer') {
   const startCore = api.kernel.start
   api.kernel.start = async () => { coreFailure = null; await startCore() }
   const setSystemProxy = api.sysproxy.set
+  const getSystemProxyStatus = api.sysproxy.getStatus
+  let reportedProxyEnabled
+  api.uiTest.setReportedProxyEnabled = enabled => { reportedProxyEnabled = enabled }
+  api.sysproxy.getStatus = async () => ({ ...await getSystemProxyStatus(), ...(reportedProxyEnabled === undefined ? {} : { enabled: reportedProxyEnabled }) })
   api.sysproxy.set = async enable => {
     if (enable && state !== 'running') await api.kernel.start()
     await setSystemProxy(enable)
@@ -185,6 +189,33 @@ if (process.type === 'renderer') {
       await waitFor(`document.querySelector('.overview-session-duration')?.textContent.startsWith('01:00:')`)
       const headerProfile = `.workspace-header > div`
       const headerRefresh = `${headerProfile} button`
+      for (const language of ['ru', 'en']) {
+        await evaluate(`(async () => { const settings = await window.api.settings.get(); await window.api.settings.update({ general: { ...settings.general, language: '${language}' } }); document.querySelector('${headerRefresh}').click() })()`)
+        await waitFor(`document.querySelector('h1')?.textContent === '${language === 'ru' ? 'Главная' : 'Home'}' && document.querySelector('.overview-capture-notice')`)
+        for (const width of [248, 288, 360]) {
+          const fits = await evaluate(`(() => {
+            const panel = document.querySelector('.overview-panel');
+            panel.style.width = '${width}px';
+            const notice = document.querySelector('.overview-capture-notice');
+            const bounds = notice.getBoundingClientRect();
+            const fits = notice.scrollWidth <= notice.clientWidth + 1 && [...notice.querySelectorAll('button')].every(button => {
+              const rect = button.getBoundingClientRect();
+              return rect.left >= bounds.left && rect.right <= bounds.right && button.scrollWidth <= button.clientWidth + 1 && button.scrollHeight <= button.clientHeight + 1;
+            });
+            panel.style.width = '';
+            return fits;
+          })()`)
+          assert.ok(fits, `capture notice buttons fit at ${width}px in ${language}`)
+        }
+      }
+      // The settings can arrive before the effective proxy status during startup.
+      await evaluate(`window.api.uiTest.setReportedProxyEnabled(false); document.querySelector('.overview-capture-actions button').click()`)
+      await waitFor(`!document.querySelector('.overview-capture-notice') && !document.querySelector('${headerRefresh}').disabled`)
+      assert.equal(await evaluate(`window.api.uiTest.getSettings().sysProxy.enable`), true, 'capture notice enables the system proxy and disappears')
+      await evaluate(`window.api.uiTest.setReportedProxyEnabled(undefined)`)
+      await evaluate(`(async () => { await window.api.sysproxy.set(false); document.querySelector('${headerRefresh}').click() })()`)
+      await waitFor(`document.querySelector('.overview-capture-notice') && !document.querySelector('${headerRefresh}').disabled`)
+      result.checks.push('Capture notice fits narrow panels in Russian and English and disappears when the system proxy is enabled')
       const profileLabel = await evaluate(`document.querySelector('${headerProfile} > span').textContent`)
       await evaluate(`window.api.uiTest.holdAction('settings'); document.querySelector('.sidebar-mode[aria-label="Global"]').click()`)
       await waitFor(`document.querySelector('${headerRefresh}').disabled`)

@@ -883,6 +883,9 @@ input, textarea, pre { user-select: text; }
 .overview-duration-slot { display: flex; align-items: center; justify-content: center; min-height: 28px; line-height: 1.2; width: 100%; }
 .overview-session-duration { color: var(--foreground); font-family: var(--font-mono); font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1.2; letter-spacing: 0.03em; }
 .overview-panel-section { padding: 13px 16px; border-top: 1px solid var(--border); }
+.overview-capture-notice { overflow-wrap: anywhere; }
+.overview-capture-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.overview-capture-actions > button { min-width: 0; max-width: 100%; height: auto; min-height: 28px; padding-block: 5px; white-space: normal; }
 .overview-support-section { padding: 9px 16px; }
 .overview-support-section button { height: 36px; }
 .overview-quota-section { padding: 8px 16px; }

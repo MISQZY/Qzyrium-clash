@@ -41,8 +41,8 @@ export function DashboardPage({
   const switching = busy || connecting
   const powerState = switching ? 'pending' : coreStatus === 'error' ? 'error' : running ? 'running' : 'stopped'
   const liteMode = Boolean(settings.general.liteDashboard)
-  // The core can be running while the system proxy is still being enabled.
-  const isTrafficUnprotected = running && !switching && !settings.kernel.tun.enable && !sysProxy.enabled
+  // The core can be running before the configured system proxy finishes enabling.
+  const isTrafficUnprotected = running && !switching && !settings.kernel.tun.enable && !settings.sysProxy.enable && !sysProxy.enabled
   const statusLabel =
     connecting || (busy && !running)
       ? t('pleaseWait')
@@ -97,13 +97,13 @@ export function DashboardPage({
             </div>
 
             {isTrafficUnprotected && (
-              <div className="overview-panel-section p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs flex flex-col gap-2">
+              <div className="overview-panel-section overview-capture-notice rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs flex flex-col gap-2" role="status">
                 <span>{t('localProxyIsAvailableEnableACaptureModeBelow')}</span>
-                <div className="flex gap-2">
+                <div className="overview-capture-actions">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/20"
+                    className="text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/20"
                     onClick={onToggleSysProxy}
                   >
                     {t('systemProxy')}
@@ -112,7 +112,7 @@ export function DashboardPage({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 text-xs text-amber-500 hover:bg-amber-500/10"
+                      className="text-xs text-amber-500 hover:bg-amber-500/10"
                       onClick={() => onNavigate('settings')}
                     >
                       {t('connectionSettings')}
