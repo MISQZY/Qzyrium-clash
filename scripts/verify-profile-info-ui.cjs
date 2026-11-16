@@ -130,7 +130,8 @@ if (process.type === 'renderer') {
               const notes = document.querySelector('.overview-map-notes').getBoundingClientRect();
               const panel = document.querySelector('.overview-panel').getBoundingClientRect();
               const column = document.querySelector('.overview-panel-column').getBoundingClientRect();
-              return column.top >= -1 && column.bottom <= innerHeight + 1 && notes.bottom <= innerHeight + 1 && notes.top >= panel.bottom - 1;
+              const fits = column.height <= innerHeight ? (column.top >= -1 && column.bottom <= innerHeight + 1) : (column.bottom <= innerHeight + 1);
+              return fits && notes.bottom <= innerHeight + 1 && notes.top >= panel.bottom - 1;
             })()`), `panel and lower hint fit ${width}x${height} at zoom ${zoom}`)
           }
         }
