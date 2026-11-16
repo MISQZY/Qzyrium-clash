@@ -17,28 +17,34 @@ export function AutoFitTrafficText({ text }: AutoFitTrafficTextProps) {
     return 11
   }, [text])
 
-  useLayoutEffect(() => {
+  const updateScale = () => {
     const container = containerRef.current
     const textEl = textRef.current
     if (!container || !textEl) return
-
-    const updateScale = () => {
-      textEl.style.transform = 'none'
-      const containerWidth = container.clientWidth
-      const textWidth = textEl.scrollWidth
-      if (containerWidth > 0 && textWidth > 0 && textWidth > containerWidth) {
-        const scale = Math.max(0.65, (containerWidth - 1) / textWidth)
-        textEl.style.transform = `scale(${scale})`
-      } else {
-        textEl.style.transform = ''
-      }
+    textEl.style.transform = 'none'
+    const containerWidth = container.clientWidth
+    const textWidth = textEl.scrollWidth
+    if (containerWidth > 0 && textWidth > 0 && textWidth > containerWidth) {
+      const scale = Math.max(0.65, (containerWidth - 1) / textWidth)
+      textEl.style.transform = `scale(${scale})`
+    } else {
+      textEl.style.transform = ''
     }
+  }
 
+  useLayoutEffect(() => {
     updateScale()
-    const observer = new ResizeObserver(updateScale)
+  }, [text, fontSize])
+
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const observer = new ResizeObserver(() => {
+      updateScale()
+    })
     observer.observe(container)
     return () => observer.disconnect()
-  }, [text, fontSize])
+  }, [])
 
   return (
     <div

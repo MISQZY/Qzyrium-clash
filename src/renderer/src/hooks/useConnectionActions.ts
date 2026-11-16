@@ -1,6 +1,6 @@
 import { type ProcessGroup } from '../lib/connections'
 import { useTranslations } from '../i18n'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import type { ConnectionItem } from '@shared/mihomo'
 
@@ -9,6 +9,14 @@ export function useConnectionActions(onRefresh: () => void) {
   const [selectedConnection, setSelectedConnection] = useState<ConnectionItem | null>(null)
   const [closing, setClosing] = useState(false)
   const [error, setError] = useState('')
+  const isMounted = useRef(true)
+
+  useEffect(() => {
+    isMounted.current = true
+    return () => {
+      isMounted.current = false
+    }
+  }, [])
 
   const close = async (id?: string) => {
     if (!window.api || closing || (!id && !confirm(t('terminateAllActiveSessions')))) return
@@ -17,18 +25,20 @@ export function useConnectionActions(onRefresh: () => void) {
     try {
       if (id) {
         await window.api.mihomo.closeConnection(id)
-        if (selectedConnection?.id === id) {
+        if (isMounted.current && selectedConnection?.id === id) {
           setSelectedConnection(null)
         }
       } else {
         await window.api.mihomo.closeAllConnections()
-        setSelectedConnection(null)
+        if (isMounted.current) {
+          setSelectedConnection(null)
+        }
       }
-      onRefresh()
+      if (isMounted.current) onRefresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      if (isMounted.current) setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setClosing(false)
+      if (isMounted.current) setClosing(false)
     }
   }
 
@@ -38,14 +48,14 @@ export function useConnectionActions(onRefresh: () => void) {
     setError('')
     try {
       await Promise.all(group.connections.map((item) => window.api.mihomo.closeConnection(item.id)))
-      if (selectedConnection && group.connections.some((c) => c.id === selectedConnection.id)) {
+      if (isMounted.current && selectedConnection && group.connections.some((c) => c.id === selectedConnection.id)) {
         setSelectedConnection(null)
       }
-      onRefresh()
+      if (isMounted.current) onRefresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      if (isMounted.current) setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setClosing(false)
+      if (isMounted.current) setClosing(false)
     }
   }
 

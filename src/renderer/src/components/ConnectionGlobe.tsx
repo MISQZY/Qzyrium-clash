@@ -2,7 +2,7 @@ import { GlobeRouteOverlay } from './globe/GlobeRouteOverlay'
 import { GlobeRouteList } from './globe/GlobeRouteList'
 import { useGlobeRenderer } from '../hooks/useGlobeRenderer'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useTranslations } from '../i18n'
 
@@ -54,7 +54,13 @@ export function ConnectionGlobe({
     [activeId, projected]
   )
 
-  const family = sceneRef.current ? getComputedStyle(sceneRef.current).fontFamily : 'sans-serif'
+  const familyRef = useRef('sans-serif')
+  useEffect(() => {
+    if (sceneRef.current) {
+      familyRef.current = getComputedStyle(sceneRef.current).fontFamily || 'sans-serif'
+    }
+  }, [sceneRef])
+  const family = familyRef.current
   const toggleEndpoint = (ids: string[]) => {
     setExpandedId((current) => current !== null && ids.includes(current) ? null : ids[0])
   }

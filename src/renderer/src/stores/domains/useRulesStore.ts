@@ -24,8 +24,11 @@ export function useRulesStore(
   useEffect(() => {
     // Drop the full dataset immediately when leaving its page, including while
     // a replacement request is pending. Old responses cannot restore it.
-    setRules([])
-    if (!window.api || !needsRules || coreStatus === 'starting' || busy || refreshing || loading) return
+    if (!needsRules) {
+      setRules([])
+      return
+    }
+    if (!window.api || coreStatus === 'starting' || busy || refreshing || loading) return
     return loadDataset(
       { statusRevision, actionInProgress, reportError },
       () => window.api.mihomo.getRules(scope),

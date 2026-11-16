@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ProfileItem } from '@shared/profile'
 import { useTranslations } from '../i18n'
 
@@ -8,6 +8,14 @@ export function useProfileActions(onRefreshAll: () => void) {
   const pendingUpdates = useRef(new Set<string>())
   const [updating, setUpdating] = useState<Set<string>>(new Set())
   const [profileToDelete, setProfileToDelete] = useState<ProfileItem | null>(null)
+  const isMounted = useRef(true)
+
+  useEffect(() => {
+    isMounted.current = true
+    return () => {
+      isMounted.current = false
+    }
+  }, [])
 
   const confirmDelete = async () => {
     if (!window.api || !profileToDelete) return
@@ -16,9 +24,9 @@ export function useProfileActions(onRefreshAll: () => void) {
     setError('')
     try {
       await window.api.profiles.delete(id)
-      onRefreshAll()
+      if (isMounted.current) onRefreshAll()
     } catch (err) {
-      setError(t('deleteFailed', { error: err instanceof Error ? err.message : String(err) }))
+      if (isMounted.current) setError(t('deleteFailed', { error: err instanceof Error ? err.message : String(err) }))
     }
   }
 
@@ -29,13 +37,15 @@ export function useProfileActions(onRefreshAll: () => void) {
     setError('')
     try {
       await window.api.profiles.update(id)
-      onRefreshAll()
+      if (isMounted.current) onRefreshAll()
     } catch (err) {
-      setError(t('updateFailed', { error: err instanceof Error ? err.message : String(err) }))
-      onRefreshAll()
+      if (isMounted.current) {
+        setError(t('updateFailed', { error: err instanceof Error ? err.message : String(err) }))
+        onRefreshAll()
+      }
     } finally {
       pendingUpdates.current.delete(id)
-      setUpdating(new Set(pendingUpdates.current))
+      if (isMounted.current) setUpdating(new Set(pendingUpdates.current))
     }
   }
 
