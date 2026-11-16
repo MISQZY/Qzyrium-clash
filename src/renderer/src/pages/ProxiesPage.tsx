@@ -3,7 +3,7 @@ import { ServiceCheckDialog } from '../components/proxies/ServiceCheckDialog'
 import { DEFAULT_SERVICE_CHECK_TARGETS, type ServiceCheckTarget } from '@shared/service-check'
 import { useProxyLatency } from '../hooks/useProxyLatency'
 import { useTranslations } from '../i18n'
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { ArrowUpDown, CheckCircle2, ChevronsUpDown, Search, X } from 'lucide-react'
 import { LatencyIcon } from '../lib/icons'
 import type { ProxyGroup, ProxyNode, MihomoRule } from '@shared/mihomo'
@@ -78,6 +78,10 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
   const [onlyAvailable, setOnlyAvailable] = useState(false)
   const [serviceCheckNode, setServiceCheckNode] = useState<{ name: string; profileId?: string } | null>(null)
   useEffect(() => { setServiceCheckNode(null) }, [profileId, running, serviceCheckTargets])
+  const handleCheckServices = useCallback(
+    (name: string) => setServiceCheckNode({ name, profileId }),
+    [profileId]
+  )
 
   // Collect all unique nodes across eligible groups
   const allNodes = useMemo(() => {
@@ -91,7 +95,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
     return Array.from(set)
   }, [proxies, groupNames])
 
-  const toggleGroup = (name: string) => {
+  const toggleGroup = useCallback((name: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev)
       if (next.has(name)) {
@@ -101,7 +105,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
       }
       return next
     })
-  }
+  }, [])
 
   const allExpanded = groupNames.length > 0 && groupNames.every((g) => expandedGroups.has(g))
 
@@ -301,7 +305,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
             onlyAvailable={onlyAvailable}
             running={running} testingGroups={testingGroups} testingAll={testingAll} testingNodes={testingNodes}
             onToggle={toggleGroup} onTest={testGroup} onSelect={onSelectNode}
-            onCheckServices={name => setServiceCheckNode({ name, profileId })} />)}
+            onCheckServices={handleCheckServices} />)}
         </div>
       ) : groupNames.length > 0 ? (
         <p className="empty-state">{t('noProxyNodesMatchYourSearch')}</p>
