@@ -36,7 +36,7 @@ export function SplitTunnelingDialog({ open, onOpenChange, onSaved }: SplitTunne
   const availableGroups = useMemo(() => Object.entries(proxies)
     .filter(([, node]) => 'all' in node)
     .map(([name]) => name)
-    .filter((name) => !['DIRECT', 'GLOBAL'].includes(name)), [proxies])
+    .filter((name) => !['DIRECT', 'GLOBAL', 'PROXY'].includes(name)), [proxies])
   const [connections, setConnections] = useState<ConnectionItem[]>([])
   const profileId = activeProfile?.id
   const [customApp, setCustomApp] = useState('')
@@ -186,7 +186,7 @@ export function SplitTunnelingDialog({ open, onOpenChange, onSaved }: SplitTunne
                 placeholder={t('appNamePlaceholder')} className="font-mono text-xs h-9 w-full basis-full" />
               <NativeSelect aria-label={t('newAppRoute')} value={route} onChange={(event) => setRoute(event.target.value)} className="h-9 text-xs flex-1">
                 <option value="DIRECT">{t('routeDirect')}</option>
-                <option value="GLOBAL">{t('routeVpn')}</option>
+                <option value="PROXY">{t('routeVpn')}</option>
                 {availableGroups.map((name) => <option key={name} value={name}>{name}</option>)}
               </NativeSelect>
               <Button type="submit" size="sm" variant="outline" className="h-9 gap-1.5"
@@ -231,9 +231,9 @@ export function SplitTunnelingDialog({ open, onOpenChange, onSaved }: SplitTunne
                       onChange={(event) => setAppRules((rules) => rules.map((item) => item.id === rule.id ? { ...item, proxy: event.target.value } : item))}
                       className="text-xs h-8 max-w-44">
                       <option value="DIRECT">{t('routeDirect')}</option>
-                      <option value="GLOBAL">{t('routeVpn')}</option>
+                      <option value="PROXY">{t('routeVpn')}</option>
                       {availableGroups.map((name) => <option key={name} value={name}>{name}</option>)}
-                      {!['DIRECT', 'GLOBAL', ...availableGroups].includes(rule.proxy) && <option value={rule.proxy}>{rule.proxy}</option>}
+                      {!['DIRECT', 'PROXY', ...availableGroups].includes(rule.proxy) && <option value={rule.proxy}>{rule.proxy}</option>}
                     </NativeSelect>
                     <Button type="button" variant="ghost" size="icon" className="size-8 text-muted-foreground hover:text-destructive"
                       aria-label={t('removeApp', { app: rule.payload })} disabled={unavailable}

@@ -50,7 +50,7 @@
   "activeProcessesHint": "Click an application to add it with the route selected above.",
   "appInputHint": "Enter the exact process name or full file path. No extension is added automatically.",
   "routeDirect": "Direct",
-  "routeVpn": "VPN · GLOBAL",
+  "routeVpn": "VPN · PROXY",
   "newAppRoute": "New application route",
   "appRoute": "Route: {app}",
   "removeApp": "Remove: {app}",
