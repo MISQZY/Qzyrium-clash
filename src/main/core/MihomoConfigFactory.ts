@@ -83,6 +83,28 @@ export class MihomoConfigFactory {
         (parsed.tun as Record<string, unknown>).device = 'Qzyrium'
       }
 
+      // Ensure sniffer is active in TUN mode for pure-IP and TLS SNI resolution
+      const currentSniffer = (parsed.sniffer && typeof parsed.sniffer === 'object' && !Array.isArray(parsed.sniffer))
+        ? (parsed.sniffer as Record<string, unknown>)
+        : {}
+      if (currentSniffer.enable !== false) {
+        parsed['sniffer'] = {
+          enable: true,
+          'parse-pure-ip': true,
+          sniff: {
+            TLS: { ports: [443, 8443] },
+            HTTP: { ports: [80, '8080-8880'] },
+            QUIC: { ports: [443] }
+          },
+          'skip-domain': [
+            'Mijia Cloud',
+            'dlg.io.mi.com',
+            '+.apple.com'
+          ],
+          ...currentSniffer
+        }
+      }
+
       // Ensure DNS module is active and properly configured for TUN packet resolution
       const currentDns = (parsed.dns && typeof parsed.dns === 'object' && !Array.isArray(parsed.dns))
         ? (parsed.dns as Record<string, unknown>)
