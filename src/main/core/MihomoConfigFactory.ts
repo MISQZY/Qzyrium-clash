@@ -94,6 +94,9 @@ export class MihomoConfigFactory {
           'fake-ip-range6': 'fc00::/18',
           'fake-ip-filter': [
             '*.lan',
+            '*.local',
+            '*.internal',
+            '*.localhost',
             'localhost.ptlogin2.qq.com',
             'dns.msftncsi.com',
             'www.msftncsi.com',
