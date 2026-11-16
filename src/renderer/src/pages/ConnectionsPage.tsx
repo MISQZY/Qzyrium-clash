@@ -72,15 +72,23 @@ const ConnectionsView = memo(function ConnectionsView({ connections, onRefresh, 
     return connections.connections.find((c) => c.id === selectedConnection.id) || selectedConnection
   }, [selectedConnection, connections.connections])
 
-  const renderConnectionCard = (item: ConnectionItem) => (
-    <ConnectionCard
-      key={item.id}
-      item={item}
-      actions={{
-        ...actions,
-        onQuickRule: viewMode === 'flat' ? setRuleTargetConnection : undefined
-      }}
-    />
+  const connectionActions = useMemo(
+    () => ({
+      ...actions,
+      onQuickRule: viewMode === 'flat' ? setRuleTargetConnection : undefined
+    }),
+    [actions, viewMode, setRuleTargetConnection]
+  )
+
+  const renderConnectionCard = useCallback(
+    (item: ConnectionItem) => (
+      <ConnectionCard
+        key={item.id}
+        item={item}
+        actions={connectionActions}
+      />
+    ),
+    [connectionActions]
   )
 
   return (

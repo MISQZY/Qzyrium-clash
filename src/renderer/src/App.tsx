@@ -1,6 +1,7 @@
 import { PageContent } from './pages/PageContent'
 import { I18nProvider, useTranslations } from './i18n'
 import { selectedLocalization } from '@shared/custom-localization'
+import type { TunnelMode } from '@shared/types'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { AlertTriangle, ChevronRight, FileText, LoaderCircle, RefreshCw, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
@@ -171,11 +172,15 @@ function Workspace() {
     }
   }, [settings.general, themes])
 
+  const handleUpdateMode = useCallback((mode: TunnelMode) => {
+    void saveSettingsRef.current({ kernel: { ...settings.kernel, mode } }).catch(() => {})
+  }, [settings.kernel])
+
   return <div className="app-shell">
     <TitleBar />
     <WhatsNewDialog />
     <div className="app-workspace">
-      <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} coreStatus={coreStatus} open={sidebarOpen} onToggle={toggleSidebar} mode={settings.kernel.mode} captureEnabled={sysProxy.enabled || settings.kernel.tun.enable} tunEnabled={settings.kernel.tun.enable} busy={busy} onUpdateMode={(mode) => { void saveSettings({ kernel: { ...settings.kernel, mode } }).catch(() => {}) }} />
+      <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} coreStatus={coreStatus} open={sidebarOpen} onToggle={toggleSidebar} mode={settings.kernel.mode} captureEnabled={sysProxy.enabled || settings.kernel.tun.enable} tunEnabled={settings.kernel.tun.enable} busy={busy} onUpdateMode={handleUpdateMode} />
       <main className="app-main relative">
         <header className="workspace-header">
           <nav aria-label={common('breadcrumb')} className="min-w-0"><ol className="flex min-w-0 items-center gap-2 text-xs"><li className="min-w-0 text-muted-foreground"><span className="truncate">{common(group.id)}</span></li><li aria-hidden="true"><ChevronRight className="size-3 shrink-0 text-muted-foreground/60" /></li><li aria-current="page" className="flex min-w-0 items-center gap-2 font-medium"><Icon className="size-3.5 shrink-0" /><span className="truncate">{common(activeTab)}</span></li></ol></nav>

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useCopyFeedback } from '../../hooks/useCopyFeedback'
 import { ProcessIcon } from '../ProcessIcon'
 import { getProcessDisplayName, getNetworkBadgeClass, formatChain } from '../../lib/connections'
@@ -20,7 +21,7 @@ interface ConnectionCardProps {
   }
 }
 
-export function ConnectionCard({ item, actions }: ConnectionCardProps) {
+export const ConnectionCard = memo(function ConnectionCard({ item, actions }: ConnectionCardProps) {
   const { handleCopy, copiedKey } = useCopyFeedback()
   const t = useTranslations('connections')
   const { setSelectedConnection, closing, close } = actions
@@ -152,4 +153,4 @@ export function ConnectionCard({ item, actions }: ConnectionCardProps) {
       </div>
     </Card>
   )
-}
+})

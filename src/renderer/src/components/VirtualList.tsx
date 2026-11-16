@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 
 /** Keep small lists native; measure variable-height rows for large datasets. */
@@ -23,17 +23,17 @@ export function VirtualList<T>({ data, itemKey, renderItem, externalScroll = tru
     return () => media.removeEventListener('change', update)
   }, [twoColumns])
   const columns = twoColumns && wide ? 2 : 1
-  const row = (index: number) => (
+  const row = useCallback((index: number) => (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap, paddingBottom: gap }}>
       {data.slice(index * columns, (index + 1) * columns).map((item, offset) => (
         <Fragment key={itemKey(item, index * columns + offset)}>{renderItem(item, index * columns + offset)}</Fragment>
       ))}
     </div>
-  )
+  ), [columns, data, gap, itemKey, renderItem])
   const parent = externalScroll ? host?.closest<HTMLElement>(scrollParentSelector) : undefined
-  return <div ref={setHost} className={className} data-virtual-list={data.length > 80 ? 'true' : 'false'}
+  return <div ref={setHost} className={className} data-virtual-list={data.length > 30 ? 'true' : 'false'}
     style={externalScroll ? undefined : { height: '100%', minHeight: 0 }}>
-    {data.length <= 80
+    {data.length <= 30
       ? Array.from({ length: Math.ceil(data.length / columns) }, (_, index) => <Fragment key={itemKey(data[index * columns], index * columns)}>{row(index)}</Fragment>)
       : (!externalScroll || parent) && <Virtuoso
           customScrollParent={parent ?? undefined}
