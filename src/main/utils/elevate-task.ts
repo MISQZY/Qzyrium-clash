@@ -60,8 +60,8 @@ export function createElevateTaskSync(): boolean {
     const taskDir = paths.tasksDir
     const targetRunner = paths.runnerBinaryPath
 
-    // Never execute a copy from userData. The bundled helper checks the entire
-    // installation's ownership/ACLs before we register a privileged action.
+    // Use the helper bundled with the installation selected by the user.
+    // Registration requires UAC consent, but custom/portable paths are supported.
     deleteTask(LEGACY_TASK_NAME)
     if (!existsSync(targetRunner)) {
       logger.warn(`Elevate task runner not found at ${targetRunner}`)
@@ -70,8 +70,7 @@ export function createElevateTaskSync(): boolean {
 
     if (!app.isPackaged) return false
     execFileSync(targetRunner, ['--check-install', process.execPath], { windowsHide: true, timeout: 10000, stdio: 'pipe' })
-    // schtasks reads XML after this write. Keep it in the verified protected
-    // installation too, so a non-admin cannot replace the action before import.
+    // Keep the task definition beside the bundled helper and create it exclusively.
     taskXmlPath = path.join(path.dirname(targetRunner), `.elevate-${randomUUID()}.xml`)
     const xmlContent = getElevateTaskXml(targetRunner, process.execPath, path.join(taskDir, 'param.txt'))
     writeFileSync(taskXmlPath, Buffer.from(`\ufeff${xmlContent}`, 'utf16le'), { flag: 'wx' })

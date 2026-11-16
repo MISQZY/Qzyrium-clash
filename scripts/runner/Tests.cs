@@ -24,9 +24,21 @@ static class RunnerTests
         if ((string)Invoke("ReadArguments", filename) != "--admin-restart=123 \"qzyrium://install-config?name=Hello World\"")
             throw new Exception("Protocol/PID arguments must preserve boundaries");
         if (File.Exists(filename)) throw new Exception("Parameters must be consumed once");
-        if ((bool)Invoke("SafeInstallation", Path.Combine(args[0], "Qzyrium-clash.exe")))
-            throw new Exception("Untrusted install accepted");
-        if ((bool)Invoke("ProtectedTree", new DirectoryInfo(args[0])))
-            throw new Exception("User-writable directory accepted");
+        string target = Path.Combine(args[0], "Qzyrium-clash.exe");
+        if ((bool)Invoke("MatchesInstallation", target))
+            throw new Exception("Missing application accepted");
+        File.WriteAllText(target, "test fixture");
+        if (!(bool)Invoke("MatchesInstallation", target))
+            throw new Exception("Custom user-writable installation rejected");
+        string foreignTarget = Path.Combine(args[0], "other.exe");
+        File.WriteAllText(foreignTarget, "test fixture");
+        if ((bool)Invoke("MatchesInstallation", foreignTarget))
+            throw new Exception("Foreign executable accepted");
+        string foreignDirectory = Path.Combine(args[0], "other");
+        Directory.CreateDirectory(foreignDirectory);
+        foreignTarget = Path.Combine(foreignDirectory, "Qzyrium-clash.exe");
+        File.WriteAllText(foreignTarget, "test fixture");
+        if ((bool)Invoke("MatchesInstallation", foreignTarget))
+            throw new Exception("Foreign installation accepted");
     }
 }
