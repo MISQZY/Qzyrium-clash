@@ -41,7 +41,8 @@ export function DashboardPage({
   const switching = busy || connecting
   const powerState = switching ? 'pending' : coreStatus === 'error' ? 'error' : running ? 'running' : 'stopped'
   const liteMode = Boolean(settings.general.liteDashboard)
-  const isTrafficUnprotected = running && !settings.kernel.tun.enable && !sysProxy.enabled
+  // The core can be running while the system proxy is still being enabled.
+  const isTrafficUnprotected = running && !switching && !settings.kernel.tun.enable && !sysProxy.enabled
   const statusLabel =
     connecting || (busy && !running)
       ? t('pleaseWait')
