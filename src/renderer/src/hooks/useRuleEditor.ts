@@ -98,7 +98,9 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
       try {
         yaml.parse(rulesYamlRef.current)
         const updated = parseYamlToVisualRules(rulesYamlRef.current, rules.filter((r) => !r.isCustom))
-        setRules(updated)
+        startTransition(() => {
+          setRules(updated)
+        })
       } catch (err) {
         setError(t('invalidYaml', { error: err instanceof Error ? err.message : String(err) }))
         return

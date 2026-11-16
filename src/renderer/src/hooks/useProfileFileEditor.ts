@@ -107,6 +107,9 @@ export function useProfileFileEditor({
     setError(null)
     setSaving(true)
 
+    // Yield to the event loop so the UI updates and displays the saving indicator
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
     try {
       try {
         yamlParser.parse(textToSave)
