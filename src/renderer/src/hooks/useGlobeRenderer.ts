@@ -13,6 +13,7 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
   // Camera orientation is maintained permanently; user rotations are never overridden by routes or tunnels.
   const camera = useRef(defaultCamera())
   const viewport = useRef<Viewport>({ width: 1, height: 1, reserved: 0 })
+  const renderedScaleRef = useRef(camera.current.scale)
   const surface = useRef<Float32Array | undefined>(undefined)
   const routesRef = useRef(routes)
   routesRef.current = routes
@@ -53,6 +54,8 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
     let lastBrightness = -1
     let cachedActiveColor: [number, number, number] | null = null
     let cachedDormantColor: [number, number, number] | null = null
+    let renderedScale = -1
+    let lastFrameTime = 0
 
     const draw = () => {
       rAfId = null
@@ -60,10 +63,36 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
       const view = viewport.current
       if (view.width < 2 || view.height < 2) return
       const layout = globeLayout(camera.current, view)
+      const now = performance.now()
+      const dt = lastFrameTime > 0 ? Math.min(0.1, Math.max(0.001, (now - lastFrameTime) / 1000)) : 0.016
+      lastFrameTime = now
+
+      if (frames < 4 || renderedScale <= 0) {
+        renderedScale = layout.scale
+      } else {
+        const scaleDiff = layout.scale - renderedScale
+        if (Math.abs(scaleDiff) > 0.0005) {
+          const blend = 1 - Math.exp(-dt * 14)
+          renderedScale += scaleDiff * blend
+          if (Math.abs(layout.scale - renderedScale) <= 0.0005) {
+            renderedScale = layout.scale
+          }
+          schedule()
+        } else {
+          renderedScale = layout.scale
+        }
+      }
+      renderedScaleRef.current = renderedScale
+
+      const activeRadius = view.height * 0.4 * renderedScale
+      const activeOffset: [number, number] = [
+        (layout.cx - view.width / 2) * 2 / renderedScale,
+        (layout.cy - view.height / 2) * 2 / renderedScale
+      ]
       const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
       const palette = `${theme}:${document.documentElement.dataset.theme}:${document.documentElement.style.cssText}`
       const resized = sizedWidth !== view.width || sizedHeight !== view.height || lastDpr !== window.devicePixelRatio
-      const cameraChanged = Math.abs(lastPhi - camera.current.phi) > 0.0001 || Math.abs(lastTheta - camera.current.theta) > 0.0001 || Math.abs(lastScale - layout.scale) > 0.0001
+      const cameraChanged = Math.abs(lastPhi - camera.current.phi) > 0.0001 || Math.abs(lastTheta - camera.current.theta) > 0.0001 || Math.abs(lastScale - renderedScale) > 0.0001
       const themeChanged = lastTheme !== palette
 
       // Determine colors and brightness based on running state and smooth ignition transition
@@ -110,8 +139,8 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
         globe.update({
           phi: camera.current.phi,
           theta: camera.current.theta,
-          scale: layout.scale,
-          offset: layout.offset,
+          scale: renderedScale,
+          offset: activeOffset,
           baseColor: targetColor,
           mapBrightness: targetBrightness,
           dark: theme === 'dark' ? 0.94 : 0.1,
@@ -123,19 +152,19 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
         lastTheme = palette
         lastPhi = camera.current.phi
         lastTheta = camera.current.theta
-        lastScale = layout.scale
+        lastScale = renderedScale
         lastColor = targetColor
         lastBrightness = targetBrightness
 
         scene.style.setProperty('--globe-cx', `${layout.cx}px`)
         scene.style.setProperty('--globe-cy', `${layout.cy}px`)
-        scene.style.setProperty('--globe-radius', `${layout.radius}px`)
+        scene.style.setProperty('--globe-radius', `${activeRadius}px`)
         canvas.dataset.globeReady = 'true'
         canvas.dataset.frameCount = String(++frames)
       }
 
       if (frames < 4 || resized || cameraChanged) {
-        setProjected(surface.current ? projectRoutes(routesRef.current, camera.current, view, surface.current) : [])
+        setProjected(surface.current ? projectRoutes(routesRef.current, { ...camera.current, scale: renderedScale }, view, surface.current) : [])
       }
     }
 
@@ -148,7 +177,7 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
     void landPoints().then((points) => {
       if (disposed) return
       surface.current = points
-      setProjected(projectRoutes(routesRef.current, camera.current, viewport.current, points))
+      setProjected(projectRoutes(routesRef.current, { ...camera.current, scale: renderedScaleRef.current }, viewport.current, points))
       schedule()
     }).catch(() => {})
 
@@ -219,7 +248,7 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
   useEffect(() => {
     invalidate.current()
     if (viewport.current.width > 1 && viewport.current.height > 1) {
-      setProjected(surface.current ? projectRoutes(routesRef.current, camera.current, viewport.current, surface.current) : [])
+      setProjected(surface.current ? projectRoutes(routesRef.current, { ...camera.current, scale: renderedScaleRef.current }, viewport.current, surface.current) : [])
     }
   }, [geometryKey])
 

@@ -84,6 +84,14 @@ export function ConnectionGlobe({
           drag.current = { x: event.clientX, y: event.clientY }
           invalidate.current()
         }}
+        onWheel={(event) => {
+          event.preventDefault()
+          const factor = event.ctrlKey
+            ? Math.max(0.5, Math.min(1.5, 1 - event.deltaY * 0.01))
+            : (event.deltaY < 0 ? 1.1 : 0.9)
+          camera.current.scale = Math.max(0.8, Math.min(2, camera.current.scale * factor))
+          invalidate.current()
+        }}
         onKeyDown={(event) => {
           if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '=', '-'].includes(event.key)) return
           event.preventDefault()
