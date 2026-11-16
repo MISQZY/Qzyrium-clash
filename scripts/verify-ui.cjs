@@ -246,15 +246,23 @@ if (process.type === 'renderer') {
       assert.ok(await evaluate(`document.querySelector('.globe-route-summary .globe-route-latency')?.textContent.includes('42 ms')`), 'tunnel summary shows measured latency')
       assert.ok(await evaluate(`document.querySelector('.overview-map-notes').getBoundingClientRect().top >= document.querySelector('.overview-panel').getBoundingClientRect().bottom`), 'map hints are below the right panel')
       assert.equal(await evaluate(`document.querySelector('.globe-footer > p')`), null)
-      await waitFor(`(() => { const canvas = document.querySelector('.globe-canvas'); return canvas?.dataset.globeReady === 'true' })()`)
+      await waitFor(`(() => { const canvas = document.querySelector('.globe-canvas'); return canvas?.dataset.globeReady === 'true' && Number(canvas?.dataset.frameCount) >= 2 })()`)
+      await delay(250)
       // The globe releases its drawing buffer after composition. Inspect the
       // composed frame instead of relying on preserveDrawingBuffer=true.
-      const canvasBounds = await evaluate(`(() => { const canvas = document.querySelector('.globe-canvas'); const rect = canvas.getBoundingClientRect(); return { x: Math.floor(rect.x), y: Math.floor(rect.y), width: Math.ceil(rect.width), height: Math.ceil(rect.height), painted: canvas.width > 1 && canvas.height > 1 && Number(canvas.dataset.frameCount) > 0 }; })()`)
+      const readCanvasBounds = () => evaluate(`(() => { const canvas = document.querySelector('.globe-canvas'); const rect = canvas.getBoundingClientRect(); return { x: Math.max(0, Math.floor(rect.x)), y: Math.max(0, Math.floor(rect.y)), width: Math.ceil(rect.width), height: Math.ceil(rect.height), painted: canvas.width > 1 && canvas.height > 1 && Number(canvas.dataset.frameCount) > 0 }; })()`)
+      const canvasBounds = await readCanvasBounds()
       assert.ok(canvasBounds.painted, 'globe has a rendered canvas, not a 1px placeholder')
-      const globePixels = (await win.webContents.capturePage({ x: canvasBounds.x, y: canvasBounds.y, width: canvasBounds.width, height: canvasBounds.height })).toBitmap()
-      const globeColors = new Set()
-      for (let i = 0; i < globePixels.length; i += 16) globeColors.add(globePixels.subarray(i, i + 3).toString('hex'))
-      assert.ok(globeColors.size > 32, 'composed globe contains painted detail')
+      let globeColors = new Set()
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const bounds = await readCanvasBounds()
+        const globePixels = (await win.webContents.capturePage({ x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height })).toBitmap()
+        globeColors = new Set()
+        for (let i = 0; i < globePixels.length; i += 16) globeColors.add(globePixels.subarray(i, i + 3).toString('hex'))
+        if (globeColors.size > 32) break
+        await delay(100)
+      }
+      assert.ok(globeColors.size > 32, `composed globe contains painted detail (${globeColors.size} sampled colors)`)
       await waitFor(`document.querySelector('.globe-route-track')?.getAttribute('d')?.length > 40`)
       await evaluate(`document.querySelector('.globe-route-hit').dispatchEvent(new PointerEvent('pointerover', { bubbles: true }))`)
       await waitFor(`document.querySelector('.globe-route-dash.is-active') !== null`)
