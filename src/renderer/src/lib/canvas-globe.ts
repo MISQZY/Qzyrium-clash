@@ -45,7 +45,6 @@ export default function createGlobe(canvas: HTMLCanvasElement, initial: GlobeOpt
   const context = canvas.getContext('2d', { alpha: true })
   if (!context) throw new Error('Canvas unavailable')
   let options = initial, data: Float32Array | undefined, disposed = false
-  const bands: number[][] = Array.from({ length: 8 }, () => [])
   const draw = () => {
     if (disposed) return
     const { width, height, phi, theta, scale, offset, baseColor, mapBrightness } = options
@@ -75,32 +74,20 @@ export default function createGlobe(canvas: HTMLCanvasElement, initial: GlobeOpt
     context.setTransform(scaleX, 0, 0, scaleY, -left * scaleX, -top * scaleY)
     context.clearRect(left, top, cropWidth, cropHeight)
     const color = baseColor.map(value => Math.round(value * 255)).join(',')
-    // The CSS surface supplies neutral shading. Keep the oceans transparent;
-    // adding a colored disk here doubles the atmosphere and lights up the center.
+    // Keep the oceans transparent over the uniform CSS surface.
     if (!data) return
     const project = globeProjection({ phi, theta, scale }, { cx, cy, radius })
     const dot = Math.max(0.65, radius / 160)
-    // Single-pass projection: project each point once and bucket into depth bands
-    for (let b = 0; b < 8; b++) bands[b].length = 0
+    // Uniform opacity avoids concentric dark bands across the visible hemisphere.
+    context.beginPath()
+    context.fillStyle = `rgba(${color},${Math.min(1, 0.65 * mapBrightness / 1.8)})`
     for (let i = 0; i < data.length; i += 3) {
       const point = project([data[i], data[i + 1], data[i + 2]])
       if (point.depth < 0) continue
-      const band = Math.min(7, Math.floor(point.depth * 8))
-      bands[band].push(point.x, point.y)
+      context.moveTo(point.x + dot, point.y)
+      context.arc(point.x, point.y, dot, 0, Math.PI * 2)
     }
-
-    for (let band = 0; band < 8; band++) {
-      const coords = bands[band]
-      if (coords.length === 0) continue
-      context.beginPath()
-      context.fillStyle = `rgba(${color},${Math.min(1, (0.22 + band / 10) * mapBrightness / 1.8)})`
-      for (let j = 0; j < coords.length; j += 2) {
-        const px = coords[j], py = coords[j + 1]
-        context.moveTo(px + dot, py)
-        context.arc(px, py, dot, 0, Math.PI * 2)
-      }
-      context.fill()
-    }
+    context.fill()
   }
   void landPoints().then(value => { if (!disposed) { data = value; draw() } }).catch(() => {})
   return {
