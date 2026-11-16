@@ -53,6 +53,7 @@ try {
 for (const [name, value] of renderingSwitches(process.platform, lowMemoryMode)) {
   app.commandLine.appendSwitch(name, value)
 }
+app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_proxied_udp')
 
 let services: ServiceManager | null = null
 let servicesReady = false
