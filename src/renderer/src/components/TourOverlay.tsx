@@ -75,6 +75,10 @@ function TourStep({ index, next, back, stop }: { index: number; next: () => void
         if (!published && !fallback && now - started >= 2000) {
           fallback = true
           setMeasurement({ index, rect: null })
+          if (timer !== null) {
+            window.clearInterval(timer)
+            timer = null
+          }
         }
         return
       }
@@ -82,15 +86,19 @@ function TourStep({ index, next, back, stop }: { index: number; next: () => void
       if (now - stableSince >= 160 && !same(published, valid)) {
         published = valid
         setMeasurement({ index, rect: valid })
+        if (timer !== null) {
+          window.clearInterval(timer)
+          timer = null
+        }
       }
     }
     track()
     // Publish only settled geometry, rather than every intermediate loading frame.
-    const timer = window.setInterval(track, 50)
+    let timer: number | null = window.setInterval(track, 50)
     window.addEventListener('resize', track)
     document.addEventListener('scroll', track, true)
     return () => {
-      clearInterval(timer)
+      if (timer !== null) window.clearInterval(timer)
       window.removeEventListener('resize', track)
       document.removeEventListener('scroll', track, true)
     }
