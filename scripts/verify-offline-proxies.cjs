@@ -42,6 +42,20 @@ function load(file) {
   return exports
 }
 async function run() {
+  // Bound the regression itself: an unsafe regex must never hang the test host.
+  const child = require('node:child_process').spawnSync(process.execPath, ['-e', `
+    const { loadTypeScript: load } = require('./scripts/fixtures/typescript.cjs');
+    const { offlineProxies } = load('src/main/utils/offline-proxies.ts', { './logger': { logger: { warn() {} } } });
+    const node = 'a'.repeat(30) + '!';
+    offlineProxies({ proxies: [{ name: node, type: 'http' }],
+      'proxy-groups': Array.from({ length: 100 }, (_, i) => ({ name: 'g' + i, type: 'select',
+        'include-all-proxies': true, filter: '^(a+)+$', proxies: ['DIRECT'] })) }, '.')
+      .then(proxies => process.stdout.write(JSON.stringify(Array.from({ length: 100 }, (_, i) => proxies['g' + i].all))));
+  `], { timeout: 3000, encoding: 'utf8', windowsHide: true })
+  assert.ifError(child.error)
+  assert.equal(child.status, 0, child.stderr)
+  assert.ok(JSON.parse(child.stdout).every(nodes => JSON.stringify(nodes) === '["DIRECT"]'),
+    'expensive filters fail closed within a shared catalog budget while retaining explicit nodes')
   const { runLatencyTests } = load('src/renderer/src/lib/latency-tests.ts')
   let activeTests = 0, maximumTests = 0
   const delays = {}, tested = []
@@ -80,6 +94,10 @@ async function run() {
   }
   assert.deepEqual(visibleProxyGroups(ordered, [{ proxy: 'Alpha' }], 'rule'), ['Zulu', 'Alpha'], 'visibility traversal preserves provider order even with cycles')
   assert.deepEqual(visibleProxyGroups(ordered, [], 'global'), ['GLOBAL', 'Zulu', 'Alpha'])
+  const { offlineProxies } = load('src/main/utils/offline-proxies.ts')
+  const insensitive = await offlineProxies({ proxies: [{ name: 'PARIS', type: 'ss' }],
+    'proxy-groups': [{ name: 'g', type: 'select', 'include-all-proxies': true, filter: '(?i)paris' }] }, root)
+  assert.deepEqual(insensitive.g.all, ['PARIS'], 'bounded filtering preserves case-insensitive subscription patterns')
   const nodeOrder = ['failed', 'untested', 'fast', 'slow']
   assert.deepEqual(sortProxyNodes(nodeOrder, 'latency', {}, { failed: -1, fast: 20, slow: 600 }), ['fast', 'slow', 'untested', 'failed'])
   assert.deepEqual(nodeOrder, ['failed', 'untested', 'fast', 'slow'], 'sorting never mutates provider order')

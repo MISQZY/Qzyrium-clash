@@ -1,18 +1,46 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import yaml from 'yaml'
+import { Script } from 'node:vm'
+import { logger } from './logger'
 import type { ProxyGroup, ProxyNode } from '@shared/mihomo'
 
 type RecordValue = Record<string, unknown>
 const record = (value: unknown): value is RecordValue => !!value && typeof value === 'object' && !Array.isArray(value)
 const records = (value: unknown): RecordValue[] => Array.isArray(value) ? value.filter(record) : []
 const strings = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
-const expression = (value: unknown): RegExp | undefined => {
-  if (typeof value !== 'string' || value.length > 500) return undefined
-  try {
-    return new RegExp(value.replace(/\(\?i\)/g, ''), value.includes('(?i)') ? 'i' : '')
-  } catch {
-    return undefined
+// Keep compilation and matching inside V8's interruptible execution boundary.
+// Subscription expressions are data, never interpolated into this script.
+const filterScript = new Script(`
+  (() => {
+    const expression = value => {
+      if (typeof value !== 'string' || value.length > 500) return undefined;
+      try { return new RegExp(value.replace(/\\(\\?i\\)/g, ''), value.includes('(?i)') ? 'i' : ''); }
+      catch { return undefined; }
+    };
+    const include = expression(includeFilter), exclude = expression(excludeFilter);
+    return candidates.filter(name => (!include || include.test(name)) && !exclude?.test(name));
+  })()
+`)
+
+function proxyFilter() {
+  let remainingMs = 50
+  let warned = false
+  return (candidates: string[], includeFilter: unknown, excludeFilter: unknown): string[] => {
+    if (typeof includeFilter !== 'string' && typeof excludeFilter !== 'string') return candidates
+    const started = performance.now()
+    try {
+      if (remainingMs < 1) throw new Error('Offline proxy filter budget exhausted')
+      return Array.from(filterScript.runInNewContext({ candidates, includeFilter, excludeFilter }, {
+        timeout: Math.max(1, Math.min(20, Math.floor(remainingMs)))
+      }) as string[])
+    } catch {
+      if (!warned) logger.warn('Offline proxy filters exceeded their execution budget; filtered candidates were omitted')
+      warned = true
+      return []
+    } finally {
+      remainingMs -= performance.now() - started
+    }
   }
 }
 
@@ -56,6 +84,7 @@ export async function offlineProxies(config: RecordValue, root: string, selected
   const groups = records(config['proxy-groups']).filter(group => typeof group.name === 'string')
   const groupNames = groups.map(group => group.name as string)
   const available = new Set([...nodes.keys(), ...groupNames])
+  const filter = proxyFilter()
   for (const group of groups) {
     const name = group.name as string
     const types: Record<string, string> = { select: 'Selector', 'url-test': 'URLTest', fallback: 'Fallback', 'load-balance': 'LoadBalance', relay: 'Relay' }
@@ -63,10 +92,9 @@ export async function offlineProxies(config: RecordValue, root: string, selected
     const use = group['include-all'] || group['include-all-providers'] ? [...providers.keys()] : strings(group.use)
     for (const provider of use) candidates.push(...providers.get(provider) ?? [])
     if (group['include-all'] || group['include-all-proxies']) candidates.push(...strings(inline.map(proxy => proxy.name)))
-    const include = expression(group.filter)
-    const exclude = expression(group['exclude-filter'])
     const excludeTypes = typeof group['exclude-type'] === 'string' ? group['exclude-type'].toLowerCase().split('|') : []
-    const filtered = candidates.filter(candidate => (!include || include.test(candidate)) && !exclude?.test(candidate) && !excludeTypes.includes(nodes.get(candidate)?.type.toLowerCase() ?? ''))
+    const filtered = filter(candidates, group.filter, group['exclude-filter'])
+      .filter(candidate => !excludeTypes.includes(nodes.get(candidate)?.type.toLowerCase() ?? ''))
     const all = [...new Set([...strings(group.proxies), ...filtered])].filter(candidate => candidate !== name && available.has(candidate))
     const item: ProxyGroup = { name, type: types[String(group.type)] ?? String(group.type ?? 'Selector'), udp: true, history: [], all, now: all.includes(selected[name]) ? selected[name] : all[0] ?? '', hidden: group.hidden === true, icon: typeof group.icon === 'string' ? group.icon : undefined }
     nodes.set(name, item)
