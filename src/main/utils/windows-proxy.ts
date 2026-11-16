@@ -34,8 +34,11 @@ export const windowsProxyRegistry: ProxyRegistry = {
     if (value) {
       await execute(getSystemBinary('reg.exe'), ['add', registryKey, '/v', name, '/t', value.type, '/d', value.data, '/f'], { windowsHide: true, timeout: 5000 })
     } else {
-      if ((await this.read())[name] === null) return
-      await execute(getSystemBinary('reg.exe'), ['delete', registryKey, '/v', name, '/f'], { windowsHide: true, timeout: 5000 })
+      try {
+        await execute(getSystemBinary('reg.exe'), ['delete', registryKey, '/v', name, '/f'], { windowsHide: true, timeout: 5000 })
+      } catch {
+        // Value already absent from registry
+      }
     }
   }
 }
