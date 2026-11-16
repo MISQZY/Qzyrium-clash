@@ -17,12 +17,19 @@ function load(file, dependencies) {
   return exports
 }
 
-function fixture({ packaged = true, portable = false, lastVersion, version = '0.3.0', fetch, autoCheck = true } = {}) {
+function fixture({ packaged = true, portable = false, lastVersion, version = '0.3.0', fetch, autoCheck = true, checkErrors = [] } = {}) {
   const updater = new EventEmitter()
   let checks = 0, downloads = 0, installs = 0, recoveries = 0, prepared = false, saved = lastVersion
-  const requests = [], statuses = []
+  const requests = [], statuses = [], errors = []
   updater.setFeedURL = (feed) => assert.equal(feed.repo, 'Qzyrium-clash')
-  updater.checkForUpdates = async () => { checks++; updater.emit('checking-for-update'); await Promise.resolve(); updater.emit('update-available', { version: '0.4.0' }) }
+  updater.checkForUpdates = async () => {
+    checks++
+    updater.emit('checking-for-update')
+    await Promise.resolve()
+    const error = checkErrors[checks - 1]
+    if (error) { updater.emit('error', error); throw error }
+    updater.emit('update-available', { version: '0.4.0' })
+  }
   updater.downloadUpdate = async () => { downloads++; await Promise.resolve() }
   updater.quitAndInstall = () => { assert.ok(prepared, 'VPN cleanup must complete before installer starts'); installs++ }
   const dependencies = {
@@ -34,13 +41,13 @@ function fixture({ packaged = true, portable = false, lastVersion, version = '0.
     'node:fs': { readFileSync: () => JSON.stringify({ lastSeenVersion: saved }) },
     '../utils/paths': { getAppPaths: () => ({ userData: 'mock-data' }) },
     '../utils/atomicWrite': { writeFileAtomic: (_, data) => { saved = JSON.parse(data).lastSeenVersion } },
-    '../utils/logger': { logger: { error() {}, warn() {} } }
+    '../utils/logger': { logger: { error(...args) { errors.push(args) }, warn() {} } }
   }
   const previousPortable = process.env.PORTABLE_EXECUTABLE_DIR
   if (portable) process.env.PORTABLE_EXECUTABLE_DIR = 'mock-portable'
   const { UpdateService } = load('src/main/services/UpdateService.ts', dependencies)
   const service = new UpdateService((_, status) => statuses.push(status), async () => { await Promise.resolve(); prepared = true }, () => autoCheck, async () => { recoveries++ })
-  return { service, updater, requests, statuses, initialize: async () => {
+  return { service, updater, requests, statuses, errors, initialize: async () => {
     try { await service.initialize() } finally {
       if (previousPortable === undefined) delete process.env.PORTABLE_EXECUTABLE_DIR
       else process.env.PORTABLE_EXECUTABLE_DIR = previousPortable
@@ -75,6 +82,42 @@ async function verify() {
   assert.equal(sample.service.getStatus().state, 'available', 'retry recovers from a network error')
   await sample.service.dispose()
   assert.equal(sample.updater.listenerCount('error'), 0)
+
+  const networkChanged = new Error('net::ERR_NETWORK_CHANGED')
+  const transient = fixture({ checkErrors: [networkChanged] })
+  await transient.initialize()
+  const retry = transient.service.checkUpdates()
+  await new Promise(setImmediate)
+  assert.equal(transient.service.getStatus().state, 'checking', 'network change stays in checking state during backoff')
+  assert.equal(transient.service.checkUpdates(), retry, 'manual checks share the pending retry')
+  assert.equal((await retry).state, 'available', 'startup check recovers after a route change')
+  assert.equal(transient.counts().checks, 2)
+  assert.ok(transient.statuses.every(status => status.state !== 'error'), 'transient failure is not shown to the user')
+  assert.equal(transient.errors.length, 0)
+  await transient.service.dispose()
+
+  const persistent = fixture({ checkErrors: [networkChanged, networkChanged, networkChanged] })
+  await persistent.initialize()
+  assert.equal((await persistent.service.checkUpdates()).state, 'error', 'persistent network changes eventually report failure')
+  assert.equal(persistent.counts().checks, 3, 'retry count is bounded')
+  assert.equal(persistent.errors.length, 1, 'event and rejection log the final failure once')
+  await persistent.service.dispose()
+
+  const rejected = fixture({ checkErrors: [new Error('HTTP 404')] })
+  await rejected.initialize()
+  assert.equal((await rejected.service.checkUpdates()).state, 'error')
+  assert.equal(rejected.counts().checks, 1, 'other failures are not retried')
+  assert.equal(rejected.errors.length, 1)
+  await rejected.service.dispose()
+
+  const cancelled = fixture({ checkErrors: [networkChanged] })
+  await cancelled.initialize()
+  const pending = cancelled.service.checkUpdates()
+  await new Promise(setImmediate)
+  await cancelled.service.dispose()
+  await pending
+  await cancelled.service.checkUpdates()
+  assert.equal(cancelled.counts().checks, 1, 'disposing cancels backoff and prevents further checks')
 
   for (const options of [{ packaged: false }, { portable: true }]) {
     const unsupported = fixture(options)

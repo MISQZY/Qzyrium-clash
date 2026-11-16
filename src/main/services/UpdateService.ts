@@ -2,6 +2,7 @@ import { app, net } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { IPC_CHANNELS } from '@shared/ipc'
 import { compareVersions, isStableVersion, RELEASE_REPOSITORY, type AppUpdaterStatus, type WhatsNewEntry, type WhatsNewPayload } from '@shared/updater'
 import type { BaseService } from './BaseService'
@@ -20,6 +21,8 @@ export class UpdateService implements BaseService {
   private whatsNew: Promise<WhatsNewPayload | null> = Promise.resolve(null)
   private listeners: Array<() => void> = []
   private installing = false
+  private checkInProgress = false
+  private lifetime = new AbortController()
 
   constructor(private broadcast: (channel: string, payload: unknown) => void, private prepareInstall: () => Promise<void>, private autoCheckEnabled: () => boolean = () => true, private recoverInstall: () => Promise<void> = async () => {}) {}
 
@@ -47,7 +50,8 @@ export class UpdateService implements BaseService {
       // Cleanup finishes before the installer starts replacing files or relaunching the app.
       void this.prepareInstall().then(() => autoUpdater.quitAndInstall(true, true)).catch((error) => this.fail(error))
     })
-    this.listen('error', (error: Error) => this.fail(error))
+    // Check failures also reject checkForUpdates(); handle them once in the retry loop.
+    this.listen('error', (error: Error) => { if (!this.checkInProgress) this.fail(error) })
     if (this.autoCheckEnabled()) void this.checkUpdates()
   }
 
@@ -74,12 +78,28 @@ export class UpdateService implements BaseService {
   getWhatsNew(): Promise<WhatsNewPayload | null> { return this.whatsNew }
 
   checkUpdates(): Promise<AppUpdaterStatus> {
+    if (this.lifetime.signal.aborted) return Promise.resolve(this.status)
     if (this.checking) return this.checking
     if (this.downloading || ['unsupported', 'available', 'downloading', 'downloaded'].includes(this.status.state)) return Promise.resolve(this.status)
+    this.checkInProgress = true
     this.checking = (async () => {
-      try { await autoUpdater.checkForUpdates() } catch (error) { this.fail(error) }
+      for (let attempt = 0; ; attempt++) {
+        try {
+          await autoUpdater.checkForUpdates()
+          break
+        } catch (error) {
+          if (this.lifetime.signal.aborted) break
+          // Starting TUN can change routes while the initial request is in flight.
+          if (attempt >= 2 || !(error instanceof Error) || !error.message.includes('ERR_NETWORK_CHANGED')) {
+            this.fail(error)
+            break
+          }
+          logger.warn('Network changed during update check; retrying after routes settle')
+          try { await delay(2000 * (attempt + 1), undefined, { signal: this.lifetime.signal }) } catch { break }
+        }
+      }
       return this.status
-    })().finally(() => { this.checking = null })
+    })().finally(() => { this.checking = null; this.checkInProgress = false })
     return this.checking
   }
 
@@ -143,6 +163,7 @@ export class UpdateService implements BaseService {
   }
 
   async dispose(): Promise<void> {
+    this.lifetime.abort()
     for (const remove of this.listeners) remove()
     this.listeners = []
   }
