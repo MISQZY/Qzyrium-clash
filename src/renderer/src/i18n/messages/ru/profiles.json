@@ -132,5 +132,9 @@
   "yamlDeleteComment": "Правила delete удаляют совпадающие правила подписки",
   "yamlExamplesComment": "Примеры:",
   "ruleValidationError": "Правило отключено из-за ошибки. Нажмите на строку для исправления. Кнопка «Сохранить» повторно проверит правило.",
-  "runtimeTrafficDelta": "Сессия: +{delta}"
+  "runtimeTrafficDelta": "Сессия: +{delta}",
+  "subscriptionDetected": "Обнаружена ссылка на подписку",
+  "subscriptionDetectedDesc": "В буфере обмена найдена ссылка на подписку",
+  "importSubscription": "Импортировать",
+  "dismiss": "Скрыть"
 }

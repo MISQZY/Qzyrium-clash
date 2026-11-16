@@ -132,5 +132,9 @@
   "yamlDeleteComment": "Rules in delete remove matching subscription rules",
   "yamlExamplesComment": "Examples:",
   "ruleValidationError": "Rule disabled due to an error. Click the row to edit. Save checks the rule again.",
-  "runtimeTrafficDelta": "Session: +{delta}"
+  "runtimeTrafficDelta": "Session: +{delta}",
+  "subscriptionDetected": "Subscription link detected",
+  "subscriptionDetectedDesc": "Found subscription link in clipboard",
+  "importSubscription": "Import profile",
+  "dismiss": "Dismiss"
 }

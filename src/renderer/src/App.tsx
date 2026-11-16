@@ -12,6 +12,7 @@ import { TourProvider } from './providers/TourProvider'
 import { TourOverlay } from './components/TourOverlay'
 import { UpdaterProvider } from './providers/UpdaterProvider'
 import { Sidebar } from './components/Sidebar'
+import { SmartClipboardBanner } from './components/SmartClipboardBanner'
 import { AppStoreProvider, useNavigation, useKernel, useSettings, useProfiles } from './stores/useAppStore'
 
 import { getNavigationGroup, getNavigationItem } from './lib/navigation'
@@ -138,6 +139,11 @@ function Workspace() {
       setActiveTab('profiles')
     })
   }, [setActiveTab])
+
+  const handleClipboardImport = useCallback((req: { url: string; name?: string }) => {
+    setPendingImport(req)
+    setActiveTab('profiles')
+  }, [setActiveTab])
   const item = getNavigationItem(activeTab)
   const group = getNavigationGroup(activeTab)
   const Icon = item.icon
@@ -214,6 +220,7 @@ function Workspace() {
           </Alert>, document.body
         )}
         {!window.api && <div className="shrink-0 border-b border-border bg-muted/40 px-5 py-2 text-xs text-muted-foreground">{t('interfacePreviewOpenQzyriumInElectronToConnectToMihomo')}</div>}
+        <SmartClipboardBanner onImport={handleClipboardImport} />
         <div className="page-viewport" key={activeTab}>
           <PageContent importRequest={pendingImport} onClearImportRequest={() => {
             setPendingImport(null)
