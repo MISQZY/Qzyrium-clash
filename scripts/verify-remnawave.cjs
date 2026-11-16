@@ -70,7 +70,7 @@ async function verify() {
     resolve: async () => [{ address: '203.0.113.1', family: 4 }], deviceHeaders: async () => { identities++; return identity }
   })
   await client.download('https://provider.example/sub')
-  assert.equal(identities, 0, 'HWID is opt-in')
+  assert.equal(identities, 0, 'ordinary subscriptions do not need a device identity')
   assert.equal(requests[0].headers['x-hwid'], undefined)
   requests = []
   await client.download('https://provider.example/sub', undefined, false, true)
@@ -81,6 +81,53 @@ async function verify() {
   } })
   const denied = await new DeniedClient(() => config, () => true, { resolve: async () => [{ address: '203.0.113.1', family: 4 }] }).download('https://provider.example/sub')
   assert.equal(denied.deviceStatus, 'limit'); assert.equal(denied.content, '')
+
+  let mode = 'required', automaticRequests = []
+  const { SubscriptionClient: AutomaticClient } = load('src/main/core/SubscriptionClient.ts', { axios: {
+    get: async (url, options) => {
+      automaticRequests.push({ url, options })
+      if (mode === 'redirect' && new URL(url).hostname === 'provider.example') {
+        return { status: 302, headers: { location: 'https://other.example/sub' } }
+      }
+      return mode !== 'required' || !options.headers['x-hwid']
+        ? { status: 403, headers: { 'x-hwid-not-supported': 'true' }, data: 'placeholder' }
+        : { status: 200, headers: {}, data: 'rules: []' }
+    }
+  } })
+  const automaticClient = new AutomaticClient(() => config, () => true, {
+    resolve: async () => [{ address: '203.0.113.1', family: 4 }],
+    deviceHeaders: async origin => { assert.equal(origin, 'https://provider.example'); return identity }
+  })
+  const automaticService = new ProfileService({ getSettings: () => config }, automaticClient, repository)
+  await automaticService.initialize()
+  const automatic = await automaticService.addProfile({ type: 'remote', url: 'https://provider.example/sub' })
+  assert.equal(automatic.sendHwid, true, 'automatic device enrollment persists on import')
+  assert.equal(automaticRequests.length, 2)
+  assert.equal(automaticRequests[0].options.headers['x-hwid'], undefined)
+  assert.equal(automaticRequests[1].options.headers['x-hwid'], identity['x-hwid'])
+  assert.equal(automaticRequests[0].options.signal, automaticRequests[1].options.signal, 'retry shares the request deadline')
+  await automaticService.updateProfileInfo(automatic.id, { sendHwid: false })
+  automaticRequests = []
+  await automaticService.updateProfile(automatic.id)
+  assert.equal(automaticRequests.length, 2)
+  assert.equal(automaticService.getProfiles().find(item => item.id === automatic.id).sendHwid, true, 'automatic enrollment persists on update')
+  automaticRequests = []
+  await automaticService.updateProfile(automatic.id)
+  assert.equal(automaticRequests.length, 1, 'later updates send the saved device identity immediately')
+  mode = 'persistent'
+  automaticRequests = []
+  const stillRequired = await automaticClient.download('https://provider.example/sub')
+  assert.equal(stillRequired.deviceStatus, 'required')
+  assert.equal(stillRequired.content, '')
+  assert.equal(automaticRequests.length, 2, 'persistent requirement cannot cause an unbounded retry')
+  mode = 'redirect'
+  automaticRequests = []
+  const redirectedRequirement = await automaticClient.download('https://provider.example/sub')
+  assert.equal(redirectedRequirement.deviceStatus, 'required')
+  assert.equal(redirectedRequirement.sendHwid, false)
+  assert.equal(automaticRequests.length, 2)
+  assert.ok(automaticRequests.every(request => !request.options.headers['x-hwid']), 'a different origin cannot trigger automatic identity disclosure')
+  await automaticService.dispose()
   const { subscriptionUsage, subscriptionHealth } = load('src/shared/subscription-health.ts')
   assert.equal(subscriptionUsage({ total: 100, upload: 5, download: 20 }).percent, 25)
   assert.equal(subscriptionUsage({ total: 100, download: 90 }).status, 'near')
@@ -112,6 +159,6 @@ async function verify() {
   assert.equal(notices.length, 2, 'notification preference is respected')
   notifications.check([limited], config.general, now)
   assert.equal(notices.length, 3, 'a recovered subscription can warn again in a new allowance period')
-  console.log('PASS: server intervals, opt-in stable HWID, redirect privacy, device limits and preservation of working profiles')
+  console.log('PASS: server intervals, automatic HWID enrollment and persistence, bounded retries, redirect privacy, device limits and preservation of working profiles')
 }
 verify().catch(error => { console.error(error); process.exitCode = 1 })

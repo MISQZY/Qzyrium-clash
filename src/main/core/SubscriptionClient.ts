@@ -32,7 +32,7 @@ export class SubscriptionClient {
         catch { throw fail('identity') }
       }
       const proxyPort = updateViaProxy && this.options.proxyPort ? await this.options.proxyPort() : settings.kernel.mixedPort
-      for (let redirects = 0; ; redirects++) {
+      for (let redirects = 0; ;) {
         if (!isValidRemoteSubscriptionUrl(target.href)) throw fail('blocked')
         const hostname = subscriptionHostname(target.hostname)
         phase = 'dns'
@@ -67,16 +67,26 @@ export class SubscriptionClient {
         } finally { httpsAgent?.destroy() }
         if (!REDIRECTS.has(response.status)) {
           const metadata = parseSubscriptionMetadata(response.headers, '')
+          // Only the original provider may request its origin-scoped device identity.
+          if (metadata.deviceStatus === 'required' && !sendHwid && target.origin === origin) {
+            try {
+              deviceHeaders = await withinSubscriptionDeadline(
+                (this.options.deviceHeaders ?? subscriptionDeviceHeaders)(origin), signal)
+            } catch { throw fail(signal.aborted ? 'timeout' : 'identity') }
+            sendHwid = true
+            continue
+          }
           // A device-limit response may be a placeholder rather than a working configuration.
-          if (metadata.deviceStatus) return { content: '', ...metadata }
+          if (metadata.deviceStatus) return { content: '', ...metadata, sendHwid }
           if (response.status >= 400) throw new SubscriptionDownloadError('http', settings.general, response.status)
           const content = typeof response.data === 'string' ? response.data : JSON.stringify(response.data)
-          return { content, ...parseSubscriptionMetadata(response.headers, content) }
+          return { content, ...parseSubscriptionMetadata(response.headers, content), sendHwid }
         }
         if (redirects >= 5 || typeof response.headers.location !== 'string') throw fail('redirect')
         let next: URL
         try { next = new URL(response.headers.location, target) } catch { throw fail('redirect') }
         if (target.protocol === 'https:' && next.protocol !== 'https:') throw fail('blocked')
+        redirects++
         target = next
       }
     } catch (error: unknown) {
