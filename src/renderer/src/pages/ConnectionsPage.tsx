@@ -54,10 +54,10 @@ export function ConnectionsPage({
 
   const matchingConnections = useMemo(() => filterConnections(activeSnapshot.connections, query, protocolFilter),
     [activeSnapshot.connections, query, protocolFilter])
-  const processGroups = useMemo(() => groupConnections(matchingConnections, sortBy, t('system')),
-    [matchingConnections, sortBy, t])
-  const filteredAndSortedList = useMemo(() => sortConnections(matchingConnections, sortBy, t('system')),
-    [matchingConnections, sortBy, t])
+  const processGroups = useMemo(() => viewMode === 'process' ? groupConnections(matchingConnections, sortBy, t('system')) : [],
+    [viewMode, matchingConnections, sortBy, t])
+  const filteredAndSortedList = useMemo(() => viewMode === 'flat' ? sortConnections(matchingConnections, sortBy, t('system')) : [],
+    [viewMode, matchingConnections, sortBy, t])
 
   // Active selected group in drilldown view
   const activeProcessGroup = useMemo(() => {
@@ -97,7 +97,7 @@ export function ConnectionsPage({
       <ConnectionFilters query={query} setQuery={setQuery} protocolFilter={protocolFilter}
         setProtocolFilter={setProtocolFilter} sortBy={sortBy} setSortBy={setSortBy}
         viewMode={viewMode} selectedProcessKey={selectedProcessKey}
-        processCount={processGroups.length} connectionCount={filteredAndSortedList.length}
+        processCount={processGroups.length} connectionCount={matchingConnections.length}
         paused={paused} />
       </div>
 
