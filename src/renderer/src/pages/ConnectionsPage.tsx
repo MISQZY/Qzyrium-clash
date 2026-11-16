@@ -8,6 +8,7 @@ import { useConnectionActions } from '../hooks/useConnectionActions'
 import { filterConnections, groupConnections, sortConnections, type ConnectionProtocol, type ConnectionSort } from '../lib/connection-selectors'
 
 import { ConnectionDetailsDialog } from '../components/ConnectionDetailsDialog'
+import { QuickRuleDialog } from '../components/connections/QuickRuleDialog'
 
 import { useTranslations } from '../i18n'
 import { useState, useMemo } from 'react'
@@ -33,6 +34,7 @@ export function ConnectionsPage({
   const [sortBy, setSortBy] = useState<ConnectionSort>('traffic')
   const [paused, setPaused] = useState(false)
   const [frozenSnapshot, setFrozenSnapshot] = useState<ConnectionsSnapshot | null>(null)
+  const [ruleTargetConnection, setRuleTargetConnection] = useState<ConnectionItem | null>(null)
   const actions = useConnectionActions(onRefresh)
 
   const handleTogglePause = () => {
@@ -67,7 +69,16 @@ export function ConnectionsPage({
     return activeSnapshot.connections.find((c) => c.id === selectedConnection.id) || selectedConnection
   }, [selectedConnection, activeSnapshot.connections])
 
-  const renderConnectionCard = (item: ConnectionItem) => <ConnectionCard key={item.id} item={item} actions={actions} />
+  const renderConnectionCard = (item: ConnectionItem) => (
+    <ConnectionCard
+      key={item.id}
+      item={item}
+      actions={{
+        ...actions,
+        onQuickRule: setRuleTargetConnection
+      }}
+    />
+  )
 
   return (
     <Page
@@ -132,7 +143,25 @@ export function ConnectionsPage({
       )}
 
       {/* Connection Details Modal with Monospace Code Lines & Embedded Copy Buttons */}
-      <ConnectionDetailsDialog activeDetail={activeDetail} setSelectedConnection={setSelectedConnection} handleCopy={handleCopy} copiedKey={copiedKey} closing={closing} close={close} />
+      <ConnectionDetailsDialog
+        activeDetail={activeDetail}
+        setSelectedConnection={setSelectedConnection}
+        handleCopy={handleCopy}
+        copiedKey={copiedKey}
+        closing={closing}
+        close={close}
+        onQuickRule={(item) => {
+          setSelectedConnection(null)
+          setRuleTargetConnection(item)
+        }}
+      />
+
+      {/* Quick Rule Creator Modal */}
+      <QuickRuleDialog
+        connection={ruleTargetConnection}
+        open={Boolean(ruleTargetConnection)}
+        onOpenChange={(open) => !open && setRuleTargetConnection(null)}
+      />
     </Page>
   )
 }

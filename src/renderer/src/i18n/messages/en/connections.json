@@ -70,5 +70,18 @@
   "resume": "Resume",
   "pauseLiveUpdates": "Pause live updates",
   "resumeLiveUpdates": "Resume live updates",
-  "livePaused": "Live updates paused"
+  "livePaused": "Live updates paused",
+  "createRule": "Create rule",
+  "quickRule": "Quick rule",
+  "quickRuleDescription": "Create a routing rule based on this connection",
+  "ruleTarget": "Condition",
+  "ruleAction": "Action",
+  "directDescription": "Direct (bypass VPN)",
+  "proxyDescription": "Through proxy",
+  "rejectDescription": "Block connection",
+  "ruleCreated": "Rule created successfully",
+  "noActiveProfile": "No active profile to save rule to",
+  "positionTop": "At the beginning (high priority)",
+  "positionBottom": "At the end (low priority)",
+  "position": "Priority"
 }

@@ -1,7 +1,7 @@
 import { ProcessIcon } from '../ProcessIcon'
 import { getProcessDisplayName, getNetworkBadgeClass, formatChain } from '../../lib/connections'
 import { useTranslations } from '../../i18n'
-import { Copy, Check, Clock } from 'lucide-react'
+import { Copy, Check, Clock, ShieldPlus } from 'lucide-react'
 import { DisconnectIcon } from '../../lib/icons'
 import type { ConnectionItem } from '@shared/mihomo'
 import { Button } from '../ui/button'
@@ -14,7 +14,9 @@ import type { ConnectionActions } from '../../hooks/useConnectionActions'
 
 interface ConnectionCardProps {
   item: ConnectionItem
-  actions: Pick<ConnectionActions, 'setSelectedConnection' | 'handleCopy' | 'copiedKey' | 'closing' | 'close'>
+  actions: Pick<ConnectionActions, 'setSelectedConnection' | 'handleCopy' | 'copiedKey' | 'closing' | 'close'> & {
+    onQuickRule?: (item: ConnectionItem) => void
+  }
 }
 
 export function ConnectionCard({ item, actions }: ConnectionCardProps) {
@@ -114,6 +116,22 @@ export function ConnectionCard({ item, actions }: ConnectionCardProps) {
               {duration}
             </span>
           </div>
+
+          {actions.onQuickRule && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title={t('createRule')}
+              aria-label={t('createRule')}
+              onClick={(e) => {
+                e.stopPropagation()
+                actions.onQuickRule!(item)
+              }}
+              className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+            >
+              <ShieldPlus className="size-3.5" />
+            </Button>
+          )}
 
           <Button
             variant="ghost"

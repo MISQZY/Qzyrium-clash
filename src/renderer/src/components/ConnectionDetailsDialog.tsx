@@ -1,5 +1,5 @@
 import { useTranslations } from '../i18n'
-import { ArrowDown, ArrowUp } from 'lucide-react'
+import { ArrowDown, ArrowUp, ShieldPlus } from 'lucide-react'
 import { DisconnectIcon } from '../lib/icons'
 import type { ConnectionItem } from '@shared/mihomo'
 import { Button } from './ui/button'
@@ -15,13 +15,14 @@ import { ConnectionApplicationSection } from './connection-details/ConnectionApp
 import { ConnectionRouteSection } from './connection-details/ConnectionRouteSection'
 import { ConnectionMetadataSection } from './connection-details/ConnectionMetadataSection'
 
-export function ConnectionDetailsDialog({ activeDetail, setSelectedConnection, handleCopy, copiedKey, closing, close }: {
+export function ConnectionDetailsDialog({ activeDetail, setSelectedConnection, handleCopy, copiedKey, closing, close, onQuickRule }: {
   activeDetail: ConnectionItem | null
   setSelectedConnection: (item: ConnectionItem | null) => void
   handleCopy: (text: string, key: string) => Promise<void>
   copiedKey: string | null
   closing: boolean
   close: (id?: string) => Promise<void>
+  onQuickRule?: (item: ConnectionItem) => void
 }) {
   const t = useTranslations('connections')
   const common = useTranslations('common')
@@ -117,14 +118,27 @@ export function ConnectionDetailsDialog({ activeDetail, setSelectedConnection, h
               <DisconnectIcon className="size-3.5" />
               <span>{t('closeConnection')}</span>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedConnection(null)}
-              className="text-xs"
-            >
-              {common('close')}
-            </Button>
+            <div className="flex items-center gap-2">
+              {onQuickRule && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onQuickRule(activeDetail)}
+                  className="gap-1.5 text-xs"
+                >
+                  <ShieldPlus className="size-3.5 text-primary" />
+                  <span>{t('createRule')}</span>
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedConnection(null)}
+                className="text-xs"
+              >
+                {common('close')}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       )}

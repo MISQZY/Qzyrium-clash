@@ -74,5 +74,18 @@
   "resume": "Возобновить",
   "pauseLiveUpdates": "Приостановить обновление",
   "resumeLiveUpdates": "Возобновить обновление",
-  "livePaused": "Обновление на паузе"
+  "livePaused": "Обновление на паузе",
+  "createRule": "Создать правило",
+  "quickRule": "Быстрое правило",
+  "quickRuleDescription": "Создать правило маршрутизации на основе этого соединения",
+  "ruleTarget": "Условие",
+  "ruleAction": "Действие",
+  "directDescription": "Прямое (в обход VPN)",
+  "proxyDescription": "Через прокси",
+  "rejectDescription": "Блокировать соединение",
+  "ruleCreated": "Правило успешно добавлено",
+  "noActiveProfile": "Нет активного профиля для добавления правила",
+  "positionTop": "В начало (высокий приоритет)",
+  "positionBottom": "В конец (низкий приоритет)",
+  "position": "Приоритет"
 }
