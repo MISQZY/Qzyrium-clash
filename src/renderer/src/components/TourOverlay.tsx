@@ -53,11 +53,15 @@ function TourStep({ index, next, back, stop }: { index: number; next: () => void
     let stableSince = performance.now()
     const started = stableSince
     let fallback = false
+    let timer: number | null = null
+    const observer = new ResizeObserver(() => wake())
     const same = (a: DOMRect | null, b: DOMRect | null) => !!a && !!b && (['left', 'top', 'width', 'height'] as const).every(key => Math.abs(a[key] - b[key]) < .5)
     const track = () => {
       const element = activeTab === step.page ? document.querySelector<HTMLElement>(`[data-tour="${target}"]`) : null
       if (element && element !== found) {
         found = element
+        observer.disconnect()
+        observer.observe(element)
         let disclosure = element.closest('details')
         while (disclosure) {
           disclosure.open = true
@@ -72,9 +76,11 @@ function TourStep({ index, next, back, stop }: { index: number; next: () => void
         candidate = null
         stableSince = now
         // Keep the card in place while a lazy page loads; missing targets still get a usable fallback.
-        if (!published && !fallback && now - started >= 2000) {
-          fallback = true
-          setMeasurement({ index, rect: null })
+        if (now - started >= 2000) {
+          if (!published && !fallback) {
+            fallback = true
+            setMeasurement({ index, rect: null })
+          }
           if (timer !== null) {
             window.clearInterval(timer)
             timer = null
@@ -83,24 +89,33 @@ function TourStep({ index, next, back, stop }: { index: number; next: () => void
         return
       }
       if (!same(candidate, valid)) { candidate = valid; stableSince = now }
-      if (now - stableSince >= 160 && !same(published, valid)) {
-        published = valid
-        setMeasurement({ index, rect: valid })
+      if (now - stableSince >= 160) {
+        if (!same(published, valid)) {
+          published = valid
+          setMeasurement({ index, rect: valid })
+        }
         if (timer !== null) {
           window.clearInterval(timer)
           timer = null
         }
       }
     }
-    track()
+    const wake = () => {
+      if (timer === null) timer = window.setInterval(track, 50)
+      track()
+    }
+    const mutations = new MutationObserver(wake)
+    mutations.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class', 'hidden', 'open'], characterData: true })
+    wake()
     // Publish only settled geometry, rather than every intermediate loading frame.
-    let timer: number | null = window.setInterval(track, 50)
-    window.addEventListener('resize', track)
-    document.addEventListener('scroll', track, true)
+    window.addEventListener('resize', wake)
+    document.addEventListener('scroll', wake, true)
     return () => {
       if (timer !== null) window.clearInterval(timer)
-      window.removeEventListener('resize', track)
-      document.removeEventListener('scroll', track, true)
+      observer.disconnect()
+      mutations.disconnect()
+      window.removeEventListener('resize', wake)
+      document.removeEventListener('scroll', wake, true)
     }
   }, [target, activeTab, step.page, index])
 

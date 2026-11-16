@@ -116,7 +116,18 @@ app.whenReady().then(async () => {
           document.querySelector('[data-tour="add-profile"]').style.transform = 'translateY(-8px)';
         })()`)
         await delay(400)
+        await waitFor(`(() => {
+          const target = document.querySelector('[data-tour="add-profile"]').getBoundingClientRect();
+          const spot = document.querySelector('.tour-spotlight').getBoundingClientRect();
+          return Math.abs(spot.left - (target.left - 5)) < 1 && Math.abs(spot.top - (target.top - 5)) < 1;
+        })()`)
         assert.ok(await evaluate(`(() => { const r = document.querySelector('.tour-card').getBoundingClientRect(); return r.left === window.__tourPosition.left && r.top === window.__tourPosition.top })()`), 'late layout shifts update the spotlight without moving a safe card')
+        win.setSize(1080, 740)
+        await waitFor(`(() => {
+          const target = document.querySelector('[data-tour="add-profile"]').getBoundingClientRect();
+          const spot = document.querySelector('.tour-spotlight').getBoundingClientRect();
+          return Math.abs(spot.left - (target.left - 5)) < 1 && Math.abs(spot.top - (target.top - 5)) < 1;
+        })()`)
         await click('Back')
         await waitFor(`document.querySelector('.tour-card').textContent.includes('Step 2 of ${poses.length}')`)
         await click('Next')
