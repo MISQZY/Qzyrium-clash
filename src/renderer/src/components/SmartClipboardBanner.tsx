@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Link2, X, Plus, Sparkles } from 'lucide-react'
+import { X, Plus, Sparkles } from 'lucide-react'
 import { parseSubscriptionImportUrl } from '@shared/clash-url'
 import { Button } from './ui/button'
 import { useTranslations } from '../i18n'
 import { useProfiles } from '../stores/useAppStore'
+import { readClipboard } from '../lib/clipboard'
 
 export interface SmartClipboardBannerProps {
   onImport: (request: { url: string; name?: string }) => void
@@ -28,17 +29,23 @@ function isProbableSubscriptionUrl(text: string): boolean {
     if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') return false
 
     const fullLower = trimmed.toLowerCase()
+    const hostLower = parsed.hostname.toLowerCase()
     const pathLower = parsed.pathname.toLowerCase()
     const searchLower = parsed.search.toLowerCase()
 
     // Common indicators of subscription URLs
     const hasSubKeyword =
+      hostLower.startsWith('sub.') ||
+      hostLower.includes('.sub.') ||
+      hostLower.includes('subscribe') ||
       pathLower.includes('/sub') ||
       pathLower.includes('/subscription') ||
       pathLower.includes('/link') ||
       pathLower.includes('/clash') ||
+      pathLower.includes('/api/v1/client') ||
       pathLower.endsWith('.yaml') ||
       pathLower.endsWith('.yml') ||
+      pathLower.endsWith('.txt') ||
       searchLower.includes('token=') ||
       searchLower.includes('key=') ||
       searchLower.includes('sub=') ||
@@ -54,7 +61,6 @@ function isProbableSubscriptionUrl(text: string): boolean {
 
 export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
   const t = useTranslations('profiles')
-  const common = useTranslations('common')
   const { profiles } = useProfiles()
 
   const [detected, setDetected] = useState<{ url: string; name?: string } | null>(null)
@@ -62,10 +68,8 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
   const lastCheckedText = useRef<string>('')
 
   const checkClipboard = useCallback(async () => {
-    if (!navigator.clipboard?.readText) return
-
     try {
-      const text = (await navigator.clipboard.readText()).trim()
+      const text = (await readClipboard()).trim()
       if (!text || text === lastCheckedText.current) return
       lastCheckedText.current = text
 
@@ -89,20 +93,33 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
         name: parsed.name
       })
     } catch {
-      // Clipboard read permission might not be granted or window not active
+      // Ignore errors
     }
   }, [profiles])
 
   useEffect(() => {
-    const handleFocus = () => {
+    const handleCheck = () => {
       void checkClipboard()
     }
 
-    window.addEventListener('focus', handleFocus)
-    const timer = setTimeout(handleFocus, 800)
+    window.addEventListener('focus', handleCheck)
+    window.addEventListener('pointerenter', handleCheck)
+    const handleVisibility = () => {
+      if (!document.hidden) handleCheck()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    const interval = setInterval(() => {
+      if (!document.hidden) handleCheck()
+    }, 2500)
+
+    const timer = setTimeout(handleCheck, 500)
 
     return () => {
-      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('focus', handleCheck)
+      window.removeEventListener('pointerenter', handleCheck)
+      document.removeEventListener('visibilitychange', handleVisibility)
+      clearInterval(interval)
       clearTimeout(timer)
     }
   }, [checkClipboard])

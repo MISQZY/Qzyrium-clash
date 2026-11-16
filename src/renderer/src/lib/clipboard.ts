@@ -46,3 +46,28 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 
   return false
 }
+
+/**
+ * Reliably read text from clipboard across Electron native IPC and web fallbacks.
+ */
+export async function readClipboard(): Promise<string> {
+  if (window.api?.app?.readClipboard) {
+    try {
+      const text = await window.api.app.readClipboard()
+      if (typeof text === 'string') return text.trim()
+    } catch {
+      // Fall through to browser fallback
+    }
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (typeof text === 'string') return text.trim()
+    } catch {
+      // Ignore fallback errors
+    }
+  }
+
+  return ''
+}

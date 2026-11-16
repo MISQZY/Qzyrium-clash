@@ -92,6 +92,7 @@ export const IPC_CHANNELS = {
   APP_GET_WHATS_NEW: 'app:get-whats-new',
   APP_OPEN_URL: 'app:open-url',
   APP_COPY_TO_CLIPBOARD: 'app:copy-to-clipboard',
+  APP_READ_CLIPBOARD: 'app:read-clipboard',
   APP_GET_BOOT_SNAPSHOT: 'app:get-boot-snapshot',
   APP_IMPORT_RENDERER_READY: 'app:import-renderer-ready',
   APP_COMPLETE_PROFILE_IMPORT: 'app:complete-profile-import',
@@ -223,6 +224,7 @@ export interface IElectronApi {
     getWhatsNew: () => Promise<WhatsNewPayload | null>
     openUrl: (url: string) => Promise<void>
     copyToClipboard: (text: string) => Promise<boolean>
+    readClipboard?: () => Promise<string>
     getBootSnapshot?: () => Promise<BootSnapshot>
     completeProfileImport?: (id: string) => Promise<void>
   }

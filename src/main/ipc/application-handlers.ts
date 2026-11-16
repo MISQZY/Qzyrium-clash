@@ -110,6 +110,10 @@ export function registerApplicationHandlers(
     return false
   })
 
+  handle(IPC_CHANNELS.APP_READ_CLIPBOARD, async () => {
+    return clipboard.readText()
+  })
+
   handle(IPC_CHANNELS.APP_GET_BOOT_SNAPSHOT, async () => {
     const coreStatus = services.kernelService.getStatus()
     return {

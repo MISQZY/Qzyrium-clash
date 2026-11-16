@@ -226,11 +226,13 @@ export class WindowService implements BaseService {
     watchWindowScale(this.mainWindow)
     this.mainWindow.webContents.on('did-start-loading', () => this.imports.resetRenderer())
 
-    // Deny all unsolicited web API permissions
-    this.mainWindow.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => {
-      callback(false)
+    // Deny unsolicited web API permissions, allowing trusted local clipboard reads
+    this.mainWindow.webContents.session.setPermissionRequestHandler((_webContents, permission, callback) => {
+      callback(permission === 'clipboard-read' || permission === 'clipboard-sanitized-write')
     })
-    this.mainWindow.webContents.session.setPermissionCheckHandler(() => false)
+    this.mainWindow.webContents.session.setPermissionCheckHandler((_webContents, permission) => {
+      return permission === 'clipboard-read' || permission === 'clipboard-sanitized-write'
+    })
     this.mainWindow.webContents.setWebRTCIPHandlingPolicy?.('disable_non_proxied_udp')
 
     // Navigation security guards: block navigating the top frame or subframes away from app
