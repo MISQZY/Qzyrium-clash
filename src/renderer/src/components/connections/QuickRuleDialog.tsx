@@ -88,10 +88,20 @@ export function QuickRuleDialog({ connection, processGroup, open, onOpenChange, 
     try {
       const existing = await window.api.profiles.getCustomRules(activeProfile.id)
       const newRule: CustomRuleItem = {
-        id: createRuleId(), type: selectedType, payload: payload.trim(), proxy: selectedAction, position
+        id: createRuleId(), type: selectedType, payload: payload.trim(), proxy: selectedAction, position, offset: 0
       }
+      const updatedExisting = existing.map((rule) => {
+        if (position === 'bottom') {
+          return rule.position === 'bottom' && typeof rule.offset === 'number'
+            ? { ...rule, offset: rule.offset + 1 }
+            : rule
+        }
+        return rule.position !== 'bottom' && typeof rule.offset === 'number'
+          ? { ...rule, offset: rule.offset + 1 }
+          : rule
+      })
       await window.api.profiles.saveCustomRules(activeProfile.id,
-        position === 'bottom' ? [...existing, newRule] : [newRule, ...existing])
+        position === 'bottom' ? [...updatedExisting, newRule] : [newRule, ...updatedExisting])
       onCreated?.()
       onOpenChange(false)
     } catch (err) {

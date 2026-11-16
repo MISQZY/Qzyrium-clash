@@ -139,8 +139,15 @@ export function SplitTunnelingDialog({ open, onOpenChange, onSaved }: SplitTunne
         const replacement = replacements.get(rule.id)
         return replacement ? [replacement] : []
       })
-      const added = appRules.filter((rule) => !existingIds.has(rule.id))
-      await window.api.profiles.saveCustomRules(profileId, [...added, ...merged])
+      const added = appRules
+        .filter((rule) => !existingIds.has(rule.id))
+        .map((rule, index) => ({ ...rule, position: 'top' as const, offset: index }))
+      const updatedMerged = added.length > 0
+        ? merged.map((rule) => rule.position !== 'bottom' && typeof rule.offset === 'number'
+            ? { ...rule, offset: rule.offset + added.length }
+            : rule)
+        : merged
+      await window.api.profiles.saveCustomRules(profileId, [...added, ...updatedMerged])
       onSaved?.()
       onOpenChange(false)
     } catch (err) {
