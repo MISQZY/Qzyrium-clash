@@ -8,6 +8,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { IPC_CHANNELS } from '@shared/ipc'
 import { normalizeSettings } from '@shared/settings-config'
+import type { AppConfig } from '@shared/app-config'
 import { applyPendingBackup } from './utils/backup'
 import { clearRestartState, readRestartState } from './utils/restart-state'
 import { isProcessElevated, restartAsAdmin } from './utils/elevation'
@@ -39,18 +40,29 @@ if (initialProtocolUrl) pendingProtocolUrls.push(initialProtocolUrl)
 
 // Memory optimization and acceleration switches must be applied before app.ready.
 let lowMemoryMode = false
+let isolateGpu = false
 try {
-  const boot = JSON.parse(readFileSync(path.join(app.getPath('userData'), 'settings.json'), 'utf8'))
-  lowMemoryMode = boot.general?.lowMemoryMode === true
+  let boot: AppConfig | undefined
+  for (const name of ['settings.json', 'settings.json.bak']) {
+    try {
+      boot = normalizeSettings(JSON.parse(readFileSync(path.join(app.getPath('userData'), name), 'utf8')))
+      break
+    } catch { /* Match SettingService recovery before Chromium starts. */ }
+  }
+  lowMemoryMode = boot?.general.lowMemoryMode === true
+  isolateGpu = boot?.general.isolateGpu === true || (typeof process !== 'undefined' && process.argv?.includes('--isolate-gpu'))
   // Memory saving must retain GPU composition for interactive Windows resize.
-  if (boot.general?.disableGpu === true) {
+  if (boot?.general.disableGpu === true) {
     app.disableHardwareAcceleration()
   }
 } catch {
   // First launch and settings recovery use accelerated rendering by default.
+  if (typeof process !== 'undefined' && process.argv?.includes('--isolate-gpu')) {
+    isolateGpu = true
+  }
 }
 
-for (const [name, value] of renderingSwitches(process.platform, lowMemoryMode)) {
+for (const [name, value] of renderingSwitches(process.platform, lowMemoryMode, isolateGpu)) {
   app.commandLine.appendSwitch(name, value)
 }
 app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_proxied_udp')
@@ -155,6 +167,11 @@ if (!gotTheLock) {
     } catch { /* Use a valid backup or the default log policy. */ }
   }
   logger.initialize()
+  app.on('child-process-gone', (_event, details) => {
+    if (details.type === 'GPU') {
+      logger.warn(`GPU process terminated (reason: ${details.reason}, exitCode: ${details.exitCode})`)
+    }
+  })
   app.on('second-instance', (_, commandLine) => {
     const proto = extractProtocolUrl(commandLine)
     if (proto) pendingProtocolUrls.push(proto)

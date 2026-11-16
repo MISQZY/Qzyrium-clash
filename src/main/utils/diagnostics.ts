@@ -46,7 +46,7 @@ async function readTail(filename: string): Promise<string> {
 }
 
 function settingsSummary(config: AppConfig): object {
-  const keys = ['autoStart', 'autoConnect', 'closeAction', 'silentStart', 'disableGpu', 'lowMemoryMode', 'liteDashboard',
+  const keys = ['autoStart', 'autoConnect', 'closeAction', 'silentStart', 'disableGpu', 'isolateGpu', 'lowMemoryMode', 'liteDashboard',
     'reconnectAfterSleep', 'resumeDelaySeconds', 'autoRestartCore', 'coreRestartDelaySeconds', 'coreRestartMaxAttempts',
     'autoUpdateProfiles', 'profileUpdateInterval', 'updateProfilesOnStart', 'profileStartupMaxAgeHours',
     'connectionInterval', 'maxLogs', 'autoReleaseWindow', 'autoReleaseWindowMinutes', 'delayTestTimeout', 'delayTestConcurrency',

@@ -23,6 +23,7 @@ function load(file, dependencies = {}, overrides = {}) {
 const logger = { info() {}, warn() {}, error() {}, debug() {}, configureSettings() {} }
 const { DEFAULT_APP_CONFIG } = load('src/shared/app-config.ts')
 const { validateAppConfig } = load('src/shared/settings-validation.ts')
+const { normalizeSettings } = load('src/shared/settings-config.ts')
 const { MihomoConfigFactory } = load('src/main/core/MihomoConfigFactory.ts', { '../utils/logger': { logger } })
 const fresh = () => structuredClone(DEFAULT_APP_CONFIG)
 const flush = () => new Promise(resolve => setImmediate(resolve))
@@ -45,10 +46,40 @@ for (const lowMemory of [false, true]) {
       'Windows process grouping must not change other platforms')
   }
 }
+assert.ok(!renderingSwitches('win32', false, true).some(([name]) => name === 'in-process-gpu'),
+  'isolated GPU mode must omit in-process-gpu on Windows')
+assert.ok(!renderingSwitches('win32', false, true).some(([name]) => name === 'disable-direct-composition'),
+  'isolated GPU mode preserves direct composition on Windows')
 const startupAst = ts.createSourceFile('index.ts', startup, ts.ScriptTarget.Latest, true)
+const { renderingSwitches: fixtureSwitches } = require('./fixtures/rendering.cjs')
+for (const platform of ['win32', 'linux', 'darwin']) {
+  for (const compact of [false, true]) {
+    for (const isolated of [false, true]) {
+      assert.deepEqual(fixtureSwitches(platform, compact, isolated, ''), renderingSwitches(platform, compact, isolated),
+        'Electron fixtures must match the production GPU policy')
+    }
+  }
+}
+// Exercise the actual listener before ready, including early launch failures.
+let monitor
+function findMonitor(node) {
+  if (ts.isExpressionStatement(node) && ts.isCallExpression(node.expression) &&
+    node.expression.expression.getText(startupAst) === 'app.on' &&
+    node.expression.arguments[0]?.text === 'child-process-gone') monitor = node
+  ts.forEachChild(node, findMonitor)
+}
+findMonitor(startupAst)
+assert.ok(monitor && monitor.getStart(startupAst) < startup.indexOf('app.whenReady()'), 'GPU monitoring must be registered before ready')
+const monitorApp = new EventEmitter(), warnings = []
+vm.runInNewContext(monitor.getText(startupAst), { app: monitorApp, logger: { warn: message => warnings.push(message) } })
+monitorApp.emit('child-process-gone', {}, { type: 'GPU', reason: 'launch-failed', exitCode: 7 })
+monitorApp.emit('child-process-gone', {}, { type: 'Utility', reason: 'crashed', exitCode: 1 })
+assert.equal(warnings.length, 1)
+assert.match(warnings[0], /launch-failed.*7/)
 const graphicsBoot = startupAst.statements.find(statement =>
   ts.isTryStatement(statement) && statement.getText(startupAst).includes('app.disableHardwareAcceleration()'))
 assert.ok(graphicsBoot, 'startup configures graphics before app.ready')
+const graphicsBootCode = ts.transpileModule(graphicsBoot.getText(startupAst), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
 for (const [saved, expected] of [
   [null, false], ['{invalid', false], ['{}', false],
   ['null', false],
@@ -58,11 +89,51 @@ for (const [saved, expected] of [
   [JSON.stringify({ general: { lowMemoryMode: false, disableGpu: true } }), true]
 ]) {
   let disabled = false
-  vm.runInNewContext(graphicsBoot.getText(startupAst), {
+  vm.runInNewContext(graphicsBootCode, {
     app: { getPath: () => 'test', disableHardwareAcceleration: () => { disabled = true } },
-    path, lowMemoryMode: false, readFileSync: () => { if (saved === null) throw new Error('ENOENT'); return saved }
+    path, normalizeSettings, lowMemoryMode: false, readFileSync: () => { if (saved === null) throw new Error('ENOENT'); return saved }
   })
   assert.equal(disabled, expected, `GPU startup policy for ${saved}`)
+}
+for (const [saved, argv, expected] of [
+  [JSON.stringify({ general: { isolateGpu: true } }), [], true],
+  [JSON.stringify({ general: { isolateGpu: false } }), [], false],
+  ['{}', ['--isolate-gpu'], true],
+  ['{invalid', ['--isolate-gpu'], true],
+  [null, ['--isolate-gpu'], true],
+  [null, [], false]
+]) {
+  const context = { app: { getPath: () => 'test', disableHardwareAcceleration() {} }, path, normalizeSettings,
+    process: { argv }, lowMemoryMode: false, isolateGpu: false,
+    readFileSync: () => { if (saved === null) throw new Error('ENOENT'); return saved } }
+  vm.runInNewContext(graphicsBootCode, context)
+  assert.equal(context.isolateGpu, expected, 'saved GPU isolation and CLI override must apply before ready')
+}
+const recoveredGraphics = JSON.stringify({ general: { isolateGpu: true, lowMemoryMode: true, disableGpu: true } })
+for (const [primary, backup, recovered] of [
+  ['{invalid', recoveredGraphics, true],
+  [null, recoveredGraphics, true],
+  [JSON.stringify({ general: { isolateGpu: 'yes' } }), recoveredGraphics, true],
+  [JSON.stringify({ kernel: { mixedPort: -1 } }), recoveredGraphics, true],
+  ['{}', recoveredGraphics, false],
+  ['{invalid', '{invalid', false],
+  [null, null, false]
+]) {
+  let disabled = false
+  const reads = []
+  const context = { app: { getPath: () => 'test', disableHardwareAcceleration: () => { disabled = true } },
+    path, normalizeSettings, process: { argv: [] }, lowMemoryMode: false, isolateGpu: false,
+    readFileSync: filename => {
+      reads.push(path.basename(filename))
+      const saved = filename.endsWith('.bak') ? backup : primary
+      if (saved === null) throw new Error('ENOENT')
+      return saved
+    } }
+  vm.runInNewContext(graphicsBootCode, context)
+  assert.equal(context.isolateGpu, recovered, 'GPU isolation must match the valid settings selected by recovery')
+  assert.equal(context.lowMemoryMode, recovered)
+  assert.equal(disabled, recovered, 'hardware acceleration policy must recover with the other graphics preferences')
+  if (primary === '{}') assert.deepEqual(reads, ['settings.json'], 'valid primary settings take precedence over backup')
 }
 
 function verifyConfiguration() {

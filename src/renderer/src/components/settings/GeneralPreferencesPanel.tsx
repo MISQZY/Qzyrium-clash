@@ -220,7 +220,7 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
         </SettingsGroup>
         <ServiceCheckSettings draft={draft} busy={busy} />
         <SettingsGroup title={t('performanceGroup')} description={t('performanceDescription')} icon={<Gauge />} collapsible>
-          {renderGeneralFields(['lowMemoryMode', 'disableGpu', 'liteDashboard', 'autoReleaseWindow', 'autoReleaseWindowMinutes', 'connectionInterval', 'maxLogs'])}
+          {renderGeneralFields(['lowMemoryMode', 'disableGpu', 'isolateGpu', 'liteDashboard', 'autoReleaseWindow', 'autoReleaseWindowMinutes', 'connectionInterval', 'maxLogs'])}
           <SettingRow title={t('coreOnlyMode')} description={t('coreOnlyDescription')}>
             <Button type="button" variant="outline" disabled={busy || dirty} onClick={() => { void window.api.app.enterCoreOnly() }}>{t('enableCoreOnly')}</Button>
           </SettingRow>

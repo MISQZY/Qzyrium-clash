@@ -15,6 +15,8 @@ const checks = Object.freeze([
   ...functional.map(id => check(id, 'functional', 'node')),
   ...ui.map(id => check(id, 'ui', 'electron')),
   Object.freeze({ ...check('process-model', 'ui', 'electron', ['--low-memory']), id: 'process-model-low-memory' }),
+  Object.freeze({ ...check('process-model', 'ui', 'electron', ['--isolate-gpu']), id: 'process-model-isolated-gpu' }),
+  Object.freeze({ ...check('process-model', 'ui', 'electron', ['--isolate-gpu', '--low-memory']), id: 'process-model-isolated-gpu-low-memory' }),
   ...[[], ['--silent']].map(args => Object.freeze({
     id: args.length ? 'packaged-silent' : 'packaged-normal', suite: 'packaged-ui', runtime: 'node',
     file: path.join(__dirname, 'check-packaged-ui.cjs'), args: Object.freeze(args), timeoutMs: 180_000

@@ -11,9 +11,15 @@ type ChromiumSwitch = readonly [name: string, value?: string]
  * Compact mode additionally reduces caches while retaining full-color textures.
  * JSON lets fixtures share the policy without loading a TypeScript compiler
  * into the measured Electron process and inflating its memory usage.
+ *
+ * When isolateGpu is true, GPU execution runs in an isolated Chromium GPU process.
+ * This prevents main process crashes on driver faults or WebGL wake issues.
  */
-export function renderingSwitches(platform: string, lowMemoryMode = false): readonly ChromiumSwitch[] {
-  return [...policy.common, ...(platform === 'win32' ? policy.win32 : []),
+export function renderingSwitches(platform: string, lowMemoryMode = false, isolateGpu = false): readonly ChromiumSwitch[] {
+  const winSwitches = platform === 'win32'
+    ? (isolateGpu ? policy.win32.filter(([name]) => name !== 'in-process-gpu' && name !== 'disable-direct-composition') : policy.win32)
+    : []
+  return [...policy.common, ...winSwitches,
     ...(platform === 'win32' && lowMemoryMode ? policy.compact : [])]
     .map(([name, value]) => [name, value] as const)
 }

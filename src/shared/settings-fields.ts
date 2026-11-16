@@ -186,6 +186,10 @@ export const generalFields: SettingsField[] = [
     'Disable hardware graphics acceleration (restart required).',
     'Отключить аппаратное ускорение графики (нужен перезапуск).'
   )),
+  field('isolateGpu', 'Isolate GPU process', 'Изолировать процесс GPU', 'boolean', desc(
+    'Run GPU tasks in a separate process to improve WebGL stability and prevent app crashes on driver faults (restart required). When disabled, runs in-process to keep a single Task Manager group.',
+    'Запускать обработку графики в отдельном процессе Chromium для стабильности WebGL и защиты от сбоев видеодрайвера (нужен перезапуск). При отключении работает внутри основного процесса.'
+  )),
   field('autoCloseConnection', 'Close connections on node switch', 'Закрывать соединения при смене узла', 'boolean', desc(
     'Close active connections immediately when selecting another proxy.',
     'Принудительно закрывать активные соединения при смене прокси-узла.'

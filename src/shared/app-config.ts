@@ -25,6 +25,7 @@ export interface AppConfig {
     onlyVpnTraffic?: boolean
     silentStart?: boolean
     disableGpu?: boolean
+    isolateGpu?: boolean
     lowMemoryMode?: boolean
     autoReleaseWindow?: boolean
     autoReleaseWindowMinutes?: number
@@ -113,6 +114,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     onlyVpnTraffic: true,
     silentStart: false,
     disableGpu: false,
+    isolateGpu: false,
     lowMemoryMode: false,
     autoReleaseWindow: false,
     autoReleaseWindowMinutes: 5,

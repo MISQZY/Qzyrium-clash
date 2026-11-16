@@ -5,12 +5,15 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 
-const directory = path.resolve(__dirname, '../artifacts/process-model')
+const isolateGpu = process.argv.includes('--isolate-gpu')
+const lowMemoryMode = process.argv.includes('--low-memory')
+const label = `${isolateGpu ? 'process-model-isolated' : 'process-model'}${lowMemoryMode ? '-low-memory' : ''}`
+const directory = path.resolve(__dirname, '../artifacts', label)
 fs.mkdirSync(directory, { recursive: true })
 app.setPath('userData', path.join(directory, 'user-data'))
 if (process.argv.includes('--software')) app.disableHardwareAcceleration()
 const { renderingSwitches } = require('./fixtures/rendering.cjs')
-for (const [name, value] of renderingSwitches(process.platform, process.argv.includes('--low-memory'))) app.commandLine.appendSwitch(name, value)
+for (const [name, value] of renderingSwitches(process.platform, lowMemoryMode, isolateGpu)) app.commandLine.appendSwitch(name, value)
 const filename = path.join(directory, 'index.html')
 fs.writeFileSync(filename, '<!doctype html><canvas width="64" height="64"></canvas>')
 
@@ -31,7 +34,7 @@ app.whenReady().then(async () => {
       assert.deepEqual(result.pixel, [10, 20, 30, 255])
       const metrics = app.getAppMetrics()
       assert.ok(metrics.some(process => process.pid === win.webContents.getOSProcessId()), 'renderer stays isolated')
-      if (process.platform === 'win32') {
+      if (process.platform === 'win32' && !isolateGpu) {
         assert.ok(!metrics.some(metric => metric.type === 'GPU' && metric.pid !== process.pid),
           'GPU must not create a separate process/application group on Windows')
       } else {
