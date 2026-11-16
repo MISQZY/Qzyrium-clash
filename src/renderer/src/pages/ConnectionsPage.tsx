@@ -11,19 +11,33 @@ import { ConnectionDetailsDialog } from '../components/ConnectionDetailsDialog'
 import { QuickRuleDialog } from '../components/connections/QuickRuleDialog'
 
 import { useTranslations } from '../i18n'
-import { useState, useMemo } from 'react'
+import { memo, useCallback, useRef, useState, useMemo } from 'react'
 
 import type { ConnectionItem, ConnectionsSnapshot } from '@shared/mihomo'
 import type { ProcessGroup } from '../lib/connections'
 import { Page } from '../components/Page'
 import { VirtualList } from '../components/VirtualList'
 
-export function ConnectionsPage({
-  connections,
-  onRefresh
-}: {
+interface ConnectionsPageProps {
   connections: ConnectionsSnapshot
   onRefresh: () => void
+}
+
+export function ConnectionsPage({ connections, onRefresh }: ConnectionsPageProps) {
+  const latestSnapshot = useRef(connections)
+  latestSnapshot.current = connections
+  const [frozenSnapshot, setFrozenSnapshot] = useState<ConnectionsSnapshot | null>(null)
+  const handleTogglePause = useCallback(() => {
+    setFrozenSnapshot(current => current === null ? latestSnapshot.current : null)
+  }, [])
+
+  return <ConnectionsView connections={frozenSnapshot ?? connections} onRefresh={onRefresh}
+    paused={frozenSnapshot !== null} onTogglePause={handleTogglePause} />
+}
+
+const ConnectionsView = memo(function ConnectionsView({ connections, onRefresh, paused, onTogglePause }: ConnectionsPageProps & {
+  paused: boolean
+  onTogglePause: () => void
 }) {
   const t = useTranslations('connections')
 
@@ -33,27 +47,14 @@ export function ConnectionsPage({
   const [query, setQuery] = useState('')
   const [protocolFilter, setProtocolFilter] = useState<ConnectionProtocol>('all')
   const [sortBy, setSortBy] = useState<ConnectionSort>('traffic')
-  const [paused, setPaused] = useState(false)
-  const [frozenSnapshot, setFrozenSnapshot] = useState<ConnectionsSnapshot | null>(null)
   const [ruleTargetConnection, setRuleTargetConnection] = useState<ConnectionItem | null>(null)
   const [ruleTargetGroup, setRuleTargetGroup] = useState<ProcessGroup | null>(null)
   const actions = useConnectionActions(onRefresh)
 
-  const handleTogglePause = () => {
-    if (paused) {
-      setFrozenSnapshot(null)
-      setPaused(false)
-    } else {
-      setFrozenSnapshot(connections)
-      setPaused(true)
-    }
-  }
-
-  const activeSnapshot = paused && frozenSnapshot ? frozenSnapshot : connections
   const { selectedConnection, setSelectedConnection, closing, error, close } = actions
 
-  const matchingConnections = useMemo(() => filterConnections(activeSnapshot.connections, query, protocolFilter),
-    [activeSnapshot.connections, query, protocolFilter])
+  const matchingConnections = useMemo(() => filterConnections(connections.connections, query, protocolFilter),
+    [connections.connections, query, protocolFilter])
   const processGroups = useMemo(() => viewMode === 'process' ? groupConnections(matchingConnections, sortBy, t('system')) : [],
     [viewMode, matchingConnections, sortBy, t])
   const filteredAndSortedList = useMemo(() => viewMode === 'flat' ? sortConnections(matchingConnections, sortBy, t('system')) : [],
@@ -68,8 +69,8 @@ export function ConnectionsPage({
   // Keep selectedConnection fresh with real-time speed/data if it updates
   const activeDetail = useMemo(() => {
     if (!selectedConnection) return null
-    return activeSnapshot.connections.find((c) => c.id === selectedConnection.id) || selectedConnection
-  }, [selectedConnection, activeSnapshot.connections])
+    return connections.connections.find((c) => c.id === selectedConnection.id) || selectedConnection
+  }, [selectedConnection, connections.connections])
 
   const renderConnectionCard = (item: ConnectionItem) => (
     <ConnectionCard
@@ -88,8 +89,8 @@ export function ConnectionsPage({
       actions={
         <ConnectionToolbar viewMode={viewMode} selectedProcessKey={selectedProcessKey}
           setViewMode={setViewMode} setSelectedProcessKey={setSelectedProcessKey}
-          connectionCount={activeSnapshot.connections.length} actions={actions}
-          paused={paused} onTogglePause={handleTogglePause} />
+          connectionCount={connections.connections.length} actions={actions}
+          paused={paused} onTogglePause={onTogglePause} />
       }
     >
       {/* Search & Filters Header */}
@@ -166,4 +167,4 @@ export function ConnectionsPage({
       />
     </Page>
   )
-}
+})
