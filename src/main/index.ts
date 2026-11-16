@@ -275,6 +275,29 @@ if (!gotTheLock) {
     logger.error('Unhandled Promise Rejection in main process', reason)
   })
 
+  const handleTerminationSignal = async (signal: string): Promise<void> => {
+    logger.info(`Received ${signal}, performing graceful shutdown...`)
+    if (shuttingDown) return
+    shuttingDown = true
+    const deadline = setTimeout(() => app.exit(0), 10_000)
+    deadline.unref()
+    if (services) {
+      try {
+        services.windowService.setQuitting(true)
+        await services.dispose()
+        services = null
+      } catch (err) {
+        logger.error(`Error during ${signal} cleanup`, err)
+      }
+    }
+    await networkWatchdog.stop().catch(() => {})
+    await logger.close()
+    app.exit(0)
+  }
+
+  process.on('SIGINT', () => void handleTerminationSignal('SIGINT'))
+  process.on('SIGTERM', () => void handleTerminationSignal('SIGTERM'))
+
   app.on('window-all-closed', () => {
     if (services?.windowService.isCoreOnlyMode()) return
     const minimizeToTray = services?.settingService.getSettings().general.minimizeToTray ?? true

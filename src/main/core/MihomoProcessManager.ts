@@ -97,6 +97,12 @@ export class MihomoProcessManager extends EventEmitter {
       throw new Error('The previous Mihomo process has not stopped yet')
     }
 
+    const sequence = ++this.startSequence
+    this.failure = null
+    this.failureOutput = []
+    this.explicitStop = false
+    this.setState('starting')
+
     if (channelOrBinary) {
       if (channelOrBinary === 'stable' || channelOrBinary === 'alpha') {
         this.customBinaryPath = null
@@ -106,11 +112,7 @@ export class MihomoProcessManager extends EventEmitter {
       }
     }
 
-    const sequence = ++this.startSequence
-    this.failure = null
-    this.failureOutput = []
-    this.explicitStop = false
-    this.setState('starting')
+    if (sequence !== this.startSequence || this.explicitStop || this.getState() !== 'starting') return
 
     const channel = (channelOrBinary === 'stable' || channelOrBinary === 'alpha') ? channelOrBinary : undefined
     const binary = await this.resolveBinaryPath(channel)
@@ -216,10 +218,9 @@ export class MihomoProcessManager extends EventEmitter {
       if (sequence === this.startSequence && !this.explicitStop) {
         this.reportFailure(err)
         const cleanup = this.stop()
-        const cleanupSequence = this.startSequence
         try { await cleanup }
         catch (stopError) { logger.error('Failed to clean up unsuccessful Mihomo startup', stopError) }
-        if (this.startSequence === cleanupSequence) this.setState('error')
+        this.setState('error')
       }
       throw err
     }
@@ -285,6 +286,7 @@ export class MihomoProcessManager extends EventEmitter {
       const onExit = () => { clearTimeout(timer); resolve() }
       const timer = setTimeout(() => {
         child.removeListener('exit', onExit)
+        try { child.kill('SIGKILL') } catch {}
         reject(new Error('Timed out waiting for Mihomo to stop'))
       }, process.platform === 'linux' ? 65_000 : 5000)
       child.once('exit', onExit)

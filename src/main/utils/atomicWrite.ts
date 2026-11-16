@@ -10,21 +10,33 @@ import fs from 'node:fs/promises'
 export function writeFileAtomic(filePath: string, data: string, encoding: BufferEncoding = 'utf-8'): void {
   const tempPath = `${filePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`
   writeFileSync(tempPath, data, encoding)
-  try {
-    renameSync(tempPath, filePath)
-  } catch (err: unknown) {
-    const error = err as NodeJS.ErrnoException
-    if (error.code === 'EPERM' || error.code === 'EBUSY') {
-      copyFileSync(tempPath, filePath)
-      try {
-        fs.unlink(tempPath).catch(() => {})
-      } catch {}
-      return
-    }
+  for (let attempt = 0; attempt < 10; attempt++) {
     try {
-      fs.unlink(tempPath).catch(() => {})
-    } catch {}
-    throw err
+      renameSync(tempPath, filePath)
+      return
+    } catch (err: unknown) {
+      const error = err as NodeJS.ErrnoException
+      if ((error.code === 'EPERM' || error.code === 'EBUSY') && attempt < 9) {
+        try {
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50 * (attempt + 1))
+        } catch {
+          const start = Date.now()
+          while (Date.now() - start < 50) { /* fallback spin */ }
+        }
+        continue
+      }
+      try {
+        if (error.code === 'EPERM' || error.code === 'EBUSY') {
+          copyFileSync(tempPath, filePath)
+          return
+        }
+      } finally {
+        try {
+          fs.unlink(tempPath).catch(() => {})
+        } catch {}
+      }
+      throw err
+    }
   }
 }
 
@@ -52,8 +64,8 @@ export async function writeFileAtomicAsync(
         return
       } catch (error) {
         const code = (error as NodeJS.ErrnoException).code
-        if ((code !== 'EPERM' && code !== 'EBUSY') || attempt >= 4) throw error
-        await new Promise((resolve) => setTimeout(resolve, 50))
+        if ((code !== 'EPERM' && code !== 'EBUSY') || attempt >= 12) throw error
+        await new Promise((resolve) => setTimeout(resolve, Math.min(200, 50 * (attempt + 1))))
       }
     }
   } finally {
