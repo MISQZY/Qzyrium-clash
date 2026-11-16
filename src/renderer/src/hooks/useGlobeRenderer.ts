@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import createGlobe, { landPoints, type Globe } from '../lib/canvas-globe'
 import type { GlobeRoute } from '../lib/globe'
 import { defaultCamera, globeLayout, projectRoutes, type Viewport, type ProjectedRoute } from '../lib/cobe-globe'
@@ -21,7 +21,7 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
   const prevRunning = useRef(running)
   const ignitionStart = useRef(0)
   const invalidate = useRef(() => {})
-  const [projected, setProjected] = useState<ProjectedRoute[]>([])
+  const [projectedGeometry, setProjected] = useState<ProjectedRoute[]>([])
   const [unavailable, setUnavailable] = useState(false)
 
   // Detect running transition to trigger smooth 950ms globe ignition light-up
@@ -215,16 +215,23 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
     }
   }, [])
 
-  // When routes update, redraw SVG projection without resetting camera orientation
+  // Latency, counters and labels do not change the spherical geometry.
   useEffect(() => {
     invalidate.current()
-  }, [geometryKey])
-
-  useEffect(() => {
     if (viewport.current.width > 1 && viewport.current.height > 1) {
       setProjected(surface.current ? projectRoutes(routesRef.current, camera.current, viewport.current, surface.current) : [])
     }
-  }, [routes])
+  }, [geometryKey])
+
+  const projected = useMemo(() => {
+    const currentRoutes = new Map(routes.map(route => [route.id, route]))
+    return projectedGeometry.flatMap(group => {
+      const members = group.routeIds.flatMap(id => currentRoutes.get(id) ?? [])
+      if (!members.length) return []
+      return [{ ...group, color: members[0].color, country: members[0].country,
+        connecting: members.every(route => route.connecting) }]
+    })
+  }, [projectedGeometry, routes])
 
   return { hostRef, sceneRef, camera, viewport, projected, unavailable, invalidate }
 }
