@@ -117,7 +117,6 @@ export function ProfileLogo({ url, className, fallback, loaderClassName, loaderS
       src={url}
       alt=""
       referrerPolicy="no-referrer"
-      crossOrigin="anonymous"
       className={className}
       onError={() => {
         loadedUrls.delete(url)
