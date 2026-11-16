@@ -125,7 +125,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     connectionLogMaxSizeMb: 10,
     connectionLogArchives: 20,
     connectionLogRetentionDays: 30,
-    delayTestUrl: 'http://www.gstatic.com/generate_204',
+    delayTestUrl: 'https://www.gstatic.com/generate_204',
     delayTestTimeout: 5000,
     delayTestConcurrency: 6,
     userAgent: DEFAULT_SUBSCRIPTION_USER_AGENT,

@@ -108,7 +108,7 @@ export class MihomoApiClient extends EventEmitter {
 
   async testProxyDelay(
     proxyName: string,
-    url = 'http://www.gstatic.com/generate_204',
+    url = 'https://www.gstatic.com/generate_204',
     timeout = 5000
   ): Promise<number> {
     const res = await this.client.get<{ delay: number }>(
