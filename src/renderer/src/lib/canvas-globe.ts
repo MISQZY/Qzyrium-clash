@@ -80,7 +80,7 @@ export default function createGlobe(canvas: HTMLCanvasElement, initial: GlobeOpt
     const dot = Math.max(0.65, radius / 160)
     // Uniform opacity avoids concentric dark bands across the visible hemisphere.
     context.beginPath()
-    context.fillStyle = `rgba(${color},${Math.min(1, 0.65 * mapBrightness / 1.8)})`
+    context.fillStyle = `rgba(${color},${Math.min(1, 0.58 * mapBrightness / 1.8)})`
     for (let i = 0; i < data.length; i += 3) {
       const point = project([data[i], data[i + 1], data[i + 2]])
       if (point.depth < 0) continue

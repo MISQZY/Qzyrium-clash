@@ -23,7 +23,7 @@ if (process.type === 'renderer') {
         await delay(50)
       }
       await evaluate('document.fonts.ready')
-      await win.webContents.insertCSS('.globe-route-layer { visibility: hidden !important; }')
+      await win.webContents.insertCSS('.globe-route-layer { visibility: hidden !important; } .globe-solid-surface::before { transition: none !important; }')
       await delay(500)
       const bounds = await evaluate(`(() => {
         const surface = document.querySelector('.globe-solid-surface').getBoundingClientRect();
@@ -43,12 +43,30 @@ if (process.type === 'renderer') {
       assert.ok(bounds.transparentFraction > 0.3 && bounds.transparentFraction < 1, 'surface has visible land and transparent oceans')
       const styles = await evaluate(`(() => {
         const surface = document.querySelector('.globe-solid-surface');
-        return { background: getComputedStyle(surface).backgroundImage, atmosphere: getComputedStyle(surface, '::before').content };
+        const glow = getComputedStyle(surface, '::before');
+        return { background: getComputedStyle(surface).backgroundImage, glowBackground: glow.backgroundImage, shadow: glow.boxShadow };
       })()`)
       assert.equal(styles.background, 'none', 'sphere background has no radial shading')
-      assert.ok(['none', 'normal'].includes(styles.atmosphere), 'no atmosphere ring overlays the globe')
-      fs.writeFileSync(path.join(output, 'software-globe.png'), (await win.webContents.capturePage()).toPNG())
-      console.log('PASS: uniform globe surface, no atmosphere rings and transparent oceans in software rendering')
+      assert.equal(styles.glowBackground, 'none', 'glow has no radial gradient')
+      assert.notEqual(styles.shadow, 'none', 'exterior glow is enabled')
+      const lit = await win.webContents.capturePage()
+      fs.writeFileSync(path.join(output, 'software-globe.png'), lit.toPNG())
+      await win.webContents.insertCSS('.globe-solid-surface::before { opacity: 0 !important; }')
+      await delay(100)
+      const unlit = await win.webContents.capturePage()
+      const a = lit.toBitmap(), b = unlit.toBitmap(), size = lit.getSize(), scale = size.width / bounds.width
+      let insideMax = 0, outerDifference = 0, outerCount = 0
+      for (let y = 0; y < size.height; y++) for (let x = 0; x < size.width; x++) {
+        const radius = Math.hypot(x / scale - bounds.cx, y / scale - bounds.cy) / bounds.radius
+        if (radius > 1.4) continue
+        const i = (y * size.width + x) * 4
+        const difference = Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]))
+        if (radius < 0.9) insideMax = Math.max(insideMax, difference)
+        if (radius > 1.02 && radius < 1.3) { outerDifference += difference; outerCount++ }
+      }
+      assert.ok(insideMax <= 2, `glow must not change the sphere interior (${insideMax})`)
+      assert.ok(outerDifference / outerCount > 0.2, 'soft exterior glow is visible')
+      console.log('PASS: visible exterior glow, uniform globe surface and transparent oceans without radial shading')
     } finally { win.destroy(); app.quit() }
   }).catch(error => { console.error(error); app.exit(1) })
 }
