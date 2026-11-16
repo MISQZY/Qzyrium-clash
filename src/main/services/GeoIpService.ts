@@ -65,7 +65,7 @@ export class GeoIpService {
       try {
         const { data } = await axios.get(url, { proxy: false, timeout: 1400, signal, maxRedirects: 0, maxContentLength: 1024 })
         const ip = typeof data === 'string' ? data.trim() : data?.ip
-        if (typeof ip === 'string' && publicIp(ip)) return this.locateIp(ip, signal)
+        if (typeof ip === 'string' && publicIp(ip)) return this.local?.lookup(ip) ?? null
       } catch { /* The second endpoint is independent of the first provider. */ }
     }
     return null
@@ -117,23 +117,28 @@ export class GeoIpService {
     if (cached && cached.expires > Date.now()) return cached.value
     const entry = { expires: Date.now() + 86_400_000, value: Promise.resolve<GeoLocation | null>(null) }
     entry.value = (async () => {
-      if (ip && this.local) {
-        const location = await this.local.lookup(ip)
-        if (this.disposed) return null
-        if (location) return location
-      }
+      // Routing databases can retain an allocation's old country. Prefer online
+      // geolocation for tunnel endpoints and use the bundled database offline.
       const encoded = encodeURIComponent(ip)
       const providers = [`https://ipwho.is/${encoded}`, `https://ipapi.co/${ip ? `${encoded}/` : ''}json/`]
       const signal = requestSignal ?? AbortSignal.timeout(3500)
       for (const url of providers) {
         try {
           const { data } = await axios.get(url, { proxy: false, timeout: 2500, signal, maxRedirects: 0, maxContentLength: 32_768 })
+          if (this.disposed) return null
           if (!data || data.success === false || data.error || typeof data.ip !== 'string' || !publicIp(data.ip) || !Number.isFinite(data.longitude) || !Number.isFinite(data.latitude) || Math.abs(data.longitude) > 180 || Math.abs(data.latitude) > 90) continue
           const countryCode = typeof data.country_code === 'string' ? data.country_code : typeof data.countryCode === 'string' ? data.countryCode : undefined
           return { ip: data.ip, longitude: data.longitude, latitude: data.latitude, city: typeof data.city === 'string' ? data.city : '', country: typeof data.country_name === 'string' ? data.country_name : typeof data.country === 'string' ? data.country : '', countryCode, precision: data.city ? 'city' : 'country' }
         } catch { /* Try a second provider within the same total time budget. */ }
       }
       entry.expires = Date.now() + 60_000
+      // Retry online soon instead of caching a potentially stale country for a day.
+      if (ip && this.local && !this.disposed) {
+        try {
+          const location = await this.local.lookup(ip)
+          return this.disposed ? null : location
+        } catch { /* No usable online or local location. */ }
+      }
       return null
     })()
     this.cache.set(ip, entry)

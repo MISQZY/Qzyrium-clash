@@ -107,7 +107,35 @@ async function main() {
   assert.equal(offlineService.getOrigin().precision, 'city', 'online city coordinates take precedence over a country center')
   assert.equal(requests.length, beforeOffline + 2, 'origin prepares precise coordinates and an independent local fallback')
   await offlineService.locateHost('9.9.9.8')
-  assert.equal(requests.length, beforeOffline + 2, 'server coordinates use the local database without HTTP')
+  assert.equal(requests.length, beforeOffline + 3, 'server coordinates are checked online before the local fallback')
+  let localLookups = 0
+  const staleDatabaseService = new GeoIpService({ lookup: async (ip) => {
+    localLookups++
+    return { ip, longitude: -95.71, latitude: 37.09, city: '', country: 'United States', countryCode: 'US', precision: 'country' }
+  }, dispose() {} })
+  const beforeCorrection = requests.length
+  const corrected = await staleDatabaseService.locateHost('172.93.122.11')
+  assert.equal(corrected.country, 'Netherlands', 'online GeoIP corrects the Dutch tunnel classified as US by the bundled database')
+  assert.equal(corrected.precision, 'city')
+  assert.equal(localLookups, 0, 'successful online lookup skips the stale country center')
+  await staleDatabaseService.locateHost('172.93.122.11')
+  assert.equal(requests.length, beforeCorrection + 1, 'corrected server location is cached')
+  failure = true
+  const beforeFallback = requests.length
+  const fallbackLocation = await staleDatabaseService.locateHost('172.93.122.12')
+  assert.equal(fallbackLocation.countryCode, 'US', 'local country remains available when both online providers fail')
+  assert.equal(fallbackLocation.precision, 'country')
+  assert.equal(localLookups, 1)
+  await staleDatabaseService.locateHost('172.93.122.12')
+  assert.equal(requests.length, beforeFallback + 2, 'offline fallback is cached to avoid repeated requests')
+  const nativeNow = Date.now
+  failure = false
+  try {
+    const retryTime = nativeNow() + 60_001
+    Date.now = () => retryTime
+    assert.equal((await staleDatabaseService.locateHost('172.93.122.12')).country, 'Netherlands', 'offline country is rechecked online after one minute')
+  } finally { Date.now = nativeNow }
+  staleDatabaseService.dispose()
   originOnlineDown = true
   await offlineService.captureOrigin(true)
   assert.equal(offlineService.getOrigin().precision, 'country', 'local country location remains available when online GeoIP fails')
