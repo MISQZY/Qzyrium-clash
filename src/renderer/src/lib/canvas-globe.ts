@@ -53,14 +53,16 @@ export default function createGlobe(canvas: HTMLCanvasElement, initial: GlobeOpt
     const cx = width / 2 + offset[0] * scale / 2, cy = height / 2 + offset[1] * scale / 2
     // Allocate only the visible disk, not a viewport-sized transparent texture.
     // Keep projection coordinates unchanged so routes and hit testing still align.
-    const left = Math.max(0, Math.floor(cx - radius - 1))
-    const top = Math.max(0, Math.floor(cy - radius - 1))
-    const cropWidth = Math.max(1, Math.min(width, Math.ceil(cx + radius + 1)) - left)
-    const cropHeight = Math.max(1, Math.min(height, Math.ceil(cy + radius + 1)) - top)
+    const cropSize = Math.max(1, Math.ceil(radius * 2 + 2))
+    const left = Math.floor(cx - radius - 1)
+    const top = Math.floor(cy - radius - 1)
+    const cropWidth = cropSize
+    const cropHeight = cropSize
     // Reuse nearby backing sizes while the border is dragged. Exact pixel-sized
     // buffers otherwise churn large CPU bitmaps and uploaded textures per event.
-    const bufferWidth = Math.max(64, Math.ceil(cropWidth * dpr / 64) * 64)
-    const bufferHeight = Math.max(64, Math.ceil(cropHeight * dpr / 64) * 64)
+    const bufferSize = Math.max(64, Math.ceil(cropSize * dpr / 64) * 64)
+    const bufferWidth = bufferSize
+    const bufferHeight = bufferSize
     if (canvas.width !== bufferWidth) canvas.width = bufferWidth
     if (canvas.height !== bufferHeight) canvas.height = bufferHeight
     canvas.style.position = 'absolute'
@@ -70,8 +72,8 @@ export default function createGlobe(canvas: HTMLCanvasElement, initial: GlobeOpt
     canvas.style.height = `${cropHeight}px`
     canvas.style.clipPath = `circle(${radius}px at ${cx - left}px ${cy - top}px)`
     // The CSS box retains the exact crop and spherical projection coordinates.
-    const scaleX = bufferWidth / cropWidth, scaleY = bufferHeight / cropHeight
-    context.setTransform(scaleX, 0, 0, scaleY, -left * scaleX, -top * scaleY)
+    const scaleFactor = bufferSize / cropSize
+    context.setTransform(scaleFactor, 0, 0, scaleFactor, -left * scaleFactor, -top * scaleFactor)
     context.clearRect(left, top, cropWidth, cropHeight)
     const color = baseColor.map(value => Math.round(value * 255)).join(',')
     // Keep the oceans transparent over the uniform CSS surface.

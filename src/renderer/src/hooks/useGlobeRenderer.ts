@@ -54,6 +54,7 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
     let lastBrightness = -1
     let cachedActiveColor: [number, number, number] | null = null
     let cachedDormantColor: [number, number, number] | null = null
+    let renderedRadius = -1
     let renderedScale = -1
     let lastFrameTime = 0
 
@@ -67,24 +68,25 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
       const dt = lastFrameTime > 0 ? Math.min(0.1, Math.max(0.001, (now - lastFrameTime) / 1000)) : 0.016
       lastFrameTime = now
 
-      if (frames < 4 || renderedScale <= 0) {
-        renderedScale = layout.scale
+      if (frames < 4 || renderedRadius <= 0) {
+        renderedRadius = layout.radius
       } else {
-        const scaleDiff = layout.scale - renderedScale
-        if (Math.abs(scaleDiff) > 0.0005) {
+        const radiusDiff = layout.radius - renderedRadius
+        if (Math.abs(radiusDiff) > 0.05) {
           const blend = 1 - Math.exp(-dt * 14)
-          renderedScale += scaleDiff * blend
-          if (Math.abs(layout.scale - renderedScale) <= 0.0005) {
-            renderedScale = layout.scale
+          renderedRadius += radiusDiff * blend
+          if (Math.abs(layout.radius - renderedRadius) <= 0.05) {
+            renderedRadius = layout.radius
           }
           schedule()
         } else {
-          renderedScale = layout.scale
+          renderedRadius = layout.radius
         }
       }
+      renderedScale = renderedRadius / (view.height * 0.4)
       renderedScaleRef.current = renderedScale
 
-      const activeRadius = view.height * 0.4 * renderedScale
+      const activeRadius = renderedRadius
       const activeOffset: [number, number] = [
         (layout.cx - view.width / 2) * 2 / renderedScale,
         (layout.cy - view.height / 2) * 2 / renderedScale
