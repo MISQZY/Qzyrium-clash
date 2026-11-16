@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { LoaderCircle } from 'lucide-react'
 import { useTranslations } from '../i18n'
-import { useNavigation, useKernel, useSettings, useProfiles, useProxies, useTraffic,
+import { useNavigation, useKernel, useSettings, useProfiles, useProxies,
   useConnections, useRules, useLogs, useRefreshAll } from '../stores/useAppStore'
 import type { SettingsSection } from '@shared/settings-config'
 import { DashboardPage } from './DashboardPage'
@@ -18,17 +18,11 @@ interface ImportProps { importRequest: { url: string; name?: string } | null; on
 
 function DashboardContent() {
   const { visible, busy, setActiveTab } = useNavigation()
-  const { coreStatus, sessionStartedAt, restartKernel, toggleKernel } = useKernel()
-  const { settings, sysProxy, saveSettings, toggleSysProxy } = useSettings()
-  const { activeProfile, profiles, switchActiveProfile } = useProfiles()
-  const { proxies, delays, updateDelays } = useProxies()
-  const { traffic } = useTraffic()
-  const { connections, subscriptionTraffic } = useConnections()
-  const { rules } = useRules()
-  return <DashboardPage visible={visible} coreStatus={coreStatus} sessionStartedAt={sessionStartedAt} traffic={traffic}
-    activeProfile={activeProfile} profiles={profiles} proxies={proxies} delays={delays} onSwitchProfile={switchActiveProfile}
-    onUpdateDelays={updateDelays} settings={settings} connections={connections} subscriptionTraffic={subscriptionTraffic} sysProxy={sysProxy} busy={busy} rules={rules}
-    onRestart={restartKernel}
+  const { coreStatus, sessionStartedAt, toggleKernel } = useKernel()
+  const { settings, sysProxy, toggleSysProxy } = useSettings()
+  const { activeProfile } = useProfiles()
+  return <DashboardPage visible={visible} coreStatus={coreStatus} sessionStartedAt={sessionStartedAt}
+    activeProfile={activeProfile} settings={settings} sysProxy={sysProxy} busy={busy}
     onToggleKernel={() => {
       if (coreStatus !== 'running' && !settings.kernel.tun.enable && !settings.sysProxy.enable) {
         void toggleSysProxy().catch(() => {})
@@ -37,9 +31,6 @@ function DashboardContent() {
       void toggleKernel().catch(() => {})
     }}
     onToggleSysProxy={toggleSysProxy}
-    onToggleTun={() => { void saveSettings({ kernel: { ...settings.kernel, tun: { ...settings.kernel.tun, enable: !settings.kernel.tun.enable } } }).catch(() => {}) }}
-    onUpdateMode={mode => { void saveSettings({ kernel: { ...settings.kernel, mode } }).catch(() => {}) }}
-    onToggleOnlyVpn={() => { void saveSettings({ general: { ...settings.general, onlyVpnTraffic: settings.general.onlyVpnTraffic === false } }).catch(() => {}) }}
     onNavigate={setActiveTab} />
 }
 
