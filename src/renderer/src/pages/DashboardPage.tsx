@@ -41,10 +41,13 @@ export function DashboardPage({
   delays,
   settings,
   connections,
+  sysProxy,
   subscriptionTraffic,
   busy,
   rules,
   onToggleKernel,
+  onToggleSysProxy,
+  onNavigate,
   onUpdateDelays,
   visible = true
 }: DashboardPageProps) {
@@ -119,6 +122,7 @@ export function DashboardPage({
     return () => { disposed = true; clearTimeout(timer) }
   }, [visible, liteMode, running, routeNames, onUpdateDelays, settings.general.delayTestConcurrency])
 
+  const isTrafficUnprotected = running && !settings.kernel.tun.enable && !sysProxy.enabled
   const statusLabel =
     connecting || (busy && !running)
       ? t('pleaseWait')
@@ -126,6 +130,8 @@ export function DashboardPage({
       ? t('pleaseWait')
       : coreStatus === 'error'
       ? t('connectionError')
+      : isTrafficUnprotected
+      ? t('localProxyIsAvailableEnableACaptureModeBelow')
       : running
       ? t('connectedState')
       : t('disconnectedState')
@@ -174,6 +180,32 @@ export function DashboardPage({
                 <SessionDuration startedAt={sessionStartedAt} running={running} ariaLabel={t('sessionDuration')} />
               </div>
             </div>
+
+            {isTrafficUnprotected && (
+              <div className="overview-panel-section p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs flex flex-col gap-2">
+                <span>{t('localProxyIsAvailableEnableACaptureModeBelow')}</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/20"
+                    onClick={onToggleSysProxy}
+                  >
+                    {t('systemProxy')}
+                  </Button>
+                  {onNavigate && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-amber-500 hover:bg-amber-500/10"
+                      onClick={() => onNavigate('settings')}
+                    >
+                      {t('connectionSettings')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
 
             <SessionTrafficMetrics
               connections={connections}

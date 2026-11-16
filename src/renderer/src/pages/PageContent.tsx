@@ -28,7 +28,15 @@ function DashboardContent() {
   return <DashboardPage visible={visible} coreStatus={coreStatus} sessionStartedAt={sessionStartedAt} traffic={traffic}
     activeProfile={activeProfile} profiles={profiles} proxies={proxies} delays={delays} onSwitchProfile={switchActiveProfile}
     onUpdateDelays={updateDelays} settings={settings} connections={connections} subscriptionTraffic={subscriptionTraffic} sysProxy={sysProxy} busy={busy} rules={rules}
-    onRestart={restartKernel} onToggleKernel={toggleKernel} onToggleSysProxy={toggleSysProxy}
+    onRestart={restartKernel}
+    onToggleKernel={() => {
+      if (coreStatus !== 'running' && !settings.kernel.tun.enable && !settings.sysProxy.enable) {
+        void toggleSysProxy().catch(() => {})
+        return
+      }
+      void toggleKernel().catch(() => {})
+    }}
+    onToggleSysProxy={toggleSysProxy}
     onToggleTun={() => { void saveSettings({ kernel: { ...settings.kernel, tun: { ...settings.kernel.tun, enable: !settings.kernel.tun.enable } } }).catch(() => {}) }}
     onUpdateMode={mode => { void saveSettings({ kernel: { ...settings.kernel, mode } }).catch(() => {}) }}
     onToggleOnlyVpn={() => { void saveSettings({ general: { ...settings.general, onlyVpnTraffic: settings.general.onlyVpnTraffic === false } }).catch(() => {}) }}
