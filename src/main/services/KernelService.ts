@@ -194,7 +194,6 @@ export class KernelService implements BaseService {
   private configBuilder: ActiveConfigBuilder
   private broadcaster: ((channel: string, data: unknown) => void) | null = null
   private sessionStartedAt: number | null = null
-  private streamsPaused = false
   private startupRunning?: boolean
   private trafficAccounting: TrafficAccounting
   private subscriptionTraffic = new SubscriptionTrafficAccounting()
@@ -270,9 +269,7 @@ export class KernelService implements BaseService {
     })
 
     this.apiClient.on('traffic', (stats: TrafficStats) => {
-      if (!this.streamsPaused) {
-        this.broadcaster?.('event:traffic', stats)
-      }
+      this.broadcaster?.('event:traffic', stats)
     })
 
     // The process pipes are the single source of core logs, including startup
@@ -383,14 +380,12 @@ export class KernelService implements BaseService {
   }
 
   pauseStreams(): void {
-    this.streamsPaused = true
-    this.apiClient.stopTrafficStream()
+    // Traffic remains active for tray statistics while the renderer is hidden.
     this.globeResolver.releaseCaches()
     this.geoIp.releaseWorker()
   }
 
   resumeStreams(): void {
-    this.streamsPaused = false
     if (this.getStatus() === 'running') {
       this.apiClient.startTrafficStream()
     }

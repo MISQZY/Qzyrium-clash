@@ -228,20 +228,28 @@ async function verifyWakeRecovery() {
   const config = load('src/shared/app-config.ts', {}).DEFAULT_APP_CONFIG
   config.general.reconnectAfterSleep = true
   const power = new EventEmitter(), manager = new EventEmitter(), api = new EventEmitter(), timers = new Set()
-  let state = 'stopped', starts = 0, healthy = true
+  let state = 'stopped', starts = 0, healthy = true, trafficStreams = 0
   manager.getState = () => state
-  Object.assign(api, { startTrafficStream() {}, stopAllStreams() {}, getVersion: async () => { if (!healthy) throw new Error('offline'); return { version: 'test' } } })
+  Object.assign(api, { startTrafficStream() { trafficStreams++ }, stopTrafficStream() { assert.fail('Hiding the interface must preserve tray traffic') }, stopAllStreams() {}, getVersion: async () => { if (!healthy) throw new Error('offline'); return { version: 'test' } } })
   const { KernelService } = load('src/main/services/KernelService.ts', {
     electron: { powerMonitor: power }, '../utils/logger': { logger }
   }, { setTimeout: (fn, ms) => { const timer = { fn, ms, unref() {} }; timers.add(timer); return timer }, clearTimeout: timer => timers.delete(timer) })
   const kernel = new KernelService({ getSettings: () => config }, {}, {
-    processManager: manager, apiClient: api, geoIp: { dispose() {} }, configBuilder: {}, trafficAccounting: {}
+    processManager: manager, apiClient: api, geoIp: { dispose() {}, releaseWorker() {} }, configBuilder: {}, trafficAccounting: {}
   })
   kernel.startCore = async () => { starts++; state = 'running'; manager.emit('state-change', state) }
   kernel.stopCore = async () => { state = 'stopped'; manager.emit('state-change', state) }
   await kernel.initialize()
   assert.equal(power.listenerCount('resume'), 1)
   await kernel.start()
+  kernel.globeResolver.releaseCaches = () => {}
+  const broadcasts = []
+  kernel.setBroadcaster((channel, data) => broadcasts.push({ channel, data }))
+  kernel.pauseStreams()
+  api.emit('traffic', { up: 12, down: 34 })
+  assert.deepEqual(broadcasts.at(-1), { channel: 'event:traffic', data: { up: 12, down: 34 } }, 'tray traffic survives hiding the interface')
+  kernel.resumeStreams()
+  assert.equal(trafficStreams, 2, 'traffic can resume idempotently after showing the interface')
   const wake = async () => {
     power.emit('suspend'); power.emit('resume')
     const timer = [...timers][0]

@@ -70,7 +70,9 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
 
     // Route kernel broadcasts to renderer via WindowService
     kernelService.setBroadcaster((channel, data) => {
-      windowService.broadcast(channel, data)
+      if (channel !== 'event:traffic' || windowService.getMainWindow()?.isVisible()) {
+        windowService.broadcast(channel, data)
+      }
       if (channel === 'event:traffic') {
         trayService.updateTraffic(data as TrafficStats)
       }
@@ -98,7 +100,7 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
       }
     })
 
-    // Pause network streams while the interface is hidden.
+    // Release interface-only caches while hidden; traffic still feeds the tray.
     windowService.setVisibilityHandler((visible: boolean) => {
       if (visible) {
         kernelService.resumeStreams()
