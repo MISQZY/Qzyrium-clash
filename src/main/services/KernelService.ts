@@ -294,10 +294,12 @@ export class KernelService implements BaseService {
       throw new KernelOperationError('permission', 'TUN requires administrator privileges')
     }
 
-    // Capture the physical source before TUN can alter routing. This is bounded
-    // by GeoIpService and never blocks Electron's event loop or window creation.
-    const origin = this.geoIp.captureOrigin(true).catch(() => {})
-    if (settings.kernel.tun.enable) await origin
+    // Capture the physical source before TUN can alter routing if the 3D globe is active.
+    // Skip external unproxied origin lookups in lite dashboard mode or direct routing.
+    if (!settings.general?.liteDashboard && settings.kernel?.mode !== 'direct') {
+      const origin = this.geoIp.captureOrigin(false).catch(() => {})
+      if (settings.kernel.tun.enable) await origin
+    }
 
     await installGeoResources(paths)
 
