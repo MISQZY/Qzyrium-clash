@@ -10,20 +10,27 @@ interface ProfileLogoProps {
 
 const loadedUrls = new Set<string>()
 
+function isValidLogoUrl(url?: string): boolean {
+  if (!url) return false
+  return url.startsWith('https://') || url.startsWith('data:image/')
+}
+
 export function ProfileLogo({ url, className, fallback, loaderClassName, loaderSize }: ProfileLogoProps) {
-  const [hasError, setHasError] = useState(false)
-  const [isLoading, setIsLoading] = useState(() => Boolean(url && !loadedUrls.has(url)))
+  const isSafeUrl = isValidLogoUrl(url)
+  const [hasError, setHasError] = useState(!isSafeUrl)
+  const [isLoading, setIsLoading] = useState(() => Boolean(isSafeUrl && url && !loadedUrls.has(url)))
   const [prevUrl, setPrevUrl] = useState(url)
 
   if (url !== prevUrl) {
     setPrevUrl(url)
-    setHasError(false)
-    setIsLoading(Boolean(url && !loadedUrls.has(url)))
+    const valid = isValidLogoUrl(url)
+    setHasError(!valid)
+    setIsLoading(Boolean(valid && url && !loadedUrls.has(url)))
   }
 
   useEffect(() => {
-    if (!url) {
-      setHasError(false)
+    if (!url || !isValidLogoUrl(url)) {
+      setHasError(!url || !isValidLogoUrl(url))
       setIsLoading(false)
       return
     }
@@ -36,6 +43,7 @@ export function ProfileLogo({ url, className, fallback, loaderClassName, loaderS
 
     let active = true
     const img = new Image()
+    img.referrerPolicy = 'no-referrer'
 
     const handleSuccess = () => {
       if (!active) return
@@ -108,6 +116,8 @@ export function ProfileLogo({ url, className, fallback, loaderClassName, loaderS
     <img
       src={url}
       alt=""
+      referrerPolicy="no-referrer"
+      crossOrigin="anonymous"
       className={className}
       onError={() => {
         loadedUrls.delete(url)
