@@ -6,6 +6,8 @@ const path = require('node:path')
 const output = path.resolve(__dirname, '../artifacts/theme-contrast-ui-check')
 fs.mkdirSync(output, { recursive: true })
 app.setPath('userData', path.join(output, 'user-data'))
+const { renderingSwitches } = require('./fixtures/rendering.cjs')
+for (const [name, value] of renderingSwitches(process.platform)) app.commandLine.appendSwitch(name, value)
 app.commandLine.appendSwitch('force-device-scale-factor', process.env.UI_DISPLAY_SCALE || '1')
 app.commandLine.appendSwitch('force-prefers-reduced-motion', 'reduce')
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -87,12 +89,21 @@ app.whenReady().then(async () => {
         }
         await waitFor(`document.querySelector('.overview-power').getAttribute('aria-pressed') === '${running}'`)
         await delay(1200)
-        const maxAlpha = await evaluate(`(() => {
+        const land = await evaluate(`(() => {
           const canvas = document.querySelector('.globe-canvas');
           const data = canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
-          let max = 0; for (let i = 3; i < data.length; i += 4) max = Math.max(max,data[i]); return max;
+          let maxAlpha = 0, visiblePixels = 0;
+          for (let i = 3; i < data.length; i += 4) {
+            maxAlpha = Math.max(maxAlpha, data[i]);
+            if (data[i] >= 128) visiblePixels++;
+          }
+          return { maxAlpha, visibleFraction: visiblePixels / (canvas.width * canvas.height) };
         })()`)
-        assert.ok(maxAlpha >= 200, `${id} ${running}: globe land must remain visible`)
+        // Dormant land intentionally uses 58% opacity (alpha ~148). Requiring
+        // alpha 200 depended on overlapping dots, which vary with rasterization.
+        // Check both visibility and coverage so a few opaque dots cannot pass.
+        assert.ok(land.maxAlpha >= 128 && land.visibleFraction >= 0.005,
+          `${id} ${running}: globe land must remain visible: ${JSON.stringify(land)}`)
         await screenshot(`${id}-${running ? 'connected' : 'disconnected'}`)
       }
     }
