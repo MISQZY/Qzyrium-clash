@@ -297,6 +297,33 @@ async function verifyProfiles() {
   await profiles.updateProfileInfo('a', { updateViaProxy: false })
   await profiles.updateProfile('a')
   assert.equal(requestProxies.at(-1), false, 'updates with updateViaProxy false route directly')
+  for (const patch of [{ url: 'https://fixture/replaced' }, { customUA: 'New client' },
+    { updateViaProxy: true }, { sendHwid: true }]) {
+    let finish
+    profiles.subscriptions = { download: () => new Promise(resolve => { finish = resolve }) }
+    const before = files.get(path.resolve('profiles', 'a.yaml'))
+    const pending = profiles.updateProfile('a')
+    await profiles.updateProfileInfo('a', patch)
+    const expected = profiles.getProfiles().find(profile => profile.id === 'a')
+    finish({ content: 'stale response', providerName: 'Stale provider', userInfo: { total: 123 } })
+    assert.equal(await pending, false)
+    assert.equal(files.get(path.resolve('profiles', 'a.yaml')), before, 'changed request parameters discard stale content')
+    assert.deepEqual(profiles.getProfiles().find(profile => profile.id === 'a'), expected, 'stale response metadata is also discarded')
+  }
+  // A source edit can already be queued when the response checks current metadata.
+  let releaseQueue, finishDownload
+  const blocked = profiles.repository.update('a', () => new Promise(resolve => { releaseQueue = resolve }))
+  await nextTurn()
+  const editing = profiles.updateProfileInfo('a', { url: 'https://fixture/queued-edit' })
+  profiles.subscriptions = { download: () => new Promise(resolve => { finishDownload = resolve }) }
+  const stale = profiles.updateProfile('a')
+  const beforeQueued = files.get(path.resolve('profiles', 'a.yaml'))
+  finishDownload({ content: 'queued stale response', providerName: 'Old provider' })
+  await nextTurn()
+  releaseQueue()
+  await Promise.all([blocked, editing])
+  assert.equal(await stale, false, 'source identity must be rechecked inside the repository queue')
+  assert.equal(files.get(path.resolve('profiles', 'a.yaml')), beforeQueued)
   await profiles.dispose()
 }
 

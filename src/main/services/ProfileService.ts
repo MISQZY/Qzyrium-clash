@@ -13,6 +13,10 @@ import { prepareProfileContent, validateProfileContent } from '../utils/profile-
 import { SubscriptionDownloadError } from '../utils/subscription-error'
 import { convertSubscriptionToClashYaml } from '@shared/subscription-converter'
 
+const sameSubscription = (current: ProfileItem | undefined, requested: ProfileItem): boolean =>
+  !!current && current.type === requested.type && current.url === requested.url && current.customUA === requested.customUA &&
+  !!current.updateViaProxy === !!requested.updateViaProxy && !!current.sendHwid === !!requested.sendHwid
+
 export class ProfileService implements BaseService {
   private activeProfileId: string | null = null
   private updates = new Map<string, Promise<boolean>>()
@@ -94,10 +98,11 @@ export class ProfileService implements BaseService {
     return true
   }
 
-  async saveProfileContent(id: string, content: string, downloaded = false): Promise<boolean> {
+  async saveProfileContent(id: string, content: string, downloaded = false, requested?: ProfileItem): Promise<boolean> {
     const normalized = convertSubscriptionToClashYaml(content)
     return this.repository.saveContent(id, normalized, profile =>
-      this.validateContent(normalized, profile.customRules, downloaded))
+      this.validateContent(normalized, profile.customRules, downloaded),
+      profile => !requested || sameSubscription(profile, requested))
   }
 
   private async validateContent(content: string, rules?: CustomRuleItem[], downloaded = false): Promise<void> {
@@ -214,19 +219,24 @@ export class ProfileService implements BaseService {
       logger.info(`Updating remote profile ${item.name} from ${sanitizeUrl(item.url)}`)
       const { content, providerName, userInfo, profileLogo, announce, supportUrl, serverInterval, deviceStatus, sendHwid } =
         await this.subscriptions.download(item.url, item.customUA, item.updateViaProxy, item.sendHwid)
-      // A subscription can be removed while its download is in flight.
-      if (!this.repository.get(id)) return false
+      // Discard responses after deletion or a change to the request parameters.
+      if (!sameSubscription(this.repository.get(id), item)) return false
       if (deviceStatus) {
+        let applied = false
         await this.repository.update(id, current => {
+          if (!sameSubscription(current, item)) return
+          applied = true
           current.deviceStatus = deviceStatus
           if (sendHwid) current.sendHwid = true
           if (supportUrl) current.supportUrl = supportUrl
           if (announce) current.announce = announce
         })
+        if (!applied) return false
         throw new SubscriptionDownloadError(deviceStatus === 'limit' ? 'device-limit' : 'hwid-required', (this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG).general)
       }
-      const changed = await this.saveProfileContent(id, content, true)
+      const changed = await this.saveProfileContent(id, content, true, item)
       await this.repository.update(id, current => {
+        if (!sameSubscription(current, item)) return
         current.lastFetchedAt = Date.now()
         if (userInfo) current.userInfo = userInfo
         current.profileLogo = profileLogo

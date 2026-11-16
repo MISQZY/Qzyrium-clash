@@ -105,10 +105,12 @@ export class ProfileRepository {
     })
   }
 
-  saveContent(id: string, content: string, validate: (profile: ProfileItem) => Promise<void>): Promise<boolean> {
+  saveContent(id: string, content: string, validate: (profile: ProfileItem) => Promise<void>,
+    isCurrent: (profile: ProfileItem) => boolean = () => true): Promise<boolean> {
     return this.enqueue(async () => {
       const current = this.profiles.find(profile => profile.id === id)
       if (!current) throw new Error(`Profile ${id} not found`)
+      if (!isCurrent(structuredClone(current))) return false
       const original = await this.content(id)
       if (original === content) return false
       await validate(structuredClone(current))
