@@ -553,10 +553,60 @@ export function parseSocksHttpUri(uri: string): ProxyNodeConfig | null {
   }
 }
 
+export function parseShadowsocksRUri(uri: string): ProxyNodeConfig | null {
+  try {
+    const raw = uri.replace(/^ssr:\/\//i, '').trim()
+    const decoded = decodeBase64Safe(raw)
+    if (!decoded) return null
+
+    const questionIndex = decoded.indexOf('/?')
+    const mainPart = questionIndex !== -1 ? decoded.slice(0, questionIndex) : decoded
+    const queryPart = questionIndex !== -1 ? decoded.slice(questionIndex + 2) : ''
+
+    const parts = mainPart.split(':')
+    if (parts.length < 6) return null
+
+    const server = cleanServerHost(parts[0])
+    const port = Number(parts[1])
+    const protocol = parts[2]
+    const cipher = parts[3]
+    const obfs = parts[4]
+    const password = decodeBase64Safe(parts[5]) || parts[5]
+
+    if (!server || !isValidPort(port) || !cipher || !password) return null
+
+    const params = new URLSearchParams(queryPart)
+    const rawRemarks = params.get('remarks')
+    const name = (rawRemarks ? decodeBase64Safe(rawRemarks) : null) || `${server}:${port}`
+    const protoParam = params.get('protoparam')
+    const obfsParam = params.get('obfsparam')
+
+    const node: ProxyNodeConfig = {
+      name,
+      type: 'ssr',
+      server,
+      port,
+      cipher,
+      password,
+      protocol,
+      obfs,
+      udp: true
+    }
+
+    if (protoParam) node['protocol-param'] = decodeBase64Safe(protoParam) || protoParam
+    if (obfsParam) node['obfs-param'] = decodeBase64Safe(obfsParam) || obfsParam
+
+    return node
+  } catch {
+    return null
+  }
+}
+
 export function parseProxyUri(rawLine: string): ProxyNodeConfig | null {
   const line = rawLine.trim()
   if (!line || line.startsWith('#')) return null
 
+  if (/^ssr:\/\//i.test(line)) return parseShadowsocksRUri(line)
   if (/^ss:\/\//i.test(line)) return parseShadowsocksUri(line)
   if (/^vmess:\/\//i.test(line)) return parseVmessUri(line)
   if (/^vless:\/\//i.test(line)) return parseVlessUri(line)

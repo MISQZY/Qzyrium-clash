@@ -84,8 +84,16 @@ export class MihomoApiClient extends EventEmitter {
   }
 
   async resolveHost(name: string): Promise<string[]> {
-    const { data } = await this.client.get<{ Answer?: { type: number; data: string }[] }>('/dns/query', { params: { name, type: 'A' } })
-    return (data.Answer ?? []).filter((answer) => answer.type === 1 || answer.type === 28).map((answer) => answer.data)
+    try {
+      const [aRes, aaaaRes] = await Promise.all([
+        this.client.get<{ Answer?: { type: number; data: string }[] }>('/dns/query', { params: { name, type: 'A' } }).catch(() => null),
+        this.client.get<{ Answer?: { type: number; data: string }[] }>('/dns/query', { params: { name, type: 'AAAA' } }).catch(() => null)
+      ])
+      const answers = [...(aRes?.data?.Answer ?? []), ...(aaaaRes?.data?.Answer ?? [])]
+      return answers.filter((answer) => answer.type === 1 || answer.type === 28).map((answer) => answer.data)
+    } catch {
+      return []
+    }
   }
 
   async getProviders(kind: ProviderKind): Promise<ProviderSummary[]> {
