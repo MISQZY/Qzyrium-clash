@@ -50,7 +50,7 @@ export function ConnectionsPage({
   }
 
   const activeSnapshot = paused && frozenSnapshot ? frozenSnapshot : connections
-  const { selectedConnection, setSelectedConnection, copiedKey, closing, error, handleCopy, close } = actions
+  const { selectedConnection, setSelectedConnection, closing, error, close } = actions
 
   const matchingConnections = useMemo(() => filterConnections(activeSnapshot.connections, query, protocolFilter),
     [activeSnapshot.connections, query, protocolFilter])
@@ -149,8 +149,6 @@ export function ConnectionsPage({
       <ConnectionDetailsDialog
         activeDetail={activeDetail}
         setSelectedConnection={setSelectedConnection}
-        handleCopy={handleCopy}
-        copiedKey={copiedKey}
         closing={closing}
         close={close}
         onQuickRule={(item) => {

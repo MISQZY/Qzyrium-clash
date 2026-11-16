@@ -15,11 +15,9 @@ import { ConnectionApplicationSection } from './connection-details/ConnectionApp
 import { ConnectionRouteSection } from './connection-details/ConnectionRouteSection'
 import { ConnectionMetadataSection } from './connection-details/ConnectionMetadataSection'
 
-export function ConnectionDetailsDialog({ activeDetail, setSelectedConnection, handleCopy, copiedKey, closing, close, onQuickRule }: {
+export function ConnectionDetailsDialog({ activeDetail, setSelectedConnection, closing, close, onQuickRule }: {
   activeDetail: ConnectionItem | null
   setSelectedConnection: (item: ConnectionItem | null) => void
-  handleCopy: (text: string, key: string) => Promise<void>
-  copiedKey: string | null
   closing: boolean
   close: (id?: string) => Promise<void>
   onQuickRule?: (item: ConnectionItem) => void
@@ -96,11 +94,7 @@ export function ConnectionDetailsDialog({ activeDetail, setSelectedConnection, h
               <ConnectionApplicationSection metadata={activeDetail.metadata} />
 
               {/* Routing & Proxy Chain Section */}
-              <ConnectionRouteSection
-                connection={activeDetail}
-                handleCopy={handleCopy}
-                copiedKey={copiedKey}
-              />
+              <ConnectionRouteSection connection={activeDetail} />
 
               {/* System & Metadata Section */}
               <ConnectionMetadataSection connection={activeDetail} />

@@ -1,27 +1,14 @@
 import { type ProcessGroup } from '../lib/connections'
 import { useTranslations } from '../i18n'
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 
 import type { ConnectionItem } from '@shared/mihomo'
-
-import { copyToClipboard } from '../lib/clipboard'
 
 export function useConnectionActions(onRefresh: () => void) {
   const t = useTranslations('connections')
   const [selectedConnection, setSelectedConnection] = useState<ConnectionItem | null>(null)
-  const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
   const [error, setError] = useState('')
-
-  const handleCopy = useCallback(async (text: string, key: string) => {
-    const ok = await copyToClipboard(text)
-    if (ok) {
-      setCopiedKey(key)
-      setTimeout(() => {
-        setCopiedKey((prev) => (prev === key ? null : prev))
-      }, 1800)
-    }
-  }, [])
 
   const close = async (id?: string) => {
     if (!window.api || closing || (!id && !confirm(t('terminateAllActiveSessions')))) return
@@ -62,7 +49,7 @@ export function useConnectionActions(onRefresh: () => void) {
     }
   }
 
-  return { selectedConnection, setSelectedConnection, copiedKey, closing, error, handleCopy, close, closeProcessConnections }
+  return { selectedConnection, setSelectedConnection, closing, error, close, closeProcessConnections }
 }
 
 export type ConnectionActions = ReturnType<typeof useConnectionActions>

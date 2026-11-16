@@ -1,3 +1,4 @@
+import { useCopyFeedback } from '../../hooks/useCopyFeedback'
 import { ProcessIcon } from '../ProcessIcon'
 import { getProcessDisplayName, getNetworkBadgeClass, formatChain } from '../../lib/connections'
 import { useTranslations } from '../../i18n'
@@ -14,14 +15,15 @@ import type { ConnectionActions } from '../../hooks/useConnectionActions'
 
 interface ConnectionCardProps {
   item: ConnectionItem
-  actions: Pick<ConnectionActions, 'setSelectedConnection' | 'handleCopy' | 'copiedKey' | 'closing' | 'close'> & {
+  actions: Pick<ConnectionActions, 'setSelectedConnection' | 'closing' | 'close'> & {
     onQuickRule?: (item: ConnectionItem) => void
   }
 }
 
 export function ConnectionCard({ item, actions }: ConnectionCardProps) {
+  const { handleCopy, copiedKey } = useCopyFeedback()
   const t = useTranslations('connections')
-  const { setSelectedConnection, handleCopy, copiedKey, closing, close } = actions
+  const { setSelectedConnection, closing, close } = actions
 
   const procName = getProcessDisplayName(item.metadata.processPath, item.metadata.process, t('system'))
   const duration = formatDurationFromStart(item.start)

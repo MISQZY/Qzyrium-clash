@@ -1,3 +1,4 @@
+import { useCopyFeedback } from '../../hooks/useCopyFeedback'
 import { Layers, Copy, Check } from 'lucide-react'
 import type { ConnectionItem } from '@shared/mihomo'
 import { CopyableCodeLine } from '../CopyableCodeLine'
@@ -8,11 +9,10 @@ import { ConnectionSection } from './ConnectionSection'
 
 export interface ConnectionRouteSectionProps {
   connection: ConnectionItem
-  handleCopy: (text: string, key: string) => Promise<void>
-  copiedKey: string | null
 }
 
-export function ConnectionRouteSection({ connection, handleCopy, copiedKey }: ConnectionRouteSectionProps) {
+export function ConnectionRouteSection({ connection }: ConnectionRouteSectionProps) {
+  const { handleCopy, copiedKey } = useCopyFeedback()
   const t = useTranslations('connections')
   const chainVal = formatChain(connection.chains)
   const chainCopyKey = `chain-${connection.id}`
