@@ -29,6 +29,10 @@ function hasBinaryControlChars(str: string): boolean {
   return false
 }
 
+function isValidPort(port: number): boolean {
+  return Number.isInteger(port) && port >= 1 && port <= 65535
+}
+
 export function decodeBase64Safe(input: string): string | null {
   const cleaned = input.trim().replace(/\s+/g, '')
   if (cleaned.length < 4) return null
@@ -94,7 +98,7 @@ export function parseShadowsocksUri(uri: string): ProxyNodeConfig | null {
       if (!decoded || !decoded.includes('@')) return null
       const atIndex = decoded.lastIndexOf('@')
       const userInfoPart = decoded.slice(0, atIndex)
-      const serverPortPart = decoded.slice(atIndex + 1)
+      const serverPortPart = decoded.slice(atIndex + 1).replace(/\/.*$/, '')
 
       const colonIndex = userInfoPart.indexOf(':')
       if (colonIndex === -1) return null
@@ -107,7 +111,7 @@ export function parseShadowsocksUri(uri: string): ProxyNodeConfig | null {
       port = Number(serverPortPart.slice(lastColon + 1))
     }
 
-    if (!server || !port || isNaN(port) || port < 1 || port > 65535 || !cipher || !password) {
+    if (!server || !isValidPort(port) || !cipher || !password) {
       return null
     }
 
@@ -158,7 +162,7 @@ export function parseVmessUri(uri: string): ProxyNodeConfig | null {
     const server = cleanServerHost(String(json.add || json.address || ''))
     const port = Number(json.port)
     const uuid = String(json.id || '')
-    if (!server || !port || isNaN(port) || !uuid) return null
+    if (!server || !isValidPort(port) || !uuid) return null
 
     const name = safeDecodeURIComponent(String(json.ps || '')).trim() || `${server}:${port}`
     const cipher = String(json.scy || json.cipher || 'auto')
@@ -217,18 +221,19 @@ export function parseVlessUri(uri: string): ProxyNodeConfig | null {
   try {
     const url = new URL(uri)
     const server = cleanServerHost(url.hostname)
-    const port = Number(url.port)
+    const port = Number(url.port || 443)
     const uuid = url.username
-    if (!server || !port || isNaN(port) || !uuid) return null
+    if (!server || !isValidPort(port) || !uuid) return null
 
     const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `${server}:${port}`
     const params = url.searchParams
     const security = params.get('security')?.toLowerCase() || 'none'
+    const pbk = params.get('pbk')
+    if (security === 'reality' && !pbk) return null
     const network = params.get('type')?.toLowerCase() || 'tcp'
     const flow = params.get('flow')
     const sni = params.get('sni') || params.get('host')
     const fp = params.get('fp')
-    const pbk = params.get('pbk')
     const sid = params.get('sid')
     const path = params.get('path') || '/'
     const host = params.get('host')
@@ -405,7 +410,7 @@ export function parseTrojanUri(uri: string): ProxyNodeConfig | null {
     const server = cleanServerHost(url.hostname)
     const port = Number(url.port || 443)
     const password = safeDecodeURIComponent(url.username)
-    if (!server || !port || isNaN(port) || !password) return null
+    if (!server || !isValidPort(port) || !password) return null
 
     const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `${server}:${port}`
     const params = url.searchParams
@@ -454,7 +459,7 @@ export function parseHysteria2Uri(uri: string): ProxyNodeConfig | null {
     const server = cleanServerHost(url.hostname)
     const port = Number(url.port || 443)
     const password = safeDecodeURIComponent(url.password ? `${url.username}:${url.password}` : url.username)
-    if (!server || !port || isNaN(port) || !password) return null
+    if (!server || !isValidPort(port) || !password) return null
 
     const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `${server}:${port}`
     const params = url.searchParams
@@ -492,7 +497,7 @@ export function parseTuicUri(uri: string): ProxyNodeConfig | null {
     const port = Number(url.port || 443)
     const uuid = url.username
     const password = url.password ? safeDecodeURIComponent(url.password) : undefined
-    if (!server || !port || isNaN(port) || !uuid) return null
+    if (!server || !isValidPort(port) || !uuid) return null
 
     const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `${server}:${port}`
     const params = url.searchParams
@@ -526,7 +531,7 @@ export function parseSocksHttpUri(uri: string): ProxyNodeConfig | null {
     const url = new URL(uri)
     const server = cleanServerHost(url.hostname)
     const port = Number(url.port || (url.protocol.toLowerCase() === 'http:' ? 80 : 0))
-    if (!server || !port || isNaN(port)) return null
+    if (!server || !isValidPort(port)) return null
 
     const isHttp = url.protocol.toLowerCase().startsWith('http')
     const type = isHttp ? 'http' : 'socks5'

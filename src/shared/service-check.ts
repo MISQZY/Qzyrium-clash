@@ -87,5 +87,5 @@ export function matchesServiceHttpStatus(expected: string, status: number): bool
 
 export function canCheckProxyServices(node?: { type: string; all?: unknown }): boolean {
   return !!node && !Array.isArray(node.all) &&
-    !['direct', 'reject', 'rejectdrop', 'pass', 'compatible'].includes(node.type.toLowerCase())
+    !['direct', 'reject', 'reject-drop', 'rejectdrop', 'pass', 'compatible'].includes(node.type.toLowerCase())
 }

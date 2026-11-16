@@ -7,8 +7,14 @@ type RecordValue = Record<string, unknown>
 const record = (value: unknown): value is RecordValue => !!value && typeof value === 'object' && !Array.isArray(value)
 const records = (value: unknown): RecordValue[] => Array.isArray(value) ? value.filter(record) : []
 const strings = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
-const expression = (value: unknown): RegExp | undefined => typeof value === 'string'
-  ? new RegExp(value.replace(/\(\?i\)/g, ''), value.includes('(?i)') ? 'i' : '') : undefined
+const expression = (value: unknown): RegExp | undefined => {
+  if (typeof value !== 'string' || value.length > 500) return undefined
+  try {
+    return new RegExp(value.replace(/\(\?i\)/g, ''), value.includes('(?i)') ? 'i' : '')
+  } catch {
+    return undefined
+  }
+}
 
 /** Display metadata from the profile and downloaded providers; never starts Mihomo. */
 export async function offlineProxies(config: RecordValue, root: string, selected: Record<string, string> = {}): Promise<Record<string, ProxyNode>> {

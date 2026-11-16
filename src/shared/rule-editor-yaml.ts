@@ -63,7 +63,12 @@ export function serializeRulesToYaml(ruleList: RuleItem[], messages: (key: YamlC
   }
 
 export function parseYamlToVisualRules(yamlStr: string, baseRuleList: RuleItem[]): RuleItem[] {
-    const parsed = yaml.parse(yamlStr) as Record<string, unknown> | null
+    let parsed: Record<string, unknown> | null
+    try {
+      parsed = yaml.parse(yamlStr) as Record<string, unknown> | null
+    } catch {
+      return baseRuleList
+    }
     const base = baseRuleList.map((rule) => ({
       ...rule,
       ...(rule.sourceRule === undefined ? {} : parseRuleStringToItem(rule.sourceRule)),

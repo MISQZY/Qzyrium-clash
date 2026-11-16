@@ -600,9 +600,14 @@ export class KernelService implements BaseService {
     if (this.getStatus() === 'running') return this.apiClient.getProxies()
     const profile = this.profileService.getActiveProfile()
     if (!profile) return {}
-    const content = await this.profileService.getProfileContent(profile.id)
-    if (content === null) return {}
-    return offlineProxies(yaml.parse(content) as Record<string, unknown>, getAppPaths().mihomoDir, profile.selectedGroupProxies)
+    try {
+      const content = await this.profileService.getProfileContent(profile.id)
+      if (content === null) return {}
+      return await offlineProxies(yaml.parse(content) as Record<string, unknown>, getAppPaths().mihomoDir, profile.selectedGroupProxies)
+    } catch (err) {
+      logger.warn(`Failed to load offline proxies: ${String(err)}`)
+      return {}
+    }
   }
 
   async selectProxy(group: string, proxy: string): Promise<void> {
