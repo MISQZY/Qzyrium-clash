@@ -1,7 +1,7 @@
 import { NativeSelect } from '../components/ui/native-select'
 import { useTranslations } from '../i18n'
 import React, { useMemo, useState } from 'react'
-import { RefreshCw, Search } from 'lucide-react'
+import { RefreshCw, Search, Sliders } from 'lucide-react'
 import { RulesIcon } from '../lib/icons'
 import type { MihomoRule } from '@shared/mihomo'
 import { Page } from '../components/Page'
@@ -10,6 +10,7 @@ import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
 import { ProvidersDialog } from '../components/ProvidersDialog'
 import { CopyableCodeLine } from '../components/CopyableCodeLine'
+import { SplitTunnelingDialog } from '../components/rules/SplitTunnelingDialog'
 
 export interface RulesPageProps {
   rules: MihomoRule[]
@@ -31,6 +32,7 @@ export function RulesPage({
   const [query, setQuery] = useState('')
   const [type, setType] = useState('all')
   const [page, setPage] = useState(0)
+  const [splitTunnelOpen, setSplitTunnelOpen] = useState(false)
 
   const deferredQuery = React.useDeferredValue(query)
   const types = useMemo(() => [...new Set(rules.map((rule) => rule.type))].sort(), [rules])
@@ -64,6 +66,15 @@ export function RulesPage({
             running={running}
             onUpdated={onRefresh}
           />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSplitTunnelOpen(true)}
+            className="gap-1.5"
+          >
+            <Sliders className="size-3.5" />
+            <span>{t('splitTunneling')}</span>
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -184,6 +195,12 @@ export function RulesPage({
           </div>
         </div>
       )}
+
+      <SplitTunnelingDialog
+        open={splitTunnelOpen}
+        onOpenChange={setSplitTunnelOpen}
+        onSaved={onRefresh}
+      />
     </Page>
   )
 }

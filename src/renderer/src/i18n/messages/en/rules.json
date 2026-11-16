@@ -36,5 +36,22 @@
   "yamlDescription": "Edit or paste profile rules in YAML format.",
   "custom": "Custom",
   "actions": "Actions",
-  "source": "Source"
+  "source": "Source",
+  "splitTunneling": "Split Tunneling",
+  "splitTunnelingTitle": "Per-App Split Tunneling",
+  "splitTunnelingDescription": "Configure routing rules for specific applications (.exe)",
+  "splitMode": "Routing mode",
+  "blacklistMode": "Exceptions (Blacklist)",
+  "blacklistDesc": "All traffic routes through VPN, except selected applications (Direct)",
+  "whitelistMode": "Inclusions (Whitelist)",
+  "whitelistDesc": "Only selected applications route through VPN, all others route directly",
+  "configuredApps": "Configured applications",
+  "noConfiguredApps": "No applications configured yet",
+  "activeProcesses": "Running applications",
+  "popularPresets": "Popular presets",
+  "addCustomApp": "Add application (.exe)",
+  "appNamePlaceholder": "e.g. discord.exe",
+  "appliedSuccessfully": "Rules applied successfully",
+  "add": "Add",
+  "toggleRouting": "Toggle DIRECT / PROXY"
 }

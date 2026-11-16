@@ -36,5 +36,22 @@
   "yamlDescription": "Редактируйте или вставляйте правила профиля в формате YAML.",
   "custom": "Своё",
   "actions": "Действия",
-  "source": "Источник"
+  "source": "Источник",
+  "splitTunneling": "Split Tunneling",
+  "splitTunnelingTitle": "Раздельное туннелирование приложений",
+  "splitTunnelingDescription": "Настройте правила маршрутизации для конкретных приложений (.exe)",
+  "splitMode": "Режим работы",
+  "blacklistMode": "Исключения (Blacklist)",
+  "blacklistDesc": "Весь трафик идет через VPN, кроме выбранных приложений (Direct)",
+  "whitelistMode": "Включения (Whitelist)",
+  "whitelistDesc": "Только выбранные приложения идут через VPN, остальные напрямую",
+  "configuredApps": "Настроенные приложения",
+  "noConfiguredApps": "Приложения еще не добавлены",
+  "activeProcesses": "Запущенные приложения",
+  "popularPresets": "Популярные пресеты",
+  "addCustomApp": "Добавить приложение (.exe)",
+  "appNamePlaceholder": "например, discord.exe",
+  "appliedSuccessfully": "Правила успешно применены",
+  "add": "Добавить",
+  "toggleRouting": "Переключить DIRECT / PROXY"
 }
