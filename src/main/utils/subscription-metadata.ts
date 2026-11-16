@@ -32,7 +32,7 @@ function getHeader(headers: Record<string, unknown> | undefined, key: string): s
   return undefined
 }
 
-function parseProfileLogo(raw: string | undefined): string | undefined {
+function parseHttpsUrl(raw: string | undefined): string | undefined {
   if (!raw || typeof raw !== 'string') return undefined
   const trimmed = raw.trim()
   try {
@@ -44,17 +44,8 @@ function parseProfileLogo(raw: string | undefined): string | undefined {
   return undefined
 }
 
-function parseSupportUrl(raw: string | undefined): string | undefined {
-  if (!raw || typeof raw !== 'string') return undefined
-  const trimmed = raw.trim()
-  try {
-    const url = new URL(trimmed)
-    if (url.protocol === 'https:') return trimmed
-  } catch {
-    // Invalid URL
-  }
-  return undefined
-}
+const parseProfileLogo = parseHttpsUrl
+const parseSupportUrl = parseHttpsUrl
 
 function parseAnnounce(raw: string | undefined): string | undefined {
   if (!raw || typeof raw !== 'string') return undefined

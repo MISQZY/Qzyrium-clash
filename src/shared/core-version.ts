@@ -1,5 +1,3 @@
-import path from 'node:path'
-
 export type CoreChannel = 'stable' | 'alpha'
 
 export interface CoreVersionInfo {
@@ -124,7 +122,8 @@ export function parseChecksumsTxt(content: string): Map<string, string> {
     const match = /^([a-f0-9]{64})\s+(?:\.\/)?([^\s\r\n]+)$/i.exec(trimmed)
     if (match) {
       const hash = match[1].toLowerCase()
-      const filename = path.basename(match[2].trim())
+      const rawFile = match[2].trim()
+      const filename = rawFile.replace(/^.*[/\\]/, '')
       result.set(filename, hash)
     }
   }

@@ -1,5 +1,5 @@
 import type { CustomRuleItem } from './profile'
-import { insertRuleOverrides } from './rules'
+import { insertRuleOverrides, splitRuleFields } from './rules'
 
 export interface RuleItem {
   id: string
@@ -71,25 +71,7 @@ export const createRuleId = (): string => {
 export const logicalRuleTypes = new Set(['AND', 'OR', 'NOT'])
 export const isLogicalRuleType = (ruleType: string): boolean => logicalRuleTypes.has(ruleType.toUpperCase())
 
-export const splitByTopLevelCommas = (value: string): string[] => {
-  const parts: string[] = []
-  let current = ''
-  let depth = 0
-
-  for (const char of value) {
-    if (char === ',' && depth === 0) {
-      parts.push(current)
-      current = ''
-      continue
-    }
-    if (char === '(') depth += 1
-    else if (char === ')') depth = Math.max(0, depth - 1)
-    current += char
-  }
-
-  parts.push(current)
-  return parts
-}
+export const splitByTopLevelCommas = splitRuleFields
 
 export const isFullyWrappedByParentheses = (value: string): boolean => {
   if (!value.startsWith('(') || !value.endsWith(')')) return false
