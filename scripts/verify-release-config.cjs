@@ -13,6 +13,8 @@ const config = yaml.parse(fs.readFileSync('electron-builder.yml', 'utf8'))
 
 async function verify() {
   await validateConfiguration(config, { add() {} })
+  const { getPath7za } = builderRequire('app-builder-lib/out/toolsets/7zip')
+  assert.equal(typeof getPath7za, 'function', 'installer payload checks use the installed builder toolset')
   const root = process.cwd()
   const stat = { isDirectory: () => false }
   const mainFilter = new FileMatcher(root, '/package', value => value, config.files).createFilter()

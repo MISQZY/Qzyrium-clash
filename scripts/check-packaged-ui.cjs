@@ -57,7 +57,9 @@ let applicationPid
 ;(async () => {
   if (installerPayload) {
     const { createRequire } = require('node:module')
-    const { path7za } = createRequire(require.resolve('electron-builder'))('7zip-bin')
+    const builderRequire = createRequire(require.resolve('electron-builder'))
+    const { getPath7za } = builderRequire('app-builder-lib/out/toolsets/7zip')
+    const path7za = await getPath7za()
     const payload = path.join(output, 'installer-payload')
     // Verify the installer contents without executing its system registration,
     // elevation, shortcuts or uninstall hooks on the developer's machine.
