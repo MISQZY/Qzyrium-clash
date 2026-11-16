@@ -148,6 +148,8 @@ export class UpdateService implements BaseService {
             notes.push(...comparison.commits.map(({ commit }) => commit.message.split('\n')[0].trim()).filter((subject) => subject && !subject.startsWith('Merge ') && !BUMP_COMMIT.test(subject)))
             if (comparison.commits.length < 100) break
           }
+          // Compare returns oldest first; reverse all pages to show the newest changes first.
+          notes.reverse()
         } catch (error) {
           logger.warn(`Unable to load commit notes for ${release.tag_name}: ${String(error)}`)
           notes = release.body?.trim() ? [release.body.trim()] : []

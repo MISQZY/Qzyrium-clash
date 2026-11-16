@@ -146,9 +146,21 @@ async function verify() {
   await upgraded.initialize()
   const notes = await upgraded.service.getWhatsNew()
   assert.deepEqual(notes.entries.map(entry => entry.version), ['0.3.0', '0.2.0'])
-  assert.deepEqual(notes.entries[0].notes, ['Fix VPN', 'Add feature'])
+  assert.deepEqual(notes.entries[0].notes, ['Add feature', 'Fix VPN'], 'newest commits appear first within each release')
   assert.ok(upgraded.requests.every(url => url.startsWith('https://api.github.com/repos/MISQZY/Qzyrium-clash/')))
   assert.equal(await upgraded.service.getWhatsNew(), notes, 'notes are fetched once per launch')
+  const paginated = fixture({ lastVersion: '0.2.0', fetch: (url) => {
+    if (url.includes('/releases?')) return [{ tag_name: 'v0.3.0' }, { tag_name: 'v0.2.0' }]
+    const messages = url.endsWith('page=1')
+      ? Array.from({ length: 100 }, (_, index) => `Change ${index + 1}`)
+      : ['Change 101', 'chore: bump version to 0.3.0', 'Merge branch main', 'Change 102']
+    return { commits: messages.map(message => ({ commit: { message } })) }
+  } })
+  await paginated.initialize()
+  assert.deepEqual((await paginated.service.getWhatsNew()).entries[0].notes,
+    Array.from({ length: 102 }, (_, index) => `Change ${102 - index}`),
+    'newest commits appear first across page boundaries, excluding merge and version bump commits')
+  assert.equal(paginated.requests.filter(url => url.includes('/compare/')).length, 2)
   const offline = fixture({ lastVersion: '0.1.0', fetch: () => { throw new Error('offline') } })
   await offline.initialize()
   assert.equal(await offline.service.getWhatsNew(), null)
