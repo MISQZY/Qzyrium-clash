@@ -24,6 +24,30 @@ async function verify() {
   assert.equal(original.ProxyServer.data, 'company proxy:8080')
   assert.equal(original.ProxyOverride.data, '')
   assert.equal(original.AutoConfigURL.type, 'REG_EXPAND_SZ')
+  let deleteError = new Error('Access denied'), queryError = null, present = true
+  const failing = loadTypeScript('src/main/utils/windows-proxy.ts', {
+    'node:util': { promisify: fn => (...args) => new Promise((resolve, reject) => fn(...args,
+      (error, stdout, stderr) => error ? reject(error) : resolve({ stdout, stderr }))) },
+    './paths': { getAppPaths() { throw new Error('Tests must not access userData') } },
+    'node:child_process': { execFile(_file, args, _options, callback) {
+      if (args[0] === 'delete') callback(deleteError)
+      else callback(queryError, present ? '    AutoConfigURL    REG_SZ    company.pac\r\n' : '')
+    } }
+  })
+  await assert.rejects(failing.windowsProxyRegistry.write('AutoConfigURL', null), /Access denied/)
+  deleteError = Object.assign(new Error('Registry timeout'), { killed: true })
+  await assert.rejects(failing.windowsProxyRegistry.write('AutoConfigURL', null), /Registry timeout/)
+  present = false
+  await failing.windowsProxyRegistry.write('AutoConfigURL', null)
+  queryError = new Error('Registry query failed')
+  await assert.rejects(failing.windowsProxyRegistry.write('AutoConfigURL', null), /Registry query failed/)
+
+  const failedJournal = path.join(directory, 'failed-recovery.json')
+  fs.writeFileSync(failedJournal, JSON.stringify({ version: 1, values: { ...original, AutoConfigURL: null } }))
+  present = true
+  queryError = null
+  await assert.rejects(new failing.WindowsProxySettings(failing.windowsProxyRegistry, () => failedJournal).restore(), /Registry timeout/)
+  assert.ok(fs.existsSync(failedJournal), 'real registry deletion errors must preserve the recovery journal')
   let values = structuredClone(original), failName = null
   const writes = []
   const backend = {

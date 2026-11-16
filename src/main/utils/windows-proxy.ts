@@ -36,8 +36,10 @@ export const windowsProxyRegistry: ProxyRegistry = {
     } else {
       try {
         await execute(getSystemBinary('reg.exe'), ['delete', registryKey, '/v', name, '/f'], { windowsHide: true, timeout: 5000 })
-      } catch {
-        // Value already absent from registry
+      } catch (error) {
+        // reg.exe also fails for missing values. Verify absence before treating
+        // a failed delete as successful so recovery can retry real failures.
+        if ((await this.read())[name] !== null) throw error
       }
     }
   }
