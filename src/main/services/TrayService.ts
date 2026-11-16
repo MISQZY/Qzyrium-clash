@@ -64,6 +64,8 @@ export class TrayService implements BaseService {
     this.updateContextMenu()
   }
 
+  private lastToolTipUpdate = 0
+
   updateTraffic(stats: TrafficStats): void {
     if (!this.tray) return
     const upRate = Math.max(0, Number.isFinite(stats.up) ? stats.up : 0)
@@ -72,7 +74,9 @@ export class TrayService implements BaseService {
     this.traffic.down = downRate
     this.traffic.totalUp += upRate
     this.traffic.totalDown += downRate
-    if (this.kernelService.getStatus() === 'running') {
+    const now = Date.now()
+    if (this.kernelService.getStatus() === 'running' && now - this.lastToolTipUpdate >= 5000) {
+      this.lastToolTipUpdate = now
       this.updateToolTip()
     }
   }

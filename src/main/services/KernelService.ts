@@ -271,7 +271,9 @@ export class KernelService implements BaseService {
     })
 
     this.apiClient.on('traffic', (stats: TrafficStats) => {
-      this.broadcaster?.('event:traffic', stats)
+      if (!this.streamsPaused) {
+        this.broadcaster?.('event:traffic', stats)
+      }
     })
 
     // The process pipes are the single source of core logs, including startup
@@ -383,6 +385,7 @@ export class KernelService implements BaseService {
 
   pauseStreams(): void {
     this.streamsPaused = true
+    this.apiClient.stopTrafficStream()
     this.globeResolver.releaseCaches()
     this.geoIp.releaseWorker()
   }

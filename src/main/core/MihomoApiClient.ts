@@ -35,6 +35,7 @@ export class MihomoApiClient extends EventEmitter {
   }
 
   reconfigure(host: string, port: number, secret: string): void {
+    this.stopAllStreams()
     this.host = host
     this.port = port
     this.secret = secret
