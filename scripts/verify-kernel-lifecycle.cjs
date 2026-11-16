@@ -54,6 +54,7 @@ async function verifyLinuxLaunch() {
 
 async function verifyRestart() {
   const children = [], timers = [], probes = []
+  let registryReady = true
   let now = 0
   const flush = () => new Promise(resolve => setImmediate(resolve))
   const { MihomoProcessManager } = load('src/main/core/MihomoProcessManager.ts', {
@@ -66,7 +67,9 @@ async function verifyRestart() {
         return child
       }, execFile(_file, _args, _options, callback) { callback(null, '', '') }
     },
-    axios: { get: (url, options) => new Promise((resolve, reject) => { probes.push({ url, options, resolve, reject }) }) },
+    axios: { get: (url, options) => url.endsWith('/proxies')
+      ? Promise.resolve({ data: { proxies: registryReady ? { GLOBAL: { all: ['DIRECT'] } } : {} } })
+      : new Promise((resolve, reject) => { probes.push({ url, options, resolve, reject }) }) },
     fs: { existsSync: () => true }, '../utils/paths': { getAppPaths: () => ({ coreBinaryPath: 'fixture-mihomo' }) }, '../utils/logger': { logger }
   }, { setTimeout: (callback, delay) => { const timer = { callback, delay }; timers.push(timer); return timer }, clearTimeout: (timer) => { timer.cancelled = true }, Date: class extends Date { static now() { return now } } })
   const manager = new MihomoProcessManager()
@@ -115,7 +118,14 @@ async function verifyRestart() {
   assert.equal(manager.getState(), 'starting')
   timers.filter(timer => timer.delay === 200).at(-1).callback()
   await flush()
-  probes[3].resolve({ data: { version: 'ready after retry' } })
+  registryReady = false
+  probes[3].resolve({ data: { version: 'controller ready, configuration still loading' } })
+  await flush()
+  assert.equal(manager.getState(), 'starting', 'an available controller with an empty registry is not ready')
+  registryReady = true
+  timers.filter(timer => timer.delay === 200).at(-1).callback()
+  await flush()
+  probes[4].resolve({ data: { version: 'ready after configuration' } })
   await delayedStart
   assert.equal(manager.getState(), 'running', 'API readiness is retried')
   const delayedStop = manager.stop()
@@ -124,7 +134,7 @@ async function verifyRestart() {
   const timeoutStart = start()
   const timeoutAssertion = assert.rejects(timeoutStart, /did not become ready/)
   await flush()
-  probes[4].reject(new Error('offline'))
+  probes[5].reject(new Error('offline'))
   await flush()
   now = 15001
   timers.filter(timer => timer.delay === 200).at(-1).callback()

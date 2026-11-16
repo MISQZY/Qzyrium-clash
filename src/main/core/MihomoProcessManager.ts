@@ -245,8 +245,16 @@ export class MihomoProcessManager extends EventEmitter {
           headers: secret ? { Authorization: `Bearer ${secret}` } : undefined
         })
         if (current() && typeof data?.version === 'string') {
-          this.setState('running')
-          return
+          // The controller accepts requests before configuration (including TUN)
+          // finishes loading. Wait for the proxy registry before publishing running.
+          const { data: registry } = await axios.get(`http://127.0.0.1:${port}/proxies`, {
+            proxy: false, timeout: 500,
+            headers: secret ? { Authorization: `Bearer ${secret}` } : undefined
+          })
+          if (current() && Array.isArray(registry?.proxies?.GLOBAL?.all)) {
+            this.setState('running')
+            return
+          }
         }
       } catch { /* The controller may still be loading its configuration. */ }
       if (current()) await new Promise<void>((resolve) => setTimeout(resolve, 200))
