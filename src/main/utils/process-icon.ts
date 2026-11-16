@@ -35,25 +35,27 @@ async function resolveProcessName(name: string): Promise<string | null> {
       if (existsSync(candidate)) return candidate
     }
   }
-  // The name is passed as data, never interpolated into PowerShell code.
-  const script = `$ErrorActionPreference = 'SilentlyContinue'
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$name = $env:QZYRIUM_ICON_PROCESS_NAME
-$found = Get-Process | Where-Object { $_.ProcessName -eq [IO.Path]::GetFileNameWithoutExtension($name) } | Select-Object -ExpandProperty Path -First 1
-if (!$found) {
-  foreach ($root in @('HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths', 'HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths', 'HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\App Paths')) {
-    $found = (Get-Item -LiteralPath ($root + '\\' + $name)).GetValue('')
-    if ($found) { break }
+  const registryRoots = [
+    'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths',
+    'HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths',
+    'HKLM\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\App Paths'
+  ]
+  for (const regRoot of registryRoots) {
+    const candidate = await new Promise<string | null>((resolve) => {
+      execFile(getSystemBinary('reg.exe'),
+        ['query', `${regRoot}\\${name}`, '/ve'],
+        { windowsHide: true, timeout: 3000, maxBuffer: 16 * 1024, encoding: 'utf8',
+          env: { ...process.env, QZYRIUM_ICON_PROCESS_NAME: name } },
+        (error, stdout) => {
+          if (error || !stdout) return resolve(null)
+          const match = /^\s*(?:\(Default\)|@)\s+REG_\w+\s+(.+)$/m.exec(stdout)
+          const found = match?.[1]?.trim().replace(/^"(.*)"$/, '$1') || null
+          resolve(found && existsSync(found) ? found : null)
+        })
+    })
+    if (candidate) return candidate
   }
-}
-if ($found) { [Console]::Write($found) }`
-  return new Promise((resolve) => {
-    execFile(getSystemBinary('WindowsPowerShell\\v1.0\\powershell.exe'),
-      ['-NoProfile', '-NonInteractive', '-Command', script],
-      { windowsHide: true, timeout: 3000, maxBuffer: 16 * 1024, encoding: 'utf8',
-        env: { ...process.env, QZYRIUM_ICON_PROCESS_NAME: name } },
-      (error, stdout) => resolve(error ? null : stdout.trim().replace(/^"(.*)"$/, '$1') || null))
-  })
+  return null
 }
 
 function setCachedIcon(key: string, value: string): void {
