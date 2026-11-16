@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { isLogicalRuleType, ruleTypes, isRuleSupportsNoResolve, isRuleSupportsSrc } from '@shared/rule-editor'
 
 import { LoaderCircle, X } from 'lucide-react'
@@ -14,15 +15,20 @@ import { useTranslations } from '../../i18n'
 import type { RuleItem } from '@shared/rule-editor'
 
 export interface RuleEditRowProps {
-  editor: Pick<RuleEditorState, 'proxyGroups' | 'setEditingDraft' | 'validatingRule' | 'cancelInlineEdit' | 'saveInlineEdit'>
+  editor: Pick<RuleEditorState, 'proxyGroups' | 'editingDraftRef' | 'validatingRule' | 'cancelInlineEdit' | 'saveInlineEdit'>
   rule: RuleItem
-  editingDraft: NonNullable<RuleEditorState['editingDraft']>
 }
 
-export function RuleEditRow({ editor, rule, editingDraft }: RuleEditRowProps) {
+export function RuleEditRow({ editor, rule }: RuleEditRowProps) {
   const t = useTranslations('profiles')
   const common = useTranslations('common')
-  const { proxyGroups, setEditingDraft, validatingRule, cancelInlineEdit, saveInlineEdit } = editor
+  const { proxyGroups, editingDraftRef, validatingRule, cancelInlineEdit, saveInlineEdit } = editor
+  // The ref preserves an unfinished draft if virtualization unmounts this row.
+  const [editingDraft, setDraft] = useState(() => editingDraftRef.current ?? rule)
+  const setEditingDraft = (draft: RuleItem) => {
+    editingDraftRef.current = draft
+    setDraft(draft)
+  }
   const isLogical = isLogicalRuleType(editingDraft.type)
   return (
 <fieldset

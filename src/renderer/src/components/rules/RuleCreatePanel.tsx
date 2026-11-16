@@ -9,17 +9,19 @@ import { Textarea } from '../ui/textarea'
 import { Switch } from '../ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { cn } from '../../lib/utils'
+import { useRuleDraft } from '../../hooks/useRuleDraft'
 import type { RuleEditorState } from '../../hooks/useRuleEditor'
 import { useTranslations } from '../../i18n'
 
 interface RuleCreatePanelProps {
-  editor: Pick<RuleEditorState, 'proxyGroups' | 'newRule' | 'setNewRule' | 'instructionsOpen' | 'setInstructionsOpen' | 'isNewPayloadValid' | 'isNewRuleLogical' | 'newRuleLogicalSummary' | 'handleAddRule'>
+  editor: Pick<RuleEditorState, 'proxyGroups' | 'handleAddRule'>
 
 }
 
 export function RuleCreatePanel({ editor }: RuleCreatePanelProps) {
   const t = useTranslations('profiles')
-  const { proxyGroups, newRule, setNewRule, instructionsOpen, setInstructionsOpen, isNewPayloadValid, isNewRuleLogical, newRuleLogicalSummary, handleAddRule } = editor
+  const { proxyGroups } = editor
+  const { newRule, setNewRule, instructionsOpen, setInstructionsOpen, isNewPayloadValid, isNewRuleLogical, newRuleLogicalSummary, handleAddRule } = useRuleDraft(editor.handleAddRule)
 
   return (
 <div className="w-full md:w-[360px] lg:w-[390px] shrink-0 flex flex-col gap-3 overflow-y-auto pr-1 min-h-0">

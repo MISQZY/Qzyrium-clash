@@ -2,7 +2,7 @@ import type React from 'react'
 import { useState, useEffect, useCallback, useRef, useMemo, startTransition } from 'react'
 import yaml from 'yaml'
 import type { ProfileItem } from '@shared/profile'
-import { toCustomRules, createRuleId, isLogicalRuleType, getLogicalRuleClauses, formatLogicalRuleClause, getRuleExample, builtinProxyTargets, type RuleItem, type RuleDraft } from '@shared/rule-editor'
+import { toCustomRules, getRuleExample, builtinProxyTargets, type RuleItem } from '@shared/rule-editor'
 import { serializeRulesToYaml, parseYamlToVisualRules } from '@shared/rule-editor-yaml'
 import { loadRuleEditorSession } from '@shared/rule-editor-session'
 import { validateRulePayload } from '@shared/rule-validation'
@@ -31,17 +31,9 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
   const [proxyGroups, setProxyGroups] = useState<string[]>([...builtinProxyTargets])
   const [searchQuery, setSearchQuery] = useState('')
 
-  // New rule draft (left column)
-  const [newRule, setNewRule] = useState<RuleDraft>({
-    type: 'DOMAIN-SUFFIX',
-    payload: '',
-    proxy: 'DIRECT',
-    additionalParams: []
-  })
-
   // Inline editing state (right column)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editingDraft, setEditingDraft] = useState<RuleItem | null>(null)
+  const editingDraftRef = useRef<RuleItem | null>(null)
   const [validatingRule, setValidatingRule] = useState(false)
   const ruleValidationRequest = useRef(0)
   useEffect(() => {
@@ -52,11 +44,8 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
   // Drag-and-drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
-  // Instructions accordion
-  const [instructionsOpen, setInstructionsOpen] = useState(false)
-
   // Raw file editor & Diff mode switches
-  const [rulesYamlContent, setRulesYamlContent] = useState('')
+  const rulesYamlRef = useRef('')
   const [isDiff, setIsDiff] = useState(false)
 
   // Loading & error state
@@ -85,7 +74,7 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
       if (cancelled) return
       setProxyGroups(session.groups)
       setRules(session.rules)
-      setRulesYamlContent(serializeRules(session.rules))
+      rulesYamlRef.current = serializeRules(session.rules)
       setLoadedProfileId(profile.id)
     }).catch((error) => {
       if (!cancelled) setError(error instanceof Error ? error.message : String(error))
@@ -104,11 +93,11 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
     setError(null)
 
     if (activeMode === 'visual' && newMode === 'yaml') {
-      setRulesYamlContent(serializeRules(rules))
+      rulesYamlRef.current = serializeRules(rules)
     } else if (activeMode === 'yaml' && newMode === 'visual') {
       try {
-        yaml.parse(rulesYamlContent)
-        const updated = parseYamlToVisualRules(rulesYamlContent, rules.filter((r) => !r.isCustom))
+        yaml.parse(rulesYamlRef.current)
+        const updated = parseYamlToVisualRules(rulesYamlRef.current, rules.filter((r) => !r.isCustom))
         setRules(updated)
       } catch (err) {
         setError(t('invalidYaml', { error: err instanceof Error ? err.message : String(err) }))
@@ -119,38 +108,12 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
     setActiveMode(newMode)
   }
 
-  // Validate payload
-  const isNewPayloadValid = useMemo(() => {
-    if (newRule.type === 'MATCH' || !newRule.payload) return true
-    return validateRulePayload(newRule.type, newRule.payload)
-  }, [newRule.type, newRule.payload])
-
-  const isNewRuleLogical = isLogicalRuleType(newRule.type)
-  const newRuleLogicalSummary = useMemo(() => {
-    if (!isNewRuleLogical) return []
-    return getLogicalRuleClauses(newRule.payload).map(formatLogicalRuleClause)
-  }, [isNewRuleLogical, newRule.payload])
-
-  // Add rule action
-  const handleAddRule = (position: 'top' | 'bottom') => {
-    if (newRule.type !== 'MATCH' && !newRule.payload.trim()) return
-    if (!isNewPayloadValid) return
-
-    const newItem: RuleItem = {
-      id: createRuleId(),
-      type: newRule.type.toUpperCase(),
-      payload: newRule.type === 'MATCH' ? '' : newRule.payload.trim(),
-      proxy: newRule.proxy || 'DIRECT',
-      additionalParams: [...(newRule.additionalParams || [])],
-      position,
-      isCustom: true,
-      isDeleted: false
-    }
-
+  // Only committed drafts update the shared list.
+  const handleAddRule = (newItem: RuleItem) => {
     startTransition(() => {
       setRules((prev) => {
         const next = [...prev]
-        if (position === 'top') {
+        if (newItem.position === 'top') {
           next.unshift(newItem)
         } else {
           const matchIdx = next.findLastIndex((r) => r.type === 'MATCH')
@@ -163,9 +126,6 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
         return next
       })
     })
-
-    // Reset draft payload
-    setNewRule((prev) => ({ ...prev, payload: '' }))
   }
 
   // Delete or restore rule
@@ -224,15 +184,16 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
   const startInlineEdit = (rule: RuleItem) => {
     if (rule.isDeleted) return
     setEditingId(rule.id)
-    setEditingDraft({ ...rule, additionalParams: [...(rule.additionalParams || [])] })
+    editingDraftRef.current = { ...rule, additionalParams: [...(rule.additionalParams || [])] }
   }
 
   const cancelInlineEdit = () => {
     setEditingId(null)
-    setEditingDraft(null)
+    editingDraftRef.current = null
   }
 
   const saveInlineEdit = async () => {
+    const editingDraft = editingDraftRef.current
     if (!editingDraft || !profile || !window.api || validatingRule) return
     if (editingDraft.type !== 'MATCH' && editingDraft.payload.trim() && !validateRulePayload(editingDraft.type, editingDraft.payload)) {
       setError(`${t('invalidPayload')}: ${getRuleExample(editingDraft.type)}`)
@@ -254,7 +215,7 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
         ? { ...draft, validationError: result.validationError }
         : rule))
       setEditingId(null)
-      setEditingDraft(null)
+      editingDraftRef.current = null
     } catch (err) {
       if (request === ruleValidationRequest.current) setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -273,8 +234,8 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
       let rulesToSave = rules
       if (activeMode === 'yaml') {
         try {
-          yaml.parse(rulesYamlContent)
-          rulesToSave = parseYamlToVisualRules(rulesYamlContent, rules.filter((r) => !r.isCustom))
+          yaml.parse(rulesYamlRef.current)
+          rulesToSave = parseYamlToVisualRules(rulesYamlRef.current, rules.filter((r) => !r.isCustom))
         } catch (yamlErr) {
           setError(
             t('invalidYaml', {
@@ -305,7 +266,6 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
     loadedProfileId,
     activeMode,
     rules,
-    rulesYamlContent,
     onSaved,
     onOpenChange,
     t
@@ -328,7 +288,7 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
   const deletedRulesCount = useMemo(() => rules.filter((r) => !r.isCustom && r.isDeleted).length, [rules])
 
 
-  return { t, common, locale, customLocalization, activeMode, rules, proxyGroups, searchQuery, setSearchQuery, newRule, setNewRule, editingId, editingDraft, setEditingDraft, validatingRule, draggedIndex, instructionsOpen, setInstructionsOpen, rulesYamlContent, setRulesYamlContent, loading, loadedProfileId, saving, error, setError, isDark, handleModeChange, isNewPayloadValid, isNewRuleLogical, newRuleLogicalSummary, handleAddRule, handleToggleDelete, handleMoveRule, handleDragStart, handleDragOver, handleDragEnd, startInlineEdit, cancelInlineEdit, saveInlineEdit, handleSave, filteredRules, customRulesCount, deletedRulesCount }
+  return { t, common, locale, customLocalization, activeMode, rules, proxyGroups, searchQuery, setSearchQuery, editingId, editingDraftRef, validatingRule, draggedIndex, rulesYamlRef, loading, loadedProfileId, saving, error, setError, isDark, handleModeChange, handleAddRule, handleToggleDelete, handleMoveRule, handleDragStart, handleDragOver, handleDragEnd, startInlineEdit, cancelInlineEdit, saveInlineEdit, handleSave, filteredRules, customRulesCount, deletedRulesCount }
 }
 
 export type RuleEditorState = ReturnType<typeof useRuleEditor>

@@ -23,6 +23,7 @@
     "test:ui": "electron scripts/verify-ui.cjs",
     "test:display:ui": "electron scripts/verify-display-ui.cjs",
     "test:editors:ui": "electron scripts/verify-editors-ui.cjs",
+    "test:rules:isolation:ui": "electron scripts/verify-rule-editor-isolation-ui.cjs",
     "test:profiles:ui": "electron scripts/verify-profile-info-ui.cjs",
     "test:shortcuts:ui": "electron scripts/verify-shortcuts-ui.cjs",
     "test:startup:ui": "electron scripts/verify-startup-theme-ui.cjs",

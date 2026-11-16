@@ -10,13 +10,13 @@ import { RuleEditRow, type RuleEditRowProps } from './RuleEditRow'
 import { RuleListRow, type RuleListRowProps } from './RuleListRow'
 
 export interface RuleListPanelProps {
-  editor: Pick<RuleEditorState, 'rules' | 'searchQuery' | 'setSearchQuery' | 'editingId' | 'editingDraft' | 'filteredRules' | 'customRulesCount' | 'deletedRulesCount'> & RuleEditRowProps['editor'] & RuleListRowProps['editor']
+  editor: Pick<RuleEditorState, 'rules' | 'searchQuery' | 'setSearchQuery' | 'editingId' | 'filteredRules' | 'customRulesCount' | 'deletedRulesCount'> & RuleEditRowProps['editor'] & RuleListRowProps['editor']
 
 }
 
 export function RuleListPanel({ editor }: RuleListPanelProps) {
   const t = useTranslations('profiles')
-  const { rules, searchQuery, setSearchQuery, editingId, editingDraft, filteredRules, customRulesCount, deletedRulesCount } = editor
+  const { rules, searchQuery, setSearchQuery, editingId, filteredRules, customRulesCount, deletedRulesCount } = editor
 
   return (
 <div className="flex-1 min-w-0 border-t md:border-t-0 md:border-l border-border/60 md:pl-4 pt-3 md:pt-0 flex flex-col min-h-0">
@@ -81,11 +81,11 @@ export function RuleListPanel({ editor }: RuleListPanelProps) {
                   <VirtualList data={filteredRules} itemKey={rule => rule.id} externalScroll={false} gap={6} renderItem={(rule, idx) => {
                     const isEditing = editingId === rule.id
 
-                    if (isEditing && editingDraft) {
+                    if (isEditing) {
                       // Inline Editing Mode
 
                       return (
-                        <RuleEditRow key={rule.id} rule={rule} editingDraft={editingDraft} editor={editor} />
+                        <RuleEditRow key={rule.id} rule={rule} editor={editor} />
                       )
                     }
 
