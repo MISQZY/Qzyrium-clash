@@ -2,14 +2,13 @@ import type { ProxyGroup, ProxyNode } from '@shared/mihomo'
 import { useTranslations } from '../i18n'
 import { ChevronDown } from 'lucide-react'
 import { LatencyIcon } from '../lib/icons'
-import { sortProxyNodes, type ProxySortMode } from '../lib/proxies'
+import type { ProxySortMode } from '../lib/proxies'
 import { cn } from '../lib/utils'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { EmojiText } from './EmojiText'
-import { GroupIcon, NodeIcon, getGroupTypeStyle } from './ProxyIcons'
-import { DelayBadge } from './DelayBadge'
-import { VirtualList } from './VirtualList'
+import { GroupIcon, getGroupTypeStyle } from './ProxyIcons'
+import { ProxyGroupNodes } from './proxies/ProxyGroupNodes'
 
 interface Props {
   groupName: string; group: ProxyGroup; proxies: Record<string, ProxyNode>; delays: Record<string, number>
@@ -29,23 +28,6 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
   const activeNow = group?.now || ''
   const isGroupTesting = testingGroups.has(groupName)
 
-  const matchingNodes = nodes.filter((n) => {
-    if (
-      trimmedQuery &&
-      !n.toLowerCase().includes(trimmedQuery) &&
-      !groupName.toLowerCase().includes(trimmedQuery)
-    ) {
-      return false
-    }
-    if (onlyAvailable) {
-      const nodeData = proxies[n]
-      const delay = delays[n] ?? nodeData?.history?.[nodeData?.history?.length - 1]?.delay
-      return delay !== undefined && delay > 0
-    }
-    return true
-  })
-
-  const sortedNodes = sortProxyNodes(matchingNodes, sortMode, proxies, delays)
   const typeMeta = getGroupTypeStyle(group?.type)
 
   return (
@@ -137,60 +119,9 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
 
       {/* Expanded Content: Node Options Grid */}
       {isExpanded && (
-        <div className="px-4 pb-4 pt-1 border-t border-border/50 bg-background/30">
-          {sortedNodes.length > 0 ? (
-            <VirtualList data={sortedNodes} itemKey={name => name} twoColumns className="pt-3" renderItem={(nodeName) => {
-                const isSelected = activeNow === nodeName
-                const nodeData = proxies[nodeName]
-                const nodeType = nodeData?.type || 'direct'
-                const delay =
-                  delays[nodeName] ??
-                  nodeData?.history?.[nodeData.history.length - 1]?.delay
-
-                return (
-                  <button
-                    key={nodeName}
-                    type="button"
-                    role="button"
-                    tabIndex={0}
-                    aria-label={t('selectNode', { name: nodeName })}
-                    aria-pressed={isSelected}
-                    onClick={() => onSelect(groupName, nodeName)}
-                    className={cn(
-                      'relative flex items-center justify-between gap-2.5 p-2.5 rounded-lg border text-left text-xs transition-colors cursor-pointer [content-visibility:auto] [contain-intrinsic-size:auto_54px]',
-                      isSelected
-                        ? 'border-primary bg-primary/10 text-foreground font-medium shadow-xs shadow-primary/15 ring-1 ring-primary/40'
-                        : 'border-border/70 bg-card hover:bg-muted/60 hover:border-border text-foreground/85 hover:text-foreground'
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <NodeIcon
-                        icon={nodeData?.icon}
-                        name={nodeName}
-                      />
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span
-                          className="text-xs font-medium wrap-anywhere leading-snug"
-                          title={nodeName}
-                        >
-                          <EmojiText text={nodeName} />
-                        </span>
-                        <span className="text-[11px] font-mono text-muted-foreground uppercase mt-0.5">
-                          {nodeType}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex w-24 items-center justify-center shrink-0 whitespace-nowrap">
-                      <DelayBadge delay={delay} loading={testingNodes.has(nodeName)} />
-                    </div>
-                  </button>
-                )
-              }} />
-          ) : (
-            <p className="empty-state py-6">{t(!running && nodes.length === 0 ? 'noCachedNodes' : 'noProxyNodesMatchYourSearch')}</p>
-          )}
-        </div>
+        <ProxyGroupNodes groupName={groupName} nodes={nodes} activeNow={activeNow}
+          proxies={proxies} delays={delays} trimmedQuery={trimmedQuery} sortMode={sortMode}
+          onlyAvailable={onlyAvailable} running={running} testingNodes={testingNodes} onSelect={onSelect} />
       )}
     </Card>
   )
