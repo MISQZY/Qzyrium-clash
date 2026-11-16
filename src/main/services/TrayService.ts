@@ -189,7 +189,7 @@ export class TrayService implements BaseService {
       const messages = nativeMessages(settings.general)
       if (type === 'tun' && typeof Notification?.isSupported === 'function' && Notification.isSupported()) {
         new Notification({
-          title: 'Qzyrium-clash',
+          title: 'Qzyrium Clash',
           body: messages.tunRequiresAdmin || (err instanceof Error ? err.message : String(err))
         }).show()
       }

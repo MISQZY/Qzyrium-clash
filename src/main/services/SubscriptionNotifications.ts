@@ -32,7 +32,7 @@ export class SubscriptionNotifications {
       const previous = this.shown.get(profile.id) ?? new Set()
       const fresh = warnings.filter(warning => !previous.has(warning.key))
       if (fresh.length) {
-        this.send('Qzyrium-clash', `${profile.name.slice(0, 120)}\n${fresh.map(warning => nativeMessage(general.language, warning.message, general)).join('\n')}`)
+        this.send('Qzyrium Clash', `${profile.name.slice(0, 120)}\n${fresh.map(warning => nativeMessage(general.language, warning.message, general)).join('\n')}`)
       }
       this.shown.set(profile.id, new Set(warnings.map(warning => warning.key)))
     }
