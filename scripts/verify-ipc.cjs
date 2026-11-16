@@ -81,6 +81,7 @@ function verifyArgumentContracts() {
     'mihomo:patch-configs': [{ mode: 'rule', dns: { nameserver: ['https://dns.example/'] } }],
     'mihomo:select-proxy': ['Group', 'Node'],
     'mihomo:test-delay': ['Node', 'https://example.com/', 5000],
+    'mihomo:check-services': ['Node'],
     'mihomo:get-rules': ['summary'], 'mihomo:close-connection': ['connection-1'],
     'mihomo:get-providers': ['proxies'], 'mihomo:update-provider': ['rules', 'Source / #1'],
     'profile:set-active': ['profile-1'], 'profile:delete': ['profile-1'], 'profile:update': ['profile-1'],

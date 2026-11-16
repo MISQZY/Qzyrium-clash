@@ -9,6 +9,8 @@ import {
 import type { ProviderKind, ProviderSummary } from '@shared/mihomo'
 import { LogEntry, MihomoVersion, TrafficStats } from '@shared/types'
 import { logger } from '../utils/logger'
+import { checkProxyServices } from './checkProxyServices'
+import type { ServiceCheckTarget } from '@shared/service-check'
 
 export class MihomoApiClient extends EventEmitter {
   private axiosInstance: AxiosInstance | null = null
@@ -124,6 +126,10 @@ export class MihomoApiClient extends EventEmitter {
   async getRules(): Promise<MihomoRule[]> {
     const res = await this.client.get<{ rules: MihomoRule[] }>('/rules')
     return res.data.rules || []
+  }
+
+  checkProxyServices(name: string, targets: ServiceCheckTarget[]) {
+    return checkProxyServices(this.client, name, targets)
   }
 
   async getConnections(): Promise<ConnectionsSnapshot> {

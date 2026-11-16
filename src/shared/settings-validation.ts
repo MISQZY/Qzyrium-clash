@@ -1,9 +1,11 @@
 import type { AppConfig } from './app-config'
+import { validateServiceCheckTargets } from './service-check'
 import { validateLocalizationPack } from './custom-localization'
 import { SHORTCUT_ACTIONS, shortcutIdentity } from './shortcuts'
 import { coreFields, dnsFields, generalFields, resourceFields, snifferFields, tunFields, validateFields } from './settings-fields'
 
 export function validateAppConfig(config: AppConfig): void {
+  if (config.general.serviceCheckTargets !== undefined) validateServiceCheckTargets(config.general.serviceCheckTargets)
   for (const key of ['inheritLogLevel', 'inheritMixedPort'] as const) {
     if (config.kernel[key] !== undefined && typeof config.kernel[key] !== 'boolean') throw new Error(`kernel.${key}: expected a boolean`)
   }

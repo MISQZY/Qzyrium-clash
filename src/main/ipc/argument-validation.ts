@@ -1,4 +1,5 @@
 import { IPC_CHANNELS } from '@shared/ipc'
+import { validateServiceCheckTargets } from '@shared/service-check'
 import { DEFAULT_APP_CONFIG } from '@shared/app-config'
 import { validateLocalizationPack } from '@shared/custom-localization'
 import { validateThemePack } from '@shared/theme-validation'
@@ -44,6 +45,7 @@ const primitiveDefaults = (defaults: object): Record<string, Check> => Object.fr
     .map(([key, value]) => [key, typeof value === 'boolean' ? boolean : typeof value === 'string' ? text
       : (input: unknown) => typeof input === 'number' && Number.isFinite(input)]))
 const general = object(optionalFields({ ...primitiveDefaults(DEFAULT_APP_CONFIG.general),
+  serviceCheckTargets: value => { try { validateServiceCheckTargets(value); return true } catch { return false } },
   language: oneOf('ru', 'en'), shortcuts: record(text), customLocalizations: list(localization),
   customLocalization: value => value === null || text(value) }))
 const tun = object(optionalFields({ ...primitiveDefaults(DEFAULT_APP_CONFIG.kernel.tun),
@@ -89,6 +91,7 @@ const contracts = {
   [IPC_CHANNELS.MIHOMO_GET_PROVIDERS]: [oneOf('proxies', 'rules')],
   [IPC_CHANNELS.MIHOMO_UPDATE_PROVIDER]: [oneOf('proxies', 'rules'), name],
   [IPC_CHANNELS.MIHOMO_TEST_DELAY]: [name, optional(httpUrl), optional(integer(1, 120_000))],
+  [IPC_CHANNELS.MIHOMO_CHECK_SERVICES]: [name],
   [IPC_CHANNELS.MIHOMO_GET_RULES]: [optional(oneOf('summary'))],
   [IPC_CHANNELS.MIHOMO_GET_CONNECTIONS]: [], [IPC_CHANNELS.MIHOMO_GET_GLOBE_LOCATIONS]: [],
   [IPC_CHANNELS.MIHOMO_CLOSE_CONNECTION]: [name], [IPC_CHANNELS.MIHOMO_CLOSE_ALL_CONNECTIONS]: [],

@@ -1,4 +1,6 @@
 import { ProxyGroupCard } from '../components/ProxyGroupCard'
+import { ServiceCheckDialog } from '../components/proxies/ServiceCheckDialog'
+import { DEFAULT_SERVICE_CHECK_TARGETS, type ServiceCheckTarget } from '@shared/service-check'
 import { useProxyLatency } from '../hooks/useProxyLatency'
 import { useTranslations } from '../i18n'
 import React, { useState, useEffect, useMemo } from 'react'
@@ -27,6 +29,7 @@ interface ProxiesPageProps {
   testConcurrency?: number
   onRefresh?: () => Promise<unknown>
   profileId?: string
+  serviceCheckTargets?: ServiceCheckTarget[]
 }
 
 export const ProxiesPage: React.FC<ProxiesPageProps> = ({
@@ -39,7 +42,8 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
   onSelectNode,
   testConcurrency = 6,
   onRefresh,
-  profileId
+  profileId,
+  serviceCheckTargets = DEFAULT_SERVICE_CHECK_TARGETS
 }) => {
   const t = useTranslations('proxies')
 
@@ -72,6 +76,8 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
   const [query, setQuery] = useState('')
   const [sortMode, setSortMode] = useState<ProxySortMode>('default')
   const [onlyAvailable, setOnlyAvailable] = useState(false)
+  const [serviceCheckNode, setServiceCheckNode] = useState<{ name: string; profileId?: string } | null>(null)
+  useEffect(() => { setServiceCheckNode(null) }, [profileId, running, serviceCheckTargets])
 
   // Collect all unique nodes across eligible groups
   const allNodes = useMemo(() => {
@@ -138,6 +144,9 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 
   return (
     <div className="page-scroll">
+      {running && serviceCheckNode && serviceCheckNode.profileId === profileId && proxies[serviceCheckNode.name] &&
+        <ServiceCheckDialog key={`${profileId}:${serviceCheckNode.name}`} nodeName={serviceCheckNode.name} targets={serviceCheckTargets}
+          onClose={() => setServiceCheckNode(null)} />}
       {/* Top Header */}
       <div data-tour="proxies" className="page-heading">
         <div>
@@ -291,7 +300,8 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
             isExpanded={!!trimmedQuery || expandedGroups.has(groupName)} trimmedQuery={trimmedQuery} sortMode={sortMode}
             onlyAvailable={onlyAvailable}
             running={running} testingGroups={testingGroups} testingAll={testingAll} testingNodes={testingNodes}
-            onToggle={toggleGroup} onTest={testGroup} onSelect={onSelectNode} />)}
+            onToggle={toggleGroup} onTest={testGroup} onSelect={onSelectNode}
+            onCheckServices={name => setServiceCheckNode({ name, profileId })} />)}
         </div>
       ) : groupNames.length > 0 ? (
         <p className="empty-state">{t('noProxyNodesMatchYourSearch')}</p>

@@ -24,6 +24,7 @@ import { DEFAULT_APP_CONFIG } from '@shared/app-config'
 
 import type { SettingsDraft } from '../../hooks/useSettingsDraft'
 import { SettingsGroup } from './SettingsGroup'
+import { ServiceCheckSettings } from './ServiceCheckSettings'
 
 export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft; busy: boolean }) {
   const t = useTranslations('networksettings')
@@ -217,6 +218,7 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
         <SettingsGroup title={t('latencyGroup')} description={t('latencyDescription')} icon={<Gauge />} collapsible>
           {renderGeneralFields(['delayTestUrl', 'delayTestTimeout', 'delayTestConcurrency'])}
         </SettingsGroup>
+        <ServiceCheckSettings draft={draft} busy={busy} />
         <SettingsGroup title={t('performanceGroup')} description={t('performanceDescription')} icon={<Gauge />} collapsible>
           {renderGeneralFields(['lowMemoryMode', 'disableGpu', 'liteDashboard', 'autoReleaseWindow', 'autoReleaseWindowMinutes', 'connectionInterval', 'maxLogs'])}
           <SettingRow title={t('coreOnlyMode')} description={t('coreOnlyDescription')}>

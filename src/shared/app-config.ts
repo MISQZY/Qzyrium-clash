@@ -1,4 +1,5 @@
 import { LogLevel, TunnelMode } from './types'
+import { DEFAULT_SERVICE_CHECK_TARGETS, type ServiceCheckTarget } from './service-check'
 import type { ConfigValues } from './settings-fields'
 import type { ThemePreference } from './theme'
 import type { CustomLocalizationPack } from './custom-localization'
@@ -41,6 +42,7 @@ export interface AppConfig {
     delayTestUrl?: string
     delayTestTimeout?: number
     delayTestConcurrency?: number
+    serviceCheckTargets?: ServiceCheckTarget[]
     userAgent?: string
     autoUpdateProfiles?: boolean
     subscriptionNotifications?: boolean
@@ -128,6 +130,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     delayTestUrl: 'https://www.gstatic.com/generate_204',
     delayTestTimeout: 5000,
     delayTestConcurrency: 6,
+    serviceCheckTargets: DEFAULT_SERVICE_CHECK_TARGETS.map(target => ({ ...target })),
     userAgent: DEFAULT_SUBSCRIPTION_USER_AGENT,
     autoUpdateProfiles: false,
     subscriptionNotifications: true,

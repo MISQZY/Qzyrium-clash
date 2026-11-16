@@ -65,6 +65,8 @@ export function registerKernelHandlers(
     return await services.kernelService.getProxies()
   })
 
+  handle(IPC_CHANNELS.MIHOMO_CHECK_SERVICES, (_, name: string) => services.kernelService.checkProxyServices(name))
+
   handle(IPC_CHANNELS.MIHOMO_GET_PROVIDERS, (_, kind: ProviderKind) => services.kernelService.getProviders(kind))
   handle(IPC_CHANNELS.MIHOMO_UPDATE_PROVIDER, (_, kind: ProviderKind, name: string) => services.kernelService.updateProvider(kind, name))
 

@@ -1,4 +1,6 @@
 import { memo, useMemo } from 'react'
+import { Globe } from 'lucide-react'
+import { canCheckProxyServices } from '@shared/service-check'
 import type { ProxyNode } from '@shared/mihomo'
 import { useTranslations } from '../../i18n'
 import { sortProxyNodes, type ProxySortMode } from '../../lib/proxies'
@@ -11,7 +13,7 @@ import { VirtualList } from '../VirtualList'
 const EMPTY_DELAYS: Record<string, number> = {}
 
 export function ProxyGroupNodes({ groupName, nodes, activeNow, proxies, delays, trimmedQuery, sortMode,
-  onlyAvailable, running, testingNodes, onSelect }: {
+  onlyAvailable, running, testingNodes, onSelect, onCheckServices }: {
   groupName: string
   nodes: string[]
   activeNow: string
@@ -23,6 +25,7 @@ export function ProxyGroupNodes({ groupName, nodes, activeNow, proxies, delays, 
   running: boolean
   testingNodes: ReadonlySet<string>
   onSelect: (group: string, node: string) => void
+  onCheckServices?: (node: string) => void
 }) {
   const t = useTranslations('proxies')
   // Default/name ordering does not depend on latency unless availability is filtered.
@@ -54,7 +57,8 @@ export function ProxyGroupNodes({ groupName, nodes, activeNow, proxies, delays, 
             return <ProxyNodeCard nodeName={nodeName} nodeData={proxies[nodeName]}
               selected={activeNow === nodeName} groupName={groupName}
               delay={delays[nodeName] ?? proxies[nodeName]?.history?.[proxies[nodeName].history.length - 1]?.delay}
-              loading={testingNodes.has(nodeName)} onSelect={onSelect} />
+              loading={testingNodes.has(nodeName)} onSelect={onSelect}
+              canCheck={running && canCheckProxyServices(proxies[nodeName])} onCheckServices={onCheckServices} />
           }} />
       ) : (
         <p className="empty-state py-6">{t(!running && nodes.length === 0 ? 'noCachedNodes' : 'noProxyNodesMatchYourSearch')}</p>
@@ -63,7 +67,7 @@ export function ProxyGroupNodes({ groupName, nodes, activeNow, proxies, delays, 
   )
 }
 
-const ProxyNodeCard = memo(function ProxyNodeCard({ nodeName, nodeData, selected, groupName, delay, loading, onSelect }: {
+const ProxyNodeCard = memo(function ProxyNodeCard({ nodeName, nodeData, selected, groupName, delay, loading, onSelect, canCheck, onCheckServices }: {
   nodeName: string
   nodeData?: ProxyNode
   selected: boolean
@@ -71,11 +75,16 @@ const ProxyNodeCard = memo(function ProxyNodeCard({ nodeName, nodeData, selected
   delay?: number
   loading: boolean
   onSelect: (group: string, node: string) => void
+  canCheck: boolean
+  onCheckServices?: (node: string) => void
 }) {
   const t = useTranslations('proxies')
   const nodeType = nodeData?.type || 'direct'
 
   return (
+    <div className={cn('relative rounded-lg border transition-colors [content-visibility:auto] [contain-intrinsic-size:auto_54px]',
+      selected ? 'border-primary bg-primary/10 shadow-xs shadow-primary/15 ring-1 ring-primary/40'
+        : 'border-border/70 bg-card hover:bg-muted/60 hover:border-border')}>
     <button
       key={nodeName}
       type="button"
@@ -85,10 +94,9 @@ const ProxyNodeCard = memo(function ProxyNodeCard({ nodeName, nodeData, selected
       aria-pressed={selected}
       onClick={() => onSelect(groupName, nodeName)}
       className={cn(
-        'relative flex items-center justify-between gap-2.5 p-2.5 rounded-lg border text-left text-xs transition-colors cursor-pointer [content-visibility:auto] [contain-intrinsic-size:auto_54px]',
-        selected
-          ? 'border-primary bg-primary/10 text-foreground font-medium shadow-xs shadow-primary/15 ring-1 ring-primary/40'
-          : 'border-border/70 bg-card hover:bg-muted/60 hover:border-border text-foreground/85 hover:text-foreground'
+        'flex w-full min-w-0 items-center justify-between gap-2.5 rounded-lg p-2.5 text-left text-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        onCheckServices && canCheckProxyServices(nodeData) && 'pr-10',
+        selected ? 'text-foreground font-medium' : 'text-foreground/85 hover:text-foreground'
       )}
     >
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -113,5 +121,12 @@ const ProxyNodeCard = memo(function ProxyNodeCard({ nodeName, nodeData, selected
         <DelayBadge delay={delay} loading={loading} />
       </div>
     </button>
+    {onCheckServices && canCheckProxyServices(nodeData) && <button type="button"
+      disabled={!canCheck} onClick={() => onCheckServices(nodeName)}
+      className="absolute right-1.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 disabled:cursor-not-allowed"
+      title={t('checkNodeServices', { name: nodeName })} aria-label={t('checkNodeServices', { name: nodeName })}>
+      <Globe className="size-3.5" />
+    </button>}
+    </div>
   )
 })

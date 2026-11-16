@@ -1,5 +1,6 @@
 import { DEFAULT_APP_CONFIG, subscriptionUserAgent, type AppConfig } from './app-config'
 import { validateAppConfig } from './settings-validation'
+import { editableServiceCheckTargets } from './service-check'
 
 export type SettingsSection = 'settings' | 'sysproxy' | 'tun' | 'mihomo'
 export interface SettingsDraftValues { form: AppConfig; bypass: string; dnsHijack: string }
@@ -34,6 +35,7 @@ export function mergeSettings(current: AppConfig, patch: Partial<AppConfig>): Ap
     next.general.closeAction = patch.general.minimizeToTray ? 'tray' : 'quit'
   }
   validateAppConfig(next)
+  if (next.general.serviceCheckTargets) next.general.serviceCheckTargets = editableServiceCheckTargets(next.general.serviceCheckTargets)
   return structuredClone(next)
 }
 
