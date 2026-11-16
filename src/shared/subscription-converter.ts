@@ -35,7 +35,7 @@ function isValidPort(port: number): boolean {
 
 export function decodeBase64Safe(input: string): string | null {
   const cleaned = input.trim().replace(/\s+/g, '')
-  if (cleaned.length < 4) return null
+  if (cleaned.length < 2 || cleaned.replace(/=+$/, '').length % 4 === 1) return null
   if (!/^[A-Za-z0-9+/_-]+={0,3}$/.test(cleaned)) return null
 
   try {

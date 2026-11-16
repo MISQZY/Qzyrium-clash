@@ -16,6 +16,16 @@ const {
 
 const { parseProfileConfig } = load('src/shared/profile-config.ts')
 
+// SSR uses unpadded URL-safe Base64, including very short credentials.
+for (const password of ['a', 'ab', 'abc', 'пароль']) {
+  const encoded = Buffer.from(password).toString('base64url')
+  const uri = 'ssr://' + Buffer.from(`example.com:8388:origin:aes-256-cfb:plain:${encoded}/?remarks=${Buffer.from('ab').toString('base64url')}`).toString('base64url')
+  const node = parseProxyUri(uri)
+  assert.equal(node.password, password, 'SSR credentials must be decoded even when shorter than four Base64 characters')
+  assert.equal(node.name, 'ab')
+  assert.equal(parseProfileConfig(convertSubscriptionToClashYaml(uri)).proxies[0].password, password)
+}
+
 // 1. Shadowsocks
 const ssBase64UserInfo = 'ss://YWVzLTI1Ni1nY206cGFzc3dvcmQ=@1.2.3.4:8388#%D0%A1%D0%B5%D1%80%D0%B2%D0%B5%D1%80%201'
 assert.ok(parseProxyUri(ssBase64UserInfo))
