@@ -1,4 +1,6 @@
 import { useTranslations } from '../../i18n'
+import { ChevronDown, CircleHelp } from 'lucide-react'
+import { Tooltip } from 'radix-ui'
 
 import { Button } from '../ui/button'
 
@@ -18,7 +20,7 @@ export function AddProfileDialog({ draft }: { draft: ProfileImportDraft }) {
         <form onSubmit={handleAddProfile} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{t('addSubscription')}</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="sr-only">
               {t('importARemoteClashMihomoSubscriptionLinkOrPasteLocalYAML')}
             </DialogDescription>
           </DialogHeader>
@@ -58,40 +60,63 @@ export function AddProfileDialog({ draft }: { draft: ProfileImportDraft }) {
           {profileType === 'remote' ? (
             <>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-muted-foreground font-medium">{t('subscriptionURL')}</label>
+                <div className="flex items-center gap-1.5">
+                  <label htmlFor="profile-url" className="text-xs text-muted-foreground font-medium">{t('subscriptionURL')}</label>
+                  <Tooltip.Provider delayDuration={150}><Tooltip.Root>
+                    <Tooltip.Trigger asChild>
+                      <button type="button" aria-label={t('supportedImportFormats')} className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        <CircleHelp className="size-3.5" />
+                      </button>
+                    </Tooltip.Trigger>
+                    <Tooltip.Portal><Tooltip.Content side="top" sideOffset={6} className="sidebar-tooltip max-w-72 text-xs leading-relaxed">
+                      {t('clashUrlSupportHint')}
+                      <Tooltip.Arrow className="fill-popover" />
+                    </Tooltip.Content></Tooltip.Portal>
+                  </Tooltip.Root></Tooltip.Provider>
+                </div>
                 <Input
+                  id="profile-url"
                   type="text"
                   required
                   value={profileUrl}
                   onChange={(e) => handleUrlChange(e.target.value)}
                   placeholder={t('importUrlPlaceholder')}
+                  aria-describedby="profile-url-hint"
                 />
-                <p className="text-[10px] text-muted-foreground/75 leading-tight">
-                  {t('clashUrlSupportHint')}
+                <p id="profile-url-hint" className="text-[10px] text-muted-foreground/75 leading-tight">
+                  {t('subscriptionLinkHint')}
                 </p>
               </div>
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-                <div className="space-y-0.5">
-                  <label htmlFor="add-send-hwid" className="text-xs font-medium cursor-pointer">{t('sendHwid')}</label>
-                  <p className="text-[10px] text-muted-foreground">{t('sendHwidHint')}</p>
+              <details className="group rounded-xl border border-border/60">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 text-xs font-medium [&::-webkit-details-marker]:hidden">
+                  {t('advanced')}
+                  <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="space-y-4 border-t border-border/60 p-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <label htmlFor="add-send-hwid" className="text-xs font-medium cursor-pointer">{t('sendHwid')}</label>
+                      <p className="text-[10px] text-muted-foreground">{t('sendHwidHint')}</p>
+                    </div>
+                    <Switch id="add-send-hwid" checked={draft.sendHwid} onCheckedChange={draft.setSendHwid} />
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <label htmlFor="add-update-via-proxy" className="text-xs font-medium cursor-pointer">
+                        {t('updateViaProxy')}
+                      </label>
+                      <p className="text-[10px] text-muted-foreground">
+                        {t('updateViaProxyHint')}
+                      </p>
+                    </div>
+                    <Switch
+                      id="add-update-via-proxy"
+                      checked={updateViaProxy}
+                      onCheckedChange={setUpdateViaProxy}
+                    />
+                  </div>
                 </div>
-                <Switch id="add-send-hwid" checked={draft.sendHwid} onCheckedChange={draft.setSendHwid} />
-              </div>
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-                <div className="space-y-0.5">
-                  <label htmlFor="add-update-via-proxy" className="text-xs font-medium cursor-pointer">
-                    {t('updateViaProxy')}
-                  </label>
-                  <p className="text-[10px] text-muted-foreground">
-                    {t('updateViaProxyHint')}
-                  </p>
-                </div>
-                <Switch
-                  id="add-update-via-proxy"
-                  checked={updateViaProxy}
-                  onCheckedChange={setUpdateViaProxy}
-                />
-              </div>
+              </details>
             </>
           ) : (
             <div className="flex flex-col gap-1.5">

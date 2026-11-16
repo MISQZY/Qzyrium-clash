@@ -56,6 +56,12 @@ app.whenReady().then(async () => {
           await clickText(catalogs[locale].profiles.addSubscription)
           await waitFor(`document.querySelector('[role="dialog"]') !== null`)
           assert.ok(await evaluate(`Array.from(document.querySelectorAll('input')).some(el => el.placeholder === ${JSON.stringify(catalogs[locale].profiles.importUrlPlaceholder)})`))
+          assert.equal(await evaluate(`document.querySelector('[role="dialog"] details').open`), false, 'advanced import options start collapsed')
+          assert.equal(await evaluate(`document.querySelector('[role="dialog"]').innerText.includes(${JSON.stringify(catalogs[locale].profiles.clashUrlSupportHint)})`), false, 'format help stays out of the form layout')
+          await evaluate(`document.querySelector('[role="dialog"] button[aria-label=${JSON.stringify(catalogs[locale].profiles.supportedImportFormats)}]').dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse' }))`)
+          await waitFor(`document.querySelector('[role="tooltip"]')?.textContent.includes(${JSON.stringify(catalogs[locale].profiles.clashUrlSupportHint)})`)
+          await evaluate(`document.querySelector('[role="dialog"] summary').click()`)
+          assert.equal(await evaluate(`document.querySelector('[role="dialog"] details').open && !!document.querySelector('details #add-send-hwid') && !!document.querySelector('details #add-update-via-proxy')`), true, 'advanced section exposes both switches')
           await evaluate(`document.querySelector('[role="dialog"] button:has(.sr-only)')?.click()`)
           if (await evaluate(`!!document.querySelector('[role="dialog"]')`)) {
             await clickText(catalogs[locale].common.close)
