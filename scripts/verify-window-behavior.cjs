@@ -23,6 +23,7 @@ class FixtureWindow extends EventEmitter {
   minimized = false
   webContents = Object.assign(new EventEmitter(), {
     session: { setPermissionRequestHandler() {}, setPermissionCheckHandler() {} },
+    setWebRTCIPHandlingPolicy() {},
     getZoomFactor: () => this.zoomFactor ?? 1,
     setZoomFactor: factor => { this.zoomFactor = factor },
     messages: [],

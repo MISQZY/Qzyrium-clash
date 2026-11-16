@@ -231,7 +231,7 @@ export class WindowService implements BaseService {
       callback(false)
     })
     this.mainWindow.webContents.session.setPermissionCheckHandler(() => false)
-    this.mainWindow.webContents.setWebRTCIPHandlingPolicy('disable_non_proxied_udp')
+    this.mainWindow.webContents.setWebRTCIPHandlingPolicy?.('disable_non_proxied_udp')
 
     // Navigation security guards: block navigating the top frame or subframes away from app
     this.mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
