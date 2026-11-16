@@ -305,6 +305,7 @@ export class WindowService implements BaseService {
       this.visibilityHandler?.(false)
       this.hiddenSince ??= Date.now()
       this.refreshAutoReleasePolicy()
+      void trimProcessMemory()
     })
 
     this.mainWindow.on('show', () => {

@@ -12,14 +12,39 @@ export function SessionDuration({ startedAt, running, ariaLabel }: SessionDurati
 
   useEffect(() => {
     if (!running) return
+    let timer: NodeJS.Timeout | null = null
     const sync = () => setNow(Date.now())
-    sync()
-    const timer = setInterval(sync, 1000)
-    document.addEventListener('visibilitychange', sync)
+
+    const startTimer = () => {
+      if (timer) return
+      sync()
+      timer = setInterval(sync, 1000)
+    }
+
+    const stopTimer = () => {
+      if (timer) {
+        clearInterval(timer)
+        timer = null
+      }
+    }
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        stopTimer()
+      } else {
+        startTimer()
+      }
+    }
+
+    if (!document.hidden) {
+      startTimer()
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
     window.addEventListener('focus', sync)
     return () => {
-      clearInterval(timer)
-      document.removeEventListener('visibilitychange', sync)
+      stopTimer()
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       window.removeEventListener('focus', sync)
     }
   }, [running])

@@ -103,23 +103,16 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
     }
 
     window.addEventListener('focus', handleCheck)
-    window.addEventListener('pointerenter', handleCheck)
     const handleVisibility = () => {
       if (!document.hidden) handleCheck()
     }
     document.addEventListener('visibilitychange', handleVisibility)
 
-    const interval = setInterval(() => {
-      if (!document.hidden) handleCheck()
-    }, 2500)
-
     const timer = setTimeout(handleCheck, 500)
 
     return () => {
       window.removeEventListener('focus', handleCheck)
-      window.removeEventListener('pointerenter', handleCheck)
       document.removeEventListener('visibilitychange', handleVisibility)
-      clearInterval(interval)
       clearTimeout(timer)
     }
   }, [checkClipboard])
