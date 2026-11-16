@@ -59,7 +59,7 @@ export function ProcessIcon({
   processPath,
   processName,
   className = 'size-4.5',
-  fallbackClassName = 'size-4.5'
+  fallbackClassName = className
 }: {
   processPath?: string
   processName?: string
@@ -91,15 +91,16 @@ export function ProcessIcon({
 function FileProcessIcon({ processPath, name, className, fallbackClassName }: {
   processPath?: string; name: string; className: string; fallbackClassName: string
 }) {
-  const [iconUrl, setIconUrl] = useState<string | null>(() => {
-    if (!processPath) return null
-    return clientIconCache.get(processPath) || null
-  })
+  const [loadedIcon, setLoadedIcon] = useState<{ path: string; url: string } | null>(null)
+  const iconUrl = processPath
+    ? clientIconCache.has(processPath) ? clientIconCache.get(processPath) || null
+      : loadedIcon?.path === processPath ? loadedIcon.url : null
+    : null
 
   useEffect(() => {
     if (!processPath || !window.api?.app?.getProcessIcon) return
     if (clientIconCache.has(processPath)) {
-      setIconUrl(clientIconCache.get(processPath) || null)
+      setLoadedIcon({ path: processPath, url: clientIconCache.get(processPath) || '' })
       return
     }
     let active = true
@@ -107,7 +108,7 @@ function FileProcessIcon({ processPath, name, className, fallbackClassName }: {
       if (active) {
         setClientIcon(processPath, url || '')
         if (url) {
-          setIconUrl(url)
+          setLoadedIcon({ path: processPath, url })
         }
       }
     }).catch(() => {
@@ -128,7 +129,7 @@ function FileProcessIcon({ processPath, name, className, fallbackClassName }: {
         className={`${className} object-contain rounded-xs select-none`}
         onError={() => {
           setClientIcon(processPath || '', '')
-          setIconUrl(null)
+          setLoadedIcon({ path: processPath || '', url: '' })
         }}
       />
     )

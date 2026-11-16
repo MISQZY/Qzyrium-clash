@@ -80,12 +80,15 @@
   "quickRuleDescription": "Создать правило маршрутизации на основе этого соединения",
   "ruleTarget": "Условие",
   "ruleAction": "Действие",
-  "directDescription": "Прямое (в обход VPN)",
+  "directDescription": "Напрямую",
   "proxyDescription": "Через прокси",
-  "rejectDescription": "Блокировать соединение",
+  "rejectDescription": "Заблокировать",
   "ruleCreated": "Правило успешно добавлено",
   "noActiveProfile": "Нет активного профиля для добавления правила",
-  "positionTop": "В начало (высокий приоритет)",
-  "positionBottom": "В конец (низкий приоритет)",
-  "position": "Приоритет"
+  "positionTop": "В начало",
+  "positionBottom": "В конец",
+  "position": "Приоритет",
+  "domainSuffixMatch": "Домен и поддомены",
+  "exactDomainMatch": "Точный домен",
+  "processPathMatch": "Путь приложения"
 }

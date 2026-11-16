@@ -1,4 +1,5 @@
 import type { MihomoRule } from './mihomo'
+import type { CustomRuleItem } from './profile'
 
 /** Apply prepend/append overrides; append offsets count backwards from the end. */
 export function insertRuleOverrides<T extends { offset?: number; position?: 'top' | 'bottom' }>(
@@ -47,4 +48,99 @@ export function splitRuleFields(value: string): string[] {
   }
   fields.push(value.slice(start))
   return fields
+}
+
+/** Combine base profile rules with custom user overrides. */
+export function resolveEffectiveRules(
+  rawRules: unknown,
+  customRules?: CustomRuleItem[],
+  ruleIds?: (string | undefined)[]
+): string[] {
+  const stringRules = Array.isArray(rawRules)
+    ? rawRules.map((rule) => String(rule).trim()).filter(Boolean)
+    : []
+  if (!customRules?.length) {
+    return stringRules
+  }
+  type Entry = { value: string; id?: string; offset?: number; position?: 'top' | 'bottom'; disabled?: boolean }
+  const overrides: Entry[] = []
+  const sources = new Map(customRules.filter((rule) => rule.sourceRule !== undefined)
+    .map((rule) => [JSON.stringify([rule.sourceRule, rule.sourceOccurrence ?? 0]), rule]))
+  const deleted = customRules.filter((rule) => rule.isDeleted && rule.enabled !== false && rule.sourceRule === undefined)
+  const occurrences = new Map<string, number>()
+  const base: Entry[] = []
+  for (const value of stringRules) {
+    const occurrence = occurrences.get(value) ?? 0
+    occurrences.set(value, occurrence + 1)
+    const source = sources.get(JSON.stringify([value, occurrence]))
+    if (source) {
+      overrides.push({
+        value: source.replacementRule ?? value,
+        id: source.replacementRule ? source.id : undefined,
+        offset: source.offset,
+        position: 'top',
+        disabled: source.isDeleted || source.enabled === false || !!source.validationError
+      })
+      continue
+    }
+    const parts = splitRuleFields(value).map((part) => part.trim())
+    const type = parts[0]?.toUpperCase()
+    const payload = type === 'MATCH' ? '' : parts[1] || ''
+    const proxy = type === 'MATCH' ? parts[1] || '' : parts[2] || ''
+    const disabled = deleted.some((rule) => rule.type.toUpperCase() === type &&
+      (type === 'MATCH' || rule.payload === payload) && (!rule.proxy || rule.proxy === proxy))
+    base.push({ value, disabled })
+  }
+  for (const rule of customRules) {
+    if (rule.sourceRule !== undefined || rule.isDeleted) continue
+    const type = (rule.type || '').trim().toUpperCase()
+    const payload = (rule.payload || '').trim()
+    const proxy = (rule.proxy || 'DIRECT').trim()
+    const extra = rule.additionalParams?.length ? `,${rule.additionalParams.join(',')}` : ''
+    overrides.push({
+      value: type === 'MATCH' ? `MATCH,${proxy}${extra}` : `${type},${payload},${proxy}${extra}`,
+      id: rule.id,
+      offset: rule.offset,
+      position: rule.position,
+      disabled: rule.enabled === false || !!rule.validationError
+    })
+  }
+  const matchIndex = base.findLastIndex((rule) => rule.value.toUpperCase().startsWith('MATCH,'))
+  const ordered = insertRuleOverrides(base, overrides, matchIndex === -1 ? base.length : matchIndex)
+    .filter((rule) => !rule.disabled)
+  if (ruleIds) for (const rule of ordered) ruleIds.push(rule.id)
+  return ordered.map((rule) => rule.value)
+}
+
+/** Parses a Clash / Mihomo rule string into a MihomoRule descriptor. */
+export function parseRuleString(ruleStr: string): MihomoRule | null {
+  const trimmed = ruleStr.trim()
+  if (!trimmed || trimmed.startsWith('#')) return null
+  const parts = splitRuleFields(trimmed).map((p) => p.trim())
+  if (!parts[0]) return null
+  const type = parts[0].toUpperCase()
+  if (type === 'MATCH') {
+    return {
+      type: 'MATCH',
+      payload: '',
+      proxy: parts[1] || 'DIRECT'
+    }
+  }
+  return {
+    type: parts[0],
+    payload: parts[1] || '',
+    proxy: parts[2] || 'DIRECT'
+  }
+}
+
+/** Parses rules from profile configuration and applies custom rules offline. */
+export function offlineRules(config: Record<string, unknown>, customRules?: CustomRuleItem[]): MihomoRule[] {
+  const rawRules = config && typeof config === 'object' && Array.isArray(config.rules) ? config.rules : []
+  const effectiveRuleStrings = resolveEffectiveRules(rawRules, customRules)
+  const rules: MihomoRule[] = []
+  for (const str of effectiveRuleStrings) {
+    const item = parseRuleString(str)
+    if (item) rules.push(item)
+  }
+  return rules
 }

@@ -32,6 +32,7 @@ import type { GeoIpService } from './GeoIpService'
 import { isProcessElevated } from '../utils/elevation'
 import type { ProxyGroup } from '@shared/mihomo'
 import { offlineProxies } from '../utils/offline-proxies'
+import { offlineRules } from '../utils/offline-rules'
 import { flushSystemDns } from '../utils/network-transition'
 import { summarizeRules } from '@shared/rules'
 import type { ProviderKind, ProviderSummary } from '@shared/mihomo'
@@ -581,9 +582,26 @@ export class KernelService implements BaseService {
   }
 
   async getRules(scope?: 'summary'): Promise<MihomoRule[]> {
-    if (this.getStatus() !== 'running') return []
-    const rules = await this.apiClient.getRules()
-    return scope === 'summary' ? summarizeRules(rules) : rules
+    if (this.getStatus() === 'running') {
+      try {
+        const rules = await this.apiClient.getRules()
+        return scope === 'summary' ? summarizeRules(rules) : rules
+      } catch (err) {
+        logger.warn(`Failed to fetch rules from Mihomo API, falling back to offline rules: ${String(err)}`)
+      }
+    }
+    const profile = this.profileService.getActiveProfile()
+    if (!profile) return []
+    try {
+      const content = await this.profileService.getProfileContent(profile.id)
+      if (content === null) return []
+      const customRules = this.profileService.getCustomRules(profile.id)
+      const rules = offlineRules(yaml.parse(content) as Record<string, unknown>, customRules)
+      return scope === 'summary' ? summarizeRules(rules) : rules
+    } catch (err) {
+      logger.warn(`Failed to load offline rules: ${String(err)}`)
+      return []
+    }
   }
 
   async getConnections(): Promise<ConnectionsSnapshot> {

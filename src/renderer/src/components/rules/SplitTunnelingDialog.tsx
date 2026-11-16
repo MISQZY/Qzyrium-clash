@@ -1,26 +1,15 @@
 import { useState, useMemo, useEffect } from 'react'
-import {
-  Sliders,
-  Plus,
-  Trash2,
-  Check,
-  LoaderCircle,
-  AppWindow,
-  Flame,
-  Activity,
-  ShieldCheck,
-  ShieldAlert
-} from 'lucide-react'
+import { Sliders, Plus, Trash2, LoaderCircle, AppWindow, Search, Activity } from 'lucide-react'
 import type { CustomRuleItem } from '@shared/profile'
+import type { ConnectionItem } from '@shared/mihomo'
 import { createRuleId } from '@shared/rule-editor'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
-import { Badge } from '../ui/badge'
-import { ScrollArea } from '../ui/scroll-area'
+import { NativeSelect } from '../ui/native-select'
 import { ProcessIcon } from '../ProcessIcon'
 import { useTranslations } from '../../i18n'
-import { useProfiles, useConnections } from '../../stores/useAppStore'
+import { useProfiles } from '../../stores/useAppStore'
 import { getProcessDisplayName } from '../../lib/connections'
 
 export interface SplitTunnelingDialogProps {
@@ -29,151 +18,126 @@ export interface SplitTunnelingDialogProps {
   onSaved?: () => void
 }
 
-interface PopularPreset {
-  name: string
-  processes: string[]
-}
+// Subscription overrides belong to the full editor; removing one may restore a source rule.
+const isAppRule = (rule: CustomRuleItem) =>
+  (rule.type === 'PROCESS-NAME' || rule.type === 'PROCESS-PATH') &&
+  rule.sourceRule === undefined && !rule.isDeleted
 
-const POPULAR_PRESETS: PopularPreset[] = [
-  { name: 'Discord', processes: ['Discord.exe'] },
-  { name: 'Telegram', processes: ['Telegram.exe'] },
-  { name: 'Steam', processes: ['steam.exe', 'steamwebhelper.exe'] },
-  { name: 'Chrome', processes: ['chrome.exe'] },
-  { name: 'Firefox', processes: ['firefox.exe'] },
-  { name: 'Edge', processes: ['msedge.exe'] },
-  { name: 'qBittorrent', processes: ['qbittorrent.exe'] },
-  { name: 'Spotify', processes: ['Spotify.exe'] }
-]
+function normalizeApp(value: string) {
+  const payload = value.trim().replace(/^"(.*)"$/, '$1').trim()
+  return { payload, type: /[/\\]/.test(payload) ? 'PROCESS-PATH' : 'PROCESS-NAME' }
+}
 
 export function SplitTunnelingDialog({ open, onOpenChange, onSaved }: SplitTunnelingDialogProps) {
   const t = useTranslations('rules')
   const common = useTranslations('common')
   const { activeProfile } = useProfiles()
-  const { connections } = useConnections()
-
-  const [mode, setMode] = useState<'blacklist' | 'whitelist'>('blacklist')
-  const [customExe, setCustomExe] = useState('')
+  const [connections, setConnections] = useState<ConnectionItem[]>([])
+  const profileId = activeProfile?.id
+  const [customApp, setCustomApp] = useState('')
+  const [route, setRoute] = useState('DIRECT')
+  const [query, setQuery] = useState('')
   const [appRules, setAppRules] = useState<CustomRuleItem[]>([])
+  const [initialRules, setInitialRules] = useState<CustomRuleItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [ready, setReady] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Load existing PROCESS-NAME rules from activeProfile
   useEffect(() => {
-    if (open && activeProfile?.customRules) {
-      const processRules = activeProfile.customRules.filter(
-        (r) => r.type === 'PROCESS-NAME' || r.type === 'PROCESS-PATH'
-      )
-      setAppRules(processRules)
-      // Infer mode: if majority are DIRECT, blacklist. If PROXY, whitelist.
-      const directCount = processRules.filter((r) => r.proxy === 'DIRECT').length
-      const proxyCount = processRules.length - directCount
-      if (proxyCount > directCount) {
-        setMode('whitelist')
-      } else {
-        setMode('blacklist')
-      }
-      setSaved(false)
-      setError(null)
-    } else if (open && activeProfile) {
-      void window.api?.profiles.getCustomRules(activeProfile.id).then((allRules) => {
-        const processRules = allRules.filter(
-          (r) => r.type === 'PROCESS-NAME' || r.type === 'PROCESS-PATH'
-        )
-        setAppRules(processRules)
-      }).catch(() => {})
-      setSaved(false)
-      setError(null)
-    }
-  }, [open, activeProfile])
+    if (!open || !window.api) return
+    let cancelled = false
+    setConnections([])
+    // The shared connection store is intentionally cleared on the Rules page.
+    void window.api.mihomo.getConnections().then((snapshot) => {
+      if (!cancelled) setConnections(snapshot.connections)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [open])
 
-  // Extract currently running processes from active connections
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    setLoading(true)
+    setReady(false)
+    setError(null)
+    setCustomApp('')
+    setQuery('')
+    setRoute('DIRECT')
+    setAppRules([])
+    setInitialRules([])
+    if (!profileId || !window.api) {
+      setLoading(false)
+      return
+    }
+    void window.api.profiles.getCustomRules(profileId).then((rules) => {
+      if (cancelled) return
+      const apps = rules.filter(isAppRule)
+      setAppRules(apps)
+      setInitialRules(apps)
+      setReady(true)
+      setLoading(false)
+    }).catch((err: unknown) => {
+      if (cancelled) return
+      setError(err instanceof Error ? err.message : String(err))
+      setLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [open, profileId])
+
   const activeProcesses = useMemo(() => {
-    const procs = new Map<string, string | undefined>()
-    if (connections?.connections) {
-      for (const conn of connections.connections) {
-        const name = getProcessDisplayName(conn.metadata.processPath, conn.metadata.process, '')
-        if (name && !name.toLowerCase().includes('system') && !procs.has(name.toLowerCase())) {
-          procs.set(name.toLowerCase(), conn.metadata.processPath)
-        }
+    const processes = new Map<string, { name: string; path?: string }>()
+    for (const connection of connections) {
+      const { processPath, process } = connection.metadata
+      const name = getProcessDisplayName(processPath, process, '')
+      if (name && name.toLowerCase() !== 'system' && (!processes.has(name.toLowerCase()) || processPath)) {
+        processes.set(name.toLowerCase(), { name, path: processPath })
       }
     }
-    return Array.from(procs.entries()).map(([lower, path]) => {
-      // Find original casing
-      const original = connections?.connections.find(
-        (c) => getProcessDisplayName(c.metadata.processPath, c.metadata.process, '').toLowerCase() === lower
-      )
-      return {
-        name: getProcessDisplayName(original?.metadata.processPath, original?.metadata.process, lower),
-        path
-      }
-    })
+    return [...processes.values()].sort((a, b) => a.name.localeCompare(b.name))
   }, [connections])
 
-  const configuredProcessNames = useMemo(() => {
-    return new Set(appRules.map((r) => r.payload.toLowerCase()))
-  }, [appRules])
+  const changed = JSON.stringify(appRules) !== JSON.stringify(initialRules)
+  const unavailable = loading || saving || !profileId || !ready
+  const search = query.trim().toLowerCase()
+  const visibleRules = appRules.filter((rule) => rule.payload.toLowerCase().includes(search))
+  const visibleProcesses = activeProcesses.filter((process) => process.name.toLowerCase().includes(search))
+  const input = normalizeApp(customApp)
+  const duplicate = (type: string, payload: string) => appRules.some(
+    (rule) => rule.type === type && rule.payload.toLowerCase() === payload.toLowerCase()
+  )
+  const validInput = !!input.payload && !/[,\r\n]/.test(input.payload)
 
-  const handleAddProcess = (processName: string) => {
-    const trimmed = processName.trim()
-    if (!trimmed) return
-    const formatted = trimmed.endsWith('.exe') ? trimmed : `${trimmed}.exe`
-    if (configuredProcessNames.has(formatted.toLowerCase())) return
-
-    const defaultProxy = mode === 'blacklist' ? 'DIRECT' : 'GLOBAL'
-    const newRule: CustomRuleItem = {
-      id: createRuleId(),
-      type: 'PROCESS-NAME',
-      payload: formatted,
-      proxy: defaultProxy,
-      position: 'top'
-    }
-
-    setAppRules((prev) => [newRule, ...prev])
-    setCustomExe('')
+  const addProcess = (value: string) => {
+    const { payload, type } = normalizeApp(value)
+    if (!payload || /[,\r\n]/.test(payload)) return
+    setAppRules((rules) => rules.some((rule) => rule.type === type && rule.payload.toLowerCase() === payload.toLowerCase())
+      ? rules
+      : [...rules, { id: createRuleId(), type, payload, proxy: route, position: 'top' }])
+    setCustomApp('')
   }
 
-  const handleRemoveProcess = (id: string) => {
-    setAppRules((prev) => prev.filter((r) => r.id !== id))
-  }
-
-  const handleToggleRuleProxy = (id: string) => {
-    setAppRules((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r
-        const nextProxy = r.proxy === 'DIRECT' ? 'GLOBAL' : 'DIRECT'
-        return { ...r, proxy: nextProxy }
-      })
-    )
-  }
-
-  const handleModeChange = (newMode: 'blacklist' | 'whitelist') => {
-    setMode(newMode)
-    const targetProxy = newMode === 'blacklist' ? 'DIRECT' : 'GLOBAL'
-    // Update all process rules to match the new mode
-    setAppRules((prev) => prev.map((r) => ({ ...r, proxy: targetProxy })))
-  }
-
-  const handleSave = async () => {
-    if (!window.api || !activeProfile || saving) return
-
+  const save = async () => {
+    if (!window.api || !profileId || unavailable || !changed) return
     setSaving(true)
     setError(null)
     try {
-      const allRules = await window.api.profiles.getCustomRules(activeProfile.id)
-      // Keep non-process rules
-      const otherRules = allRules.filter(
-        (r) => r.type !== 'PROCESS-NAME' && r.type !== 'PROCESS-PATH'
-      )
-      // Merge: appRules on top + other rules
-      const updated = [...appRules, ...otherRules]
-      await window.api.profiles.saveCustomRules(activeProfile.id, updated)
-      setSaved(true)
+      const allRules = await window.api.profiles.getCustomRules(profileId)
+      if (JSON.stringify(allRules.filter(isAppRule)) !== JSON.stringify(initialRules)) {
+        throw new Error(t('appsChangedElsewhere'))
+      }
+      // Preserve other rules and the positions of existing application rules.
+      const replacements = new Map(appRules.map((rule) => [rule.id, rule]))
+      const existingIds = new Set(initialRules.map((rule) => rule.id))
+      const merged = allRules.flatMap((rule) => {
+        if (!isAppRule(rule)) return [rule]
+        const replacement = replacements.get(rule.id)
+        return replacement ? [replacement] : []
+      })
+      const added = appRules.filter((rule) => !existingIds.has(rule.id))
+      await window.api.profiles.saveCustomRules(profileId, [...added, ...merged])
       onSaved?.()
-      setTimeout(() => {
-        onOpenChange(false)
-        setSaved(false)
-      }, 900)
+      onOpenChange(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -182,254 +146,117 @@ export function SplitTunnelingDialog({ open, onOpenChange, onSaved }: SplitTunne
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl p-0 gap-0 overflow-hidden rounded-2xl">
-        <DialogHeader className="p-5 pb-3 border-b border-border/60 bg-muted/20">
-          <div className="flex items-center gap-2.5">
-            <div className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
+    <Dialog open={open} onOpenChange={(value) => { if (!saving) onOpenChange(value) }}>
+      <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl flex flex-col max-h-[85dvh]">
+        <DialogHeader className="p-4 pr-12 border-b border-border/60 shrink-0 text-left">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
               <Sliders className="size-5" />
             </div>
-            <div>
-              <DialogTitle className="text-base font-semibold">{t('splitTunnelingTitle')}</DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                {t('splitTunnelingDescription')}
-              </DialogDescription>
+            <div className="min-w-0">
+              <DialogTitle className="text-base leading-snug [overflow-wrap:anywhere]">{t('splitTunnelingTitle')}</DialogTitle>
+              <DialogDescription className="sr-only">{t('splitTunnelingDescription')}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 p-5 max-h-[75dvh] overflow-y-auto">
-          {/* Mode Selector */}
-          <div className="flex flex-col gap-2 p-3 rounded-xl border border-border/70 bg-muted/20">
-            <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              {mode === 'blacklist' ? (
-                <ShieldCheck className="size-3.5 text-emerald-500" />
-              ) : (
-                <ShieldAlert className="size-3.5 text-blue-500" />
-              )}
-              {t('splitMode')}
-            </span>
+        <div className="p-4 overflow-y-auto min-h-0 space-y-4 [overflow-wrap:anywhere]">
+          {!profileId && <p role="status" className="text-sm text-muted-foreground">{t('selectProfileForApps')}</p>}
+          {error && <p role="alert" className="text-xs text-destructive bg-destructive/10 p-3 rounded-lg">{error}</p>}
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleModeChange('blacklist')}
-                className={`flex flex-col items-start p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
-                  mode === 'blacklist'
-                    ? 'border-emerald-500/60 bg-emerald-500/10 text-foreground shadow-xs'
-                    : 'border-border/60 hover:bg-muted/40 text-muted-foreground'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-semibold text-xs text-emerald-600 dark:text-emerald-400">
-                  <span>{t('blacklistMode')}</span>
-                </div>
-                <span className="text-[11px] text-muted-foreground mt-1 leading-snug">
-                  {t('blacklistDesc')}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleModeChange('whitelist')}
-                className={`flex flex-col items-start p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
-                  mode === 'whitelist'
-                    ? 'border-blue-500/60 bg-blue-500/10 text-foreground shadow-xs'
-                    : 'border-border/60 hover:bg-muted/40 text-muted-foreground'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-semibold text-xs text-blue-600 dark:text-blue-400">
-                  <span>{t('whitelistMode')}</span>
-                </div>
-                <span className="text-[11px] text-muted-foreground mt-1 leading-snug">
-                  {t('whitelistDesc')}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Add Custom App */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold text-muted-foreground">{t('addCustomApp')}</span>
-            <div className="flex items-center gap-2">
-              <Input
-                value={customExe}
-                onChange={(e) => setCustomExe(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddProcess(customExe))}
-                placeholder={t('appNamePlaceholder')}
-                className="font-mono text-xs h-8 flex-1"
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => handleAddProcess(customExe)}
-                disabled={!customExe.trim()}
-                className="gap-1 h-8 text-xs shrink-0"
-              >
-                <Plus className="size-3.5" />
-                <span>{t('add')}</span>
+          <fieldset disabled={unavailable} className="space-y-2 min-w-0">
+            <legend className="text-xs font-semibold mb-2">{t('addCustomApp')}</legend>
+            <form className="flex flex-wrap gap-2" onSubmit={(event) => {
+              event.preventDefault()
+              if (!unavailable && validInput && !duplicate(input.type, input.payload)) addProcess(customApp)
+            }}>
+              <Input aria-label={t('addCustomApp')} value={customApp} onChange={(event) => setCustomApp(event.target.value)}
+                placeholder={t('appNamePlaceholder')} className="font-mono text-xs h-9 w-full basis-full" />
+              <NativeSelect aria-label={t('newAppRoute')} value={route} onChange={(event) => setRoute(event.target.value)} className="h-9 text-xs flex-1">
+                <option value="DIRECT">{t('routeDirect')}</option>
+                <option value="GLOBAL">{t('routeVpn')}</option>
+              </NativeSelect>
+              <Button type="submit" size="sm" variant="outline" className="h-9 gap-1.5"
+                disabled={unavailable || !validInput || duplicate(input.type, input.payload)}>
+                <Plus className="size-3.5" />{t('add')}
               </Button>
-            </div>
-          </div>
+            </form>
+          </fieldset>
 
-          {/* Running Applications Quick Chips */}
-          {activeProcesses.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                <Activity className="size-3 text-emerald-500" />
-                <span>{t('activeProcesses')}</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {activeProcesses.map((proc) => {
-                  const isAdded = configuredProcessNames.has(proc.name.toLowerCase())
-                  return (
-                    <button
-                      key={proc.name}
-                      type="button"
-                      disabled={isAdded}
-                      onClick={() => handleAddProcess(proc.name)}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono border transition-all cursor-pointer ${
-                        isAdded
-                          ? 'border-border/40 bg-muted/30 text-muted-foreground/50 cursor-default'
-                          : 'border-border/70 bg-card hover:bg-primary/10 hover:border-primary/40 text-foreground'
-                      }`}
-                    >
-                      <ProcessIcon processName={proc.name} processPath={proc.path} className="size-3.5" />
-                      <span>{proc.name}</span>
-                      {!isAdded && <Plus className="size-3 text-primary opacity-60 ml-0.5" />}
-                    </button>
-                  )
-                })}
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-xs font-semibold">{t('configuredApps')} <span className="ml-1 text-muted-foreground tabular-nums">{appRules.length}</span></h3>
+              <div className="relative w-48">
+                <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground pointer-events-none" />
+                <Input aria-label={t('searchApps')} placeholder={t('searchApps')} value={query}
+                  onChange={(event) => setQuery(event.target.value)} className="h-8 pl-8 text-xs" />
               </div>
             </div>
-          )}
-
-          {/* Popular Presets */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-              <Flame className="size-3 text-amber-500" />
-              <span>{t('popularPresets')}</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {POPULAR_PRESETS.map((preset) => {
-                const allAdded = preset.processes.every((p) => configuredProcessNames.has(p.toLowerCase()))
-                return (
-                  <button
-                    key={preset.name}
-                    type="button"
-                    disabled={allAdded}
-                    onClick={() => preset.processes.forEach(handleAddProcess)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] border transition-all cursor-pointer ${
-                      allAdded
-                        ? 'border-border/40 bg-muted/30 text-muted-foreground/50 cursor-default'
-                        : 'border-border/70 bg-card hover:bg-primary/10 hover:border-primary/40 text-foreground font-medium'
-                    }`}
-                  >
-                    <ProcessIcon processName={preset.processes[0]} className="size-3.5" />
-                    <span>{preset.name}</span>
-                    {allAdded ? (
-                      <Check className="size-3 text-success ml-0.5" />
-                    ) : (
-                      <Plus className="size-3 text-primary opacity-60 ml-0.5" />
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Configured Apps List */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-              <span>{t('configuredApps')}</span>
-              <span className="tabular-nums font-mono text-[11px]">{appRules.length}</span>
-            </div>
-
-            {appRules.length === 0 ? (
-              <div className="p-6 rounded-xl border border-dashed border-border/80 text-center text-xs text-muted-foreground">
-                <AppWindow className="size-6 mx-auto mb-2 opacity-40" />
-                <p>{t('noConfiguredApps')}</p>
+            {loading ? (
+              <div role="status" className="flex justify-center p-6"><LoaderCircle aria-label={t('configuredApps')} className="size-5 animate-spin text-muted-foreground" /></div>
+            ) : visibleRules.length === 0 ? (
+              <div className="p-6 rounded-xl border border-dashed text-center text-xs text-muted-foreground">
+                <AppWindow className="size-6 mx-auto mb-2 opacity-50" />
+                <p>{search ? t('noMatchingApps') : t('noConfiguredApps')}</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-1.5">
-                {appRules.map((rule) => {
-                  const isDirect = rule.proxy === 'DIRECT'
+              <div className="divide-y divide-border/60 rounded-xl border border-border/70 overflow-hidden">
+                {visibleRules.map((rule) => {
+                  const processPath = rule.type === 'PROCESS-PATH' ? rule.payload
+                    : activeProcesses.find((process) => process.name.toLowerCase() === rule.payload.toLowerCase())?.path
                   return (
-                    <div
-                      key={rule.id}
-                      className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-border/70 bg-card/60 hover:border-border transition-colors text-xs"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <ProcessIcon processName={rule.payload} className="size-4 shrink-0" />
-                        <span className="font-mono text-foreground font-medium truncate">{rule.payload}</span>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleRuleProxy(rule.id)}
-                          title={t('toggleRouting')}
-                          aria-label={t('toggleRouting')}
-                          className="cursor-pointer"
-                        >
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] font-mono px-2 py-0.5 transition-colors ${
-                              isDirect
-                                ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                : 'border-blue-500/50 bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                            }`}
-                          >
-                            {rule.proxy}
-                          </Badge>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveProcess(rule.id)}
-                          className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
+                  <div key={rule.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 basis-40">
+                      <ProcessIcon processName={getProcessDisplayName(processPath, rule.payload)}
+                        processPath={processPath || rule.payload} className="size-5 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-mono text-xs whitespace-normal [overflow-wrap:anywhere]" title={rule.payload}>{rule.payload}</p>
+                        {rule.enabled === false && <span className="text-[10px] text-muted-foreground">{t('appRuleDisabled')}</span>}
                       </div>
                     </div>
+                    <NativeSelect aria-label={t('appRoute', { app: rule.payload })} value={rule.proxy} disabled={unavailable}
+                      onChange={(event) => setAppRules((rules) => rules.map((item) => item.id === rule.id ? { ...item, proxy: event.target.value } : item))}
+                      className="text-xs h-8 max-w-44">
+                      <option value="DIRECT">{t('routeDirect')}</option>
+                      <option value="GLOBAL">{t('routeVpn')}</option>
+                      {!['DIRECT', 'GLOBAL'].includes(rule.proxy) && <option value={rule.proxy}>{rule.proxy}</option>}
+                    </NativeSelect>
+                    <Button type="button" variant="ghost" size="icon" className="size-8 text-muted-foreground hover:text-destructive"
+                      aria-label={t('removeApp', { app: rule.payload })} disabled={unavailable}
+                      onClick={() => setAppRules((rules) => rules.filter((item) => item.id !== rule.id))}>
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
                   )
                 })}
               </div>
             )}
           </div>
 
-          {error && (
-            <p className="text-xs text-destructive bg-destructive/10 p-2 rounded-md">{error}</p>
-          )}
+          <div className="space-y-2">
+            <h3 className="flex items-center gap-1.5 text-xs font-semibold"><Activity className="size-3.5 text-primary" />{t('activeProcesses')}</h3>
+            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+              {visibleProcesses.map((process) => {
+                const added = duplicate('PROCESS-NAME', process.name) || (!!process.path && duplicate('PROCESS-PATH', process.path))
+                return (
+                  <Button key={process.name} type="button" variant="outline" size="sm" className="gap-1.5 h-auto min-h-8 py-1.5 text-xs max-w-full min-w-0 whitespace-normal text-left"
+                    disabled={unavailable || added} onClick={() => addProcess(process.name)}>
+                    <ProcessIcon processName={process.name} processPath={process.path} className="size-3.5 shrink-0" />
+                    <span className="min-w-0 [overflow-wrap:anywhere]">{process.name}</span>
+                    {!added && <Plus className="size-3 shrink-0" />}
+                  </Button>
+                )
+              })}
+              {visibleProcesses.length === 0 && <p className="text-xs text-muted-foreground py-1">{search ? t('noMatchingApps') : t('noActiveProcesses')}</p>}
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground">{t('profileRoutingHint')}</p>
         </div>
 
-        <DialogFooter className="p-4 border-t border-border/60 bg-muted/20 flex flex-row items-center justify-between">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
-            {t('cancel')}
-          </Button>
-
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleSave}
-            disabled={saving || saved}
-            className="gap-1.5"
-          >
-            {saving ? (
-              <LoaderCircle className="size-3.5 animate-spin" />
-            ) : saved ? (
-              <Check className="size-3.5 text-success" />
-            ) : (
-              <Sliders className="size-3.5" />
-            )}
-            <span>{saved ? t('appliedSuccessfully') : common('save')}</span>
+        <DialogFooter className="p-4 border-t border-border/60 bg-muted/20 flex-row justify-between sm:justify-between shrink-0">
+          <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={saving}>{t('cancel')}</Button>
+          <Button type="button" size="sm" onClick={save} disabled={unavailable || !changed} className="gap-1.5">
+            {saving && <LoaderCircle className="size-3.5 animate-spin" />}{common('save')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -79,7 +79,7 @@ export function RulesPage({
             variant="outline"
             size="sm"
             onClick={onRefresh}
-            disabled={!running || busy}
+            disabled={busy}
             className="gap-1.5"
           >
             <RefreshCw className="size-3.5" />
@@ -159,7 +159,7 @@ export function RulesPage({
           <div className="empty-state py-10">
             <RulesIcon className="size-7 text-muted-foreground" />
             <p>
-              {!running
+              {!running && !profileId
                 ? t('startMihomoToLoadTheActiveRules')
                 : query || type !== 'all'
                 ? t('noRulesMatchYourFilters')

@@ -153,6 +153,12 @@ async function main() {
   ]
   assert.deepEqual(yaml.parse(MihomoConfigFactory.synthesize(layoutProfile, settings, hiddenRows)).rules,
     ['DOMAIN,c.example,DIRECT', 'DOMAIN,a.example,DIRECT', 'MATCH,DIRECT'], 'hidden rows keep their positions until disabled entries are filtered')
+  const { offlineRules } = load('src/main/utils/offline-rules.ts')
+  assert.deepEqual(offlineRules(yaml.parse(layoutProfile), hiddenRows), [
+    { type: 'DOMAIN', payload: 'c.example', proxy: 'DIRECT' },
+    { type: 'DOMAIN', payload: 'a.example', proxy: 'DIRECT' },
+    { type: 'MATCH', payload: '', proxy: 'DIRECT' }
+  ], 'offline rules match synthesized config without running kernel')
   const warnings = []
   const { KernelService } = load('src/main/services/KernelService.ts')
   const service = Object.create(KernelService.prototype)

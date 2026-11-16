@@ -103,6 +103,8 @@ async function run() {
   let kernel = new KernelService(settings, profiles)
   await kernel.initialize()
   live = await kernel.getProxies()
+  const initialRules = await kernel.getRules()
+  assert.deepEqual(initialRules, [{ type: 'MATCH', payload: '', proxy: 'PROXY' }], 'offline rules load without starting core')
   assert.deepEqual(live.PROXY.all, ['Amsterdam', 'Paris', 'DIRECT'])
   assert.deepEqual(live.Providers.all, ['Berlin', 'Tokyo'])
   assert.deepEqual(live.Filtered.all, ['Paris'])

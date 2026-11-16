@@ -1,7 +1,7 @@
 import yaml from 'yaml'
 import { AppConfig } from '@shared/app-config'
 import { CustomRuleItem } from '@shared/profile'
-import { insertRuleOverrides, splitRuleFields } from '@shared/rules'
+import { resolveEffectiveRules } from '@shared/rules'
 import { parseProfileConfig } from '../utils/profile-config'
 import { resolveEffectiveCore, CORE_PORT_KEYS } from '@shared/effective-core'
 
@@ -153,47 +153,7 @@ export class MihomoConfigFactory {
 
     // Only changed rules are stored as overrides; untouched subscription rows stay in the profile.
     if (customRules?.length) {
-      type Entry = { value: string; id?: string; offset?: number; position?: 'top' | 'bottom'; disabled?: boolean }
-      const overrides: Entry[] = []
-      const sources = new Map(customRules.filter((rule) => rule.sourceRule !== undefined)
-        .map((rule) => [JSON.stringify([rule.sourceRule, rule.sourceOccurrence ?? 0]), rule]))
-      const deleted = customRules.filter((rule) => rule.isDeleted && rule.enabled !== false && rule.sourceRule === undefined)
-      const occurrences = new Map<string, number>()
-      const base: Entry[] = []
-      for (const value of Array.isArray(parsed.rules) ? parsed.rules.map((rule) => String(rule).trim()) : []) {
-        const occurrence = occurrences.get(value) ?? 0
-        occurrences.set(value, occurrence + 1)
-        const source = sources.get(JSON.stringify([value, occurrence]))
-        if (source) {
-          overrides.push({ value: source.replacementRule ?? value, id: source.replacementRule ? source.id : undefined,
-            offset: source.offset, position: 'top', disabled: source.isDeleted || source.enabled === false || !!source.validationError })
-          continue
-        }
-        const parts = splitRuleFields(value).map((part) => part.trim())
-        const type = parts[0]?.toUpperCase()
-        const payload = type === 'MATCH' ? '' : parts[1] || ''
-        const proxy = type === 'MATCH' ? parts[1] || '' : parts[2] || ''
-        const disabled = deleted.some((rule) => rule.type.toUpperCase() === type &&
-          (type === 'MATCH' || rule.payload === payload) && (!rule.proxy || rule.proxy === proxy))
-        base.push({ value, disabled })
-      }
-      for (const rule of customRules) {
-        if (rule.sourceRule !== undefined || rule.isDeleted) continue
-        const type = (rule.type || '').trim().toUpperCase()
-        const payload = (rule.payload || '').trim()
-        const proxy = (rule.proxy || 'DIRECT').trim()
-        const extra = rule.additionalParams?.length ? `,${rule.additionalParams.join(',')}` : ''
-        overrides.push({
-          value: type === 'MATCH' ? `MATCH,${proxy}${extra}` : `${type},${payload},${proxy}${extra}`,
-          id: rule.id, offset: rule.offset, position: rule.position,
-          disabled: rule.enabled === false || !!rule.validationError
-        })
-      }
-      const matchIndex = base.findLastIndex((rule) => rule.value.toUpperCase().startsWith('MATCH,'))
-      const ordered = insertRuleOverrides(base, overrides, matchIndex === -1 ? base.length : matchIndex)
-        .filter((rule) => !rule.disabled)
-      parsed.rules = ordered.map((rule) => rule.value)
-      if (ruleIds) for (const rule of ordered) ruleIds.push(rule.id)
+      parsed.rules = resolveEffectiveRules(parsed.rules, customRules, ruleIds)
     }
 
     const comments = (customRules ?? []).filter((rule) => !rule.isDeleted && rule.sourceRule === undefined &&

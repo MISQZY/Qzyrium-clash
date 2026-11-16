@@ -76,12 +76,15 @@
   "quickRuleDescription": "Create a routing rule based on this connection",
   "ruleTarget": "Condition",
   "ruleAction": "Action",
-  "directDescription": "Direct (bypass VPN)",
+  "directDescription": "Direct",
   "proxyDescription": "Through proxy",
-  "rejectDescription": "Block connection",
+  "rejectDescription": "Block",
   "ruleCreated": "Rule created successfully",
   "noActiveProfile": "No active profile to save rule to",
-  "positionTop": "At the beginning (high priority)",
-  "positionBottom": "At the end (low priority)",
-  "position": "Priority"
+  "positionTop": "At the beginning",
+  "positionBottom": "At the end",
+  "position": "Priority",
+  "domainSuffixMatch": "Domain and subdomains",
+  "exactDomainMatch": "Exact domain",
+  "processPathMatch": "Application path"
 }
