@@ -30,6 +30,9 @@ const fresh = () => ({ format: 'qzyrium-backup', version: 1, createdAt: new Date
   fs.mkdirSync(path.join(directory, 'profiles'))
   fs.writeFileSync(path.join(directory, 'settings.json'), 'previous settings')
   fs.writeFileSync(path.join(directory, 'profiles', 'previous.yaml'), 'previous profile')
+  fs.writeFileSync(path.join(directory, 'profiles', 'previous.yaml.bak'), 'obsolete profile backup')
+  fs.writeFileSync(path.join(directory, 'settings.json.bak'), 'obsolete settings')
+  fs.writeFileSync(path.join(directory, 'profiles.json.bak'), JSON.stringify([{ id: 'previous', name: 'Previous', type: 'local', updatedAt: 1 }]))
   fs.writeFileSync(path.join(directory, 'profiles', 'keep.txt'), 'unrelated')
   await stageBackupRestore(directory, backup)
   assert.equal(fs.readFileSync(path.join(directory, 'settings.json'), 'utf8'), 'previous settings', 'staging leaves running app files untouched')
@@ -37,6 +40,19 @@ const fresh = () => ({ format: 'qzyrium-backup', version: 1, createdAt: new Date
   assert.equal(JSON.parse(fs.readFileSync(path.join(directory, 'settings.json'))).activeProfileId, 'sample')
   assert.equal(fs.readFileSync(path.join(directory, 'profiles', 'sample.yaml'), 'utf8'), backup.profiles[0].content)
   assert.ok(!fs.existsSync(path.join(directory, 'profiles', 'previous.yaml')), 'restore replaces the managed profile set')
+  assert.ok(!fs.existsSync(path.join(directory, 'profiles', 'previous.yaml.bak')), 'removed profile recovery copies cannot resurrect old data')
+  for (const name of ['settings.json', 'profiles.json', 'profiles/sample.yaml']) {
+    assert.equal(fs.readFileSync(path.join(directory, name + '.bak'), 'utf8'), fs.readFileSync(path.join(directory, name), 'utf8'),
+      'primary and recovery files must belong to the same imported snapshot')
+  }
+  fs.writeFileSync(path.join(directory, 'profiles.json'), '{broken')
+  const { ProfileRepository } = load('src/main/services/ProfileRepository.ts', {
+    '../utils/paths': {}, '../utils/logger': { logger: { info() {}, warn() {}, error() {} } }
+  })
+  const repository = new ProfileRepository({ profilesFilePath: path.join(directory, 'profiles.json'), profilesDir: path.join(directory, 'profiles') })
+  await repository.initialize()
+  assert.deepEqual(repository.list().map(profile => profile.id), ['sample'], 'metadata recovery after import retains imported profiles')
+  assert.equal(await repository.content('sample'), backup.profiles[0].content)
   assert.equal(fs.readFileSync(path.join(directory, 'profiles', 'keep.txt'), 'utf8'), 'unrelated')
   assert.equal(await applyPendingBackup(directory), false, 'restore is consumed once')
 
@@ -47,12 +63,13 @@ const fresh = () => ({ format: 'qzyrium-backup', version: 1, createdAt: new Date
   const atomic = load('src/main/utils/atomicWrite.ts')
   const broken = load('src/main/utils/backup.ts', { './atomicWrite': {
     writeFileAtomicAsync: async (file, content, ...args) => {
-      if (!failed && file === path.join(directory, 'profiles.json')) { failed = true; throw new Error('disk unavailable') }
+      if (!failed && file === path.join(directory, 'profiles.json.bak')) { failed = true; throw new Error('disk unavailable') }
       return atomic.writeFileAtomicAsync(file, content, ...args)
     }
   } })
   await assert.rejects(broken.applyPendingBackup(directory), /disk unavailable/)
   assert.equal(fs.readFileSync(path.join(directory, 'settings.json'), 'utf8'), previous, 'failed import restores previous settings')
+  assert.equal(fs.readFileSync(path.join(directory, 'settings.json.bak'), 'utf8'), previous, 'rollback includes recovery copies')
   assert.ok(fs.existsSync(path.join(directory, 'restore-failed.json')))
 
   // Simulate process interruption before and after the transaction commit point.

@@ -73,8 +73,8 @@ const pendingName = 'restore-pending.json'
 const journalName = 'restore-journal.json'
 type FileRecord = { name: string; content: string | null }
 function target(root: string, name: string): string {
-  if (!['settings.json', 'profiles.json'].includes(name)) {
-    const match = /^(profiles|themes)\/([a-zA-Z0-9_-]+)\.(yaml|json)$/.exec(name)
+  if (!['settings.json', 'profiles.json', 'settings.json.bak', 'profiles.json.bak'].includes(name)) {
+    const match = /^(profiles|themes)\/([a-zA-Z0-9_-]+)\.(yaml|json)(?:\.bak)?$/.exec(name)
     if (!match || !safeId(match[2]) || match[3] !== (match[1] === 'profiles' ? 'yaml' : 'json')) throw new Error('Unsafe restore path')
   }
   return path.join(root, name)
@@ -116,12 +116,15 @@ export async function applyPendingBackup(root: string): Promise<boolean> {
   const pending = await readOptional(pendingPath)
   if (pending === null) return false
   const backup = parseBackup(pending)
-  const files: FileRecord[] = [
+  const primaryFiles: FileRecord[] = [
     { name: 'settings.json', content: JSON.stringify(backup.settings, null, 2) },
     { name: 'profiles.json', content: JSON.stringify(backup.profiles.map(item => item.profile), null, 2) },
     ...backup.profiles.map(item => ({ name: `profiles/${item.profile.id}.yaml`, content: item.content })),
     ...backup.themes.map(theme => ({ name: `themes/${theme.id}.json`, content: JSON.stringify(theme, null, 2) }))
   ]
+  // Recovery copies belong to the imported snapshot too. Journal them together
+  // with primary files so rollback cannot mix two generations of profiles.
+  const files: FileRecord[] = primaryFiles.flatMap(file => [file, { ...file, name: `${file.name}.bak` }])
   const included = new Set(files.map(file => file.name))
   for (const directory of ['profiles', 'themes']) {
     const names = await fs.readdir(path.join(root, directory)).catch((error: NodeJS.ErrnoException) => {
@@ -130,7 +133,8 @@ export async function applyPendingBackup(root: string): Promise<boolean> {
     })
     for (const name of names) {
       const relative = `${directory}/${name}`
-      if (!name.endsWith(directory === 'profiles' ? '.yaml' : '.json') || included.has(relative)) continue
+      const primaryName = name.replace(/\.bak$/, '')
+      if (!primaryName.endsWith(directory === 'profiles' ? '.yaml' : '.json') || included.has(relative)) continue
       // Leave unrelated files alone, including names outside the managed ID format.
       try { target(root, relative) } catch { continue }
       files.push({ name: relative, content: null })
