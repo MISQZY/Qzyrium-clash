@@ -10,7 +10,7 @@ export function visibleProxyGroups(proxies: Record<string, ProxyNode>, rules: Mi
 
     const isEligibleGroup = (name: string): boolean => {
       const item = proxies[name]
-      if (!isProxyGroup(item) || item.all.length === 0) return false
+      if (!isProxyGroup(item)) return false
       if (item.hidden) return false
       if (name === 'GLOBAL' && mode !== 'global') return false
       const rawType = (item.type || '').toLowerCase()
@@ -50,16 +50,15 @@ export function visibleProxyGroups(proxies: Record<string, ProxyNode>, rules: Mi
       }
     }
 
-    // Fallback if rules gave no groups (or rules empty / loading)
-    if (list.length === 0) {
-      for (const name of Object.keys(proxies)) {
-        addGroup(name)
-      }
+    // Keep configured groups visible, including empty providers and groups not
+    // currently referenced by a rule. Their configured order is applied below.
+    for (const name of Object.keys(proxies)) {
+      addGroup(name)
     }
 
-    // GLOBAL.all follows the provider's configured group order. Rule traversal
-    // determines visibility only; neither rule order nor nested selectors should
-    // rearrange the cards. Keep API order for groups missing from GLOBAL.
+    // GLOBAL.all follows the provider's configured group order. Neither rule
+    // order nor nested selectors should rearrange the cards. Keep API order for
+    // groups missing from GLOBAL.
     const configuredOrder = [...new Set([
       ...((proxies.GLOBAL as ProxyGroup | undefined)?.all ?? []),
       ...Object.keys(proxies)

@@ -90,10 +90,11 @@ async function run() {
     Alpha: { name: 'Alpha', type: 'Selector', all: ['Zulu'] },
     Zulu: { name: 'Zulu', type: 'Selector', all: ['Alpha'] },
     Hidden: { name: 'Hidden', type: 'Selector', all: [], hidden: true },
+    Empty: { name: 'Empty', type: 'Selector', all: [] },
     GLOBAL: { name: 'GLOBAL', type: 'Selector', all: ['Zulu', 'Hidden', 'Alpha'] }
   }
-  assert.deepEqual(visibleProxyGroups(ordered, [{ proxy: 'Alpha' }], 'rule'), ['Zulu', 'Alpha'], 'visibility traversal preserves provider order even with cycles')
-  assert.deepEqual(visibleProxyGroups(ordered, [], 'global'), ['GLOBAL', 'Zulu', 'Alpha'])
+  assert.deepEqual(visibleProxyGroups(ordered, [{ proxy: 'Alpha' }], 'rule'), ['Zulu', 'Alpha', 'Empty'], 'configured groups stay visible, including unreferenced empty groups')
+  assert.deepEqual(visibleProxyGroups(ordered, [], 'global'), ['GLOBAL', 'Zulu', 'Alpha', 'Empty'])
   const { offlineProxies } = load('src/main/utils/offline-proxies.ts')
   const insensitive = await offlineProxies({ proxies: [{ name: 'PARIS', type: 'ss' }],
     'proxy-groups': [{ name: 'g', type: 'select', 'include-all-proxies': true, filter: '(?i)paris' }] }, root)
