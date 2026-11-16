@@ -13,6 +13,27 @@ const record = (id, source = 'app') => ({ time: '2026-01-01T00:00:00Z', payload:
   assert.deepEqual(buffer.snapshot().map(x => x.payload), ['16', '18'])
   buffer.push(record('new'))
   assert.equal(buffer.snapshot().at(-1).payload, 'new')
+  let cleanCalls = 0
+  const logHelpers = loadTypeScript('src/shared/logs.ts')
+  const { createLogPresenter } = loadTypeScript('src/renderer/src/lib/log-presentation.ts', {
+    '@shared/logs': { ...logHelpers, cleanLogMessage: message => { cleanCalls++; return logHelpers.cleanLogMessage(message) } }
+  })
+  const present = createLogPresenter()
+  const presentationBuffer = new LogBuffer(2)
+  presentationBuffer.push(record('first'))
+  presentationBuffer.push(record('second'))
+  const retained = presentationBuffer.snapshot().map(present)
+  assert.equal(cleanCalls, retained.length)
+  presentationBuffer.push(record('another'))
+  const updated = presentationBuffer.snapshot().map(present)
+  assert.equal(cleanCalls, retained.length + 1, 'only newly appended records are cleaned on the next snapshot')
+  assert.equal(updated[0], retained[1], 'retained records preserve presentation identity after ring eviction')
+  assert.equal(updated[0].id, retained[1].id, 'row keys survive ring eviction')
+  const duplicate = present(record('another'))
+  assert.notEqual(duplicate.id, updated.at(-1).id, 'identical log messages remain distinct rows')
+  const sensitive = present({ ...record('sensitive'), payload: '\u001b[31mhttps://example.com/private?token=secret\u001b[0m' })
+  assert.equal(sensitive.message.includes('secret'), false, 'cached display and search text retain redaction')
+  assert.equal(sensitive.searchText, sensitive.message.toLocaleLowerCase())
   const batches = []
   const batcher = new LogBatcher(batch => batches.push(batch))
   for (let n = 0; n < 20000; n++) batcher.push(record(n))

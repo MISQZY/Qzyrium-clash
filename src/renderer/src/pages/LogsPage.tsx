@@ -6,7 +6,8 @@ import { LogEntry } from '@shared/types'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { VirtualList } from '../components/VirtualList'
-import { cleanLogMessage, normalizeLogLevel } from '@shared/logs'
+import { createLogPresenter, formatLogTime } from '../lib/log-presentation'
+import { LogRow } from '../components/logs/LogRow'
 import { copyToClipboard } from '../lib/clipboard'
 
 interface LogsPageProps {
@@ -35,6 +36,8 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
   const [copied, setCopied] = useState(false)
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const presentLog = useMemo(() => createLogPresenter(), [])
   const scrollPosition = useRef(0)
 
   useEffect(() => {
@@ -59,23 +62,11 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
     second: '2-digit',
     hour12: false
   }), [locale])
-  const displayTime = (time: string) => {
-    let date = new Date(time)
-    if (Number.isNaN(date.getTime()) && /^\d{1,2}:\d{2}:\d{2}/.test(time)) {
-      const today = new Date().toISOString().slice(0, 10)
-      date = new Date(`${today}T${time}`)
-    }
-    if (!Number.isNaN(date.getTime())) return timeFormatter.format(date)
-    return time.replace(/(\b\d{1,2}:\d{2}:\d{2})[.,]\d+/, '$1')
-  }
-
-  const sourceLogs = useMemo(() => logs.filter(log => (log.source ?? 'app') === source), [logs, source])
-  const filteredLogs = useMemo(() => {
-    return sourceLogs.filter((l) => {
-      return (levelFilter === 'all' || normalizeLogLevel(l.type) === levelFilter)
-        && cleanLogMessage(l.payload).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
-    })
-  }, [sourceLogs, levelFilter, search])
+  const sourceLogs = useMemo(() => logs.filter(log => (log.source ?? 'app') === source).map(presentLog), [logs, source, presentLog])
+  const searchQuery = search.trim().toLocaleLowerCase()
+  const filteredLogs = useMemo(() => sourceLogs.filter(item =>
+    (levelFilter === 'all' || item.level === levelFilter) && item.searchText.includes(searchQuery)),
+  [sourceLogs, levelFilter, searchQuery])
 
   useLayoutEffect(() => {
     const el = scrollRef.current
@@ -95,39 +86,29 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
         scrollPosition.current = scrollRef.current.scrollTop
       }
     })
-    const resizeObserver = new ResizeObserver(() => {
-      if (autoScroll && scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-        scrollPosition.current = scrollRef.current.scrollTop
-      }
-    })
-    resizeObserver.observe(el)
-    return () => {
-      cancelAnimationFrame(raf)
-      resizeObserver.disconnect()
-    }
+    return () => cancelAnimationFrame(raf)
   }, [filteredLogs, autoScroll])
 
-  const getLevelColor = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'warning':
-      case 'warn':
-        return 'text-warning font-semibold'
-      case 'error':
-        return 'text-destructive font-semibold'
-      case 'debug':
-        return 'text-muted-foreground'
-      default:
-        return 'text-primary font-semibold'
-    }
-  }
+  // Observe layout for the lifetime of the scroll mode, independently of log batches.
+  useEffect(() => {
+    const el = scrollRef.current
+    const content = contentRef.current
+    if (!el || !content || !autoScroll) return
+    const observer = new ResizeObserver(() => {
+      el.scrollTop = el.scrollHeight
+      scrollPosition.current = el.scrollTop
+    })
+    observer.observe(el)
+    observer.observe(content)
+    return () => observer.disconnect()
+  }, [autoScroll])
 
   const handleCopy = async () => {
     if (!filteredLogs.length) return
     const text = filteredLogs
       .map(
         (item) =>
-          `[${displayTime(item.time)}] [${normalizeLogLevel(item.type).toUpperCase()}] ${cleanLogMessage(item.payload)}`
+          `[${formatLogTime(item.time, timeFormatter)}] [${item.level.toUpperCase()}] ${item.message}`
       )
       .join('\n')
     const success = await copyToClipboard(text)
@@ -219,21 +200,16 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
 
       {/* Terminal View Container */}
       <div data-log-scroller ref={scrollRef} onScroll={(event) => { scrollPosition.current = event.currentTarget.scrollTop }} className="flex-1 min-w-0 min-h-0 rounded-xl bg-card border border-border p-4 font-mono text-xs overflow-y-auto [overflow-anchor:none] select-text shadow-inner">
+        <div ref={contentRef} className={filteredLogs.length ? undefined : 'h-full'}>
         {filteredLogs.length > 0 ? (
-          <VirtualList data={filteredLogs} itemKey={(_item, index) => String(index)} scrollParentSelector="[data-log-scroller]" gap={0} renderItem={(item) => (
-            <div className="grid grid-cols-[auto_6rem_minmax(0,1fr)] items-start gap-3 py-1 leading-relaxed border-b border-border/40 last:border-0 hover:bg-muted/20">
-              <time className="text-muted-foreground shrink-0 tabular-nums" title={item.time}>[{displayTime(item.time)}]</time>
-              <span className={`uppercase text-[10px] pt-px ${getLevelColor(item.type)}`}>
-                {common(normalizeLogLevel(item.type))}
-              </span>
-              <span className="min-w-0 text-foreground/90 whitespace-pre-wrap [overflow-wrap:anywhere]">{cleanLogMessage(item.payload)}</span>
-            </div>
-          )} />
+          <VirtualList data={filteredLogs} itemKey={item => item.id} scrollParentSelector="[data-log-scroller]" gap={0}
+            renderItem={item => <LogRow item={item} formatter={timeFormatter} />} />
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground font-mono text-xs select-none">
             {t(sourceLogs.length ? 'noMatchingEntries' : 'noLogEntriesRecordedYet')}
           </div>
         )}
+        </div>
       </div>
     </div>
   )
