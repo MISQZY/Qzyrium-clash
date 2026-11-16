@@ -75,6 +75,7 @@
   "quickRule": "Quick rule",
   "quickRuleDescription": "Create a routing rule based on this connection",
   "ruleTarget": "Condition",
+  "ruleType": "Rule type",
   "ruleAction": "Action",
   "directDescription": "Direct",
   "proxyDescription": "Through proxy",

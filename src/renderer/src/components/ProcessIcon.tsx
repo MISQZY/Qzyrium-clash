@@ -85,7 +85,7 @@ export function ProcessIcon({
     )
   }
 
-  return <FileProcessIcon processPath={processPath} name={name} className={className} fallbackClassName={fallbackClassName} />
+  return <FileProcessIcon processPath={processPath || name} name={name} className={className} fallbackClassName={fallbackClassName} />
 }
 
 function FileProcessIcon({ processPath, name, className, fallbackClassName }: {
@@ -106,14 +106,12 @@ function FileProcessIcon({ processPath, name, className, fallbackClassName }: {
     let active = true
     window.api.app.getProcessIcon(processPath).then((url) => {
       if (active) {
-        setClientIcon(processPath, url || '')
         if (url) {
+          setClientIcon(processPath, url)
           setLoadedIcon({ path: processPath, url })
         }
       }
-    }).catch(() => {
-      setClientIcon(processPath, '')
-    })
+    }).catch(() => {})
     return () => {
       active = false
     }
@@ -128,7 +126,7 @@ function FileProcessIcon({ processPath, name, className, fallbackClassName }: {
         alt={name}
         className={`${className} object-contain rounded-xs select-none`}
         onError={() => {
-          setClientIcon(processPath || '', '')
+          clientIconCache.delete(processPath || '')
           setLoadedIcon({ path: processPath || '', url: '' })
         }}
       />

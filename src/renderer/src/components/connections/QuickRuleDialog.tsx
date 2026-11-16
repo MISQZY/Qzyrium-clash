@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { ShieldPlus, LoaderCircle, Globe, AppWindow, Network, Check } from 'lucide-react'
+import { ShieldPlus, LoaderCircle } from 'lucide-react'
 import type { ConnectionItem } from '@shared/mihomo'
 import type { CustomRuleItem } from '@shared/profile'
 import { createRuleId } from '@shared/rule-editor'
@@ -12,9 +12,11 @@ import { ProcessIcon } from '../ProcessIcon'
 import { useTranslations } from '../../i18n'
 import { useProfiles, useProxies } from '../../stores/useAppStore'
 import { getProcessDisplayName, getSubDomains, isIPv6 } from '../../lib/connections'
+import type { ProcessGroup } from '../../lib/connections'
 
 export interface QuickRuleDialogProps {
-  connection: ConnectionItem | null
+  connection?: ConnectionItem | null
+  processGroup?: ProcessGroup | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated?: () => void
@@ -25,7 +27,7 @@ interface RuleOption {
   payload: string
 }
 
-export function QuickRuleDialog({ connection, open, onOpenChange, onCreated }: QuickRuleDialogProps) {
+export function QuickRuleDialog({ connection, processGroup, open, onOpenChange, onCreated }: QuickRuleDialogProps) {
   const t = useTranslations('connections')
   const common = useTranslations('common')
   const { activeProfile } = useProfiles()
@@ -43,6 +45,14 @@ export function QuickRuleDialog({ connection, open, onOpenChange, onCreated }: Q
     .filter((name) => !['DIRECT', 'REJECT', 'GLOBAL'].includes(name)), [proxies])
 
   const candidateOptions = useMemo<RuleOption[]>(() => {
+    if (processGroup) {
+      const options: RuleOption[] = []
+      if (processGroup.path || processGroup.connections.some((item) => item.metadata.process)) {
+        options.push({ type: 'PROCESS-NAME', payload: processGroup.name })
+      }
+      if (processGroup.path) options.push({ type: 'PROCESS-PATH', payload: processGroup.path })
+      return options
+    }
     if (!connection) return []
     const options: RuleOption[] = []
     const metadata = connection.metadata
@@ -59,7 +69,7 @@ export function QuickRuleDialog({ connection, open, onOpenChange, onCreated }: Q
         payload: `${metadata.destinationIP}${isIPv6(metadata.destinationIP) ? '/128' : '/32'}` })
     }
     return options
-  }, [connection])
+  }, [connection, processGroup])
 
   useEffect(() => {
     if (!open) return
@@ -91,7 +101,9 @@ export function QuickRuleDialog({ connection, open, onOpenChange, onCreated }: Q
     }
   }
 
-  if (!connection) return null
+  if (!connection && !processGroup) return null
+  const processPath = processGroup?.path || connection?.metadata.processPath
+  const processName = processGroup?.name || getProcessDisplayName(processPath, connection?.metadata.process, '')
   const optionLabel = (type: string) => {
     if (type === 'DOMAIN-SUFFIX') return t('domainSuffixMatch')
     if (type === 'DOMAIN') return t('exactDomainMatch')
@@ -106,39 +118,30 @@ export function QuickRuleDialog({ connection, open, onOpenChange, onCreated }: Q
         <DialogHeader className="p-4 pr-12 border-b border-border/60 shrink-0 text-left">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-              <ShieldPlus className="size-5" />
+              {processName ? <ProcessIcon processPath={processPath} processName={processName} className="size-5" /> : <ShieldPlus className="size-5" />}
             </div>
-            <DialogTitle className="text-base leading-snug [overflow-wrap:anywhere]">{t('quickRule')}</DialogTitle>
+            <div className="min-w-0">
+              <DialogTitle className="text-base leading-snug [overflow-wrap:anywhere]">{t('quickRule')}</DialogTitle>
+              {processName && <p className="mt-0.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">{processName}</p>}
+            </div>
           </div>
           <DialogDescription className="sr-only">{t('quickRuleDescription')}</DialogDescription>
         </DialogHeader>
 
         <div inert={saving} aria-busy={saving} className="p-4 space-y-4 overflow-y-auto min-h-0 min-w-0 [overflow-wrap:anywhere]">
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">{t('ruleTarget')}</p>
-            <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-1.5">
-              {candidateOptions.map((option) => {
-                const selected = selectedType === option.type && payload === option.payload
-                const process = option.type.startsWith('PROCESS-')
-                const Icon = process ? AppWindow : option.type.startsWith('IP-') ? Network : Globe
-                return (
-                  <button key={option.type} type="button" aria-pressed={selected}
-                    onClick={() => { setSelectedType(option.type); setPayload(option.payload) }}
-                    className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border text-left cursor-pointer transition-colors min-w-0 ${
-                      selected ? 'border-primary/50 bg-primary/5' : 'border-border/60 hover:bg-muted/40'
-                    }`}>
-                    {process ? <ProcessIcon processPath={connection.metadata.processPath} processName={connection.metadata.process}
-                      className="size-5 shrink-0" /> : <Icon className="size-4 shrink-0 text-muted-foreground" />}
-                    <span className="flex-1 min-w-0 text-xs whitespace-normal [overflow-wrap:anywhere]">{optionLabel(option.type)}</span>
-                    <Check className={`size-4 shrink-0 text-primary ${selected ? '' : 'invisible'}`} />
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          <label className="block space-y-1.5">
+            <span className="text-xs text-muted-foreground">{t('ruleType')}</span>
+            <NativeSelect aria-label={t('ruleType')} className="w-full text-xs" value={selectedType}
+              onChange={(event) => {
+                const option = candidateOptions.find((item) => item.type === event.target.value)
+                if (option) { setSelectedType(option.type); setPayload(option.payload) }
+              }}>
+              {candidateOptions.map((option) => <option key={option.type} value={option.type}>{optionLabel(option.type)}</option>)}
+            </NativeSelect>
+          </label>
 
           <label className="block space-y-1.5">
-            <span className="text-[11px] text-muted-foreground font-mono">{selectedType}</span>
+            <span className="text-xs text-muted-foreground">{t('rulePayload')}</span>
             <Textarea aria-label={t('rulePayload')} value={payload} onChange={(event) => setPayload(event.target.value)}
               rows={3} className="min-h-20 resize-y text-xs whitespace-pre-wrap [overflow-wrap:anywhere]" />
           </label>

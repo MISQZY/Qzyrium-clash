@@ -79,6 +79,7 @@
   "quickRule": "Быстрое правило",
   "quickRuleDescription": "Создать правило маршрутизации на основе этого соединения",
   "ruleTarget": "Условие",
+  "ruleType": "Тип правила",
   "ruleAction": "Действие",
   "directDescription": "Напрямую",
   "proxyDescription": "Через прокси",

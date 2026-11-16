@@ -1,4 +1,5 @@
 import { ProcessIcon } from '../ProcessIcon'
+import { ShieldPlus } from 'lucide-react'
 
 import { useTranslations } from '../../i18n'
 
@@ -16,9 +17,10 @@ import type { ProcessGroup } from '../../lib/connections'
 interface ProcessGroupHeroProps {
   group: ProcessGroup
   actions: Pick<ConnectionActions, 'closing' | 'closeProcessConnections'>
+  onQuickRule?: (group: ProcessGroup) => void
 }
 
-export function ProcessGroupHero({ group: activeProcessGroup, actions }: ProcessGroupHeroProps) {
+export function ProcessGroupHero({ group: activeProcessGroup, actions, onQuickRule }: ProcessGroupHeroProps) {
   const t = useTranslations('connections')
   const { closing, closeProcessConnections } = actions
   return (
@@ -49,6 +51,13 @@ export function ProcessGroupHero({ group: activeProcessGroup, actions }: Process
                 </div>
               </div>
 
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+              {onQuickRule && (
+                <Button variant="outline" size="sm" onClick={() => onQuickRule(activeProcessGroup)}
+                  disabled={!activeProcessGroup.path && !activeProcessGroup.connections.some((item) => item.metadata.process)}>
+                  <ShieldPlus className="size-3.5" />{t('createRule')}
+                </Button>
+              )}
               <Button
                 variant="destructive"
                 size="sm"
@@ -59,6 +68,7 @@ export function ProcessGroupHero({ group: activeProcessGroup, actions }: Process
                 <DisconnectIcon className="size-3.5" />
                 <span>{t('closeProcessConnections')}</span>
               </Button>
+              </div>
             </div>
           </Card>
   )

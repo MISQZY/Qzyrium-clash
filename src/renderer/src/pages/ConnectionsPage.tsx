@@ -14,6 +14,7 @@ import { useTranslations } from '../i18n'
 import { useState, useMemo } from 'react'
 
 import type { ConnectionItem, ConnectionsSnapshot } from '@shared/mihomo'
+import type { ProcessGroup } from '../lib/connections'
 import { Page } from '../components/Page'
 import { VirtualList } from '../components/VirtualList'
 
@@ -35,6 +36,7 @@ export function ConnectionsPage({
   const [paused, setPaused] = useState(false)
   const [frozenSnapshot, setFrozenSnapshot] = useState<ConnectionsSnapshot | null>(null)
   const [ruleTargetConnection, setRuleTargetConnection] = useState<ConnectionItem | null>(null)
+  const [ruleTargetGroup, setRuleTargetGroup] = useState<ProcessGroup | null>(null)
   const actions = useConnectionActions(onRefresh)
 
   const handleTogglePause = () => {
@@ -75,7 +77,7 @@ export function ConnectionsPage({
       item={item}
       actions={{
         ...actions,
-        onQuickRule: setRuleTargetConnection
+        onQuickRule: viewMode === 'flat' ? setRuleTargetConnection : undefined
       }}
     />
   )
@@ -106,7 +108,7 @@ export function ConnectionsPage({
         /* Level 2: Drilldown into selected process */
         <div className="flex flex-col gap-3">
           {/* Hero Process Banner */}
-          <ProcessGroupHero group={activeProcessGroup} actions={actions} />
+          <ProcessGroupHero group={activeProcessGroup} actions={actions} onQuickRule={setRuleTargetGroup} />
 
           {/* List of connections for this process */}
           <VirtualList data={activeProcessGroup.connections} itemKey={item => item.id} renderItem={renderConnectionCard} />
@@ -122,6 +124,7 @@ export function ConnectionsPage({
                 group={group}
                 onSelect={setSelectedProcessKey}
                 onClose={actions.closeProcessConnections}
+                onQuickRule={setRuleTargetGroup}
                 closing={actions.closing}
               />
             )}
@@ -159,8 +162,9 @@ export function ConnectionsPage({
       {/* Quick Rule Creator Modal */}
       <QuickRuleDialog
         connection={ruleTargetConnection}
-        open={Boolean(ruleTargetConnection)}
-        onOpenChange={(open) => !open && setRuleTargetConnection(null)}
+        processGroup={ruleTargetGroup}
+        open={Boolean(ruleTargetConnection || ruleTargetGroup)}
+        onOpenChange={(open) => { if (!open) { setRuleTargetConnection(null); setRuleTargetGroup(null) } }}
       />
     </Page>
   )
