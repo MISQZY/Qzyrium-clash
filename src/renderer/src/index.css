@@ -149,6 +149,7 @@ h6 {
 }
 
 .name-emoji { display: inline-block; position: relative; min-width: 1em; height: 1.15em; line-height: 1.15; vertical-align: -0.15em; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; font-variant-emoji: emoji; }
+.name-emoji[data-fallback] { min-width: 1.5em; white-space: nowrap; }
 .name-emoji img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .name-emoji-loading img { visibility: hidden; }
 .name-emoji-ready .name-emoji-native, .name-emoji:not(.name-emoji-ready)[data-fallback] .name-emoji-native { visibility: hidden; }
