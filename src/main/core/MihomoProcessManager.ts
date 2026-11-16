@@ -210,8 +210,15 @@ export class MihomoProcessManager extends EventEmitter {
       })
 
       if (spawned.pid) {
-        try { await networkWatchdog.trackCore(spawned.pid) }
-        catch (error) { throw new KernelOperationError('watchdog', kernelFailureDetails(error)) }
+        try {
+          await networkWatchdog.trackCore(spawned.pid)
+        } catch (error) {
+          if (this.customBinaryPath) {
+            logger.warn(`Network watchdog supervision is unavailable for custom Mihomo binary: ${String(error)}`)
+          } else {
+            throw new KernelOperationError('watchdog', kernelFailureDetails(error))
+          }
+        }
       }
       await this.waitForReady(spawned, controllerPort, secret, sequence, () => exitedPrematurely, () => exitCode)
     } catch (err) {
