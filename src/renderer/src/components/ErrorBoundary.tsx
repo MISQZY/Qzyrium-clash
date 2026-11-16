@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { translate } from '../i18n/catalogs'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -34,6 +35,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       if (this.props.fallback) {
         return this.props.fallback
       }
+      // The root boundary also catches failures in the locale provider itself.
+      const locale = document.documentElement.lang.startsWith('ru') ? 'ru' : 'en'
 
       return (
         <div className="flex flex-col items-center justify-center p-6 text-center rounded-lg border border-red-500/20 bg-red-500/5 my-4">
@@ -43,17 +46,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </svg>
           </div>
           <h3 className="text-base font-semibold text-foreground mb-1">
-            {this.props.name ? `Error in ${this.props.name}` : 'UI Render Error'}
+            {translate(locale, 'common', 'renderErrorTitle')}
           </h3>
           <p className="text-xs text-muted-foreground max-w-md mb-4 font-mono select-text break-words">
-            {this.state.error?.message || 'An unexpected rendering error occurred'}
+            {this.state.error?.message || translate(locale, 'common', 'renderErrorDescription')}
           </p>
           <button
             type="button"
             onClick={this.handleReload}
             className="px-3 py-1.5 text-xs font-medium rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
           >
-            Try Again
+            {translate(locale, 'common', 'renderErrorRetry')}
           </button>
         </div>
       )

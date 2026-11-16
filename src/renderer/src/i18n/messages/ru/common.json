@@ -1,4 +1,7 @@
 {
+  "renderErrorTitle": "Не удалось отобразить интерфейс",
+  "renderErrorDescription": "Произошла непредвиденная ошибка отображения.",
+  "renderErrorRetry": "Попробовать снова",
   "proxyProviders": "Источники прокси",
   "proxyProvidersDescription": "Управление внешними источниками прокси-серверов и подписками.",
   "ruleProviders": "Источники правил",

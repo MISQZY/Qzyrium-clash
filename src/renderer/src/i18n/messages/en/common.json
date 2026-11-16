@@ -1,4 +1,7 @@
 {
+  "renderErrorTitle": "Unable to display the interface",
+  "renderErrorDescription": "An unexpected rendering error occurred.",
+  "renderErrorRetry": "Try again",
   "proxyProviders": "Proxy providers",
   "proxyProvidersDescription": "Manage external proxy subscription sources and node providers.",
   "ruleProviders": "Rule providers",
