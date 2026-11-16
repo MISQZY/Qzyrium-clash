@@ -295,6 +295,14 @@ async function run() {
   }
   assert.notEqual(domains.traffic, beforeTrafficDomains.traffic)
   assert.equal(view.connections.downloadTotal, 2)
+  const beforeLocalRefresh = { baseCalls, proxyCalls, rules: ruleScopes.length, connectionsCalls }
+  view.refreshConnections()
+  await flush()
+  assert.equal(connectionsCalls, beforeLocalRefresh.connectionsCalls + 1, 'local refresh immediately fetches a fresh connection snapshot')
+  assert.equal(baseCalls, beforeLocalRefresh.baseCalls, 'connection refresh does not reload workspace status')
+  assert.equal(proxyCalls, beforeLocalRefresh.proxyCalls, 'connection refresh does not reload proxies')
+  assert.equal(ruleScopes.length, beforeLocalRefresh.rules, 'connection refresh does not reload rules')
+  assert.equal([...timers].filter(t => t.ms === 2000).length, 1, 'local refresh leaves a single polling timer')
   backendState = 'error'
   events.status(backendState)
   await flush()

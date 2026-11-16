@@ -54,9 +54,8 @@ function ProfilesContent(props: ImportProps) {
 }
 
 function ConnectionsContent() {
-  const { connections } = useConnections()
-  const refreshAll = useRefreshAll()
-  return <ConnectionsPage connections={connections} onRefresh={refreshAll} />
+  const { connections, refreshConnections } = useConnections()
+  return <ConnectionsPage connections={connections} onRefresh={refreshConnections} />
 }
 
 function RulesContent() {

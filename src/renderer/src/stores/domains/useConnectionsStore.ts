@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import type { ConnectionsSnapshot } from '@shared/mihomo'
 import { EMPTY_CONNECTIONS, type StoreCoordinator } from './types'
 
@@ -6,6 +6,7 @@ export interface ConnectionsStore {
   connections: ConnectionsSnapshot
   subscriptionTraffic: ConnectionsSnapshot['subscriptionTraffic']
   setConnections: React.Dispatch<React.SetStateAction<ConnectionsSnapshot>>
+  refreshConnections: () => void
 }
 
 export function useConnectionsStore(
@@ -17,6 +18,8 @@ export function useConnectionsStore(
   const [connections, setConnections] = useState<ConnectionsSnapshot>(EMPTY_CONNECTIONS)
   const [subscriptionTraffic, setSubscriptionTraffic] = useState<ConnectionsSnapshot['subscriptionTraffic']>()
   const connectionRequest = useRef<Promise<ConnectionsSnapshot> | null>(null)
+  const [refreshRevision, setRefreshRevision] = useState(0)
+  const refreshConnections = useCallback(() => setRefreshRevision(value => value + 1), [])
 
   useEffect(() => {
     if (!coord.visible || (coord.activeTab !== 'dashboard' && coord.activeTab !== 'connections')) {
@@ -89,6 +92,7 @@ export function useConnectionsStore(
     coord.visible,
     coord.activeTab,
     coord.dataRevision,
+    refreshRevision,
     coord.settings.general.connectionInterval,
     coord.statusRevision,
     coord.actionInProgress
@@ -97,6 +101,7 @@ export function useConnectionsStore(
   return useMemo(() => ({
     connections,
     subscriptionTraffic,
-    setConnections
-  }), [connections, subscriptionTraffic, setConnections])
+    setConnections,
+    refreshConnections
+  }), [connections, subscriptionTraffic, setConnections, refreshConnections])
 }
