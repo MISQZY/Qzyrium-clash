@@ -61,7 +61,8 @@ const settings = object(optionalFields({ general,
 const rule = object({ id: name, type: name, payload: text, proxy: text,
   ...optionalFields({ position: oneOf('top', 'bottom'), enabled: boolean, validationError: text,
     additionalParams: list(text), isDeleted: boolean, offset: integer(0), sourceRule: text,
-    sourceOccurrence: integer(0), replacementRule: text }) })
+    sourceOccurrence: integer(0), replacementRule: text,
+    isCustom: boolean, isMoved: boolean, sourceIndex: integer(0) }) })
 const profilePatch = object(optionalFields({ name: text, url: text, autoUpdate: boolean,
   updateViaProxy: boolean, sendHwid: boolean, interval: value => value === null || integer(15, 43200)(value), customUA: text }))
 const overlay = object(optionalFields({ color: text, symbolColor: text }))

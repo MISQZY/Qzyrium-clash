@@ -1,7 +1,7 @@
 import type React from 'react'
 import { useState, useEffect, useCallback, useRef, useMemo, startTransition } from 'react'
 import yaml from 'yaml'
-import type { ProfileItem } from '@shared/profile'
+import type { ProfileItem, CustomRuleItem } from '@shared/profile'
 import { toCustomRules, getRuleExample, builtinProxyTargets, type RuleItem } from '@shared/rule-editor'
 import { serializeRulesToYaml, parseYamlToVisualRules } from '@shared/rule-editor-yaml'
 import { loadRuleEditorSession } from '@shared/rule-editor-session'
@@ -208,7 +208,18 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
     try {
       const candidates = toCustomRules(rules.filter((rule) => rule.id !== draft.id))
       // Validate the draft even when it was manually disabled, without enabling it.
-      candidates.unshift({ ...draft, sourceRule: undefined, sourceOccurrence: undefined, enabled: true, isDeleted: false })
+      const candidateDraft: CustomRuleItem = {
+        id: draft.id,
+        type: draft.type,
+        payload: draft.payload,
+        proxy: draft.proxy,
+        position: draft.position || 'top',
+        enabled: true,
+        isDeleted: false,
+        additionalParams: draft.additionalParams,
+        offset: typeof draft.offset === 'number' && draft.offset >= 0 ? draft.offset : undefined
+      }
+      candidates.unshift(candidateDraft)
       const checked = await window.api.profiles.validateCustomRules(profile.id, candidates)
       if (request !== ruleValidationRequest.current) return
       const result = checked.find((rule) => rule.id === draft.id)
