@@ -20,15 +20,25 @@ import { networkWatchdog } from './utils/network-watchdog'
 app.setName('Qzyrium-clash')
 electronApp.setAppUserModelId('com.qzyrium.vpn')
 
-// Ensure seamless userData directory compatibility with legacy qzyrium-vpn path
-try {
-  const appData = app.getPath('appData')
-  const legacyDir = path.join(appData, 'qzyrium-vpn')
-  const currentDir = app.getPath('userData')
-  if (!existsSync(currentDir) && existsSync(legacyDir)) {
-    app.setPath('userData', legacyDir)
-  }
-} catch { /* Use default path */ }
+const customUserData =
+  process.env.QZYRIUM_USER_DATA ||
+  process.argv.find((arg) => arg.startsWith('--user-data-dir='))?.slice('--user-data-dir='.length)
+
+if (customUserData) {
+  try {
+    app.setPath('userData', path.resolve(customUserData))
+  } catch { /* Use default path */ }
+} else {
+  // Ensure seamless userData directory compatibility with legacy qzyrium-vpn path
+  try {
+    const appData = app.getPath('appData')
+    const legacyDir = path.join(appData, 'qzyrium-vpn')
+    const currentDir = app.getPath('userData')
+    if (!existsSync(currentDir) && existsSync(legacyDir)) {
+      app.setPath('userData', legacyDir)
+    }
+  } catch { /* Use default path */ }
+}
 
 function extractProtocolUrl(args: string[]): string | undefined {
   return args.find((arg) => /^(clash|qzyrium|mihomo):\/\//i.test(arg.trim()))

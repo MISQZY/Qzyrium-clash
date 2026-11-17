@@ -12,6 +12,7 @@
   "packageManager": "pnpm@10.34.7",
   "scripts": {
     "dev": "electron-vite dev",
+    "dev:isolated": "electron-vite dev -- --user-data-dir=./artifacts/dev-user-data",
     "lint": "eslint . --max-warnings=0",
     "build": "electron-vite build",
     "postinstall": "electron-builder install-app-deps",
