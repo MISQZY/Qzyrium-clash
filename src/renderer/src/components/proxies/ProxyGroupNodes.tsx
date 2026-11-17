@@ -58,7 +58,7 @@ export function ProxyGroupNodes({ groupName, nodes, activeNow, proxies, delays, 
               selected={activeNow === nodeName} groupName={groupName}
               delay={delays[nodeName] ?? proxies[nodeName]?.history?.[proxies[nodeName].history.length - 1]?.delay}
               loading={testingNodes.has(nodeName)} onSelect={onSelect}
-              canCheck={running && canCheckProxyServices(proxies[nodeName])} onCheckServices={onCheckServices} />
+              canCheck={canCheckProxyServices(proxies[nodeName])} onCheckServices={onCheckServices} />
           }} />
       ) : (
         <p className="empty-state py-6">{t(!running && nodes.length === 0 ? 'noCachedNodes' : 'noProxyNodesMatchYourSearch')}</p>

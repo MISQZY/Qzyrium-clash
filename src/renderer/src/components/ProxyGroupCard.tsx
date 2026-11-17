@@ -84,7 +84,7 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
             type="button"
             variant="ghost"
             size="sm"
-            disabled={!running || isGroupTesting || testingAll || nodes.length === 0}
+            disabled={isGroupTesting || testingAll || nodes.length === 0}
             onClick={(e) => {
               e.stopPropagation()
               onTest(groupName, nodes)

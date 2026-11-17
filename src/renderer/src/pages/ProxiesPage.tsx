@@ -174,8 +174,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 
           <Button
             onClick={() => testAll(allNodes)}
-            disabled={!running || testingAll || testingGroups.size > 0 || allNodes.length === 0}
-            title={!running ? t('latencyRequiresConnection') : undefined}
+            disabled={testingAll || testingGroups.size > 0 || allNodes.length === 0}
             variant="outline"
             size="sm"
             className={cn('gap-2', testingAll && 'latency-testing-button')}

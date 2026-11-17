@@ -56,9 +56,18 @@ const runFile = typeof promisify === 'function' ? promisify(execFile) : () => Pr
 export class KernelService implements BaseService {
   private serviceCheckInProgress = false
   private serviceCheckAbort?: AbortController
+  private isIdleCoreRunning = false
+  private idleStartPromise: Promise<void> | null = null
+
+  isProcessRunning(): boolean {
+    return this.processManager.getState() === 'running'
+  }
 
   async checkProxyServices(name: string) {
-    if (this.getStatus() !== 'running') throw new Error('Start the VPN core before checking services')
+    if (!this.isProcessRunning()) {
+      await this.startIdleCore()
+    }
+    if (!this.isProcessRunning()) throw new Error('Start the VPN core before checking services')
     if (this.serviceCheckInProgress) throw new Error('A service check is already running')
     this.serviceCheckInProgress = true
     const abort = new AbortController()
@@ -199,7 +208,7 @@ export class KernelService implements BaseService {
   private subscriptionTraffic = new SubscriptionTrafficAccounting()
 
   private resetDirectTraffic(): void {
-    this.trafficAccounting.reset()
+    this.trafficAccounting?.reset?.()
   }
 
   setStartupRunning(running: boolean): void { this.startupRunning = running }
@@ -246,12 +255,12 @@ export class KernelService implements BaseService {
         this.runningSince = null
         this.scheduleCoreRestart()
       }
-      if (state === 'running') this.sessionStartedAt = Date.now()
-      else this.sessionStartedAt = null
-      this.broadcaster?.('event:core-status', state)
-      if (state === 'running') {
+      if (state === 'running' && !this.isIdleCoreRunning) this.sessionStartedAt = Date.now()
+      else if (this.isIdleCoreRunning || state !== 'running') this.sessionStartedAt = null
+      this.broadcaster?.('event:core-status', this.getStatus())
+      if (state === 'running' && !this.isIdleCoreRunning) {
         this.apiClient.startTrafficStream()
-      } else if (state === 'stopped' || state === 'error') {
+      } else if (state === 'stopped' || state === 'error' || this.isIdleCoreRunning) {
         this.apiClient.stopAllStreams()
       }
     })
@@ -293,6 +302,7 @@ export class KernelService implements BaseService {
   }
 
   getStatus(): CoreState {
+    if (this.isIdleCoreRunning) return 'stopped'
     return this.processManager.getState()
   }
 
@@ -324,6 +334,48 @@ export class KernelService implements BaseService {
     })
   }
 
+  async startIdleCore(): Promise<void> {
+    if (this.isProcessRunning()) return
+    if (this.idleStartPromise) return this.idleStartPromise
+    this.idleStartPromise = (async () => {
+      try {
+        if (this.isProcessRunning() || this.processManager.getState() === 'starting') return
+        const profile = this.profileService.getActiveProfile()
+        if (!profile) return
+        const settings = this.settingService.getSettings()
+        const idleSettings: AppConfig = {
+          ...settings,
+          kernel: { ...settings.kernel, tun: { ...settings.kernel.tun, enable: false } },
+          sysProxy: { ...settings.sysProxy, enable: false }
+        }
+        const paths = getAppPaths()
+        await installGeoResources(paths)
+        const activeProfile = await this.configBuilder.build(idleSettings, false, undefined, false).catch(error => { throw this.reportFailure(error, 'configuration') })
+        this.apiClient.reconfigure(
+          '127.0.0.1',
+          settings.kernel.controllerPort,
+          settings.kernel.controllerSecret
+        )
+        this.isIdleCoreRunning = true
+        await this.processManager.start(
+          paths.mihomoDir,
+          paths.activeConfigPath,
+          settings.kernel.controllerPort,
+          settings.kernel.controllerSecret,
+          settings.kernel.channel
+        )
+        this.warnInvalidRules(activeProfile?.id)
+        await restoreProxySelection(activeProfile, this.apiClient).catch(() => {})
+      } catch (err) {
+        this.isIdleCoreRunning = false
+        logger.warn(`Failed to start idle core: ${String(err)}`)
+      } finally {
+        this.idleStartPromise = null
+      }
+    })()
+    return this.idleStartPromise
+  }
+
   private async startCore(settings = this.settingService.getSettings(), binaryPath?: string, persistRules = true): Promise<void> {
     if (this.getStatus() === 'running' || this.getStatus() === 'starting') return
     this.failure = null
@@ -353,6 +405,23 @@ export class KernelService implements BaseService {
       settings.kernel.controllerSecret
     )
 
+    if (this.isIdleCoreRunning && this.isProcessRunning()) {
+      try {
+        await this.apiClient.reloadConfig(paths.activeConfigPath, true)
+        this.isIdleCoreRunning = false
+        this.sessionStartedAt = Date.now()
+        this.warnInvalidRules(activeProfile?.id)
+        await restoreProxySelection(activeProfile, this.apiClient)
+        this.apiClient.startTrafficStream()
+        this.broadcaster?.('event:core-status', 'running')
+        return
+      } catch {
+        await this.processManager.stop()
+        this.isIdleCoreRunning = false
+      }
+    }
+
+    this.isIdleCoreRunning = false
     await this.processManager.start(
       paths.mihomoDir,
       paths.activeConfigPath,
@@ -392,9 +461,10 @@ export class KernelService implements BaseService {
   }
 
   private async stopCore(): Promise<void> {
+    this.isIdleCoreRunning = false
     this.serviceCheckAbort?.abort()
     this.apiClient.stopAllStreams()
-    if (this.getStatus() === 'running') {
+    if (this.getStatus() === 'running' || this.isProcessRunning()) {
       try {
         // Gracefully request Mihomo to teardown TUN adapter before process termination
         await Promise.race([
@@ -500,15 +570,22 @@ export class KernelService implements BaseService {
     this.serviceCheckAbort?.abort()
     return this.enqueueLifecycle(async () => {
       // Recheck after queued start/stop operations: applying a profile never starts a stopped core.
-      if (this.getStatus() !== 'running') return
+      if (!this.isProcessRunning()) return
       this.failure = null
       this.invalidateGlobe()
       const configPath = getAppPaths().activeConfigPath
       const previous = await fs.readFile(configPath, 'utf8')
       const settings = this.settingService.getSettings()
+      const effectiveSettings: AppConfig = !this.isIdleCoreRunning
+        ? settings
+        : {
+            ...settings,
+            kernel: { ...settings.kernel, tun: { ...settings.kernel.tun, enable: false } },
+            sysProxy: { ...settings.sysProxy, enable: false }
+          }
       let activeProfile
       try {
-        activeProfile = await this.configBuilder.build(settings, true)
+        activeProfile = await this.configBuilder.build(effectiveSettings, true)
       } catch (error) {
         await writeFileAtomicAsync(configPath, previous)
         throw this.reportFailure(error, 'configuration')
@@ -542,13 +619,16 @@ export class KernelService implements BaseService {
 
   // Proxied Mihomo API calls
   async getProviders(kind: ProviderKind): Promise<ProviderSummary[]> {
-    if (this.getStatus() !== 'running') return []
+    if (!this.isProcessRunning()) return []
     return this.apiClient.getProviders(kind)
   }
 
   async updateProvider(kind: ProviderKind, name: string): Promise<void> {
     return this.enqueueLifecycle(async () => {
-      if (this.getStatus() !== 'running') throw new Error('Start the VPN core before updating providers')
+      if (!this.isProcessRunning()) {
+        await this.startIdleCore()
+      }
+      if (!this.isProcessRunning()) throw new Error('Start the VPN core before updating providers')
       const providers = await this.apiClient.getProviders(kind)
       const provider = providers.find(item => item.name === name)
       if (!provider || provider.vehicleType.toLowerCase() !== 'http') throw new Error('Provider cannot be updated remotely')
@@ -594,7 +674,13 @@ export class KernelService implements BaseService {
   }
 
   async getProxies(): Promise<Record<string, ProxyNode>> {
-    if (this.getStatus() === 'running') return this.apiClient.getProxies()
+    if (this.isProcessRunning()) {
+      try {
+        return await this.apiClient.getProxies()
+      } catch (err) {
+        logger.warn(`Failed to load proxies from API: ${String(err)}`)
+      }
+    }
     const profile = this.profileService.getActiveProfile()
     if (!profile) return {}
     try {
@@ -613,7 +699,7 @@ export class KernelService implements BaseService {
       if (!profile) throw new Error('No active profile')
       const proxies = await this.getProxies()
       if (!(proxies[group] as ProxyGroup | undefined)?.all?.includes(proxy)) throw new Error('Proxy is not available in this group')
-      if (this.getStatus() === 'running') {
+      if (this.isProcessRunning()) {
         await this.apiClient.selectProxy(group, proxy)
         if (this.settingService.getSettings().general.autoCloseConnection) await this.apiClient.closeAllConnections()
       }
@@ -624,11 +710,14 @@ export class KernelService implements BaseService {
 
   async testDelay(name: string, url?: string, timeout?: number): Promise<number> {
     const general = this.settingService.getSettings().general
+    if (!this.isProcessRunning()) {
+      await this.startIdleCore()
+    }
     return this.apiClient.testProxyDelay(name, url ?? general.delayTestUrl, timeout ?? general.delayTestTimeout)
   }
 
   async getRules(scope?: 'summary'): Promise<MihomoRule[]> {
-    if (this.getStatus() === 'running') {
+    if (this.isProcessRunning()) {
       try {
         const rules = await this.apiClient.getRules()
         return scope === 'summary' ? summarizeRules(rules) : rules

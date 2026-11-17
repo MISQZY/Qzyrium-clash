@@ -40,14 +40,14 @@ if (process.type === 'renderer') {
       await evaluate(`document.querySelector('[aria-label="Proxy groups"]').click()`)
       await waitFor(`document.querySelectorAll('button[aria-label^="Select Node"]').length > 1`)
       assert.ok(await evaluate(`document.querySelector('.page-viewport').textContent.includes('VPN is off')`))
-      assert.equal(await evaluate(`Array.from(document.querySelectorAll('.page-viewport button')).find(button => Array.from(button.querySelectorAll('span:not([aria-hidden="true"])')).some(label => label.textContent.trim() === 'Test Latency')).disabled`), true)
+      assert.equal(await evaluate(`Array.from(document.querySelectorAll('.page-viewport button')).find(button => Array.from(button.querySelectorAll('span:not([aria-hidden="true"])')).some(label => label.textContent.trim() === 'Test Latency')).disabled`), false)
       const target = await evaluate(`document.querySelectorAll('button[aria-label^="Select Node"]')[1].getAttribute('aria-label')`)
       await evaluate(`document.querySelectorAll('button[aria-label^="Select Node"]')[1].click()`)
       await waitFor(`Array.from(document.querySelectorAll('button[aria-label^="Select Node"]')).find(button => button.getAttribute('aria-label') === ${JSON.stringify(target)})?.getAttribute('aria-pressed') === 'true'`)
       assert.ok((await evaluate(`window.offlineTest.stats()`)).reads > 0)
       assert.equal((await evaluate(`window.offlineTest.stats()`)).starts, 0)
       assert.equal(await evaluate(`document.querySelector('[role="alert"]') !== null`), false)
-      console.log('PASS: cold startup with VPN off loads groups, changes selected node and keeps VPN off; latency tests remain disabled')
+      console.log('PASS: cold startup with VPN off loads groups, changes selected node and keeps VPN off; latency tests are enabled')
     } finally { win.destroy(); app.quit() }
   }).catch(error => { console.error(error); app.exit(1) })
 }
