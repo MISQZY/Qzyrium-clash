@@ -30,15 +30,20 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
     sysProxyService.setPortProvider?.(() => kernelService.getMixedPort())
     const themeStore = new types.ThemeStore(getAppPaths().userData)
     const windowService = new types.WindowService(settingService, themeStore)
+    const servicesRef: {
+      desktopService?: InstanceType<typeof types.DesktopService>
+      trayService?: InstanceType<typeof types.TrayService>
+    } = {}
+
     const networkModeController = new types.NetworkModeController(settingService, kernelService, sysProxyService,
-      async settings => { await desktopService?.applySettings(settings) },
+      async settings => { await servicesRef.desktopService?.applySettings(settings) },
       general => {
         if (general) {
           windowService.updateTheme()
           windowService.refreshAutoReleasePolicy?.()
         }
         windowService.broadcast('event:settings-changed', null)
-        trayService?.updateContextMenu()
+        servicesRef.trayService?.updateContextMenu()
       })
     const coreService = new types.CoreService(settingService, kernelService,
       (channel, payload) => windowService.broadcast(channel, payload), networkModeController)
@@ -50,10 +55,12 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
       networkModeController,
       profileService
     )
+    servicesRef.trayService = trayService
     const desktopService = new types.DesktopService(settingService, profileService, kernelService, sysProxyService, windowService, () => {
       windowService.broadcast('event:settings-changed', null)
       trayService.updateContextMenu()
     }, networkModeController)
+    servicesRef.desktopService = desktopService
     const updateService = new types.UpdateService((channel, payload) => windowService.broadcast(channel, payload), async () => {
       const window = windowService.getMainWindow()
       saveRestartState({ running: ['running', 'starting'].includes(kernelService.getStatus()), visible: !!window?.isVisible() && !window.isMinimized(), elevated: isProcessElevated(), coreOnly: windowService.isCoreOnlyMode() })
