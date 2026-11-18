@@ -88,6 +88,25 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
       )
       if (alreadyExists) return
 
+      // If Add Profile dialog is currently open, immediately insert the link and do not show popup
+      const isAddModalOpen = Boolean(document.getElementById('profile-url'))
+      if (isAddModalOpen) {
+        dismissedUrls.current.add(targetUrl)
+        dismissedUrls.current.add(text)
+        setDetected(null)
+        onImport({ url: targetUrl, name: parsed.name })
+        window.dispatchEvent(
+          new CustomEvent('qzyrium:insert-profile-url', {
+            detail: { url: targetUrl, name: parsed.name }
+          })
+        )
+        const input = document.getElementById('profile-url') as HTMLInputElement | null
+        if (input) {
+          input.focus()
+        }
+        return
+      }
+
       setDetected({
         url: targetUrl,
         name: parsed.name
@@ -95,7 +114,31 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
     } catch {
       // Ignore errors
     }
-  }, [profiles])
+  }, [profiles, onImport])
+
+  useEffect(() => {
+    if (!detected) return
+    // If Add Profile modal opens while banner is displayed, auto-insert into modal and dismiss banner
+    const checkModal = () => {
+      if (document.getElementById('profile-url')) {
+        const toInsert = detected
+        dismissedUrls.current.add(toInsert.url)
+        setDetected(null)
+        onImport(toInsert)
+        window.dispatchEvent(
+          new CustomEvent('qzyrium:insert-profile-url', {
+            detail: toInsert
+          })
+        )
+        const input = document.getElementById('profile-url') as HTMLInputElement | null
+        if (input) {
+          input.focus()
+        }
+      }
+    }
+    const interval = setInterval(checkModal, 150)
+    return () => clearInterval(interval)
+  }, [detected, onImport])
 
   useEffect(() => {
     const handleCheck = () => {
@@ -103,6 +146,7 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
     }
 
     window.addEventListener('focus', handleCheck)
+    window.addEventListener('copy', () => setTimeout(handleCheck, 100))
     const handleVisibility = () => {
       if (!document.hidden) handleCheck()
     }
@@ -112,6 +156,7 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
 
     return () => {
       window.removeEventListener('focus', handleCheck)
+      window.removeEventListener('copy', handleCheck)
       document.removeEventListener('visibilitychange', handleVisibility)
       clearTimeout(timer)
     }
