@@ -1,8 +1,9 @@
 import { useLocale, useTranslations, useCustomLocalization } from '../../i18n'
 
-import { RefreshCw, Trash2, Globe, FileCode, EllipsisVertical, Pencil } from 'lucide-react'
+import { RefreshCw, Trash2, Globe, FileCode, EllipsisVertical, Pencil, Check } from 'lucide-react'
 import { RulesIcon } from '../../lib/icons'
 import { ProfileItem } from '@shared/profile'
+import { cn } from '../../lib/utils'
 
 import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
@@ -16,13 +17,32 @@ import { profileName as displayName } from '../../lib/profile-name'
 import { SubscriptionInfo } from '../SubscriptionInfo'
 
 interface ProfileCardProps {
- profile: ProfileItem; isActive: boolean; updating: boolean
- onSwitchProfile: (id: string) => void; onUpdate: (id: string) => void
- onEditInfo: (profile: ProfileItem) => void; onEditFile: (profile: ProfileItem) => void
- onDelete: (profile: ProfileItem) => void; onEditRules: (profile: ProfileItem) => void
+  profile: ProfileItem
+  isActive: boolean
+  updating: boolean
+  isSwitching?: boolean
+  isAnySwitching?: boolean
+  onSwitchProfile: (id: string) => void
+  onUpdate: (id: string) => void
+  onEditInfo: (profile: ProfileItem) => void
+  onEditFile: (profile: ProfileItem) => void
+  onDelete: (profile: ProfileItem) => void
+  onEditRules: (profile: ProfileItem) => void
 }
 
-export function ProfileCard({ profile: p, isActive, updating, onSwitchProfile, onUpdate, onEditInfo, onEditFile, onDelete, onEditRules }: ProfileCardProps) {
+export function ProfileCard({
+  profile: p,
+  isActive,
+  updating,
+  isSwitching = false,
+  isAnySwitching = false,
+  onSwitchProfile,
+  onUpdate,
+  onEditInfo,
+  onEditFile,
+  onDelete,
+  onEditRules
+}: ProfileCardProps) {
   const t = useTranslations('profiles')
   const locale = useLocale()
   const customLocalization = useCustomLocalization()
@@ -31,13 +51,17 @@ export function ProfileCard({ profile: p, isActive, updating, onSwitchProfile, o
     <Card
       key={p.id}
       aria-current={isActive ? 'true' : undefined}
-      className={`bg-card ${isActive ? 'border-primary' : 'border-border'}`}
+      className={cn(
+        'bg-card transition-all relative',
+        isActive ? 'border-primary ring-1 ring-primary/20 shadow-xs' : 'border-border hover:border-border/80',
+        isSwitching && 'profile-switching-card border-primary/50 shadow-md shadow-primary/10'
+      )}
     >
       <CardContent className="space-y-4 p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-1 min-w-0 items-center gap-3.5">
             <div
-              className={`size-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden ${
+              className={`size-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden transition-colors ${
                 p.type === 'remote'
                   ? 'bg-primary/15 text-primary border border-primary/30'
                   : 'bg-warning/15 text-warning border border-warning/30'
@@ -57,12 +81,21 @@ export function ProfileCard({ profile: p, isActive, updating, onSwitchProfile, o
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate text-sm font-semibold text-foreground" title={displayName(p, locale, customLocalization)}><EmojiText text={displayName(p, locale, customLocalization)} /></span>
+                <span className="truncate text-sm font-semibold text-foreground" title={displayName(p, locale, customLocalization)}>
+                  <EmojiText text={displayName(p, locale, customLocalization)} />
+                </span>
               </div>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <Button variant="outline" size="icon-sm" title={t('editInfo')} aria-label={t('editInfo')} onClick={() => onEditInfo(p)}>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              title={t('editInfo')}
+              aria-label={t('editInfo')}
+              onClick={() => onEditInfo(p)}
+              disabled={isSwitching}
+            >
               <Pencil className="size-3.5 shrink-0" />
             </Button>
             {p.type === 'remote' && (
@@ -73,7 +106,7 @@ export function ProfileCard({ profile: p, isActive, updating, onSwitchProfile, o
                 title={t('updateSubscription')}
                 aria-label={t('updateSubscription')}
                 aria-busy={updating}
-                disabled={updating}
+                disabled={updating || isSwitching}
               >
                 <RefreshCw className={`size-3.5 shrink-0${updating ? ' animate-spin' : ''}`} />
               </Button>
@@ -86,6 +119,7 @@ export function ProfileCard({ profile: p, isActive, updating, onSwitchProfile, o
                   className="cursor-pointer"
                   title={t('moreActions')}
                   aria-label={t('moreActions')}
+                  disabled={isSwitching}
                 >
                   <EllipsisVertical className="size-3.5 shrink-0" />
                 </Button>
@@ -121,22 +155,53 @@ export function ProfileCard({ profile: p, isActive, updating, onSwitchProfile, o
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border/60 pt-3">
           <p className="text-[10px] text-muted-foreground">{t('updated', { date: dateStr })}</p>
           <div className="flex shrink-0 items-center gap-2">
-            {!isActive && (
+            {isActive ? (
               <Button
-                onClick={() => onSwitchProfile(p.id)}
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled
+                className="h-7 gap-1.5 px-3 text-xs font-semibold bg-primary/15 text-primary border border-primary/30 opacity-100 cursor-default select-none shadow-2xs"
+                aria-label={t('active')}
+              >
+                <Check className="size-3.5 stroke-[2.5]" />
+                <span>{t('active')}</span>
+              </Button>
+            ) : isSwitching ? (
+              <Button
+                type="button"
+                disabled
                 variant="outline"
                 size="sm"
-                className="h-7"
+                className="h-7 gap-1.5 px-3 text-xs font-medium latency-testing-button border-primary/40 text-primary relative shadow-2xs"
+                aria-busy="true"
+                aria-label={t('activating')}
               >
-                {t('select')}
+                <span className="latency-loader" />
+                <span>{t('activating')}</span>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={() => onSwitchProfile(p.id)}
+                disabled={isAnySwitching}
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 px-3 text-xs font-medium border-border/80 text-foreground hover:border-primary/60 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
+                title={t('select')}
+                aria-label={t('select')}
+              >
+                <span>{t('select')}</span>
               </Button>
             )}
             <Button
+              type="button"
               onClick={() => onEditRules(p)}
               variant="outline"
               size="icon-sm"
               title={t('editRules')}
               aria-label={t('editRules')}
+              disabled={isSwitching}
             >
               <RulesIcon className="size-3.5 shrink-0" />
             </Button>

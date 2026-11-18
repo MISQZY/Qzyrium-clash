@@ -19,7 +19,7 @@ const ProfileInfoDialog = lazy(() => import('../components/ProfileInfoDialog').t
 interface ProfilesPageProps {
   profiles: ProfileItem[]
   activeProfile: ProfileItem | null
-  onSwitchProfile: (id: string) => void
+  onSwitchProfile: (id: string) => void | Promise<unknown>
   onRefreshAll: () => void
   importRequest?: { url: string; name?: string } | null
   onClearImportRequest?: () => void
@@ -38,9 +38,23 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
   const [editingProfile, setEditingProfile] = useState<ProfileItem | null>(null)
   const [editingFileProfile, setEditingFileProfile] = useState<ProfileItem | null>(null)
   const [editingInfoProfile, setEditingInfoProfile] = useState<ProfileItem | null>(null)
+  const [switchingId, setSwitchingId] = useState<string | null>(null)
   const { error, setError, updating, profileToDelete, setProfileToDelete, confirmDelete, handleUpdate } = useProfileActions(onRefreshAll)
   const importDraft = useProfileImport({ importRequest, onClearImportRequest, onRefreshAll, error, setError })
   const { showAddModal, setShowAddModal } = importDraft
+
+  const handleSwitchProfile = async (id: string) => {
+    if (switchingId || activeProfile?.id === id) return
+    setSwitchingId(id)
+    try {
+      await Promise.all([
+        Promise.resolve(onSwitchProfile(id)),
+        new Promise((resolve) => setTimeout(resolve, 350))
+      ])
+    } finally {
+      setSwitchingId(null)
+    }
+  }
 
   return (
     <div className="page-scroll">
@@ -67,10 +81,20 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
       <div className="flex flex-col gap-3">
         {profiles.length > 0 ? (
           profiles.map(profile => (
-            <ProfileCard key={profile.id} profile={profile} isActive={activeProfile?.id === profile.id}
-              updating={updating.has(profile.id)} onSwitchProfile={onSwitchProfile} onUpdate={handleUpdate}
-              onEditInfo={setEditingInfoProfile} onEditFile={setEditingFileProfile}
-              onDelete={setProfileToDelete} onEditRules={setEditingProfile} />
+            <ProfileCard
+              key={profile.id}
+              profile={profile}
+              isActive={activeProfile?.id === profile.id}
+              updating={updating.has(profile.id)}
+              isSwitching={switchingId === profile.id}
+              isAnySwitching={Boolean(switchingId)}
+              onSwitchProfile={handleSwitchProfile}
+              onUpdate={handleUpdate}
+              onEditInfo={setEditingInfoProfile}
+              onEditFile={setEditingFileProfile}
+              onDelete={setProfileToDelete}
+              onEditRules={setEditingProfile}
+            />
           ))
         ) : (
           <Card className="p-12 text-center flex flex-col items-center justify-center">

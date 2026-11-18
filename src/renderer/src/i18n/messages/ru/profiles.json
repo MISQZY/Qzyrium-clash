@@ -44,6 +44,7 @@
   "expired": "Истекла",
   "daysValue": "{count} дн.",
   "active": "Активен",
+  "activating": "Активация…",
   "addFailed": "Не удалось добавить профиль: {error}",
   "addRuleAppend": "В конец",
   "addRulePrepend": "В начало",

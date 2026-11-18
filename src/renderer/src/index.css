@@ -964,12 +964,17 @@ input, textarea, pre { user-select: text; }
   animation: latency-loader-spin 0.8s linear infinite;
 }
 
-.latency-testing-button:disabled {
+.latency-testing-button:disabled,
+.profile-switching-card {
   position: relative;
+}
+
+.latency-testing-button:disabled {
   opacity: 0.8;
 }
 
-.latency-testing-button::after {
+.latency-testing-button::after,
+.profile-switching-card::after {
   content: '';
   position: absolute;
   inset: -1px;
@@ -991,5 +996,5 @@ input, textarea, pre { user-select: text; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .latency-loader, .latency-testing-button::after { animation: none; }
+  .latency-loader, .latency-testing-button::after, .profile-switching-card::after { animation: none; }
 }

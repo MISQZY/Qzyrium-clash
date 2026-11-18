@@ -44,6 +44,7 @@
   "expired": "Expired",
   "daysValue": "{count} d",
   "active": "Active",
+  "activating": "Activating…",
   "addFailed": "Failed to add profile: {error}",
   "addRuleAppend": "Append",
   "addRulePrepend": "Prepend",
