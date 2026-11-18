@@ -26,7 +26,10 @@ const customUserData =
 
 if (customUserData) {
   try {
-    app.setPath('userData', path.resolve(customUserData))
+    const resolvedUserData = path.isAbsolute(customUserData)
+      ? customUserData
+      : path.resolve(app.getAppPath() || process.cwd(), customUserData)
+    app.setPath('userData', resolvedUserData)
   } catch { /* Use default path */ }
 } else {
   // Ensure seamless userData directory compatibility with legacy qzyrium-vpn path

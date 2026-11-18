@@ -59,11 +59,27 @@ export function restartAsAdmin(): Promise<boolean> {
       }
 
       const execPath = process.execPath
-      const workingDir = path.dirname(execPath)
       const isPackaged = electronApp.isPackaged
+      const workingDir = isPackaged ? path.dirname(execPath) : (electronApp.getAppPath() || process.cwd())
+      const appUserData = electronApp.getPath('userData')
+
+      const filteredArgs = (isPackaged ? process.argv.slice(1) : process.argv.slice(2))
+        .filter((a: string) => !a.startsWith('--admin-restart'))
+        .map((a: string) => {
+          if (a.startsWith('--user-data-dir=')) {
+            return `--user-data-dir=${appUserData}`
+          }
+          return a
+        })
+
       const rawArgs = isPackaged
-        ? process.argv.slice(1).filter((a: string) => !a.startsWith('--admin-restart'))
-        : [electronApp.getAppPath(), ...process.argv.slice(2).filter((a: string) => !a.startsWith('--admin-restart'))]
+        ? filteredArgs
+        : [electronApp.getAppPath(), ...filteredArgs]
+
+      if (!isPackaged && !rawArgs.some((a: string) => a.startsWith('--user-data-dir='))) {
+        rawArgs.push(`--user-data-dir=${appUserData}`)
+      }
+
       const args = [...rawArgs, `--admin-restart=${process.pid}`]
 
       // Release single-instance lock before launching elevated instance to avoid collision
@@ -72,14 +88,17 @@ export function restartAsAdmin(): Promise<boolean> {
       }
 
       // Try launching via the Task Scheduler bypass task first (no UAC prompt, no PowerShell)
-      try {
-        if (checkElevateTask() && tryRunElevateTask(args)) {
-          electronApp.exit(0)
-          resolve(true)
-          return
+      // Only for packaged applications: in development, the scheduled task points to the installed app!
+      if (isPackaged) {
+        try {
+          if (checkElevateTask() && tryRunElevateTask(args)) {
+            electronApp.exit(0)
+            resolve(true)
+            return
+          }
+        } catch (taskErr) {
+          logger.warn(`Elevate task launch attempt failed, falling back to direct UAC elevation: ${String(taskErr)}`)
         }
-      } catch (taskErr) {
-        logger.warn(`Elevate task launch attempt failed, falling back to direct UAC elevation: ${String(taskErr)}`)
       }
 
       // Native UAC elevation via Windows Script Host (prompts UAC for the executable itself, not PowerShell)
