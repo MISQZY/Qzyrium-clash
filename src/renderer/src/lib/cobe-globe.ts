@@ -20,16 +20,29 @@ const radians = Math.PI / 180
 const vector = ([lon, lat]: Coordinate): Vector => [Math.cos(lat * radians) * Math.cos(lon * radians), Math.sin(lat * radians), -Math.cos(lat * radians) * Math.sin(lon * radians)]
 export const defaultCamera = (): Camera => ({ phi: -1.95, theta: 0.55, scale: 1.38 })
 
+const surfaceCache = new WeakMap<Float32Array, Map<string, Vector>>()
+
 /** Use the actual land samples, so a tunnel replaces a surface dot. */
 export function surfacePoint(coordinate: Coordinate, samples?: Float32Array): Vector {
   const target = vector(coordinate)
   if (!samples?.length) return target
+  let cache = surfaceCache.get(samples)
+  if (!cache) {
+    cache = new Map<string, Vector>()
+    surfaceCache.set(samples, cache)
+  }
+  const key = `${coordinate[0]},${coordinate[1]}`
+  const cached = cache.get(key)
+  if (cached) return cached
+
   let best = -Infinity, index = 0
   for (let i = 0; i < samples.length; i += 3) {
     const alignment = target[0] * samples[i] + target[1] * samples[i + 1] + target[2] * samples[i + 2]
     if (alignment > best) { best = alignment; index = i }
   }
-  return [samples[index], samples[index + 1], samples[index + 2]]
+  const result: Vector = [samples[index], samples[index + 1], samples[index + 2]]
+  cache.set(key, result)
+  return result
 }
 
 export function globeProjection(camera: Camera, { cx, cy, radius }: { cx: number; cy: number; radius: number }) {
