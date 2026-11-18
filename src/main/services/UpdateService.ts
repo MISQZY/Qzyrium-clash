@@ -52,13 +52,17 @@ export class UpdateService implements BaseService {
     autoUpdater.allowDowngrade = false
     autoUpdater.setFeedURL({ provider: 'github', ...RELEASE_REPOSITORY })
     this.listen('checking-for-update', () => this.setStatus({ state: 'checking' }))
-    this.listen('update-not-available', () => this.setStatus({ state: 'not-available' }))
+    this.listen('update-not-available', () => {
+      this.setStatus({ state: 'not-available' })
+      void this.clearProxy()
+    })
     this.listen('update-available', (info: { version: string }) => this.setStatus({ state: 'available', version: info.version }))
     this.listen('download-progress', (progress: { percent: number }) => this.setStatus({ state: 'downloading', percent: Math.min(100, Math.max(0, Math.round(progress.percent))) }))
     this.listen('update-downloaded', (info: { version: string }) => {
       if (this.installing) return
       this.installing = true
       this.setStatus({ state: 'downloaded', version: info.version })
+      void this.clearProxy()
       // Cleanup finishes before the installer starts replacing files or relaunching the app.
       void this.prepareInstall().then(() => autoUpdater.quitAndInstall(true, true)).catch((error) => this.fail(error))
     })
@@ -80,6 +84,7 @@ export class UpdateService implements BaseService {
   private fail(error: unknown): void {
     logger.error('Application update failed', error)
     this.setStatus({ state: 'error', message: error instanceof Error ? error.message : String(error) })
+    void this.clearProxy()
     if (this.installing) {
       this.installing = false
       void this.recoverInstall().catch((recoveryError) => logger.error('Unable to restore session after failed installation', recoveryError))
@@ -88,6 +93,20 @@ export class UpdateService implements BaseService {
 
   getStatus(): AppUpdaterStatus { return this.status }
   getWhatsNew(): Promise<WhatsNewPayload | null> { return this.whatsNew }
+
+  private async clearProxy(): Promise<void> {
+    try {
+      const updaterSession = (autoUpdater as unknown as { netSession?: { setProxy?: (opts: { mode: string }) => Promise<void> } }).netSession
+      if (updaterSession?.setProxy) {
+        await updaterSession.setProxy({ mode: 'direct' })
+      }
+      if (typeof session !== 'undefined' && session?.defaultSession?.setProxy) {
+        await session.defaultSession.setProxy({ mode: 'direct' })
+      }
+    } catch (err) {
+      logger.warn(`Could not clear update proxy rules: ${String(err)}`)
+    }
+  }
 
   private async applyProxy(port: number): Promise<void> {
     const proxyRules = `http=127.0.0.1:${port};https=127.0.0.1:${port}`
@@ -253,5 +272,6 @@ export class UpdateService implements BaseService {
     this.lifetime.abort()
     for (const remove of this.listeners) remove()
     this.listeners = []
+    await this.clearProxy()
   }
 }
