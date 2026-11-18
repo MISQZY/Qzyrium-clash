@@ -124,17 +124,17 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
     })
     windowService.setModeChangedHandler(() => trayService.updateContextMenu())
 
-    // Ordered lifecycle array: window is created early for instant UI presentation
+    // Ordered lifecycle array: backend services initialize first, windowService is presented once backend is ready
     const services: BaseService[] = [
       settingService,
       profileService,
-      windowService,
       updateService,
       coreService,
       sysProxyService,
       trayService,
       kernelService,
-      desktopService
+      desktopService,
+      windowService
     ]
     return { settingService, profileService, sysProxyService, kernelService, windowService, trayService, desktopService, themeStore, updateService, coreService, networkModeController, services }
 }
