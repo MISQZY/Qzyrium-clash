@@ -8,6 +8,7 @@ import { profileName } from '../lib/profile-name'
 import { profileSource } from '../lib/profile-source'
 import { ProfileLogo } from './ProfileLogo'
 import { Alert } from './ui/alert'
+import { cn } from '../lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
   const [name, setName] = useState(profile?.name || '')
   const [url, setUrl] = useState(profile?.url || '')
   const [autoUpdate, setAutoUpdate] = useState(profile?.autoUpdate ?? true)
+  const [autoUpdateOpen, setAutoUpdateOpen] = useState(profile?.autoUpdate ?? true)
   const [updateViaProxy, setUpdateViaProxy] = useState(profile?.updateViaProxy ?? false)
   const [sendHwid, setSendHwid] = useState(profile?.sendHwid ?? false)
   const [interval, setInterval] = useState(profile?.interval ?? 1440)
@@ -56,7 +58,9 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
     if (profile) {
       setName(profile.name || '')
       setUrl(profile.url || '')
-      setAutoUpdate(profile.autoUpdate ?? true)
+      const initialAuto = profile.autoUpdate ?? true
+      setAutoUpdate(initialAuto)
+      setAutoUpdateOpen(initialAuto)
       setUpdateViaProxy(profile.updateViaProxy ?? false)
       setSendHwid(profile.sendHwid ?? false)
       setInterval(profile.interval ?? 1440)
@@ -141,42 +145,66 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
                   <p id={`${id}-url-hint`} className="text-[11px] leading-relaxed text-muted-foreground">{t('subscriptionLinkHint')}</p>
                 </div>
 
-                <section className="overflow-hidden rounded-xl border border-border/70" aria-labelledby={`${id}-auto-label`}>
-                  <div className="flex items-center justify-between gap-4 bg-muted/20 p-3.5">
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <RefreshCw className="size-3.5 shrink-0 text-muted-foreground" />
-                        <label id={`${id}-auto-label`} htmlFor={`${id}-auto`} className="cursor-pointer text-xs font-medium">{t('autoUpdate')}</label>
-                      </div>
-                      <p id={`${id}-auto-hint`} className="text-[11px] leading-relaxed text-muted-foreground pl-5.5">{t('autoUpdateHint')}</p>
+                <section className={cn('overflow-hidden rounded-xl border border-border/70 transition-colors', !autoUpdate && 'opacity-80')} aria-labelledby={`${id}-auto-label`}>
+                  <div
+                    className={cn(
+                      'flex items-center justify-between gap-4 bg-muted/20 p-3.5 select-none transition-colors',
+                      autoUpdate ? 'cursor-pointer hover:bg-muted/30' : 'cursor-not-allowed'
+                    )}
+                    onClick={() => {
+                      if (autoUpdate) setAutoUpdateOpen((prev) => !prev)
+                    }}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <RefreshCw className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span id={`${id}-auto-label`} className="text-xs font-medium">
+                        {t('autoUpdate')}
+                      </span>
+                      <ChevronDown
+                        className={cn(
+                          'size-3.5 shrink-0 text-muted-foreground transition-transform duration-200',
+                          autoUpdate && autoUpdateOpen && 'rotate-180',
+                          !autoUpdate && 'opacity-40'
+                        )}
+                      />
                     </div>
-                    <Switch id={`${id}-auto`} checked={autoUpdate} onCheckedChange={setAutoUpdate} aria-describedby={`${id}-auto-hint`} />
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Switch
+                        id={`${id}-auto`}
+                        checked={autoUpdate}
+                        onCheckedChange={(checked) => {
+                          setAutoUpdate(checked)
+                          setAutoUpdateOpen(checked)
+                        }}
+                        aria-label={t('autoUpdate')}
+                      />
+                    </div>
                   </div>
-                  {autoUpdate && <div className="space-y-3 border-t border-border/60 p-3.5">
-                    <div className="flex flex-wrap items-center justify-between gap-2.5">
-                      <label htmlFor={`${id}-schedule`} className="text-xs font-medium">{t('updateFrequency')}</label>
-                      <NativeSelect id={`${id}-schedule`} className="w-full sm:w-auto sm:min-w-40" value={automaticInterval ? 'automatic' : customInterval ? 'custom' : interval} onChange={(event) => {
-                        setAutomaticInterval(event.target.value === 'automatic')
-                        if (event.target.value === 'automatic') return
-                        const custom = event.target.value === 'custom'
-                        setCustomInterval(custom)
-                        if (!custom) setInterval(Number(event.target.value))
-                      }}>
-                        <option value="automatic">{t('providerUpdateInterval')}</option>
-                        <option value={60}>{t('everyHour')}</option>
-                        <option value={360}>{t('every6Hours')}</option>
-                        <option value={720}>{t('every12Hours')}</option>
-                        <option value={1440}>{t('everyDay')}</option>
-                        <option value="custom">{t('customInterval')}</option>
-                      </NativeSelect>
+                  {autoUpdate && autoUpdateOpen && (
+                    <div className="space-y-3 border-t border-border/60 p-3.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2.5">
+                        <label htmlFor={`${id}-schedule`} className="text-xs font-medium">{t('updateFrequency')}</label>
+                        <NativeSelect id={`${id}-schedule`} className="w-full sm:w-auto sm:min-w-40" value={automaticInterval ? 'automatic' : customInterval ? 'custom' : interval} onChange={(event) => {
+                          setAutomaticInterval(event.target.value === 'automatic')
+                          if (event.target.value === 'automatic') return
+                          const custom = event.target.value === 'custom'
+                          setCustomInterval(custom)
+                          if (!custom) setInterval(Number(event.target.value))
+                        }}>
+                          <option value="automatic">{t('providerUpdateInterval')}</option>
+                          <option value={60}>{t('everyHour')}</option>
+                          <option value={360}>{t('every6Hours')}</option>
+                          <option value={720}>{t('every12Hours')}</option>
+                          <option value={1440}>{t('everyDay')}</option>
+                          <option value="custom">{t('customInterval')}</option>
+                        </NativeSelect>
+                      </div>
+                      {!automaticInterval && customInterval && <div className="space-y-2">
+                        <label htmlFor={`${id}-interval`} className="text-[11px] text-muted-foreground">{t('updateIntervalMinutes')}</label>
+                        <Input id={`${id}-interval`} type="number" min={15} max={43200} step={1} required value={interval || ''} onChange={(event) => setInterval(Number(event.target.value))} />
+                      </div>}
                     </div>
-                    {automaticInterval && <p className="text-[11px] text-muted-foreground">{profile.serverInterval ? t('providerIntervalValue', { minutes: profile.serverInterval }) : t('providerIntervalFallback')}</p>}
-                    {!automaticInterval && customInterval && <div className="space-y-2">
-                      <label htmlFor={`${id}-interval`} className="text-[11px] text-muted-foreground">{t('updateIntervalMinutes')}</label>
-                      <Input id={`${id}-interval`} type="number" min={15} max={43200} step={1} required value={interval || ''} onChange={(event) => setInterval(Number(event.target.value))} aria-describedby={`${id}-interval-hint`} />
-                      <p id={`${id}-interval-hint`} className="text-[11px] text-muted-foreground">{t('intervalHint')}</p>
-                    </div>}
-                  </div>}
+                  )}
                 </section>
 
                 <details className="group rounded-xl border border-border/60">
