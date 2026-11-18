@@ -12,8 +12,8 @@ import type { AppConfig } from '@shared/app-config'
 import { applyPendingBackup } from './utils/backup'
 import { clearRestartState, readRestartState } from './utils/restart-state'
 import { isProcessElevated, restartAsAdmin } from './utils/elevation'
-import { createElevateTaskSync, tryRunElevateTask } from './utils/elevate-task'
-import { readElevationState, rememberElevation } from './utils/elevation-state'
+import { checkElevateTask, createElevateTaskSync, tryRunElevateTask } from './utils/elevate-task'
+import { readElevationState, recordElevationAttempt, rememberElevation } from './utils/elevation-state'
 import { renderingSwitches } from '@shared/rendering-policy'
 import { networkWatchdog } from './utils/network-watchdog'
 
@@ -21,7 +21,7 @@ app.setName('Qzyrium-clash')
 electronApp.setAppUserModelId('com.qzyrium.vpn')
 
 const customUserData =
-  process.env.QZYRIUM_USER_DATA ||
+  process.env?.QZYRIUM_USER_DATA ||
   process.argv.find((arg) => arg.startsWith('--user-data-dir='))?.slice('--user-data-dir='.length)
 
 if (customUserData) {
@@ -136,6 +136,7 @@ if (useAdminLaunch) {
   } else if (!adminRestartPid) {
     needsAdminLaunch = readElevationState()
     try {
+      if (typeof recordElevationAttempt === 'function') recordElevationAttempt()
       if (tryRunElevateTask(process.argv.slice(1))) {
         app.exit(0)
         process.exit(0)

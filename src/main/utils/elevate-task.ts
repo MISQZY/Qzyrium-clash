@@ -99,6 +99,10 @@ export function tryRunElevateTask(args: string[] = []): boolean {
   if (process.platform !== 'win32') return false
   try {
     const paths = getAppPaths()
+    if (!existsSync(paths.runnerBinaryPath)) {
+      logger.warn(`Elevated task runner not found at ${paths.runnerBinaryPath}`)
+      return false
+    }
     const taskDir = paths.tasksDir
     const paramPath = path.join(taskDir, 'param.txt')
 
