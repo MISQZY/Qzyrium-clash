@@ -68,7 +68,8 @@ function RulesContent() {
 }
 
 function LogsContent() {
-  const { logs, clearLogs } = useLogs()
+  const logs = useLogs((state) => state.logs)
+  const clearLogs = useLogs((state) => state.clearLogs)
   return <LogsPage logs={logs} onClear={clearLogs} />
 }
 

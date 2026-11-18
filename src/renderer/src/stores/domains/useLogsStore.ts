@@ -1,16 +1,33 @@
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
+import { create } from 'zustand'
 import type { LogEntry } from '@shared/types'
 import { LogBuffer } from '@shared/log-buffer'
 import type { StoreCoordinator } from './types'
 
-export interface LogsStore {
+export interface LogsStoreState {
   logs: LogEntry[]
-  setLogs: React.Dispatch<React.SetStateAction<LogEntry[]>>
+  setLogs: (logs: LogEntry[] | ((prev: LogEntry[]) => LogEntry[])) => void
   clearLogs: (source?: 'app' | 'mihomo') => void
 }
 
-export function useLogsStore(coord: StoreCoordinator): LogsStore {
-  const [logs, setLogs] = useState<LogEntry[]>([])
+export const useLogsStore = create<LogsStoreState>((set) => ({
+  logs: [],
+  setLogs: (logs) =>
+    set((state) => ({
+      logs: typeof logs === 'function' ? logs(state.logs) : logs
+    })),
+  clearLogs: () => set({ logs: [] })
+}))
+
+export type LogsStore = LogsStoreState
+
+export const useLogs = useLogsStore
+
+/**
+ * Syncs Mihomo and app logs to Zustand outside the React root context lifecycle.
+ * Prevents high-frequency log streams from causing cascading re-renders in useAppStoreInternal.
+ */
+export function useLogsSync(coord: StoreCoordinator): LogsStoreState {
   const logBuffer = useRef(new LogBuffer(coord.settings.general.maxLogs ?? 300))
   const activeView = useRef({ activeTab: coord.activeTab, visible: coord.visible })
   activeView.current = { activeTab: coord.activeTab, visible: coord.visible }
@@ -21,7 +38,7 @@ export function useLogsStore(coord: StoreCoordinator): LogsStore {
     const limit = coord.settings.general.maxLogs ?? 300
     logBuffer.current.resize(limit)
     if (activeView.current.activeTab === 'logs' && activeView.current.visible) {
-      setLogs(logBuffer.current.snapshot())
+      useLogsStore.getState().setLogs(logBuffer.current.snapshot())
     }
   }, [coord.settings.general.maxLogs])
 
@@ -33,23 +50,23 @@ export function useLogsStore(coord: StoreCoordinator): LogsStore {
     }
     const unsub = window.api.events.onLogs
       ? window.api.events.onLogs(append)
-      : window.api.events.onLog(log => append([log]))
+      : window.api.events.onLog((log) => append([log]))
     return unsub
   }, [])
 
   useEffect(() => {
     if (!coord.visible || coord.activeTab !== 'logs') {
-      setLogs([])
+      useLogsStore.getState().setLogs([])
       return
     }
     let revision = logBuffer.current.revision
     const flush = () => {
       if (revision === logBuffer.current.revision) return
       revision = logBuffer.current.revision
-      setLogs(logBuffer.current.snapshot())
+      useLogsStore.getState().setLogs(logBuffer.current.snapshot())
     }
     // Publish the accumulated buffer immediately when returning to the logs page.
-    setLogs(logBuffer.current.snapshot())
+    useLogsStore.getState().setLogs(logBuffer.current.snapshot())
     revision = logBuffer.current.revision
     const timer = setInterval(flush, 250)
     return () => clearInterval(timer)
@@ -57,12 +74,12 @@ export function useLogsStore(coord: StoreCoordinator): LogsStore {
 
   const clearLogs = useCallback((source?: 'app' | 'mihomo') => {
     logBuffer.current.clear(source)
-    setLogs(logBuffer.current.snapshot())
+    useLogsStore.getState().setLogs(logBuffer.current.snapshot())
   }, [])
 
-  return useMemo(() => ({
-    logs,
-    setLogs,
-    clearLogs
-  }), [logs, setLogs, clearLogs])
+  useEffect(() => {
+    useLogsStore.setState({ clearLogs })
+  }, [clearLogs])
+
+  return useLogsStore.getState()
 }

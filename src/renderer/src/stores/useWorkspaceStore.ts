@@ -12,7 +12,7 @@ import {
   useProxiesStore,
   useRulesStore,
   useConnectionsStore,
-  useLogsStore
+  useLogsSync
 } from './domains'
 
 export function useAppStoreInternal() {
@@ -63,7 +63,7 @@ export function useAppStoreInternal() {
   const proxies = useProxiesStore(coord, busy, refreshing, loading)
   const rules = useRulesStore(coord, busy, refreshing, loading)
   const connections = useConnectionsStore(coord, busy, refreshing, loading)
-  const logs = useLogsStore(coord)
+  const logs = useLogsSync(coord)
 
   const refreshAll = useWorkspaceRefresh(nav, settingsStore, profiles, kernel, setRefreshing)
 

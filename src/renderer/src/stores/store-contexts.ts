@@ -23,4 +23,6 @@ export const [SettingsContext, useSettings] = createStoreContext<DomainStores['s
 export const [ProxiesContext, useProxies] = createStoreContext<DomainStores['proxies']>('useProxies')
 export const [RulesContext, useRules] = createStoreContext<DomainStores['rules']>('useRules')
 export const [ConnectionsContext, useConnections] = createStoreContext<DomainStores['connections']>('useConnections')
-export const [LogsContext, useLogs] = createStoreContext<DomainStores['logs']>('useLogs')
+export const LogsContext = createContext<DomainStores['logs'] | null>(null)
+LogsContext.displayName = 'Logs'
+export { useLogs } from './domains/useLogsStore'
