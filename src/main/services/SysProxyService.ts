@@ -30,8 +30,20 @@ export class SysProxyService implements BaseService {
 
   async initialize(): Promise<void> {
     // Restore only changes owned by this app, preserving somebody else's proxy.
-    if (process.platform === 'win32') await this.registry.restore()
-    if (process.platform === 'linux') await this.linuxProxy.disable()
+    try {
+      if (process.platform === 'win32') await this.registry.restore()
+      if (process.platform === 'linux') await this.linuxProxy.disable()
+    } catch (error) {
+      logger.error('Failed to restore initial system proxy state; continuing startup', error)
+      try {
+        if (process.platform === 'win32') {
+          await this.registry.quarantineRecoveryFile?.()
+          await this.registry.set('ProxyEnable', '0', 'REG_DWORD')
+        }
+      } catch (fallbackError) {
+        logger.warn(`Failed to apply fallback proxy settings: ${String(fallbackError)}`)
+      }
+    }
   }
 
   async dispose(): Promise<void> {

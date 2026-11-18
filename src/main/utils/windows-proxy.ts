@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { readFile, unlink } from 'node:fs/promises'
+import { readFile, rename, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { getAppPaths } from './paths'
 import { writeFileAtomicAsync } from './atomicWrite'
@@ -70,6 +70,11 @@ export class WindowsProxySettings {
 
   async set(name: Name, data: string, type: Value['type'] = 'REG_SZ'): Promise<void> {
     await this.registry.write(name, { type, data })
+  }
+
+  async quarantineRecoveryFile(): Promise<void> {
+    const file = this.filename()
+    try { await rename(file, `${file}.corrupt`) } catch { try { await unlink(file) } catch {} }
   }
 
   async restore(): Promise<void> {

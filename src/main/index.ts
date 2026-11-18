@@ -256,7 +256,11 @@ if (!gotTheLock) {
       if (restartState.coreOnly) services.windowService.setCoreOnlyMode(true)
     }
     registerIpcHandlers(services)
-    await services.initialize()
+    try {
+      await services.initialize()
+    } catch (initError) {
+      logger.error('Failed to initialize some application services', initError)
+    }
     servicesReady = true
 
     for (const url of pendingProtocolUrls.splice(0)) services.windowService.queueProfileImport(url)
