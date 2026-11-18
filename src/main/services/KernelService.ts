@@ -184,6 +184,8 @@ export class KernelService implements BaseService {
         if (!current()) return
         try {
           await this.apiClient.getVersion()
+          await this.apiClient.closeAllConnections?.().catch(() => {})
+          flushSystemDns()
           if (current() && this.getStatus() === 'running') this.apiClient.startTrafficStream()
         } catch {
           if (!current()) return
