@@ -73,6 +73,10 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
       await desktopService.initialize()
       if (state?.running) await kernelService.start()
       await sysProxyService.setCoreRunning(kernelService.getStatus() === 'running')
+    }, {
+      isCoreRunning: () => kernelService.getStatus() === 'running',
+      startIdleCore: async () => { await kernelService.startIdleCore() },
+      getMixedPort: async () => kernelService.getMixedPort()
     })
 
     // Route kernel broadcasts to renderer via WindowService
@@ -94,6 +98,9 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
           void trayService.refreshProxies().then(() => {
             trayService.updateContextMenu()
           })
+          if (updateService.getStatus().state === 'error' || updateService.getStatus().state === 'idle') {
+            void updateService.checkUpdates()
+          }
         } else if (data === 'error' || data === 'stopped') {
           trayService.clearProxies()
         }

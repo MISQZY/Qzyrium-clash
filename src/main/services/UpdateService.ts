@@ -1,4 +1,4 @@
-import { app, net } from 'electron'
+import { app, net, session } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -14,6 +14,12 @@ interface GithubRelease { tag_name: string; draft: boolean; prerelease: boolean;
 interface GithubCompare { commits: { commit: { message: string } }[] }
 const BUMP_COMMIT = /^chore:\s*bump(?:\s+version)?\s+to\s+\d/i
 
+export interface UpdateProxyProvider {
+  isCoreRunning: () => boolean
+  startIdleCore: () => Promise<void>
+  getMixedPort: () => Promise<number>
+}
+
 export class UpdateService implements BaseService {
   private status: AppUpdaterStatus = { state: 'idle' }
   private checking: Promise<AppUpdaterStatus> | null = null
@@ -24,7 +30,13 @@ export class UpdateService implements BaseService {
   private checkInProgress = false
   private lifetime = new AbortController()
 
-  constructor(private broadcast: (channel: string, payload: unknown) => void, private prepareInstall: () => Promise<void>, private autoCheckEnabled: () => boolean = () => true, private recoverInstall: () => Promise<void> = async () => {}) {}
+  constructor(
+    private broadcast: (channel: string, payload: unknown) => void,
+    private prepareInstall: () => Promise<void>,
+    private autoCheckEnabled: () => boolean = () => true,
+    private recoverInstall: () => Promise<void> = async () => {},
+    private proxyFallback?: UpdateProxyProvider
+  ) {}
 
   async initialize(): Promise<void> {
     this.whatsNew = this.loadWhatsNew()
@@ -77,18 +89,48 @@ export class UpdateService implements BaseService {
   getStatus(): AppUpdaterStatus { return this.status }
   getWhatsNew(): Promise<WhatsNewPayload | null> { return this.whatsNew }
 
+  private async applyProxy(port: number): Promise<void> {
+    const proxyRules = `http=127.0.0.1:${port};https=127.0.0.1:${port}`
+    try {
+      const updaterSession = (autoUpdater as unknown as { netSession?: { setProxy?: (opts: { proxyRules: string }) => Promise<void> } }).netSession
+      if (updaterSession?.setProxy) {
+        await updaterSession.setProxy({ proxyRules })
+      }
+      if (typeof session !== 'undefined' && session?.defaultSession?.setProxy) {
+        await session.defaultSession.setProxy({ proxyRules })
+      }
+    } catch (err) {
+      logger.warn(`Could not set update proxy rules: ${String(err)}`)
+    }
+  }
+
   checkUpdates(): Promise<AppUpdaterStatus> {
     if (this.lifetime.signal.aborted) return Promise.resolve(this.status)
     if (this.checking) return this.checking
     if (this.downloading || ['unsupported', 'available', 'downloading', 'downloaded'].includes(this.status.state)) return Promise.resolve(this.status)
     this.checkInProgress = true
     this.checking = (async () => {
+      let triedProxy = false
       for (let attempt = 0; ; attempt++) {
         try {
           await autoUpdater.checkForUpdates()
           break
         } catch (error) {
           if (this.lifetime.signal.aborted) break
+          if (!triedProxy && this.proxyFallback) {
+            triedProxy = true
+            try {
+              if (!this.proxyFallback.isCoreRunning()) {
+                await this.proxyFallback.startIdleCore()
+              }
+              const port = await this.proxyFallback.getMixedPort()
+              await this.applyProxy(port)
+              logger.info(`Update check falling back to proxy on port ${port}`)
+              continue
+            } catch (proxyError) {
+              logger.warn(`Proxy fallback before update check failed: ${String(proxyError)}`)
+            }
+          }
           // Starting TUN can change routes while the initial request is in flight.
           if (attempt >= 2 || !(error instanceof Error) || !error.message.includes('ERR_NETWORK_CHANGED')) {
             this.fail(error)
@@ -107,17 +149,60 @@ export class UpdateService implements BaseService {
     if (this.downloading) return this.downloading
     if (this.status.state !== 'available') return Promise.resolve()
     this.setStatus({ state: 'downloading', percent: 0 })
-    this.downloading = autoUpdater.downloadUpdate().then(() => {}).catch((error) => { this.fail(error) }).finally(() => { this.downloading = null })
+    this.downloading = (async () => {
+      try {
+        await autoUpdater.downloadUpdate()
+      } catch (error) {
+        if (this.proxyFallback) {
+          try {
+            if (!this.proxyFallback.isCoreRunning()) {
+              await this.proxyFallback.startIdleCore()
+            }
+            const port = await this.proxyFallback.getMixedPort()
+            await this.applyProxy(port)
+            logger.info(`Retrying update download via proxy on port ${port}`)
+            await autoUpdater.downloadUpdate()
+            return
+          } catch (proxyError) {
+            logger.warn(`Proxy update download retry failed: ${String(proxyError)}`)
+          }
+        }
+        this.fail(error)
+      } finally {
+        this.downloading = null
+      }
+    })()
     return this.downloading
   }
 
   private async githubGet<T>(endpoint: string): Promise<T> {
     const { owner, repo } = RELEASE_REPOSITORY
-    const response = await net.fetch(`https://api.github.com/repos/${owner}/${repo}${endpoint}`, {
-      headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(15_000)
-    })
-    if (!response.ok) throw new Error(`GitHub API: ${response.status}`)
-    return await response.json() as T
+    const url = `https://api.github.com/repos/${owner}/${repo}${endpoint}`
+    try {
+      const response = await net.fetch(url, {
+        headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(15_000)
+      })
+      if (!response.ok) throw new Error(`GitHub API: ${response.status}`)
+      return await response.json() as T
+    } catch (directError) {
+      if (this.proxyFallback) {
+        try {
+          if (!this.proxyFallback.isCoreRunning()) {
+            await this.proxyFallback.startIdleCore()
+          }
+          const port = await this.proxyFallback.getMixedPort()
+          await this.applyProxy(port)
+          const response = await net.fetch(url, {
+            headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(15_000)
+          })
+          if (!response.ok) throw new Error(`GitHub API via proxy: ${response.status}`, { cause: directError })
+          return await response.json() as T
+        } catch (proxyError) {
+          logger.warn(`GitHub API request via proxy failed: ${String(proxyError)}`)
+        }
+      }
+      throw directError
+    }
   }
 
   private async loadWhatsNew(): Promise<WhatsNewPayload | null> {
