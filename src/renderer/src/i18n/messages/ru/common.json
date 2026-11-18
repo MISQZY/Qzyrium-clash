@@ -80,5 +80,8 @@
   "restarting": "Перезапуск...",
   "languageRussian": "Русский",
   "languageEnglish": "English",
-  "search": "Поиск"
+  "search": "Поиск",
+  "attention": "Внимание",
+  "details": "Подробнее",
+  "hideDetails": "Скрыть"
 }

@@ -3,9 +3,9 @@ import { I18nProvider, useTranslations } from './i18n'
 import { selectedLocalization } from '@shared/custom-localization'
 import type { TunnelMode } from '@shared/types'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { AlertTriangle, ChevronRight, FileText, LoaderCircle, RefreshCw, X } from 'lucide-react'
+import { ChevronRight, FileText, LoaderCircle, RefreshCw } from 'lucide-react'
 import { createPortal } from 'react-dom'
-import { Alert } from './components/ui/alert'
+import { ToastNotification } from './components/ToastNotification'
 import { Button } from './components/ui/button'
 import { TitleBar } from './components/TitleBar'
 import { WhatsNewDialog } from './components/WhatsNewDialog'
@@ -194,42 +194,38 @@ function Workspace() {
           <div className="flex min-w-0 max-w-[45%] items-center gap-2 text-[11px] text-muted-foreground">{updatingProfile ? <LoaderCircle className="size-3.5 shrink-0 animate-spin" /> : <ProfileLogo url={activeProfile?.profileLogo} className="size-3.5 shrink-0 rounded-xs object-contain" fallback={<FileText className="size-3.5 shrink-0" />} />}<span className="truncate"><EmojiText text={updatingProfile ? t('applyingChanges') : activeProfile ? profileName(activeProfile, settings.general.language, selectedLocalization(settings.general)) : t('noActiveProfile')} /></span><Button type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label={profileT('updateSubscription')} title={profileT('updateSubscription')} disabled={!activeProfile?.url || busy || updatingProfile || !window.api} aria-busy={updatingProfile} onClick={() => void updateActiveProfile()}><RefreshCw className={`size-3.5 ${updatingProfile ? 'animate-spin' : ''}`} /></Button></div>
         </header>
         {warning && !error && createPortal(
-          <Alert variant="warning" className="fixed right-4 bottom-4 z-[100] flex max-h-[calc(100dvh-96px)] w-[calc(100%-32px)] max-w-md items-start gap-3 overflow-y-auto text-xs shadow-xl animate-toast-bottom">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            <p className="min-w-0 flex-1 whitespace-pre-wrap [overflow-wrap:anywhere] leading-relaxed font-medium text-foreground">{warning}</p>
-            <button type="button" aria-label={common('close')} onClick={() => setWarning(null)} className="shrink-0 rounded-md p-1 hover:bg-warning/10 transition-colors cursor-pointer"><X className="size-4" /></button>
-          </Alert>, document.body
+          <ToastNotification
+            variant="warning"
+            message={warning}
+            onClose={() => setWarning(null)}
+          />,
+          document.body
         )}
         {error && createPortal(
-          <Alert
+          <ToastNotification
             variant="destructive"
-            className="fixed right-4 bottom-4 z-[100] flex max-h-[calc(100dvh-96px)] w-[calc(100%-32px)] max-w-md items-start gap-3 overflow-y-auto text-xs shadow-xl animate-toast-bottom"
+            message={errorMessage ?? ''}
+            onClose={dismissError}
           >
-            <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
-              <p className="w-full whitespace-pre-wrap [overflow-wrap:anywhere] leading-relaxed font-medium text-foreground">{errorMessage}</p>
-              {requiresAdmin && (
-                <button
-                  type="button"
-                  onClick={() => void handleRestartAsAdmin()}
-                  disabled={restartingAdmin}
-                  aria-busy={restartingAdmin}
-                  className="flex max-w-full items-center gap-2 rounded-md bg-destructive px-3 py-1.5 text-left text-[11px] font-semibold text-white shadow-sm transition-transform hover:opacity-90 active:scale-95 cursor-pointer disabled:cursor-wait disabled:opacity-60"
-                >
-                  {restartingAdmin && <LoaderCircle className="size-3.5 shrink-0 animate-spin" />}
-                  {restartingAdmin ? common('restarting') : common('restartAsAdministrator')}
-                </button>
-              )}
-              {adminRestartFailed && <p className="w-full [overflow-wrap:anywhere] leading-relaxed text-destructive">{t('adminRestartFailed')}</p>}
-            </div>
-            <button
-              type="button"
-              aria-label={t('dismissError')}
-              onClick={dismissError}
-              className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors flex items-center justify-center cursor-pointer"
-            >
-              <X className="size-4" />
-            </button>
-          </Alert>, document.body
+            {requiresAdmin && (
+              <button
+                type="button"
+                onClick={() => void handleRestartAsAdmin()}
+                disabled={restartingAdmin}
+                aria-busy={restartingAdmin}
+                className="flex max-w-full items-center gap-2 rounded-md bg-destructive px-3 py-1.5 text-left text-[11px] font-semibold text-white shadow-sm transition-transform hover:opacity-90 active:scale-95 cursor-pointer disabled:cursor-wait disabled:opacity-60 mt-1"
+              >
+                {restartingAdmin && <LoaderCircle className="size-3.5 shrink-0 animate-spin" />}
+                {restartingAdmin ? common('restarting') : common('restartAsAdministrator')}
+              </button>
+            )}
+            {adminRestartFailed && (
+              <p className="w-full [overflow-wrap:anywhere] leading-relaxed text-destructive text-[11px] font-medium mt-1">
+                {t('adminRestartFailed')}
+              </p>
+            )}
+          </ToastNotification>,
+          document.body
         )}
         {!window.api && <div className="shrink-0 border-b border-border bg-muted/40 px-5 py-2 text-xs text-muted-foreground">{t('interfacePreviewOpenQzyriumInElectronToConnectToMihomo')}</div>}
         <SmartClipboardBanner onImport={handleClipboardImport} />

@@ -80,5 +80,8 @@
   "restarting": "Restarting...",
   "languageRussian": "Русский",
   "languageEnglish": "English",
-  "search": "Search"
+  "search": "Search",
+  "attention": "Warning",
+  "details": "Details",
+  "hideDetails": "Hide"
 }
