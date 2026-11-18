@@ -453,6 +453,9 @@ export class KernelService implements BaseService {
     this.desiredRunning = false
     this.cancelResume()
     this.invalidateGlobe()
+    if (this.processManager?.getState?.() === 'starting') {
+      void this.processManager.stop().catch(() => {})
+    }
     return this.enqueueLifecycle(() => this.stopCore())
   }
 
