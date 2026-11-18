@@ -6,7 +6,7 @@ import {
   type StoreCoordinator,
   useNavigationStore,
   useKernelStore,
-  useTrafficStore,
+  useTrafficSync,
   useProfilesStore,
   useSettingsStore,
   useProxiesStore,
@@ -58,7 +58,7 @@ export function useAppStoreInternal() {
     ]
   )
 
-  const traffic = useTrafficStore(coord)
+  const traffic = useTrafficSync(coord)
   const profiles = useProfilesStore(coord)
   const proxies = useProxiesStore(coord, busy, refreshing, loading)
   const rules = useRulesStore(coord, busy, refreshing, loading)

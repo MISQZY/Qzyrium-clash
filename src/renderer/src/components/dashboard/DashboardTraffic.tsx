@@ -5,7 +5,7 @@ import { SubscriptionUsageBar } from '../SubscriptionUsageBar'
 import { SessionTrafficMetrics } from './SessionTrafficMetrics'
 
 export function DashboardTrafficMetrics({ onlyVpnTraffic }: { onlyVpnTraffic: boolean }) {
-  const { traffic } = useTraffic()
+  const traffic = useTraffic((state) => state.traffic)
   const { connections } = useConnections()
   return <SessionTrafficMetrics connections={connections} traffic={traffic} onlyVpnTraffic={onlyVpnTraffic} />
 }
