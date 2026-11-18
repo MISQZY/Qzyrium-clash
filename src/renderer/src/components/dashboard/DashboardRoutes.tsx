@@ -21,7 +21,7 @@ export function DashboardRoutesProvider({ running, connecting, settings, activeP
 }) {
   const t = useTranslations('dashboard')
   const locale = useLocale()
-  const { connections } = useConnections()
+  const connections = useConnections((state) => state.connections)
   const { proxies, delays, updateDelays: onUpdateDelays } = useProxies()
   const { rules } = useRules()
   const liteMode = Boolean(settings.general.liteDashboard)

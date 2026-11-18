@@ -54,7 +54,8 @@ function ProfilesContent(props: ImportProps) {
 }
 
 function ConnectionsContent() {
-  const { connections, refreshConnections } = useConnections()
+  const connections = useConnections((state) => state.connections)
+  const refreshConnections = useConnections((state) => state.refreshConnections)
   return <ConnectionsPage connections={connections} onRefresh={refreshConnections} />
 }
 

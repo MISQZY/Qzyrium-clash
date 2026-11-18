@@ -22,7 +22,9 @@ export const [ProfilesContext, useProfiles] = createStoreContext<DomainStores['p
 export const [SettingsContext, useSettings] = createStoreContext<DomainStores['settings']>('useSettings')
 export const [ProxiesContext, useProxies] = createStoreContext<DomainStores['proxies']>('useProxies')
 export const [RulesContext, useRules] = createStoreContext<DomainStores['rules']>('useRules')
-export const [ConnectionsContext, useConnections] = createStoreContext<DomainStores['connections']>('useConnections')
+export const ConnectionsContext = createContext<DomainStores['connections'] | null>(null)
+ConnectionsContext.displayName = 'Connections'
+export { useConnections } from './domains/useConnectionsStore'
 export const LogsContext = createContext<DomainStores['logs'] | null>(null)
 LogsContext.displayName = 'Logs'
 export { useLogs } from './domains/useLogsStore'

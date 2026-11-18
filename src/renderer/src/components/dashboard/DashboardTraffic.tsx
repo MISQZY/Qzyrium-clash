@@ -6,12 +6,12 @@ import { SessionTrafficMetrics } from './SessionTrafficMetrics'
 
 export function DashboardTrafficMetrics({ onlyVpnTraffic }: { onlyVpnTraffic: boolean }) {
   const traffic = useTraffic((state) => state.traffic)
-  const { connections } = useConnections()
+  const connections = useConnections((state) => state.connections)
   return <SessionTrafficMetrics connections={connections} traffic={traffic} onlyVpnTraffic={onlyVpnTraffic} />
 }
 
 export function DashboardQuota({ activeProfile }: { activeProfile: ProfileItem | null }) {
-  const { subscriptionTraffic } = useConnections()
+  const subscriptionTraffic = useConnections((state) => state.subscriptionTraffic)
   const runtimeVpnDelta = activeProfile && subscriptionTraffic?.key === subscriptionTrafficKey(activeProfile)
     ? subscriptionTraffic.runtimeDeltaBytes
     : 0

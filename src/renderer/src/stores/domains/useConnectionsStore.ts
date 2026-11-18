@@ -1,35 +1,61 @@
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
+import { create } from 'zustand'
 import type { ConnectionsSnapshot } from '@shared/mihomo'
 import { EMPTY_CONNECTIONS, type StoreCoordinator } from './types'
 
-export interface ConnectionsStore {
+export interface ConnectionsStoreState {
   connections: ConnectionsSnapshot
   subscriptionTraffic: ConnectionsSnapshot['subscriptionTraffic']
-  setConnections: React.Dispatch<React.SetStateAction<ConnectionsSnapshot>>
+  setConnections: (connections: ConnectionsSnapshot | ((prev: ConnectionsSnapshot) => ConnectionsSnapshot)) => void
+  setSubscriptionTraffic: (traffic: ConnectionsSnapshot['subscriptionTraffic']) => void
   refreshConnections: () => void
 }
 
-export function useConnectionsStore(
+export const useConnectionsStore = create<ConnectionsStoreState>((set) => ({
+  connections: EMPTY_CONNECTIONS,
+  subscriptionTraffic: undefined,
+  setConnections: (connections) =>
+    set((state) => ({
+      connections: typeof connections === 'function' ? connections(state.connections) : connections
+    })),
+  setSubscriptionTraffic: (subscriptionTraffic) => set({ subscriptionTraffic }),
+  refreshConnections: () => {}
+}))
+
+export type ConnectionsStore = ConnectionsStoreState
+
+export const useConnections = useConnectionsStore
+
+/**
+ * Syncs Mihomo active connections to Zustand outside the React root context lifecycle.
+ * Prevents 2-second connection polling ticks from causing cascading re-renders in useAppStoreInternal.
+ */
+export function useConnectionsSync(
   coord: StoreCoordinator,
   busy: boolean,
   refreshing: boolean,
   loading: boolean
-): ConnectionsStore {
-  const [connections, setConnections] = useState<ConnectionsSnapshot>(EMPTY_CONNECTIONS)
-  const [subscriptionTraffic, setSubscriptionTraffic] = useState<ConnectionsSnapshot['subscriptionTraffic']>()
+): ConnectionsStoreState {
   const connectionRequest = useRef<Promise<ConnectionsSnapshot> | null>(null)
-  const [refreshRevision, setRefreshRevision] = useState(0)
-  const refreshConnections = useCallback(() => setRefreshRevision(value => value + 1), [])
+  const refreshRevision = useRef(0)
+
+  const refreshConnections = useCallback(() => {
+    refreshRevision.current += 1
+  }, [])
+
+  useEffect(() => {
+    useConnectionsStore.setState({ refreshConnections })
+  }, [refreshConnections])
 
   useEffect(() => {
     if (!coord.visible || (coord.activeTab !== 'dashboard' && coord.activeTab !== 'connections')) {
-      setConnections(EMPTY_CONNECTIONS)
+      useConnectionsStore.getState().setConnections(EMPTY_CONNECTIONS)
     }
   }, [coord.visible, coord.activeTab])
 
   useEffect(() => {
     if (coord.coreStatus === 'running' || coord.coreStatus === 'starting') return
-    setConnections(EMPTY_CONNECTIONS)
+    useConnectionsStore.getState().setConnections(EMPTY_CONNECTIONS)
   }, [coord.coreStatus])
 
   useEffect(() => {
@@ -68,8 +94,10 @@ export function useConnectionsStore(
           !coord.actionInProgress.current &&
           revision === coord.statusRevision.current
         ) {
-          if (coord.coreStatus === 'running') setConnections(snapshot)
-          setSubscriptionTraffic(snapshot.subscriptionTraffic)
+          if (coord.coreStatus === 'running') {
+            useConnectionsStore.getState().setConnections(snapshot)
+          }
+          useConnectionsStore.getState().setSubscriptionTraffic(snapshot.subscriptionTraffic)
         }
       } catch {
         /* A restarting core can briefly reject a snapshot. */
@@ -92,16 +120,10 @@ export function useConnectionsStore(
     coord.visible,
     coord.activeTab,
     coord.dataRevision,
-    refreshRevision,
     coord.settings.general.connectionInterval,
     coord.statusRevision,
     coord.actionInProgress
   ])
 
-  return useMemo(() => ({
-    connections,
-    subscriptionTraffic,
-    setConnections,
-    refreshConnections
-  }), [connections, subscriptionTraffic, setConnections, refreshConnections])
+  return useConnectionsStore.getState()
 }
