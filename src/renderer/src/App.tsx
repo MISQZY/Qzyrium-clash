@@ -39,8 +39,15 @@ function AppContent() {
         e.stopImmediatePropagation()
       }
     }
+    const onUnhandledRejection = (e: PromiseRejectionEvent) => {
+      console.error('Unhandled promise rejection in renderer:', e.reason)
+    }
     window.addEventListener('error', onError)
-    return () => window.removeEventListener('error', onError)
+    window.addEventListener('unhandledrejection', onUnhandledRejection)
+    return () => {
+      window.removeEventListener('error', onError)
+      window.removeEventListener('unhandledrejection', onUnhandledRejection)
+    }
   }, [])
   return (
     <I18nProvider locale={settings.general.language} custom={selectedLocalization(settings.general)}>

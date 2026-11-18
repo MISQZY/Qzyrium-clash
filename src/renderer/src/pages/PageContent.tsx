@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { LoaderCircle } from 'lucide-react'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 import { useTranslations } from '../i18n'
 import { useNavigation, useKernel, useSettings, useProfiles, useProxies,
   useConnections, useRules, useLogs, useRefreshAll } from '../stores/useAppStore'
@@ -104,5 +105,5 @@ export function PageContent(props: ImportProps) {
     case 'settings': case 'tun': case 'sysproxy': case 'mihomo': page = <SettingsContent section={activeTab} />; break
     case 'dns': case 'sniffer': case 'resources': page = <ConfigContent section={activeTab} />; break
   }
-  return <Suspense fallback={placeholder}>{page}</Suspense>
+  return <ErrorBoundary key={activeTab} name={`PageContent:${activeTab}`}><Suspense fallback={placeholder}>{page}</Suspense></ErrorBoundary>
 }
