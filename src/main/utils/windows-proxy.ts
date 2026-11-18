@@ -62,10 +62,26 @@ export class WindowsProxySettings {
     return parsed.values
   }
 
+  private sanitizeSnapshot(values: Snapshot): Snapshot {
+    const server = values.ProxyServer?.data || ''
+    const pac = values.AutoConfigURL?.data || ''
+    const isLoopback = /(?:127\.0\.0\.1|localhost|::1)(?::\d+)?/i.test(server) || /(?:127\.0\.0\.1|localhost|::1)(?::\d+)?/i.test(pac)
+    if (isLoopback) {
+      return {
+        ...values,
+        ProxyEnable: { type: 'REG_DWORD', data: '0x0' },
+        ProxyServer: null,
+        AutoConfigURL: null
+      }
+    }
+    return values
+  }
+
   async capture(): Promise<void> {
     if (await this.readSnapshot()) return
     const values = await this.registry.read()
-    await writeFileAtomicAsync(this.filename(), JSON.stringify({ version: 1, values }))
+    const sanitized = this.sanitizeSnapshot(values)
+    await writeFileAtomicAsync(this.filename(), JSON.stringify({ version: 1, values: sanitized }))
   }
 
   async set(name: Name, data: string, type: Value['type'] = 'REG_SZ'): Promise<void> {

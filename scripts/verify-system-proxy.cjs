@@ -113,6 +113,25 @@ async function verify() {
   await assert.rejects(registry.capture())
   await assert.rejects(registry.restore())
   assert.equal(writes.length, count, 'invalid journal never mutates the registry')
+
+  const dirtyFilename = path.join(directory, 'dirty-recovery.json')
+  const dirtyBackend = {
+    async read() {
+      return {
+        ProxyEnable: { type: 'REG_DWORD', data: '0x1' },
+        ProxyServer: { type: 'REG_SZ', data: '127.0.0.1:7890' },
+        ProxyOverride: { type: 'REG_SZ', data: '<local>' },
+        AutoConfigURL: null
+      }
+    },
+    async write() {}
+  }
+  const dirtyRegistry = new WindowsProxySettings(dirtyBackend, () => dirtyFilename)
+  await dirtyRegistry.capture()
+  const capturedSnapshot = JSON.parse(fs.readFileSync(dirtyFilename, 'utf8')).values
+  assert.equal(capturedSnapshot.ProxyEnable.data, '0x0', 'dirty loopback proxy is sanitized to disabled')
+  assert.equal(capturedSnapshot.ProxyServer, null, 'dirty loopback proxy server address is stripped')
+
   console.log('PASS: original proxy/PAC/types/absent values, durable recovery, mode changes and partial registry failures')
 }
 

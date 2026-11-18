@@ -35,8 +35,35 @@ export class LinuxProxySettings {
       const value = stdout.replace(/\r?\n$/, '')
       snapshot.values.push({ ...entry, value: backend === 'kde' && value === absent ? null : value })
     }
-    await writeFileAtomicAsync(this.filename(), JSON.stringify(snapshot))
-    return snapshot
+    const sanitized = this.sanitizeSnapshot(snapshot)
+    await writeFileAtomicAsync(this.filename(), JSON.stringify(sanitized))
+    return sanitized
+  }
+
+  private sanitizeSnapshot(snapshot: LinuxProxySnapshot): LinuxProxySnapshot {
+    const hasLoopback = snapshot.values.some(v => v.value && /(?:127\.0\.0\.1|localhost|::1)/i.test(v.value))
+    if (!hasLoopback) return snapshot
+    if (snapshot.backend === 'gnome') {
+      return {
+        ...snapshot,
+        values: snapshot.values.map(v => {
+          if (v.key === 'mode') return { ...v, value: "'none'" }
+          if (v.key === 'host') return { ...v, value: "''" }
+          if (v.key === 'port') return { ...v, value: '0' }
+          if (v.key === 'autoconfig-url') return { ...v, value: "''" }
+          return v
+        })
+      }
+    } else {
+      return {
+        ...snapshot,
+        values: snapshot.values.map(v => {
+          if (v.key === 'ProxyType') return { ...v, value: '0' }
+          if (v.key.includes('Proxy') || v.key === 'Proxy Config Script') return { ...v, value: null }
+          return v
+        })
+      }
+    }
   }
 
   private async apply(change: (snapshot: LinuxProxySnapshot) => Promise<boolean>): Promise<void> {
