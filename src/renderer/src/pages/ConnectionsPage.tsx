@@ -75,9 +75,9 @@ const ConnectionsView = memo(function ConnectionsView({ connections, onRefresh, 
   const connectionActions = useMemo(
     () => ({
       ...actions,
-      onQuickRule: viewMode === 'flat' ? setRuleTargetConnection : undefined
+      onQuickRule: setRuleTargetConnection
     }),
-    [actions, viewMode, setRuleTargetConnection]
+    [actions, setRuleTargetConnection]
   )
 
   const renderConnectionCard = useCallback(

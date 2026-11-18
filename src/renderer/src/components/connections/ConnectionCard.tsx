@@ -3,10 +3,9 @@ import { useCopyFeedback } from '../../hooks/useCopyFeedback'
 import { ProcessIcon } from '../ProcessIcon'
 import { getProcessDisplayName, getNetworkBadgeClass, formatChain } from '../../lib/connections'
 import { useTranslations } from '../../i18n'
-import { Copy, Check, Clock, ShieldPlus } from 'lucide-react'
+import { Copy, Check, Clock, ShieldPlus, ChevronRight } from 'lucide-react'
 import { DisconnectIcon } from '../../lib/icons'
 import type { ConnectionItem } from '@shared/mihomo'
-import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Badge } from '../ui/badge'
 import { formatDurationFromStart } from '../../lib/format'
@@ -69,7 +68,7 @@ export const ConnectionCard = memo(function ConnectionCard({ item, actions }: Co
             {/* Bottom line: Code-style destination chip with embedded copy button */}
             <div className="flex items-center gap-2 mt-1 min-w-0 flex-wrap">
               <div
-                className="group/codechip inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-border/60 bg-muted/40 dark:bg-zinc-950/40 font-mono text-[11px] text-foreground/90 max-w-[260px] sm:max-w-[360px] hover:border-primary/40 transition-colors"
+                className="group/codechip inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-border/60 bg-muted/40 dark:bg-zinc-950/40 font-mono text-[11px] text-foreground/90 max-w-[200px] sm:max-w-[320px] hover:border-primary/40 transition-colors"
                 onClick={(e) => {
                   e.stopPropagation()
                   handleCopy(fullDestination, `host-${item.id}`)
@@ -106,49 +105,52 @@ export const ConnectionCard = memo(function ConnectionCard({ item, actions }: Co
           </div>
         </div>
 
-        {/* Right: Traffic, Duration & Disconnect Action */}
-        <div className="flex items-center gap-4 shrink-0">
-          <div className="flex flex-col items-end text-right font-mono text-[11px] leading-tight">
+        {/* Right: Traffic, Duration & Collapsible Actions */}
+        <div className="flex items-center shrink-0 pl-2 pr-1">
+          <div className="mr-3 flex flex-col items-end text-right font-mono text-[11px] leading-tight">
             <TrafficValue value={item.download} direction="download" />
             <TrafficValue value={item.upload} direction="upload" className="mt-0.5" />
           </div>
 
-          <div className="hidden sm:flex flex-col items-end text-right text-[10px] text-muted-foreground">
+          <div className="hidden sm:flex flex-col items-end text-right text-[10px] text-muted-foreground mr-2">
             <span className="flex items-center gap-1 font-mono">
               <Clock className="size-2.5" />
               {duration}
             </span>
           </div>
 
-          {actions.onQuickRule && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              title={t('createRule')}
-              aria-label={t('createRule')}
+          <div className="flex items-center gap-0.5 max-w-0 overflow-hidden opacity-0 pointer-events-none transition-[max-width,opacity,margin] group-hover:max-w-16 group-hover:mr-2 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:max-w-16 group-focus-within:mr-2 group-focus-within:opacity-100 group-focus-within:pointer-events-auto [@media(hover:none)]:max-w-16 [@media(hover:none)]:mr-2 [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto">
+            {actions.onQuickRule && (
+              <button
+                type="button"
+                aria-label={t('createRule')}
+                title={t('createRule')}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  actions.onQuickRule!(item)
+                }}
+                className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer"
+              >
+                <ShieldPlus className="size-4" />
+              </button>
+            )}
+
+            <button
+              type="button"
+              aria-label={t('closeConnection')}
+              title={t('closeConnection')}
+              disabled={closing}
               onClick={(e) => {
                 e.stopPropagation()
-                actions.onQuickRule!(item)
+                close(item.id)
               }}
-              className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+              className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer disabled:opacity-50"
             >
-              <ShieldPlus className="size-3.5" />
-            </Button>
-          )}
+              <DisconnectIcon className="size-4" />
+            </button>
+          </div>
 
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t('closeConnection')}
-            disabled={closing}
-            onClick={(e) => {
-              e.stopPropagation()
-              close(item.id)
-            }}
-            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          >
-            <DisconnectIcon className="size-3.5" />
-          </Button>
+          <ChevronRight className="size-4 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5" />
         </div>
       </div>
     </Card>

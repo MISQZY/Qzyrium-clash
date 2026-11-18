@@ -42,7 +42,7 @@
   "groupByProcess": "По процессам",
   "allConnections": "Все соединения",
   "backToProcesses": "Ко всем процессам",
-  "closeProcessConnections": "Закрыть соединения процесса",
+  "closeProcessConnections": "Закрыть соединения",
   "destinationIP": "IP назначения",
   "destinationPort": "Порт назначения",
   "sourceIP": "IP источника",

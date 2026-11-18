@@ -42,7 +42,7 @@
   "groupByProcess": "By process",
   "allConnections": "All connections",
   "backToProcesses": "Back to processes",
-  "closeProcessConnections": "Close process connections",
+  "closeProcessConnections": "Close connections",
   "destinationIP": "Destination IP",
   "destinationPort": "Destination port",
   "sourceIP": "Source IP",
