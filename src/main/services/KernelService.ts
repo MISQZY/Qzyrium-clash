@@ -345,7 +345,7 @@ export class KernelService implements BaseService {
   async startIdleCore(): Promise<void> {
     if (this.isProcessRunning()) return
     if (this.idleStartPromise) return this.idleStartPromise
-    this.idleStartPromise = (async () => {
+    this.idleStartPromise = this.enqueueLifecycle(async () => {
       try {
         if (this.isProcessRunning() || this.processManager.getState() === 'starting') return
         const profile = this.profileService.getActiveProfile()
@@ -377,10 +377,10 @@ export class KernelService implements BaseService {
       } catch (err) {
         this.isIdleCoreRunning = false
         logger.warn(`Failed to start idle core: ${String(err)}`)
-      } finally {
-        this.idleStartPromise = null
       }
-    })()
+    }).finally(() => {
+      this.idleStartPromise = null
+    })
     return this.idleStartPromise
   }
 
