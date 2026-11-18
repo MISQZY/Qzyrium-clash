@@ -58,9 +58,26 @@ function prepareRouting(tun, ip = runIp) {
   }
 }
 
-function restoreRouting(tun, ip = runIp, exists = device => fs.existsSync(`/sys/class/net/${device}`)) {
+function sleepSync(ms) {
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+  } catch {
+    const start = Date.now()
+    while (Date.now() - start < ms) { /* fallback spin */ }
+  }
+}
+
+function restoreRouting(tun, ip = runIp, exists = device => fs.existsSync(`/sys/class/net/${device}`), timeoutMs = 600) {
   if (!tun) return
-  if (exists(tun.device)) throw new Error('TUN interface is still active; refusing policy cleanup')
+  if (exists(tun.device)) {
+    const start = Date.now()
+    while (exists(tun.device) && Date.now() - start < timeoutMs) {
+      sleepSync(50)
+    }
+    if (exists(tun.device)) {
+      throw new Error('TUN interface is still active; refusing policy cleanup')
+    }
+  }
   // Reserve an empty range before spawn, then accept only Mihomo's known rule
   // shapes. Never flush a table or delete an unknown rule sharing our priority.
   for (const family of ['-4', '-6']) {
