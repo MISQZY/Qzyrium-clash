@@ -1,4 +1,5 @@
 import { execFileSync, execFile } from 'child_process'
+import { randomUUID } from 'node:crypto'
 import path from 'path'
 import os from 'os'
 import { writeFileSync, unlinkSync } from 'fs'
@@ -103,10 +104,13 @@ export function restartAsAdmin(): Promise<boolean> {
 
       // Native UAC elevation via Windows Script Host (prompts UAC for the executable itself, not PowerShell)
       const tempDir = (typeof electronApp.getPath === 'function' && electronApp.getPath('temp')) || process.env?.TEMP || os.tmpdir()
-      const vbsPath = path.join(tempDir, `elevate_${process.pid}_${Date.now()}.vbs`)
-      const escapedTarget = execPath.replace(/"/g, '""')
-      const escapedDir = workingDir.replace(/"/g, '""')
-      const escapedArgs = args
+      const vbsPath = path.join(tempDir, `elevate_${process.pid}_${randomUUID()}.vbs`)
+      // eslint-disable-next-line no-control-regex
+      const sanitizeArg = (a: string) => a.replace(/[\x00-\x1f\x7f]/g, '')
+      const cleanArgs = args.map(sanitizeArg).filter((a: string) => a.length > 0)
+      const escapedTarget = sanitizeArg(execPath).replace(/"/g, '""')
+      const escapedDir = sanitizeArg(workingDir).replace(/"/g, '""')
+      const escapedArgs = cleanArgs
         .map((a: string) => {
           const esc = a.replace(/"/g, '""')
           return /[\s"]/.test(a) ? `""${esc}""` : esc
@@ -116,7 +120,7 @@ export function restartAsAdmin(): Promise<boolean> {
       const vbsScript = `Set s = CreateObject("Shell.Application")\ns.ShellExecute "${escapedTarget}", "${escapedArgs}", "${escapedDir}", "runas", 1\n`
 
       try {
-        writeFileSync(vbsPath, vbsScript, 'utf8')
+        writeFileSync(vbsPath, vbsScript, { encoding: 'utf8', flag: 'wx' })
       } catch (writeErr) {
         logger.error('Failed to create elevation script', writeErr)
         if (typeof electronApp.requestSingleInstanceLock === 'function') {
