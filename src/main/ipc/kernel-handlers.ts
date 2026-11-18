@@ -4,6 +4,7 @@ import type { TrustedRegistrar } from './trusted-handler'
 import type { ProviderKind } from '@shared/mihomo'
 import type { AppConfig } from '@shared/app-config'
 import type { CoreChannel } from '@shared/core-version'
+import type { ServiceCheckTarget } from '@shared/service-check'
 
 export function registerKernelHandlers(
   handle: TrustedRegistrar,
@@ -65,7 +66,7 @@ export function registerKernelHandlers(
     return await services.kernelService.getProxies()
   })
 
-  handle(IPC_CHANNELS.MIHOMO_CHECK_SERVICES, (_, name: string) => services.kernelService.checkProxyServices(name))
+  handle(IPC_CHANNELS.MIHOMO_CHECK_SERVICES, (_, name: string, targets?: ServiceCheckTarget[]) => services.kernelService.checkProxyServices(name, targets))
 
   handle(IPC_CHANNELS.MIHOMO_GET_PROVIDERS, (_, kind: ProviderKind) => services.kernelService.getProviders(kind))
   handle(IPC_CHANNELS.MIHOMO_UPDATE_PROVIDER, (_, kind: ProviderKind, name: string) => services.kernelService.updateProvider(kind, name))

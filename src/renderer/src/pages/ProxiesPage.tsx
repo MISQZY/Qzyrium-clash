@@ -77,7 +77,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
   const [sortMode, setSortMode] = useState<ProxySortMode>('default')
   const [onlyAvailable, setOnlyAvailable] = useState(false)
   const [serviceCheckNode, setServiceCheckNode] = useState<{ name: string; profileId?: string } | null>(null)
-  useEffect(() => { setServiceCheckNode(null) }, [profileId, running, serviceCheckTargets])
+  useEffect(() => { setServiceCheckNode(null) }, [profileId, serviceCheckTargets])
   const handleCheckServices = useCallback(
     (name: string) => setServiceCheckNode({ name, profileId }),
     [profileId]
@@ -150,7 +150,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 
   return (
     <div className="page-scroll">
-      {running && serviceCheckNode && serviceCheckNode.profileId === profileId && proxies[serviceCheckNode.name] &&
+      {serviceCheckNode && serviceCheckNode.profileId === profileId && proxies[serviceCheckNode.name] &&
         <ServiceCheckDialog key={`${profileId}:${serviceCheckNode.name}`} nodeName={serviceCheckNode.name} targets={serviceCheckTargets}
           onClose={() => setServiceCheckNode(null)} />}
       {/* Top Header */}

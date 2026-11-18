@@ -140,7 +140,7 @@ if (process.type === 'renderer') {
       fs.writeFileSync(path.join(output, 'dialog.png'), (await win.webContents.capturePage()).toPNG())
       await evaluate(`document.querySelector('[role="dialog"] button:has(.sr-only)').click()`)
       await evaluate(`window.api.kernel.stop()`)
-      await waitFor(`document.querySelector('button[aria-label^="Check services via "]').disabled`)
+      await waitFor(`!document.querySelector('button[aria-label^="Check services via "]').disabled`)
       assert.deepEqual(errors, [])
       console.log('PASS: collapsed compact settings, HTTP/text/JSON persistence, no regional types, tooltip, flags, scrollable cards, request states and offline behavior')
     } finally { win.destroy(); app.quit() }

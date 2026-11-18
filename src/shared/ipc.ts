@@ -1,5 +1,5 @@
 import { AppConfig } from './app-config'
-import type { ServiceCheckResult } from './service-check'
+import type { ServiceCheckResult, ServiceCheckTarget } from './service-check'
 import { ConnectionsSnapshot, MihomoRule, ProxyNode, ProviderKind, ProviderSummary } from './mihomo'
 import { ProfileItem, CustomRuleItem, ProfileInfoPatch } from './profile'
 import { CoreState, LogEntry, MihomoVersion, TrafficStats } from './types'
@@ -167,7 +167,7 @@ export interface IElectronApi {
     updateProvider: (kind: ProviderKind, name: string) => Promise<void>
     selectProxy: (group: string, proxy: string) => Promise<void>
     testDelay: (name: string, url?: string, timeout?: number) => Promise<number>
-    checkServices: (name: string) => Promise<ServiceCheckResult[]>
+    checkServices: (name: string, targets?: ServiceCheckTarget[]) => Promise<ServiceCheckResult[]>
     getRules: (scope?: 'summary') => Promise<MihomoRule[]>
     getConnections: () => Promise<ConnectionsSnapshot>
     getGlobeLocations: () => Promise<GlobeLocations>

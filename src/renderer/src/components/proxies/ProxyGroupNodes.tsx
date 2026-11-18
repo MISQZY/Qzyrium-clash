@@ -82,7 +82,7 @@ const ProxyNodeCard = memo(function ProxyNodeCard({ nodeName, nodeData, selected
   const nodeType = nodeData?.type || 'direct'
 
   return (
-    <div className={cn('relative rounded-lg border transition-colors [content-visibility:auto] [contain-intrinsic-size:auto_54px]',
+    <div className={cn('relative group rounded-lg border transition-colors [content-visibility:auto] [contain-intrinsic-size:auto_54px]',
       selected ? 'border-primary bg-primary/10 shadow-xs shadow-primary/15 ring-1 ring-primary/40'
         : 'border-border/70 bg-card hover:bg-muted/60 hover:border-border')}>
     <button
@@ -95,7 +95,6 @@ const ProxyNodeCard = memo(function ProxyNodeCard({ nodeName, nodeData, selected
       onClick={() => onSelect(groupName, nodeName)}
       className={cn(
         'flex w-full min-w-0 items-center justify-between gap-2.5 rounded-lg p-2.5 text-left text-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        onCheckServices && canCheckProxyServices(nodeData) && 'pr-10',
         selected ? 'text-foreground font-medium' : 'text-foreground/85 hover:text-foreground'
       )}
     >
@@ -117,13 +116,19 @@ const ProxyNodeCard = memo(function ProxyNodeCard({ nodeName, nodeData, selected
         </div>
       </div>
 
-      <div className="flex w-24 items-center justify-end shrink-0 whitespace-nowrap">
+      <div
+        className={cn(
+          'flex items-center justify-end shrink-0 whitespace-nowrap transition-transform duration-200 ease-out',
+          onCheckServices && canCheckProxyServices(nodeData) &&
+            'group-hover:-translate-x-7.5 group-focus-within:-translate-x-7.5 [@media(hover:none)]:-translate-x-7.5'
+        )}
+      >
         <DelayBadge delay={delay} loading={loading} />
       </div>
     </button>
     {onCheckServices && canCheckProxyServices(nodeData) && <button type="button"
       disabled={!canCheck} onClick={() => onCheckServices(nodeName)}
-      className="absolute right-1.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 disabled:cursor-not-allowed"
+      className="absolute right-1.5 top-1/2 z-10 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 disabled:cursor-not-allowed opacity-0 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto cursor-pointer"
       title={t('checkNodeServices', { name: nodeName })} aria-label={t('checkNodeServices', { name: nodeName })}>
       <Globe className="size-3.5" />
     </button>}

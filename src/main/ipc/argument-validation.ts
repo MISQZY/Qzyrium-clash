@@ -92,7 +92,7 @@ const contracts = {
   [IPC_CHANNELS.MIHOMO_GET_PROVIDERS]: [oneOf('proxies', 'rules')],
   [IPC_CHANNELS.MIHOMO_UPDATE_PROVIDER]: [oneOf('proxies', 'rules'), name],
   [IPC_CHANNELS.MIHOMO_TEST_DELAY]: [name, optional(httpUrl), optional(integer(1, 120_000))],
-  [IPC_CHANNELS.MIHOMO_CHECK_SERVICES]: [name],
+  [IPC_CHANNELS.MIHOMO_CHECK_SERVICES]: [name, optional(list(plain))],
   [IPC_CHANNELS.MIHOMO_GET_RULES]: [optional(oneOf('summary'))],
   [IPC_CHANNELS.MIHOMO_GET_CONNECTIONS]: [], [IPC_CHANNELS.MIHOMO_GET_GLOBE_LOCATIONS]: [],
   [IPC_CHANNELS.MIHOMO_CLOSE_CONNECTION]: [name], [IPC_CHANNELS.MIHOMO_CLOSE_ALL_CONNECTIONS]: [],

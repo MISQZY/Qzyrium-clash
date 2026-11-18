@@ -1,5 +1,5 @@
 import { createKernelRuntime } from './createKernelRuntime'
-import { canCheckProxyServices, DEFAULT_SERVICE_CHECK_TARGETS } from '@shared/service-check'
+import { canCheckProxyServices, DEFAULT_SERVICE_CHECK_TARGETS, type ServiceCheckTarget } from '@shared/service-check'
 import { powerMonitor, session } from 'electron'
 import { withServiceCheckProxy } from '../core/ServiceCheckProxy'
 import { createServiceRequest } from '../core/service-request'
@@ -63,7 +63,7 @@ export class KernelService implements BaseService {
     return this.processManager.getState() === 'running'
   }
 
-  async checkProxyServices(name: string) {
+  async checkProxyServices(name: string, customTargets?: ServiceCheckTarget[]) {
     if (!this.isProcessRunning()) {
       await this.startIdleCore()
     }
@@ -77,23 +77,29 @@ export class KernelService implements BaseService {
       if (!Object.hasOwn(proxies, name) || !canCheckProxyServices(proxies[name])) {
         throw new Error('Select a proxy host to check services')
       }
-      const targets = structuredClone(this.settingService.getSettings().general.serviceCheckTargets ?? DEFAULT_SERVICE_CHECK_TARGETS)
-      if (!targets.some(target => target.kind && target.kind !== 'http')) return await this.apiClient.checkProxyServices(name, targets)
+      const targets = (customTargets && customTargets.length > 0)
+        ? customTargets
+        : structuredClone(this.settingService.getSettings().general.serviceCheckTargets ?? DEFAULT_SERVICE_CHECK_TARGETS)
       const paths = getAppPaths()
-      return await withServiceCheckProxy({
-        binary: this.processManager.getBinaryPath() ?? resolveCoreBinaryPath(this.settingService.getSettings().kernel.channel),
-        configPath: paths.activeConfigPath, mihomoDir: paths.mihomoDir, name, proxies, signal: abort.signal
-      }, async port => {
-        const transport = session.fromPartition('service-check', { cache: false })
-        try {
-          await transport.setProxy({ mode: 'fixed_servers', proxyRules: `http=127.0.0.1:${port};https=127.0.0.1:${port}`, proxyBypassRules: '<-loopback>' })
-          return await checkProxyServices(null, name, targets,
-            createServiceRequest(createElectronServiceFetch(transport), abort.signal))
-        } finally {
-          await transport.closeAllConnections()
-          await transport.clearStorageData()
-        }
-      })
+      try {
+        return await withServiceCheckProxy({
+          binary: this.processManager.getBinaryPath() ?? resolveCoreBinaryPath(this.settingService.getSettings().kernel.channel),
+          configPath: paths.activeConfigPath, mihomoDir: paths.mihomoDir, name, proxies, signal: abort.signal
+        }, async port => {
+          const transport = session.fromPartition('service-check', { cache: false })
+          try {
+            await transport.setProxy({ mode: 'fixed_servers', proxyRules: `http=127.0.0.1:${port};https=127.0.0.1:${port}`, proxyBypassRules: '<-loopback>' })
+            return await checkProxyServices(null, name, targets,
+              createServiceRequest(createElectronServiceFetch(transport), abort.signal))
+          } finally {
+            await transport.closeAllConnections()
+            await transport.clearStorageData()
+          }
+        })
+      } catch (proxyError) {
+        logger.warn(`Isolated service check proxy failed, falling back to Mihomo delay ping: ${proxyError}`)
+        return await this.apiClient.checkProxyServices(name, targets)
+      }
     } finally {
       if (this.serviceCheckAbort === abort) this.serviceCheckAbort = undefined
       this.serviceCheckInProgress = false

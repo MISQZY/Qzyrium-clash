@@ -1,12 +1,22 @@
-import { validateServiceCheckTargets, type ServiceCheckTarget, type ServiceCheckResult } from '@shared/service-check'
+import { validateServiceCheckTargets, type ServiceCheckTarget, type ServiceCheckResult, type ProxyIpInfo } from '@shared/service-check'
 import type { AxiosInstance } from 'axios'
-import { checkServiceResponse, type ServiceRequest } from './service-response'
+import { checkServiceResponse, fetchIpIntelligence, type ServiceRequest } from './service-response'
 
 export async function checkProxyServices(client: AxiosInstance | null, name: string, targets: ServiceCheckTarget[], request?: ServiceRequest): Promise<ServiceCheckResult[]> {
   validateServiceCheckTargets(targets)
   if (!targets.length) return []
   const endpoint = `/proxies/${encodeURIComponent(name)}`
   const results: ServiceCheckResult[] = new Array(targets.length)
+
+  let ipInfo: ProxyIpInfo | null = null
+  if (request) {
+    try {
+      ipInfo = await fetchIpIntelligence(request)
+    } catch {
+      // Ignore IP intelligence fetch failure
+    }
+  }
+
   let cursor = 0
   await Promise.all(Array.from({ length: 3 }, async () => {
     while (cursor < targets.length) {
@@ -14,7 +24,8 @@ export async function checkProxyServices(client: AxiosInstance | null, name: str
       const target = targets[index]
       try {
         if (request) {
-          results[index] = await checkServiceResponse(target, request)
+          const res = await checkServiceResponse(target, request)
+          results[index] = ipInfo ? { ...res, ipInfo } : res
           continue
         }
         if (!client || (target.kind && target.kind !== 'http')) throw new Error('A response transport is required')
@@ -25,7 +36,7 @@ export async function checkProxyServices(client: AxiosInstance | null, name: str
         // status verdict is stored in extra[url].alive, not in the /delay response.
         results[index] = { id: target.id, status: 'unknown', delay: data.delay }
       } catch {
-        results[index] = { id: target.id, status: 'unreachable' }
+        results[index] = { id: target.id, status: 'unreachable', ...(ipInfo ? { ipInfo } : {}) }
       }
     }
   }))

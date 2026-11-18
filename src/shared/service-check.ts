@@ -2,7 +2,13 @@ export const REGIONAL_SERVICE_PRESETS = {
   'youtube-premium': { name: 'YouTube Premium', url: 'https://www.youtube.com/premium', expected: '200' },
   netflix: { name: 'Netflix', url: 'https://www.netflix.com/title/70143836', expected: '200' },
   chatgpt: { name: 'ChatGPT', url: 'https://api.openai.com/compliance/cookie_requirements', expected: '200' },
-  notebooklm: { name: 'NotebookLM', url: 'https://notebooklm.google.com/', expected: '200-399' }
+  notebooklm: { name: 'NotebookLM', url: 'https://notebooklm.google.com/', expected: '200-399' },
+  gemini: { name: 'Google Gemini', url: 'https://gemini.google.com/', expected: '200-399' },
+  claude: { name: 'Claude', url: 'https://claude.ai/login', expected: '200-399' },
+  'google-search': { name: 'Google Search', url: 'https://www.google.com/search?q=google', expected: '200' },
+  tiktok: { name: 'TikTok', url: 'https://www.tiktok.com/', expected: '200-399' },
+  spotify: { name: 'Spotify', url: 'https://open.spotify.com/', expected: '200-399' },
+  disney: { name: 'Disney+', url: 'https://www.disneyplus.com/', expected: '200-399' }
 } as const
 export type RegionalService = keyof typeof REGIONAL_SERVICE_PRESETS
 
@@ -15,6 +21,19 @@ export interface ServiceCheckTarget {
   preset?: RegionalService
   content?: { source: 'text' | 'json'; path?: string; available: string; blocked?: string }
 }
+
+export const REMNAWAVE_GEOCHECK_TARGETS: ServiceCheckTarget[] = [
+  { id: 'netflix', name: 'Netflix', url: 'https://www.netflix.com/title/70143836', expected: '200', kind: 'regional', preset: 'netflix' },
+  { id: 'youtube-premium', name: 'YouTube Premium', url: 'https://www.youtube.com/premium', expected: '200', kind: 'regional', preset: 'youtube-premium' },
+  { id: 'chatgpt', name: 'ChatGPT', url: 'https://api.openai.com/compliance/cookie_requirements', expected: '200', kind: 'regional', preset: 'chatgpt' },
+  { id: 'gemini', name: 'Google Gemini', url: 'https://gemini.google.com/', expected: '200-399', kind: 'regional', preset: 'gemini' },
+  { id: 'claude', name: 'Claude', url: 'https://claude.ai/login', expected: '200-399', kind: 'regional', preset: 'claude' },
+  { id: 'google-search', name: 'Google Search', url: 'https://www.google.com/search?q=google', expected: '200', kind: 'regional', preset: 'google-search' },
+  { id: 'tiktok', name: 'TikTok', url: 'https://www.tiktok.com/', expected: '200-399', kind: 'regional', preset: 'tiktok' },
+  { id: 'spotify', name: 'Spotify', url: 'https://open.spotify.com/', expected: '200-399', kind: 'regional', preset: 'spotify' },
+  { id: 'disney', name: 'Disney+', url: 'https://www.disneyplus.com/', expected: '200-399', kind: 'regional', preset: 'disney' },
+  { id: 'telegram', name: 'Telegram', url: 'https://web.telegram.org/', expected: '200-399', kind: 'http' }
+]
 
 export const DEFAULT_SERVICE_CHECK_TARGETS: ServiceCheckTarget[] = [
   { id: 'cloudflare', name: 'Cloudflare', url: 'https://cp.cloudflare.com/generate_204', expected: '204' },
@@ -70,12 +89,26 @@ export function validateServiceCheckTargets(value: unknown): asserts value is Se
   }
 }
 
+export interface ProxyIpInfo {
+  ip: string
+  country?: string
+  countryCode?: string
+  city?: string
+  region?: string
+  asn?: string
+  isp?: string
+  org?: string
+  type?: 'residential' | 'datacenter'
+}
+
 export interface ServiceCheckResult {
   id: string
   status: 'available' | 'rejected' | 'unreachable' | 'unknown' | 'blocked' | 'challenged' | 'restricted'
   delay?: number
   region?: string
   httpStatus?: number
+  details?: string
+  ipInfo?: ProxyIpInfo
 }
 
 export function matchesServiceHttpStatus(expected: string, status: number): boolean {
