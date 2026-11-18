@@ -117,7 +117,7 @@ const ProxyNodeCard = memo(function ProxyNodeCard({ nodeName, nodeData, selected
         </div>
       </div>
 
-      <div className="flex w-24 items-center justify-center shrink-0 whitespace-nowrap">
+      <div className="flex w-24 items-center justify-end shrink-0 whitespace-nowrap">
         <DelayBadge delay={delay} loading={loading} />
       </div>
     </button>
