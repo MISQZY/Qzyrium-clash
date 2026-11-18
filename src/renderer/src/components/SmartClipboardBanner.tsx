@@ -179,7 +179,7 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
   if (!detected) return null
 
   return (
-    <div className="fixed top-12 right-6 z-50 max-w-md w-[calc(100%-3rem)] animate-in fade-in-0 slide-in-from-top-3 duration-200">
+    <div className="fixed top-12 right-6 z-50 max-w-md w-[calc(100%-3rem)] animate-toast-top">
       <div className="flex items-start gap-3 p-3.5 rounded-xl border border-primary/40 bg-card/95 backdrop-blur-md shadow-xl text-foreground">
         <div className="size-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0 border border-primary/25 mt-0.5">
           <Sparkles className="size-4" />

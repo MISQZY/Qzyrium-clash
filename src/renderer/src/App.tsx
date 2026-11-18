@@ -187,7 +187,7 @@ function Workspace() {
           <div className="flex min-w-0 max-w-[45%] items-center gap-2 text-[11px] text-muted-foreground">{updatingProfile ? <LoaderCircle className="size-3.5 shrink-0 animate-spin" /> : <ProfileLogo url={activeProfile?.profileLogo} className="size-3.5 shrink-0 rounded-xs object-contain" fallback={<FileText className="size-3.5 shrink-0" />} />}<span className="truncate"><EmojiText text={updatingProfile ? t('applyingChanges') : activeProfile ? profileName(activeProfile, settings.general.language, selectedLocalization(settings.general)) : t('noActiveProfile')} /></span><Button type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label={profileT('updateSubscription')} title={profileT('updateSubscription')} disabled={!activeProfile?.url || busy || updatingProfile || !window.api} aria-busy={updatingProfile} onClick={() => void updateActiveProfile()}><RefreshCw className={`size-3.5 ${updatingProfile ? 'animate-spin' : ''}`} /></Button></div>
         </header>
         {warning && !error && createPortal(
-          <Alert variant="warning" className="fixed right-4 bottom-4 z-[100] flex max-h-[calc(100dvh-96px)] w-[calc(100%-32px)] max-w-md items-start gap-3 overflow-y-auto text-xs shadow-xl">
+          <Alert variant="warning" className="fixed right-4 bottom-4 z-[100] flex max-h-[calc(100dvh-96px)] w-[calc(100%-32px)] max-w-md items-start gap-3 overflow-y-auto text-xs shadow-xl animate-toast-bottom">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <p className="min-w-0 flex-1 whitespace-pre-wrap [overflow-wrap:anywhere] leading-relaxed font-medium text-foreground">{warning}</p>
             <button type="button" aria-label={common('close')} onClick={() => setWarning(null)} className="shrink-0 rounded-md p-1 hover:bg-warning/10 transition-colors cursor-pointer"><X className="size-4" /></button>
@@ -196,7 +196,7 @@ function Workspace() {
         {error && createPortal(
           <Alert
             variant="destructive"
-            className="fixed right-4 bottom-4 z-[100] flex max-h-[calc(100dvh-96px)] w-[calc(100%-32px)] max-w-md items-start gap-3 overflow-y-auto text-xs shadow-xl"
+            className="fixed right-4 bottom-4 z-[100] flex max-h-[calc(100dvh-96px)] w-[calc(100%-32px)] max-w-md items-start gap-3 overflow-y-auto text-xs shadow-xl animate-toast-bottom"
           >
             <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
               <p className="w-full whitespace-pre-wrap [overflow-wrap:anywhere] leading-relaxed font-medium text-foreground">{errorMessage}</p>

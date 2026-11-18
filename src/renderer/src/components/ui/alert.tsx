@@ -3,7 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
 // Based on the shadcn/ui Alert component, adapted to the app's theme.
-const alertVariants = cva('relative w-full rounded-lg border px-4 py-3 text-sm', {
+const alertVariants = cva('relative w-full rounded-lg border px-4 py-3 text-sm animate-alert-in', {
   variants: {
     variant: {
       default: 'bg-card text-card-foreground',

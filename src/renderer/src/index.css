@@ -995,6 +995,132 @@ input, textarea, pre { user-select: text; }
   to { --latency-shine-angle: 360deg; }
 }
 
+/* ==========================================================================
+   Smooth Entrance Animations for Popup Notifications, Banners and Dialogs
+   ========================================================================== */
+
+@keyframes toast-slide-in-bottom {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-slide-in-top {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes alert-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dialog-overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-content-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes dropdown-menu-in {
+  from {
+    opacity: 0;
+    scale: 0.95;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tooltip-fade-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+.animate-toast-bottom {
+  animation: toast-slide-in-bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-toast-top {
+  animation: toast-slide-in-top 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-alert-in {
+  animation: alert-fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: dialog-overlay-fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-dialog-in {
+  animation: dialog-content-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-dropdown-in {
+  animation: dropdown-menu-in 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+[role="alert"]:not(.animate-toast-bottom):not(.animate-toast-top) {
+  animation: alert-fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.sidebar-tooltip {
+  animation: tooltip-fade-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .latency-loader, .latency-testing-button::after, .profile-switching-card::after { animation: none; }
+  .animate-toast-bottom,
+  .animate-toast-top,
+  .animate-alert-in,
+  .animate-fade-in,
+  .animate-dialog-in,
+  .animate-dropdown-in,
+  .sidebar-tooltip,
+  [role="alert"] {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    scale: 1 !important;
+  }
 }
