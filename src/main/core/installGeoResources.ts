@@ -4,6 +4,7 @@ import type { AppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 
 export async function installGeoResources(paths: Pick<AppPaths, 'geoFilesDir' | 'mihomoDir'>): Promise<void> {
+  if (!paths?.geoFilesDir || !paths?.mihomoDir) return
   // Ensure geo database files are present in mihomoDir and up to date with bundled assets
   const geoFiles = ['country.mmdb', 'geosite.dat', 'geoip.dat']
   await Promise.all(geoFiles.map(async (file) => {

@@ -5,6 +5,7 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import type { AppConfig } from '@shared/app-config'
 import type { CustomRuleItem } from '@shared/profile'
+import { installGeoResources } from '../core/installGeoResources'
 import { MihomoConfigFactory } from '../core/MihomoConfigFactory'
 import { getAppPaths, resolveCoreBinaryPath } from './paths'
 
@@ -24,6 +25,7 @@ export async function prepareProfileContent(
 ): Promise<PreparedProfileConfig> {
   const checkedRules: CustomRuleItem[] = rules.map((rule) => ({ ...rule, validationError: undefined }))
   const paths = getAppPaths()
+  await installGeoResources(paths).catch(() => {})
   const binary = customBinaryPath || (typeof resolveCoreBinaryPath === 'function' ? resolveCoreBinaryPath(settings.kernel?.channel) : paths.coreBinaryPath)
   const filename = path.join(paths.mihomoDir, `.validate-${randomUUID()}.yaml`)
   try {
