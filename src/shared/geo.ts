@@ -7,9 +7,14 @@ export interface GeoLocation {
   countryCode?: string
   precision?: 'city' | 'country'
 }
+export interface GeoHop {
+  node: string
+  location: GeoLocation
+}
 export interface GeoRoute {
   node: string
   location: GeoLocation
+  chain?: GeoHop[]
 }
 export interface GlobeLocations {
   origin: GeoLocation | null

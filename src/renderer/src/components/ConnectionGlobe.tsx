@@ -11,9 +11,15 @@ import { type ProjectedRoute } from '../lib/cobe-globe'
 
 function getLinkedRouteIds(
   activeId: string | null,
-  projected: ProjectedRoute[]
+  projected: ProjectedRoute[],
+  routes: GlobeRoute[]
 ): string[] {
   if (!activeId) return []
+  const matchingChainRoute = routes.find((r) => r.chainId === activeId || r.id === activeId)
+  if (matchingChainRoute?.chainId) {
+    const chainIds = routes.filter((r) => r.chainId === matchingChainRoute.chainId).map((r) => r.id)
+    if (chainIds.length > 0) return chainIds
+  }
   for (const p of projected) {
     if (p.routeIds.includes(activeId)) {
       return p.routeIds
@@ -50,8 +56,8 @@ export function ConnectionGlobe({
   const activeId = hovered || expandedId
 
   const linkedIds = useMemo(
-    () => getLinkedRouteIds(activeId, projected),
-    [activeId, projected]
+    () => getLinkedRouteIds(activeId, projected, routes),
+    [activeId, projected, routes]
   )
 
   const familyRef = useRef('sans-serif')

@@ -77,6 +77,40 @@ async function main() {
   const located = { origin: a, routes: [{ node: 'fixture', location: a }] }
   assert.deepEqual(connectionRoutes({ ...located, origin: null }, {}, {}), [], 'missing origin cannot fabricate a route from Moscow')
   assert.deepEqual(connectionRoutes(located, {}, {}, undefined, 'rule', undefined, 'en', true), [], 'stopped/connecting state cannot create gray tunnels')
+
+  const locB = { ...a, longitude: 10, latitude: 50, city: 'Frankfurt', country: 'Germany' }
+  const chainLocated = {
+    origin: a,
+    routes: [{
+      node: 'exit-node',
+      location: locB,
+      chain: [
+        { node: 'entry-node', location: a },
+        { node: 'exit-node', location: locB }
+      ]
+    }]
+  }
+  const chainRoutesResult = connectionRoutes(chainLocated, {}, {})
+  assert.equal(chainRoutesResult.length, 2, 'chain route produces two connected segments')
+  assert.equal(chainRoutesResult[0].node, 'entry-node')
+  assert.deepEqual(chainRoutesResult[0].from, [a.longitude, a.latitude])
+  assert.deepEqual(chainRoutesResult[0].to, [a.longitude, a.latitude])
+  assert.equal(chainRoutesResult[1].node, 'exit-node')
+  assert.deepEqual(chainRoutesResult[1].from, [a.longitude, a.latitude])
+  assert.deepEqual(chainRoutesResult[1].to, [locB.longitude, locB.latitude])
+  assert.equal(chainRoutesResult[0].chainId, chainRoutesResult[1].chainId)
+  assert.equal(chainRoutesResult[0].chainLabel, 'entry-node → exit-node')
+
+  const chainCandidates = helpers.globeCandidates(
+    { connections: [{ chains: ['exit-node', 'entry-node', 'GROUP'], metadata: { remoteDestination: '1.2.3.4:443' } }] },
+    { GROUP: { now: 'entry-node' } },
+    { proxies: [{ name: 'entry-node', server: 'entry.example.com' }, { name: 'exit-node', server: 'exit.example.com' }] },
+    new Map([['entry-node', 'entry.example.com'], ['exit-node', 'exit.example.com']]),
+    'rule'
+  )
+  assert.ok(chainCandidates.has('entry-node'), 'chain candidate includes entry node')
+  assert.ok(chainCandidates.has('exit-node'), 'chain candidate includes exit node')
+  assert.deepEqual(chainCandidates.chains, [['entry-node', 'exit-node']], 'detected multi-hop chain recorded')
   const profileHelpers = load('src/main/utils/globe-profile.ts', {})
   const offlineHelpers = load('src/main/utils/offline-proxies.ts', {})
   const compact = profileHelpers.globeProfile({
@@ -189,12 +223,14 @@ async function main() {
   })
   const ruleKernel = Object.create(KernelService.prototype)
   ruleKernel.getStatus = () => 'running'
+  ruleKernel.isProcessRunning = () => true
   ruleKernel.apiClient = { getRules: async () => fullRules }
   assert.deepEqual(await ruleKernel.getRules('summary'), summary, 'main process reduces rules before IPC serialization')
   assert.equal(await ruleKernel.getRules(), fullRules, 'rules page still receives every original rule')
   const kernel = Object.create(KernelService.prototype)
   const hosts = []
   kernel.getStatus = () => 'running'
+  kernel.isProcessRunning = () => true
   kernel.settingService = { getSettings: () => ({ kernel: { mode: 'rule', tun: { enable: false } } }) }
   kernel.geoIp = { getOrigin: () => a, locateHost: async (host) => { hosts.push(host); return a } }
   kernel.profileService = { getActiveProfile: () => ({ id: 'fixture' }), getProfileContent: () => 'proxies:\n  - name: fallback\n    server: fallback.example.com' }

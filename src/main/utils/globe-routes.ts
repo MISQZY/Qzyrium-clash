@@ -12,17 +12,62 @@ export function serverHost(address: string): string | undefined {
   return host && !host.includes(':') ? host : undefined
 }
 
-export function globeCandidates(snapshot: ConnectionsSnapshot, proxies: Record<string, ProxyNode>, config: Record<string, unknown>, hosts: Map<string, string>, mode: string): Map<string, string[]> {
+export interface GlobeCandidateMap extends Map<string, string[]> {
+  chains?: string[][]
+}
+
+export function globeCandidates(
+  snapshot: ConnectionsSnapshot,
+  proxies: Record<string, ProxyNode>,
+  config: Record<string, unknown>,
+  hosts: Map<string, string>,
+  mode: string,
+  dialers?: Map<string, string>
+): GlobeCandidateMap {
   const result = new Map<string, string[]>()
-  if (mode === 'direct') return result
-  const groups = Array.isArray(config['proxy-groups']) ? config['proxy-groups'] as { name?: string; proxies?: string[]; filter?: string }[] : []
-  const proxyList = Array.isArray(config.proxies) ? config.proxies as { name?: string; server?: string; type?: string }[] : []
+  if (mode === 'direct') {
+    const empty = result as GlobeCandidateMap
+    empty.chains = []
+    return empty
+  }
+  const groups = Array.isArray(config['proxy-groups']) ? config['proxy-groups'] as { name?: string; proxies?: string[]; filter?: string; type?: string }[] : []
+  const proxyList = Array.isArray(config.proxies) ? config.proxies as { name?: string; server?: string; type?: string; 'dialer-proxy'?: string }[] : []
   // DNS outbounds handle queries internally; they are not geographic VPN exits.
   const dnsOutbounds = new Set([
     ...Object.entries(proxies).filter(([, proxy]) => proxy.type?.toLowerCase() === 'dns').map(([name]) => name),
     ...proxyList.filter((proxy) => proxy.type?.toLowerCase() === 'dns').map((proxy) => proxy.name)
   ])
   const isTunnel = (name: string) => !builtins.has(name) && !dnsOutbounds.has(name)
+
+  const dialerMap = new Map<string, string>(dialers ?? [])
+  for (const p of proxyList) {
+    if (p && typeof p.name === 'string' && typeof p['dialer-proxy'] === 'string' && p['dialer-proxy']) {
+      dialerMap.set(p.name, p['dialer-proxy'])
+    }
+  }
+
+  const resolveDialerChain = (name: string): string[] => {
+    const chain: string[] = [name]
+    const seen = new Set<string>([name])
+    let current = name
+    while (dialerMap.has(current) && seen.size < 10) {
+      const upstream = dialerMap.get(current)!
+      if (!upstream || seen.has(upstream) || !isTunnel(upstream)) break
+      seen.add(upstream)
+      chain.unshift(upstream)
+      current = upstream
+    }
+    return chain
+  }
+
+  const isLeafNode = (name: string): boolean => {
+    if (!name || !isTunnel(name)) return false
+    if (proxies[name]?.now) return false
+    if (proxies[name] && 'all' in proxies[name]) return false
+    if (['Direct', 'Reject', 'RejectDrop', 'Pass'].includes(proxies[name]?.type || '')) return false
+    if (groups.some((g) => g.name === name)) return false
+    return true
+  }
 
   const resolveGroupProxy = (group: { name?: string; proxies?: string[]; filter?: string }): string | undefined => {
     if (Array.isArray(group.proxies) && group.proxies.length > 0) {
@@ -65,11 +110,43 @@ export function globeCandidates(snapshot: ConnectionsSnapshot, proxies: Record<s
     }
     result.set(node, candidates)
   }
+
+  const detectedChains: string[][] = []
+  const seenChainKeys = new Set<string>()
+
   for (const connection of snapshot.connections) {
-    // Explicit leaf entries take precedence over parent selectors in chains.
-    const node = connection.chains.find((name) => !proxies[name]?.now && !(proxies[name] && 'all' in proxies[name]) && leaf(name))
-    if (node) add(node, connection.metadata.remoteDestination)
+    const reversed = [...connection.chains].reverse()
+    const leafNodes = reversed.filter((name) => isLeafNode(name))
+
+    if (leafNodes.length >= 2) {
+      const chainKey = leafNodes.join('>')
+      if (!seenChainKeys.has(chainKey)) {
+        seenChainKeys.add(chainKey)
+        detectedChains.push(leafNodes)
+      }
+      add(leafNodes[0], connection.metadata.remoteDestination)
+      for (let i = 1; i < leafNodes.length; i++) {
+        add(leafNodes[i])
+      }
+    } else if (leafNodes.length === 1) {
+      const singleLeaf = leafNodes[0]
+      const dialerChain = resolveDialerChain(singleLeaf)
+      if (dialerChain.length >= 2) {
+        const chainKey = dialerChain.join('>')
+        if (!seenChainKeys.has(chainKey)) {
+          seenChainKeys.add(chainKey)
+          detectedChains.push(dialerChain)
+        }
+        add(dialerChain[0], connection.metadata.remoteDestination)
+        for (let i = 1; i < dialerChain.length; i++) {
+          add(dialerChain[i])
+        }
+      } else {
+        add(singleLeaf, connection.metadata.remoteDestination)
+      }
+    }
   }
+
   // Display a selected tunnel even when the browser has no open sockets yet.
   let selected: string | undefined
   if (mode === 'global') {
@@ -116,6 +193,41 @@ export function globeCandidates(snapshot: ConnectionsSnapshot, proxies: Record<s
       if (first?.name) selected = leaf(first.name)
     }
   }
-  if (selected) add(selected)
-  return new Map([...result].slice(0, 12))
+
+  if (selected) {
+    const groupObj = groups.find((g) => g.name === selected)
+    if (groupObj && groupObj.type?.toLowerCase() === 'relay' && Array.isArray(groupObj.proxies) && groupObj.proxies.length >= 2) {
+      const relayHops: string[] = []
+      for (const p of groupObj.proxies) {
+        const h = leaf(p)
+        if (h && !relayHops.includes(h)) relayHops.push(h)
+      }
+      if (relayHops.length >= 2) {
+        const chainKey = relayHops.join('>')
+        if (!seenChainKeys.has(chainKey)) {
+          seenChainKeys.add(chainKey)
+          detectedChains.push(relayHops)
+        }
+        for (const h of relayHops) add(h)
+      } else if (relayHops[0]) {
+        add(relayHops[0])
+      }
+    } else {
+      const dialerChain = resolveDialerChain(selected)
+      if (dialerChain.length >= 2) {
+        const chainKey = dialerChain.join('>')
+        if (!seenChainKeys.has(chainKey)) {
+          seenChainKeys.add(chainKey)
+          detectedChains.push(dialerChain)
+        }
+        for (const h of dialerChain) add(h)
+      } else {
+        add(selected)
+      }
+    }
+  }
+
+  const candidateResult = new Map([...result].slice(0, 16)) as GlobeCandidateMap
+  candidateResult.chains = detectedChains
+  return candidateResult
 }

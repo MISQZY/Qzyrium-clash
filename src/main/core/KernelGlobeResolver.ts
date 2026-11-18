@@ -4,12 +4,12 @@ import { isIP } from 'node:net'
 import { createHash } from 'node:crypto'
 import yaml from 'yaml'
 import type { ConnectionsSnapshot, ProxyNode } from '@shared/mihomo'
-import type { GeoLocation, GlobeLocations } from '@shared/geo'
+import type { GeoHop, GeoLocation, GeoRoute, GlobeLocations } from '@shared/geo'
 import type { AppConfig } from '@shared/app-config'
 import type { GeoIpService } from '../services/GeoIpService'
 import type { ProfileConfigSource } from './ActiveConfigBuilder'
 import { getAppPaths } from '../utils/paths'
-import { globeCandidates } from '../utils/globe-routes'
+import { globeCandidates, type GlobeCandidateMap } from '../utils/globe-routes'
 import { globeProfile, globeProxies } from '../utils/globe-profile'
 
 export interface KernelGlobeContext {
@@ -69,11 +69,19 @@ export class KernelGlobeResolver {
       } catch { /* Kernel starting or restarting */ }
     }
     const hosts = new Map<string, string>()
+    const dialers = new Map<string, string>()
     const profile = this.context.profiles.getActiveProfile()
     let config: Record<string, unknown> = {}
     const collect = (list: unknown) => {
       if (!Array.isArray(list)) return
-      for (const proxy of list) if (proxy && typeof proxy.name === 'string' && typeof proxy.server === 'string') hosts.set(proxy.name, proxy.server)
+      for (const proxy of list) {
+        if (!proxy || typeof proxy !== 'object') continue
+        const p = proxy as { name?: string; server?: string; 'dialer-proxy'?: string }
+        if (typeof p.name === 'string') {
+          if (typeof p.server === 'string') hosts.set(p.name, p.server)
+          if (typeof p['dialer-proxy'] === 'string' && p['dialer-proxy']) dialers.set(p.name, p['dialer-proxy'])
+        }
+      }
     }
     try {
       const raw = profile ? await this.context.profiles.getProfileContent(profile.id) || '' : ''
@@ -108,7 +116,7 @@ export class KernelGlobeResolver {
         } catch { /* A provider may not have downloaded its cache yet. */ }
       }
     } catch { /* Live connection metadata can still supply the server address. */ }
-    const active = globeCandidates(snapshot, proxies, config, hosts, settings.kernel.mode)
+    const active = globeCandidates(snapshot, proxies, config, hosts, settings.kernel.mode, dialers)
     const entries = [...active]
     const resolved: ({ node: string; location: GeoLocation } | null)[] = Array(entries.length).fill(null)
     let next = 0
@@ -136,9 +144,48 @@ export class KernelGlobeResolver {
       }
     }))
     const origin = this.context.geoIp.getOrigin()
-    const routes = resolved.filter((route) => route !== null)
+    const nodeLocations = new Map<string, GeoLocation>()
+    for (const item of resolved) {
+      if (item) nodeLocations.set(item.node, item.location)
+    }
+
+    const chainRoutes: GeoRoute[] = []
+    const chainedNodes = new Set<string>()
+
+    const rawChains = (active as GlobeCandidateMap).chains || []
+    for (const chain of rawChains) {
+      if (!Array.isArray(chain) || chain.length < 2) continue
+      const hops: GeoHop[] = []
+      for (const node of chain) {
+        const loc = nodeLocations.get(node)
+        if (loc) hops.push({ node, location: loc })
+      }
+      if (hops.length >= 2) {
+        const exitHop = hops[hops.length - 1]
+        chainRoutes.push({
+          node: exitHop.node,
+          location: exitHop.location,
+          chain: hops
+        })
+        for (const h of hops) chainedNodes.add(h.node)
+      }
+    }
+
+    const standaloneRoutes: GeoRoute[] = []
+    for (const item of resolved) {
+      if (item && !chainedNodes.has(item.node)) {
+        standaloneRoutes.push({ node: item.node, location: item.location })
+      }
+    }
+
+    const routes: GeoRoute[] = [...chainRoutes, ...standaloneRoutes]
     const status = !origin ? 'origin-unavailable' : routes.length ? 'ready' : [...active.values()].some((hosts) => hosts.length) ? 'geoip-unavailable' : 'server-unavailable'
-    return { origin, routes, status, pendingNodes: [...active.keys()].filter((node) => !origin || !routes.some((route) => route.node === node)) }
+    return {
+      origin,
+      routes,
+      status,
+      pendingNodes: [...active.keys()].filter((node) => !origin || (!routes.some((route) => route.node === node) && !chainedNodes.has(node)))
+    }
   }
 
 }

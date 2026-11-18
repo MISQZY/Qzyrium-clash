@@ -19,9 +19,16 @@ export interface GlobeRoute {
   selector?: string
   rule?: string
   connectionCount?: number
-  connecting?: boolean,
+  connecting?: boolean
   custom?: CustomLocalizationPack
   approximate?: boolean
+  chainId?: string
+  chain?: string[]
+  chainLabel?: string
+  chainHopCities?: string[]
+  isChainSegment?: boolean
+  segmentIndex?: number
+  totalSegments?: number
 }
 
 export const ROUTE_COLORS = [
@@ -112,7 +119,9 @@ export function connectionRoutes(
 
   const activeConnections = connections?.connections || []
 
-  return locations.routes.map(({ node, location }, index) => {
+  const routes: GlobeRoute[] = []
+
+  locations.routes.forEach(({ node, location, chain }, index) => {
     const delay = delays[node] ?? proxies[node]?.history.at(-1)?.delay
     const color = ROUTE_COLORS[index % ROUTE_COLORS.length]
 
@@ -121,14 +130,13 @@ export function connectionRoutes(
 
     let selector: string | undefined
     let rule: string | undefined
-    const connectionCount = activeConnections.filter(
-      (c) => c.chains.includes(node) || c.chains.at(-1) === node
-    ).length
+    const isNodeInChain = (c: { chains: string[] }) =>
+      c.chains.includes(node) || c.chains.at(-1) === node || (chain !== undefined && chain.some((h) => c.chains.includes(h.node)))
 
-    // 1. Find live connections routed through this node
-    const matching = activeConnections.filter(
-      (c) => c.chains.includes(node) || c.chains.at(-1) === node
-    )
+    const connectionCount = activeConnections.filter(isNodeInChain).length
+
+    // 1. Find live connections routed through this node or chain
+    const matching = activeConnections.filter(isNodeInChain)
 
     const parentGroups = Object.entries(proxies).filter(
       ([name, p]) => name !== 'GLOBAL' && (p.now === node || (Array.isArray((p as { all?: string[] }).all) && (p as { all?: string[] }).all?.includes(node)))
@@ -196,22 +204,93 @@ export function connectionRoutes(
     const fromLabel = [origin.city, originCountry || origin.country].filter(Boolean).join(', ') || (translate(locale, 'dashboard', 'yourDevice', {}, custom))
     const toLabel = [location.city, country || location.country].filter(Boolean).join(', ') || (translate(locale, 'dashboard', 'server', {}, custom))
 
-    return {
-      id: node,
-      node,
-      from: [origin.longitude, origin.latitude],
-      to: [location.longitude, location.latitude],
-      delay: delay && delay > 0 ? delay : undefined,
-      fromLabel,
-      toLabel,
-      country,
-      countryCode: location.countryCode || COUNTRY_NAME_TO_CODE[location.country.toLowerCase().trim()],
-      color,
-      selector,
-      rule,
-      connectionCount,
-      connecting,
-      approximate: !locations.origin || origin.precision === 'country' || location.precision === 'country'
+    if (chain && chain.length >= 2) {
+      const chainId = `chain-${node}-${index}`
+      const chainNodes = chain.map((h) => h.node)
+      const chainLabel = chainNodes.join(' \u2192 ')
+      const chainHopCities = chain.map((h) => {
+        const cName = localizeCountry(h.location.country, h.location.countryCode, custom?.locale ?? locale)
+        return [h.location.city, cName || h.location.country].filter(Boolean).join(', ') || h.node
+      })
+
+      // Segment 0: User device -> Hop 0 (Entry)
+      const hop0 = chain[0]
+      const hop0Country = localizeCountry(hop0.location.country, hop0.location.countryCode, custom?.locale ?? locale)
+      routes.push({
+        id: `${chainId}-0`,
+        chainId,
+        chain: chainNodes,
+        chainLabel,
+        chainHopCities,
+        isChainSegment: true,
+        segmentIndex: 0,
+        totalSegments: chain.length,
+        node: hop0.node,
+        from: [origin.longitude, origin.latitude],
+        to: [hop0.location.longitude, hop0.location.latitude],
+        delay,
+        fromLabel,
+        toLabel: chainHopCities[0],
+        country: hop0Country,
+        countryCode: hop0.location.countryCode || COUNTRY_NAME_TO_CODE[hop0.location.country.toLowerCase().trim()],
+        color,
+        selector,
+        rule,
+        connectionCount,
+        connecting,
+        approximate: !locations.origin || origin.precision === 'country' || hop0.location.precision === 'country'
+      })
+
+      // Subsequent segments: Hop[i-1] -> Hop[i]
+      for (let i = 1; i < chain.length; i++) {
+        const prev = chain[i - 1]
+        const curr = chain[i]
+        const currCountry = localizeCountry(curr.location.country, curr.location.countryCode, custom?.locale ?? locale)
+        routes.push({
+          id: `${chainId}-${i}`,
+          chainId,
+          chain: chainNodes,
+          chainLabel,
+          chainHopCities,
+          isChainSegment: true,
+          segmentIndex: i,
+          totalSegments: chain.length,
+          node: curr.node,
+          from: [prev.location.longitude, prev.location.latitude],
+          to: [curr.location.longitude, curr.location.latitude],
+          delay: i === chain.length - 1 ? delay : undefined,
+          fromLabel: chainHopCities[i - 1],
+          toLabel: chainHopCities[i],
+          country: currCountry,
+          countryCode: curr.location.countryCode || COUNTRY_NAME_TO_CODE[curr.location.country.toLowerCase().trim()],
+          color,
+          selector,
+          rule,
+          connectionCount,
+          connecting,
+          approximate: prev.location.precision === 'country' || curr.location.precision === 'country'
+        })
+      }
+    } else {
+      routes.push({
+        id: node,
+        node,
+        from: [origin.longitude, origin.latitude],
+        to: [location.longitude, location.latitude],
+        delay: delay && delay > 0 ? delay : undefined,
+        fromLabel,
+        toLabel,
+        country,
+        countryCode: location.countryCode || COUNTRY_NAME_TO_CODE[location.country.toLowerCase().trim()],
+        color,
+        selector,
+        rule,
+        connectionCount,
+        connecting,
+        approximate: !locations.origin || origin.precision === 'country' || location.precision === 'country'
+      })
     }
   })
+
+  return routes
 }
