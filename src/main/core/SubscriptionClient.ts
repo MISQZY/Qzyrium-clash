@@ -1,5 +1,6 @@
 import axios from 'axios'
-import { Agent } from 'node:https'
+import { Agent as HttpAgent } from 'node:http'
+import { Agent as HttpsAgent } from 'node:https'
 import { isIP } from 'node:net'
 import { subscriptionUserAgent, type AppConfig } from '@shared/app-config'
 import { parseSubscriptionMetadata } from '../utils/subscription-metadata'
@@ -48,8 +49,22 @@ export class SubscriptionClient {
           const address = addresses.find(item => item.family === 4) ?? addresses[0]
           pinned.hostname = address.family === 6 ? `[${address.address}]` : address.address
         }
+        const agentLookup = (_hostname: string, optionsOrCb: unknown, maybeCb?: unknown) => {
+          const cb = (typeof optionsOrCb === 'function' ? optionsOrCb : maybeCb) as ((err: Error | null, addressOrAddresses: any, family?: number) => void) | undefined
+          if (cb) {
+            const isAll = typeof optionsOrCb === 'object' && optionsOrCb !== null && (optionsOrCb as { all?: boolean }).all
+            if (isAll) {
+              cb(null, addresses.map(a => ({ address: a.address, family: a.family })))
+            } else {
+              const first = addresses[0]
+              cb(null, first.address, first.family)
+            }
+          }
+        }
         const httpsAgent = target.protocol === 'https:'
-          ? new Agent({ servername: isIP(hostname) ? undefined : hostname, keepAlive: false }) : undefined
+          ? new HttpsAgent({ servername: isIP(hostname) ? undefined : hostname, keepAlive: false, lookup: agentLookup }) : undefined
+        const httpAgent = target.protocol === 'http:'
+          ? new HttpAgent({ keepAlive: false, lookup: agentLookup }) : undefined
         let response
         phase = 'network'
         try {
@@ -59,12 +74,16 @@ export class SubscriptionClient {
             maxRedirects: 0, validateStatus: status => status >= 200 && status <= 599,
             headers: { 'User-Agent': userAgent || subscriptionUserAgent(settings.general.userAgent), Host: target.host,
               ...(target.origin === origin ? deviceHeaders : {}) },
+            httpAgent,
             httpsAgent,
             // Return only approved answers; never perform a second DNS resolution.
             lookup: async () => [addresses],
             proxy: updateViaProxy ? { host: '127.0.0.1', port: proxyPort, protocol: 'http' } : false
           })
-        } finally { httpsAgent?.destroy() }
+        } finally {
+          httpsAgent?.destroy()
+          httpAgent?.destroy()
+        }
         if (!REDIRECTS.has(response.status)) {
           const metadata = parseSubscriptionMetadata(response.headers, '')
           // Only the original provider may request its origin-scoped device identity.
