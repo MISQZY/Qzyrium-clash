@@ -311,7 +311,7 @@ export class KernelService implements BaseService {
 
   getStatus(): CoreState {
     if (this.isIdleCoreRunning) return 'stopped'
-    return this.processManager.getState()
+    return typeof this.processManager?.getState === 'function' ? this.processManager.getState() : 'stopped'
   }
 
   getSessionStartedAt(): number | null { return this.sessionStartedAt }

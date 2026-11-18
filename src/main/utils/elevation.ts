@@ -117,7 +117,7 @@ export function restartAsAdmin(): Promise<boolean> {
         })
         .join(' ')
 
-      const vbsScript = `Set s = CreateObject("Shell.Application")\ns.ShellExecute "${escapedTarget}", "${escapedArgs}", "${escapedDir}", "runas", 1\n`
+      const vbsScript = `On Error Resume Next\nSet s = CreateObject("Shell.Application")\ns.ShellExecute "${escapedTarget}", "${escapedArgs}", "${escapedDir}", "runas", 1\nIf Err.Number <> 0 Then\n  WScript.Quit Err.Number\nEnd If\n`
 
       try {
         writeFileSync(vbsPath, vbsScript, { encoding: 'utf8', flag: 'wx' })
