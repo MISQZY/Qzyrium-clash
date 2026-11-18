@@ -98,7 +98,7 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
           void trayService.refreshProxies().then(() => {
             trayService.updateContextMenu()
           })
-          if (updateService.getStatus().state === 'error' || updateService.getStatus().state === 'idle') {
+          if (typeof updateService?.getStatus === 'function' && (updateService.getStatus()?.state === 'error' || updateService.getStatus()?.state === 'idle')) {
             void updateService.checkUpdates()
           }
         } else if (data === 'error' || data === 'stopped') {

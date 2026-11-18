@@ -62,12 +62,12 @@ export function restartAsAdmin(): Promise<boolean> {
       const execPath = process.execPath
       const isPackaged = electronApp.isPackaged
       const workingDir = isPackaged ? path.dirname(execPath) : (electronApp.getAppPath() || process.cwd())
-      const appUserData = electronApp.getPath('userData')
+      const appUserData = typeof electronApp.getPath === 'function' ? electronApp.getPath('userData') : ''
 
       const filteredArgs = (isPackaged ? process.argv.slice(1) : process.argv.slice(2))
         .filter((a: string) => !a.startsWith('--admin-restart'))
         .map((a: string) => {
-          if (a.startsWith('--user-data-dir=')) {
+          if (a.startsWith('--user-data-dir=') && appUserData) {
             return `--user-data-dir=${appUserData}`
           }
           return a
@@ -75,9 +75,9 @@ export function restartAsAdmin(): Promise<boolean> {
 
       const rawArgs = isPackaged
         ? filteredArgs
-        : [electronApp.getAppPath(), ...filteredArgs]
+        : (typeof electronApp.getAppPath === 'function' ? [electronApp.getAppPath(), ...filteredArgs] : filteredArgs)
 
-      if (!isPackaged && !rawArgs.some((a: string) => a.startsWith('--user-data-dir='))) {
+      if (!isPackaged && appUserData && !rawArgs.some((a: string) => a.startsWith('--user-data-dir='))) {
         rawArgs.push(`--user-data-dir=${appUserData}`)
       }
 
