@@ -1,10 +1,6 @@
 import { createKernelRuntime } from './createKernelRuntime'
-import { canCheckProxyServices, DEFAULT_SERVICE_CHECK_TARGETS, type ServiceCheckTarget } from '@shared/service-check'
-import { powerMonitor, session } from 'electron'
-import { withServiceCheckProxy } from '../core/ServiceCheckProxy'
-import { createServiceRequest } from '../core/service-request'
-import { createElectronServiceFetch } from '../core/service-fetch'
-import { checkProxyServices } from '../core/checkProxyServices'
+import type { ServiceCheckTarget } from '@shared/service-check'
+import { powerMonitor } from 'electron'
 import { installGeoResources } from '../core/installGeoResources'
 import { KernelGlobeResolver } from '../core/KernelGlobeResolver'
 import type { ActiveConfigBuilder } from '../core/ActiveConfigBuilder'
@@ -47,6 +43,7 @@ import type { AppConfig } from '@shared/app-config'
 import { mergeSettings } from '@shared/settings-config'
 import { resolveEffectiveCore, type EffectiveCoreValues, type ConfigPreview } from '@shared/effective-core'
 import { parseProfileConfig } from '@shared/profile-config'
+import { CoreDiagnosticsService } from '../core/CoreDiagnosticsService'
 import { MihomoConfigFactory } from '../core/MihomoConfigFactory'
 import { classifyKernelFailure, kernelFailureDetails, KernelOperationError } from '../utils/kernel-failure'
 import { kernelFailureMessage, type KernelFailure, type KernelFailureReason } from '@shared/kernel-failure'
@@ -54,56 +51,16 @@ import { kernelFailureMessage, type KernelFailure, type KernelFailureReason } fr
 const runFile = typeof promisify === 'function' ? promisify(execFile) : () => Promise.resolve({ stdout: '', stderr: '' })
 
 export class KernelService implements BaseService {
-  private serviceCheckInProgress = false
-  private serviceCheckAbort?: AbortController
+  private diagnosticsService: CoreDiagnosticsService
   private isIdleCoreRunning = false
   private idleStartPromise: Promise<void> | null = null
 
   isProcessRunning(): boolean {
-    return this.processManager.getState() === 'running'
+    return this.processManager?.getState?.() === 'running'
   }
 
   async checkProxyServices(name: string, customTargets?: ServiceCheckTarget[]) {
-    if (!this.isProcessRunning()) {
-      await this.startIdleCore()
-    }
-    if (!this.isProcessRunning()) throw new Error('Start the VPN core before checking services')
-    if (this.serviceCheckInProgress) throw new Error('A service check is already running')
-    this.serviceCheckInProgress = true
-    const abort = new AbortController()
-    this.serviceCheckAbort = abort
-    try {
-      const proxies = await this.apiClient.getProxies()
-      if (!Object.hasOwn(proxies, name) || !canCheckProxyServices(proxies[name])) {
-        throw new Error('Select a proxy host to check services')
-      }
-      const targets = (customTargets && customTargets.length > 0)
-        ? customTargets
-        : structuredClone(this.settingService.getSettings().general.serviceCheckTargets ?? DEFAULT_SERVICE_CHECK_TARGETS)
-      const paths = getAppPaths()
-      try {
-        return await withServiceCheckProxy({
-          binary: this.processManager.getBinaryPath() ?? resolveCoreBinaryPath(this.settingService.getSettings().kernel.channel),
-          configPath: paths.activeConfigPath, mihomoDir: paths.mihomoDir, name, proxies, signal: abort.signal
-        }, async port => {
-          const transport = session.fromPartition('service-check', { cache: false })
-          try {
-            await transport.setProxy({ mode: 'fixed_servers', proxyRules: `http=127.0.0.1:${port};https=127.0.0.1:${port}`, proxyBypassRules: '<-loopback>' })
-            return await checkProxyServices(null, name, targets,
-              createServiceRequest(createElectronServiceFetch(transport), abort.signal))
-          } finally {
-            await transport.closeAllConnections()
-            await transport.clearStorageData()
-          }
-        })
-      } catch (proxyError) {
-        logger.warn(`Isolated service check proxy failed, falling back to Mihomo delay ping: ${proxyError}`)
-        return await this.apiClient.checkProxyServices(name, targets)
-      }
-    } finally {
-      if (this.serviceCheckAbort === abort) this.serviceCheckAbort = undefined
-      this.serviceCheckInProgress = false
-    }
+    return this.diagnosticsService.check(name, customTargets)
   }
 
   private failure: KernelFailure | null = null
@@ -230,6 +187,18 @@ export class KernelService implements BaseService {
     this.apiClient = runtime.apiClient
     this.geoIp = runtime.geoIp
     this.trafficAccounting = runtime.trafficAccounting
+
+    this.diagnosticsService = new CoreDiagnosticsService(
+      this.apiClient,
+      this.processManager,
+      this.settingService,
+      async () => {
+        if (!this.isProcessRunning()) {
+          await this.startIdleCore()
+        }
+        if (!this.isProcessRunning()) throw new Error('Start the VPN core before checking services')
+      }
+    )
 
     this.globeResolver = new KernelGlobeResolver({
       profiles: profileService,
@@ -473,7 +442,7 @@ export class KernelService implements BaseService {
 
   private async stopCore(): Promise<void> {
     this.isIdleCoreRunning = false
-    this.serviceCheckAbort?.abort()
+    this.diagnosticsService?.abort?.()
     this.apiClient.stopAllStreams()
     if (this.getStatus() === 'running' || this.isProcessRunning()) {
       try {
@@ -578,7 +547,7 @@ export class KernelService implements BaseService {
   }
 
   async reloadConfig(force = true): Promise<void> {
-    this.serviceCheckAbort?.abort()
+    this.diagnosticsService?.abort?.()
     return this.enqueueLifecycle(async () => {
       // Recheck after queued start/stop operations: applying a profile never starts a stopped core.
       if (!this.isProcessRunning()) return
