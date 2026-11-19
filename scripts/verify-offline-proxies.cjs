@@ -95,8 +95,8 @@ async function run() {
   }
   assert.deepEqual(visibleProxyGroups(ordered, [{ proxy: 'Alpha' }], 'rule', 'full'), ['Zulu', 'Alpha', 'Empty'], 'configured groups stay visible, including unreferenced empty groups')
   assert.deepEqual(visibleProxyGroups(ordered, [], 'global', 'full'), ['GLOBAL', 'Zulu', 'Alpha', 'Empty'])
-  assert.deepEqual(visibleProxyGroups(ordered, [{ proxy: 'Alpha' }], 'rule', 'simple'), ['GLOBAL'], 'simple mode only shows GLOBAL common host')
-  assert.deepEqual(visibleProxyGroups(ordered, [{ proxy: 'Alpha' }], 'rule'), ['GLOBAL'], 'omitted displayMode defaults to simple mode')
+  assert.deepEqual(visibleProxyGroups(ordered, [{ proxy: 'Alpha' }], 'rule', 'simple'), ['Zulu'], 'simple mode only shows first configured group')
+  assert.deepEqual(visibleProxyGroups(ordered, [{ proxy: 'Alpha' }], 'rule'), ['Zulu', 'Alpha', 'Empty'], 'omitted displayMode defaults to full mode')
   const { offlineProxies } = load('src/main/utils/offline-proxies.ts')
   const insensitive = await offlineProxies({ proxies: [{ name: 'PARIS', type: 'ss' }],
     'proxy-groups': [{ name: 'g', type: 'select', 'include-all-proxies': true, filter: '(?i)paris' }] }, root)

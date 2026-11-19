@@ -97,6 +97,7 @@ const file = path.resolve(__dirname, '../src/renderer/src/stores/useAppStore.ts'
 const output = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
 }).outputText
+const moduleCache = new Map()
 function createResolver(fromDir) {
   return function customRequire(name) {
     if (name === 'react') return react
@@ -113,11 +114,13 @@ function createResolver(fromDir) {
         else if (fs.existsSync(resolved + '.js')) resolved += '.js'
         else if (fs.existsSync(path.join(resolved, 'index.ts'))) resolved = path.join(resolved, 'index.ts')
       }
+      if (moduleCache.has(resolved)) return moduleCache.get(resolved)
       const code = fs.readFileSync(resolved, 'utf8')
       const js = ts.transpileModule(code, {
         compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
       }).outputText
       const subModule = { exports: {} }
+      moduleCache.set(resolved, subModule.exports)
       const subContext = {
         ...context,
         exports: subModule.exports,
@@ -125,6 +128,7 @@ function createResolver(fromDir) {
         require: createResolver(path.dirname(resolved))
       }
       vm.runInNewContext(js, subContext, { filename: resolved })
+      moduleCache.set(resolved, subModule.exports)
       return subModule.exports
     }
     if (name.startsWith('@shared/')) return require('./fixtures/typescript.cjs').loadTypeScript(path.resolve('src/shared', name.slice(8) + '.ts'))
@@ -144,7 +148,11 @@ function render() {
   renders++
   domains = context.exports.useAppStoreInternal()
   view = { ...domains.navigation, ...domains.kernel, ...domains.settings, ...domains.profiles,
-    ...domains.proxies, ...domains.rules, ...domains.traffic, ...domains.connections, ...domains.logs,
+    ...domains.proxies, ...domains.rules, ...domains.connections, ...domains.logs, ...domains.traffic,
+    get logs() { return context.exports.useLogs.getState().logs },
+    get traffic() { return context.exports.useTraffic.getState().traffic },
+    get connections() { return context.exports.useConnections.getState().connections },
+    get subscriptionTraffic() { return context.exports.useConnections.getState().subscriptionTraffic },
     refreshAll: domains.refreshAll }
   while (effects.length) effects.shift()()
 }
@@ -188,10 +196,9 @@ async function run() {
   logTimer.fn()
   await flush()
   assert.equal(view.logs.at(-1).payload, 'batched', 'visible logs publish on the batch interval')
-  for (const domain of ['navigation', 'kernel', 'settings', 'traffic', 'profiles', 'proxies', 'rules', 'connections']) {
+  for (const domain of ['navigation', 'kernel', 'settings', 'traffic', 'profiles', 'proxies', 'rules', 'connections', 'logs']) {
     assert.equal(domains[domain], beforeLogDomains[domain], `${domain} context remains stable during log publication`)
   }
-  assert.notEqual(domains.logs, beforeLogDomains.logs)
   view.clearLogs()
   await flush()
   logTimer.fn()
@@ -290,10 +297,11 @@ async function run() {
   const beforeTrafficDomains = domains
   events.traffic({ up: 123, down: 456 })
   await flush()
-  for (const domain of ['navigation', 'kernel', 'settings', 'profiles', 'proxies', 'rules', 'connections', 'logs']) {
+  for (const domain of ['navigation', 'kernel', 'settings', 'profiles', 'proxies', 'rules', 'connections', 'logs', 'traffic']) {
     assert.equal(domains[domain], beforeTrafficDomains[domain], `${domain} context remains stable during traffic publication`)
   }
-  assert.notEqual(domains.traffic, beforeTrafficDomains.traffic)
+  assert.equal(view.traffic.up, 123)
+  assert.equal(view.traffic.down, 456)
   assert.equal(view.connections.downloadTotal, 2)
   const beforeLocalRefresh = { baseCalls, proxyCalls, rules: ruleScopes.length, connectionsCalls }
   view.refreshConnections()

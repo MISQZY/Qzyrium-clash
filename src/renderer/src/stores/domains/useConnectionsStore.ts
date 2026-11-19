@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { create } from 'zustand'
 import type { ConnectionsSnapshot } from '@shared/mihomo'
 import { EMPTY_CONNECTIONS, type StoreCoordinator } from './types'
@@ -37,10 +37,10 @@ export function useConnectionsSync(
   loading: boolean
 ): ConnectionsStoreState {
   const connectionRequest = useRef<Promise<ConnectionsSnapshot> | null>(null)
-  const refreshRevision = useRef(0)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const refreshConnections = useCallback(() => {
-    refreshRevision.current += 1
+    setRefreshTrigger((v) => v + 1)
   }, [])
 
   useEffect(() => {
@@ -120,6 +120,7 @@ export function useConnectionsSync(
     coord.visible,
     coord.activeTab,
     coord.dataRevision,
+    refreshTrigger,
     coord.settings.general.connectionInterval,
     coord.statusRevision,
     coord.actionInProgress
