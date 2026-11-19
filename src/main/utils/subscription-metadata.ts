@@ -92,27 +92,51 @@ function parseDisplayMode(raw: string | undefined): 'single' | 'full' | undefine
   return undefined
 }
 
-function parseProtocolsHidden(raw: string | undefined): boolean {
-  if (!raw || typeof raw !== 'string') return false
-  const val = raw.trim().toLowerCase()
-  return val === '1' || val === 'true'
+export function createHeaderReader(headers: Parameters<typeof subscriptionName>[0]) {
+  const get = (...keys: string[]): string | undefined => {
+    if (!headers) return undefined
+    for (const key of keys) {
+      const val = getHeader(headers, key)
+      if (val !== undefined && val.trim().length > 0) return val.trim()
+    }
+    return undefined
+  }
+
+  const getBoolean = (...keys: string[]): boolean => {
+    const raw = get(...keys)?.toLowerCase()
+    return raw === '1' || raw === 'true'
+  }
+
+  const getInteger = (min: number, max: number, ...keys: string[]): number | undefined => {
+    const val = get(...keys)
+    if (val && /^\d+$/.test(val)) {
+      const num = Number(val)
+      if (Number.isInteger(num) && num >= min && num <= max) return num
+    }
+    return undefined
+  }
+
+  return { get, getBoolean, getInteger }
 }
 
 export function parseSubscriptionMetadata(headers: Parameters<typeof subscriptionName>[0], content: string) {
-  const interval = getHeader(headers, 'profile-update-interval')?.trim()
-  const hours = interval && /^\d+$/.test(interval) ? Number(interval) : NaN
-  const enabled = (key: string) => getHeader(headers, key)?.trim().toLowerCase() === 'true'
-  const deviceStatus = enabled('x-hwid-limit') || enabled('x-hwid-max-devices-reached') ? 'limit' as const
-    : enabled('x-hwid-not-supported') ? 'required' as const : undefined
+  const reader = createHeaderReader(headers)
+  const hours = reader.getInteger(1, 720, 'profile-update-interval')
+  const deviceStatus = (reader.getBoolean('x-hwid-limit') || reader.getBoolean('x-hwid-max-devices-reached'))
+    ? ('limit' as const)
+    : reader.getBoolean('x-hwid-not-supported')
+      ? ('required' as const)
+      : undefined
+
   return {
     deviceStatus,
-    serverInterval: Number.isInteger(hours) && hours >= 1 && hours <= 720 ? hours * 60 : undefined,
+    serverInterval: hours ? hours * 60 : undefined,
     providerName: subscriptionName(headers, content),
-    userInfo: parseUserInfo(getHeader(headers, 'subscription-userinfo')),
-    profileLogo: parseProfileLogo(getHeader(headers, 'profile-logo')),
-    announce: parseAnnounce(getHeader(headers, 'announce') || getHeader(headers, 'profile-announce')),
-    supportUrl: parseSupportUrl(getHeader(headers, 'support-url')),
-    displayMode: parseDisplayMode(getHeader(headers, 'display-mode') || getHeader(headers, 'profile-display-mode')),
-    protocolsHidden: parseProtocolsHidden(getHeader(headers, 'protocols-hidden') || getHeader(headers, 'profile-protocols-hidden'))
+    userInfo: parseUserInfo(reader.get('subscription-userinfo')),
+    profileLogo: parseProfileLogo(reader.get('profile-logo')),
+    announce: parseAnnounce(reader.get('announce', 'profile-announce')),
+    supportUrl: parseSupportUrl(reader.get('support-url')),
+    displayMode: parseDisplayMode(reader.get('display-mode', 'profile-display-mode')),
+    protocolsHidden: reader.getBoolean('protocols-hidden', 'profile-protocols-hidden')
   }
 }
