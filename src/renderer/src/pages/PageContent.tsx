@@ -45,7 +45,8 @@ function ProxiesContent() {
   return <ProxiesPage running={coreStatus === 'running'} proxies={proxies} rules={rules} mode={settings.kernel.mode}
     delays={delays} onUpdateDelays={updateDelays} onSelectNode={selectProxyNode} testConcurrency={settings.general.delayTestConcurrency ?? 6}
     onRefresh={refreshAll} profileId={activeProfile?.id} serviceCheckTargets={settings.general.serviceCheckTargets}
-    displayMode={activeProfile?.displayMode ?? activeProfile?.serverDisplayMode ?? 'full'} />
+    displayMode={activeProfile?.displayMode ?? activeProfile?.serverDisplayMode ?? 'full'}
+    protocolsHidden={Boolean(activeProfile?.protocolsHidden ?? activeProfile?.serverProtocolsHidden)} />
 }
 
 function ProfilesContent(props: ImportProps) {

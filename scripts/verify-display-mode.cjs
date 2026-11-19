@@ -17,6 +17,16 @@ assert.equal(parseSubscriptionMetadata({ 'profile-display-mode': 'single' }, '')
 assert.equal(parseSubscriptionMetadata({ 'display-mode': 'other' }, '').displayMode, undefined)
 assert.equal(parseSubscriptionMetadata({}, '').displayMode, undefined)
 
+// 1.1 Protocols-hidden header parsing (0 or 1 / boolean)
+assert.equal(parseSubscriptionMetadata({ 'protocols-hidden': '1' }, '').protocolsHidden, true)
+assert.equal(parseSubscriptionMetadata({ 'protocols-hidden': 'true' }, '').protocolsHidden, true)
+assert.equal(parseSubscriptionMetadata({ 'Protocols-Hidden': ' 1 ' }, '').protocolsHidden, true)
+assert.equal(parseSubscriptionMetadata({ 'profile-protocols-hidden': '1' }, '').protocolsHidden, true)
+assert.equal(parseSubscriptionMetadata({ 'protocols-hidden': '0' }, '').protocolsHidden, false)
+assert.equal(parseSubscriptionMetadata({ 'protocols-hidden': 'false' }, '').protocolsHidden, false)
+assert.equal(parseSubscriptionMetadata({ 'protocols-hidden': 'other' }, '').protocolsHidden, false)
+assert.equal(parseSubscriptionMetadata({}, '').protocolsHidden, false)
+
 // 2. Real proxy node detection
 const sampleProxies = {
   GLOBAL: { name: 'GLOBAL', type: 'Selector', all: ['PROXY', 'Server 1', 'Server 2'], now: 'PROXY' },

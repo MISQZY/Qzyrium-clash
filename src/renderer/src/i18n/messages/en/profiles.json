@@ -31,6 +31,8 @@
   "autoUpdateHint": "Keep servers and subscription information up to date.",
   "updateViaProxy": "Update via proxy",
   "updateViaProxyHint": "Download and update this subscription through the active proxy tunnel.",
+  "protocolsHidden": "Hide host protocols",
+  "protocolsHiddenHint": "Hide protocol tags (VLESS, VMess, Trojan, etc.) in the hosts list.",
   "updateFrequency": "Update frequency",
   "everyHour": "Every hour",
   "every6Hours": "Every 6 hours",

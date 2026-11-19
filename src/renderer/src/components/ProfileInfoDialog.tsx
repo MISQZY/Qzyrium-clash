@@ -50,6 +50,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
   const [interval, setInterval] = useState(profile?.interval ?? 1440)
   const [automaticInterval, setAutomaticInterval] = useState(profile?.interval === undefined)
   const [customUA, setCustomUA] = useState(profile?.customUA || '')
+  const [protocolsHidden, setProtocolsHidden] = useState(profile?.protocolsHidden ?? profile?.serverProtocolsHidden ?? false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -67,6 +68,7 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
       setAutomaticInterval(profile.interval === undefined)
       setCustomInterval(![60, 360, 720, 1440].includes(profile.interval ?? 1440))
       setCustomUA(profile.customUA || '')
+      setProtocolsHidden(profile.protocolsHidden ?? profile.serverProtocolsHidden ?? false)
       setError(null)
     }
   }, [profile, open])
@@ -86,7 +88,8 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
         updateViaProxy: profile.type === 'remote' ? updateViaProxy : undefined,
         sendHwid: profile.type === 'remote' ? sendHwid : undefined,
         interval: profile.type === 'remote' && autoUpdate ? automaticInterval ? null : Number(interval) || 1440 : undefined,
-        customUA: profile.type === 'remote' ? customUA.trim() : undefined
+        customUA: profile.type === 'remote' ? customUA.trim() : undefined,
+        protocolsHidden: protocolsHidden !== (profile.protocolsHidden ?? profile.serverProtocolsHidden ?? false) ? protocolsHidden : undefined
       })
       if (profile.type === 'remote' && autoUpdate && window.api?.settings) {
         const cur = await window.api.settings.get()
@@ -226,6 +229,14 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
                         <p id={`${id}-proxy-hint`} className="text-[11px] leading-relaxed text-muted-foreground">{t('updateViaProxyHint')}</p>
                       </div>
                       <Switch id={`${id}-proxy`} checked={updateViaProxy} onCheckedChange={setUpdateViaProxy} aria-describedby={`${id}-proxy-hint`} />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-0.5">
+                        <label htmlFor={`${id}-protocols-hidden`} className="cursor-pointer text-xs font-medium">{t('protocolsHidden')}</label>
+                        <p id={`${id}-protocols-hidden-hint`} className="text-[11px] leading-relaxed text-muted-foreground">{t('protocolsHiddenHint')}</p>
+                      </div>
+                      <Switch id={`${id}-protocols-hidden`} checked={protocolsHidden} onCheckedChange={setProtocolsHidden} aria-describedby={`${id}-protocols-hidden-hint`} />
                     </div>
 
                     <div className="space-y-2">

@@ -31,6 +31,7 @@ interface ProxiesPageProps {
   profileId?: string
   serviceCheckTargets?: ServiceCheckTarget[]
   displayMode?: 'single' | 'full'
+  protocolsHidden?: boolean
 }
 
 export const ProxiesPage: React.FC<ProxiesPageProps> = ({
@@ -45,7 +46,8 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
   onRefresh,
   profileId,
   serviceCheckTargets = DEFAULT_SERVICE_CHECK_TARGETS,
-  displayMode = 'full'
+  displayMode = 'full',
+  protocolsHidden = false
 }) => {
   const t = useTranslations('proxies')
 
@@ -312,7 +314,8 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
             onlyAvailable={onlyAvailable}
             running={running} testingGroups={testingGroups} testingAll={testingAll} testingNodes={testingNodes}
             onToggle={toggleGroup} onTest={testGroup} onSelect={onSelectNode}
-            onCheckServices={handleCheckServices} />)}
+            onCheckServices={handleCheckServices}
+            protocolsHidden={protocolsHidden} />)}
         </div>
       ) : groupNames.length > 0 ? (
         <p className="empty-state">{t('noProxyNodesMatchYourSearch')}</p>

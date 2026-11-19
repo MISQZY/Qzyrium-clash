@@ -92,6 +92,12 @@ function parseDisplayMode(raw: string | undefined): 'single' | 'full' | undefine
   return undefined
 }
 
+function parseProtocolsHidden(raw: string | undefined): boolean {
+  if (!raw || typeof raw !== 'string') return false
+  const val = raw.trim().toLowerCase()
+  return val === '1' || val === 'true'
+}
+
 export function parseSubscriptionMetadata(headers: Parameters<typeof subscriptionName>[0], content: string) {
   const interval = getHeader(headers, 'profile-update-interval')?.trim()
   const hours = interval && /^\d+$/.test(interval) ? Number(interval) : NaN
@@ -106,6 +112,7 @@ export function parseSubscriptionMetadata(headers: Parameters<typeof subscriptio
     profileLogo: parseProfileLogo(getHeader(headers, 'profile-logo')),
     announce: parseAnnounce(getHeader(headers, 'announce') || getHeader(headers, 'profile-announce')),
     supportUrl: parseSupportUrl(getHeader(headers, 'support-url')),
-    displayMode: parseDisplayMode(getHeader(headers, 'display-mode') || getHeader(headers, 'profile-display-mode'))
+    displayMode: parseDisplayMode(getHeader(headers, 'display-mode') || getHeader(headers, 'profile-display-mode')),
+    protocolsHidden: parseProtocolsHidden(getHeader(headers, 'protocols-hidden') || getHeader(headers, 'profile-protocols-hidden'))
   }
 }

@@ -13,7 +13,7 @@ import { VirtualList } from '../VirtualList'
 const EMPTY_DELAYS: Record<string, number> = {}
 
 export function ProxyGroupNodes({ groupName, nodes, activeNow, proxies, delays, trimmedQuery, sortMode,
-  onlyAvailable, running, testingNodes, onSelect, onCheckServices }: {
+  onlyAvailable, running, testingNodes, onSelect, onCheckServices, protocolsHidden }: {
   groupName: string
   nodes: string[]
   activeNow: string
@@ -26,6 +26,7 @@ export function ProxyGroupNodes({ groupName, nodes, activeNow, proxies, delays, 
   testingNodes: ReadonlySet<string>
   onSelect: (group: string, node: string) => void
   onCheckServices?: (node: string) => void
+  protocolsHidden?: boolean
 }) {
   const t = useTranslations('proxies')
   // Default/name ordering does not depend on latency unless availability is filtered.
@@ -58,7 +59,8 @@ export function ProxyGroupNodes({ groupName, nodes, activeNow, proxies, delays, 
               selected={activeNow === nodeName} groupName={groupName}
               delay={delays[nodeName] ?? proxies[nodeName]?.history?.[proxies[nodeName].history.length - 1]?.delay}
               loading={testingNodes.has(nodeName)} onSelect={onSelect}
-              canCheck={canCheckProxyServices(proxies[nodeName])} onCheckServices={onCheckServices} />
+              canCheck={canCheckProxyServices(proxies[nodeName])} onCheckServices={onCheckServices}
+              protocolsHidden={protocolsHidden} />
           }} />
       ) : (
         <p className="empty-state py-6">{t(!running && nodes.length === 0 ? 'noCachedNodes' : 'noProxyNodesMatchYourSearch')}</p>
@@ -67,7 +69,7 @@ export function ProxyGroupNodes({ groupName, nodes, activeNow, proxies, delays, 
   )
 }
 
-const ProxyNodeCard = memo(function ProxyNodeCard({ nodeName, nodeData, selected, groupName, delay, loading, onSelect, canCheck, onCheckServices }: {
+const ProxyNodeCard = memo(function ProxyNodeCard({ nodeName, nodeData, selected, groupName, delay, loading, onSelect, canCheck, onCheckServices, protocolsHidden }: {
   nodeName: string
   nodeData?: ProxyNode
   selected: boolean
@@ -77,6 +79,7 @@ const ProxyNodeCard = memo(function ProxyNodeCard({ nodeName, nodeData, selected
   onSelect: (group: string, node: string) => void
   canCheck: boolean
   onCheckServices?: (node: string) => void
+  protocolsHidden?: boolean
 }) {
   const t = useTranslations('proxies')
   const nodeType = nodeData?.type || 'direct'
@@ -110,9 +113,11 @@ const ProxyNodeCard = memo(function ProxyNodeCard({ nodeName, nodeData, selected
           >
             <EmojiText text={nodeName} />
           </span>
-          <span className="text-[11px] font-mono text-muted-foreground uppercase mt-0.5">
-            {nodeType}
-          </span>
+          {!protocolsHidden && (
+            <span className="text-[11px] font-mono text-muted-foreground uppercase mt-0.5">
+              {nodeType}
+            </span>
+          )}
         </div>
       </div>
 

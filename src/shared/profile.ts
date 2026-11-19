@@ -48,11 +48,13 @@ export interface ProfileItem {
   supportUrl?: string
   serverDisplayMode?: 'single' | 'full'
   displayMode?: 'single' | 'full'
+  serverProtocolsHidden?: boolean
+  protocolsHidden?: boolean
 }
 
 /** Fields editable through profile information; identity and rule state are separate commands. */
 export type ProfileInfoPatch = Partial<Pick<ProfileItem,
-  'name' | 'url' | 'autoUpdate' | 'updateViaProxy' | 'customUA' | 'sendHwid' | 'displayMode'>> & { interval?: number | null }
+  'name' | 'url' | 'autoUpdate' | 'updateViaProxy' | 'customUA' | 'sendHwid' | 'displayMode' | 'protocolsHidden'>> & { interval?: number | null }
 
 export function canToggleProfileDisplayMode(profile?: Pick<ProfileItem, 'serverDisplayMode'> | null): boolean {
   return Boolean(profile?.serverDisplayMode)

@@ -19,10 +19,11 @@ interface Props {
   onTest: (name: string, nodes: string[]) => Promise<void>
   onSelect: (group: string, node: string) => void
   onCheckServices?: (node: string) => void
+  protocolsHidden?: boolean
 }
 
 export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, trimmedQuery, sortMode,
-  running, testingGroups, testingAll, testingNodes, onlyAvailable, onToggle, onTest, onSelect, onCheckServices }: Props) {
+  running, testingGroups, testingAll, testingNodes, onlyAvailable, onToggle, onTest, onSelect, onCheckServices, protocolsHidden }: Props) {
   const t = useTranslations('proxies')
 
   const nodes = group?.all || []
@@ -122,7 +123,8 @@ export function ProxyGroupCard({ groupName, group, proxies, delays, isExpanded, 
       {isExpanded && (
         <ProxyGroupNodes groupName={groupName} nodes={nodes} activeNow={activeNow}
           proxies={proxies} delays={delays} trimmedQuery={trimmedQuery} sortMode={sortMode}
-          onlyAvailable={onlyAvailable} running={running} testingNodes={testingNodes} onSelect={onSelect} onCheckServices={onCheckServices} />
+          onlyAvailable={onlyAvailable} running={running} testingNodes={testingNodes} onSelect={onSelect} onCheckServices={onCheckServices}
+          protocolsHidden={protocolsHidden} />
       )}
     </Card>
   )
