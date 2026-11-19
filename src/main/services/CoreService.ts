@@ -6,7 +6,7 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import zlib from 'node:zlib'
 import AdmZip from 'adm-zip'
-import axios from 'axios'
+import axios, { type AxiosRequestConfig } from 'axios'
 import {
   type CoreChannel,
   type CoreUpdateStatus,
@@ -213,21 +213,12 @@ export class CoreService implements BaseService {
     return `${mirror}/${rawUrl}`
   }
 
-  private async fetchGithub<T>(endpoint: string): Promise<T> {
-    const { owner, repo } = MIHOMO_REPOSITORY
-    const url = `https://api.github.com/repos/${owner}/${repo}${endpoint}`
+  private async requestWithProxyFallback<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {
     const targetUrl = this.resolveUrl(url)
-    const options = {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'QzyriumVPN'
-      },
-      timeout: 15_000
-    }
     try {
       const response = await axios.get<T>(targetUrl, options)
       return response.data
-    } catch (directError) {
+    } catch (directErr) {
       if (this.kernelService.getStatus() === 'running') {
         const port = this.settingService.getSettings().kernel.mixedPort
         try {
@@ -238,54 +229,35 @@ export class CoreService implements BaseService {
           return response.data
         } catch {}
       }
-      throw directError
+      throw directErr
     }
+  }
+
+  private async fetchGithub<T>(endpoint: string): Promise<T> {
+    const { owner, repo } = MIHOMO_REPOSITORY
+    const url = `https://api.github.com/repos/${owner}/${repo}${endpoint}`
+    return this.requestWithProxyFallback<T>(url, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'QzyriumVPN'
+      },
+      timeout: 15_000
+    })
   }
 
   private async fetchText(url: string, timeout = 10_000): Promise<string> {
-    const targetUrl = this.resolveUrl(url)
-    const options = { responseType: 'text' as const, timeout }
-    try {
-      const res = await axios.get<string>(targetUrl, options)
-      return res.data
-    } catch (err) {
-      if (this.kernelService.getStatus() === 'running') {
-        const port = this.settingService.getSettings().kernel.mixedPort
-        try {
-          const res = await axios.get<string>(url, {
-            ...options,
-            proxy: { host: '127.0.0.1', port, protocol: 'http' }
-          })
-          return res.data
-        } catch {}
-      }
-      throw err
-    }
+    return this.requestWithProxyFallback<string>(url, {
+      responseType: 'text',
+      timeout
+    })
   }
 
   private async downloadBinary(url: string, timeout = 60_000): Promise<ArrayBuffer> {
-    const targetUrl = this.resolveUrl(url)
-    const options = {
-      responseType: 'arraybuffer' as const,
+    return this.requestWithProxyFallback<ArrayBuffer>(url, {
+      responseType: 'arraybuffer',
       timeout,
       headers: { 'User-Agent': 'QzyriumVPN' }
-    }
-    try {
-      const response = await axios.get<ArrayBuffer>(targetUrl, options)
-      return response.data
-    } catch (directErr) {
-      if (this.kernelService.getStatus() === 'running') {
-        const port = this.settingService.getSettings().kernel.mixedPort
-        try {
-          const response = await axios.get<ArrayBuffer>(url, {
-            ...options,
-            proxy: { host: '127.0.0.1', port, protocol: 'http' }
-          })
-          return response.data
-        } catch {}
-      }
-      throw directErr
-    }
+    })
   }
 
   async updateGeoData(): Promise<{ success: boolean; updated: string[]; error?: string }> {
