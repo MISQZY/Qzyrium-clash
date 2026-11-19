@@ -1,7 +1,7 @@
 import type { MenuItemConstructorOptions } from 'electron'
 import type { AppConfig } from '@shared/app-config'
 import type { SysProxyStatus } from '@shared/ipc'
-import { isProxyGroup, type ProxyGroup, type ProxyNode } from '@shared/mihomo'
+import { createProxyGroupComparator, isProxyGroup, type ProxyNode } from '@shared/mihomo'
 import type { ProfileItem } from '@shared/profile'
 import type { CoreState, TunnelMode } from '@shared/types'
 
@@ -167,15 +167,7 @@ export function buildProxyGroupMenus(
 
   if (eligibleGroupNames.length === 0) return []
 
-  const configuredOrder = [
-    ...new Set([
-      ...((cachedProxies.GLOBAL as ProxyGroup | undefined)?.all ?? []),
-      ...Object.keys(cachedProxies)
-    ])
-  ]
-  const order = new Map(configuredOrder.map((name, index) => [name, index]))
-  if (currentMode === 'global') order.set('GLOBAL', -1)
-  eligibleGroupNames.sort((a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity))
+  eligibleGroupNames.sort(createProxyGroupComparator(cachedProxies, currentMode))
 
   return eligibleGroupNames.map((groupName) => {
     const group = cachedProxies[groupName]

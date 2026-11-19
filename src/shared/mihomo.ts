@@ -100,6 +100,21 @@ export function resolveLeafNode(name: string, proxies: Record<string, ProxyNode>
   return name
 }
 
+export function createProxyGroupComparator(
+  proxies: Record<string, ProxyNode>,
+  mode?: string
+): (a: string, b: string) => number {
+  const configuredOrder = [
+    ...new Set([
+      ...((proxies.GLOBAL as ProxyGroup | undefined)?.all ?? []),
+      ...Object.keys(proxies)
+    ])
+  ]
+  const order = new Map(configuredOrder.map((name, index) => [name, index]))
+  if (mode === 'global') order.set('GLOBAL', -1)
+  return (a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity)
+}
+
 export interface MihomoRule {
   type: string
   payload: string

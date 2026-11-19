@@ -1,4 +1,4 @@
-import { isProxyGroup, NON_PROXY_TYPES, type ProxyGroup, type ProxyNode, type MihomoRule } from '@shared/mihomo'
+import { createProxyGroupComparator, isProxyGroup, NON_PROXY_TYPES, type ProxyNode, type MihomoRule } from '@shared/mihomo'
 import type { TunnelMode } from '@shared/types'
 
 export type ProxySortMode = 'default' | 'latency' | 'name'
@@ -63,13 +63,7 @@ export function visibleProxyGroups(
     // GLOBAL.all follows the provider's configured group order. Neither rule
     // order nor nested selectors should rearrange the cards. Keep API order for
     // groups missing from GLOBAL.
-    const configuredOrder = [...new Set([
-      ...((proxies.GLOBAL as ProxyGroup | undefined)?.all ?? []),
-      ...Object.keys(proxies)
-    ])]
-    const order = new Map(configuredOrder.map((name, index) => [name, index]))
-    if (mode === 'global') order.set('GLOBAL', -1)
-    const sorted = list.sort((a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity))
+    const sorted = list.sort(createProxyGroupComparator(proxies, mode))
     if (displayMode === 'single' || (displayMode as string) === 'simple') {
       return sorted.length > 0 ? [sorted[0]] : []
     }
