@@ -16,13 +16,38 @@ export function filterConnections(items: readonly ConnectionItem[], query: strin
   })
 }
 
+export function resolveConnectionProcessName(item: ConnectionItem, systemLabel: string): string {
+  return item.metadata.process || extractProcessName(item.metadata.processPath) ||
+    (item.metadata.sourceIP ? `IP: ${item.metadata.sourceIP}` : '') || systemLabel
+}
+
+export function createProcessGroupComparator(
+  sort: ConnectionSort
+): (a: ProcessGroup, b: ProcessGroup) => number {
+  if (sort === 'traffic') return (a, b) => b.totalDownload + b.totalUpload - (a.totalDownload + a.totalUpload)
+  if (sort === 'time') return (a, b) => b.latestStart - a.latestStart
+  return (a, b) => a.name.localeCompare(b.name)
+}
+
+export function createConnectionComparator(
+  sort: ConnectionSort,
+  systemLabel: string
+): (a: ConnectionItem, b: ConnectionItem) => number {
+  if (sort === 'traffic') return (a, b) => b.download + b.upload - (a.download + a.upload)
+  if (sort === 'time') return (a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()
+  return (a, b) => {
+    const nameA = extractProcessName(a.metadata.processPath) || a.metadata.process || systemLabel
+    const nameB = extractProcessName(b.metadata.processPath) || b.metadata.process || systemLabel
+    return nameA.localeCompare(nameB)
+  }
+}
+
 /** Groups keep source order within each process; only the group list is sorted. */
 export function groupConnections(items: readonly ConnectionItem[], sort: ConnectionSort, systemLabel: string): ProcessGroup[] {
   const groups = new Map<string, ProcessGroup>()
   for (const item of items) {
     const rawPath = item.metadata.processPath || item.metadata.process || ''
-    const name = item.metadata.process || extractProcessName(item.metadata.processPath) ||
-      (item.metadata.sourceIP ? `IP: ${item.metadata.sourceIP}` : '') || systemLabel
+    const name = resolveConnectionProcessName(item, systemLabel)
     const key = rawPath || item.metadata.process || name || 'system'
     const start = new Date(item.start).getTime()
     const existing = groups.get(key)
@@ -37,19 +62,9 @@ export function groupConnections(items: readonly ConnectionItem[], sort: Connect
         totalUpload: item.upload, totalDownload: item.download, latestStart: start })
     }
   }
-  return [...groups.values()].sort((a, b) => {
-    if (sort === 'traffic') return b.totalDownload + b.totalUpload - (a.totalDownload + a.totalUpload)
-    if (sort === 'time') return b.latestStart - a.latestStart
-    return a.name.localeCompare(b.name)
-  })
+  return [...groups.values()].sort(createProcessGroupComparator(sort))
 }
 
 export function sortConnections(items: readonly ConnectionItem[], sort: ConnectionSort, systemLabel: string): ConnectionItem[] {
-  return [...items].sort((a, b) => {
-    if (sort === 'traffic') return b.download + b.upload - (a.download + a.upload)
-    if (sort === 'time') return new Date(b.start).getTime() - new Date(a.start).getTime()
-    const nameA = extractProcessName(a.metadata.processPath) || a.metadata.process || systemLabel
-    const nameB = extractProcessName(b.metadata.processPath) || b.metadata.process || systemLabel
-    return nameA.localeCompare(nameB)
-  })
+  return [...items].sort(createConnectionComparator(sort, systemLabel))
 }
