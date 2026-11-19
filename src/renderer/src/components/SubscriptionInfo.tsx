@@ -4,7 +4,7 @@ import type { ProfileUserInfo } from '@shared/profile'
 import { useLocale, useTranslations } from '../i18n'
 import { formatBytes } from '../lib/format'
 import { SubscriptionUsageBar } from './SubscriptionUsageBar'
-import { subscriptionUsage } from '@shared/subscription-health'
+import { subscriptionExpiry, subscriptionUsage } from '@shared/subscription-health'
 
 export function SubscriptionInfo({ info }: { info?: ProfileUserInfo }) {
   const t = useTranslations('profiles')
@@ -15,22 +15,36 @@ export function SubscriptionInfo({ info }: { info?: ProfileUserInfo }) {
     return () => window.clearInterval(timer)
   }, [])
 
-  const valid = (value?: number): value is number => value !== undefined && Number.isFinite(value) && value >= 0
-  const total = valid(info?.total) ? info.total : undefined
-  const hasUsage = valid(info?.upload) || valid(info?.download)
-  const used = (valid(info?.upload) ? info.upload : 0) + (valid(info?.download) ? info.download : 0)
-  const remaining = total !== undefined && total > 0 && hasUsage ? Math.max(0, total - used) : undefined
-  const timestamp = valid(info?.expire) && info.expire > 0 ? info.expire * 1000 : undefined
-  const expires = timestamp !== undefined && !Number.isNaN(new Date(timestamp).getTime()) ? timestamp : undefined
-  const noExpiration = info?.expire === 0
-  const days = expires !== undefined ? Math.max(0, Math.ceil((expires - now) / 86_400_000)) : undefined
-  const expirationDate = expires !== undefined
-    ? new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(expires)
+  const usage = subscriptionUsage(info)
+  const expiry = subscriptionExpiry(info, now)
+  const expirationDate = expiry.expiresMs !== undefined
+    ? new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(expiry.expiresMs)
     : undefined
   const items = [
-    { icon: Gauge, label: t('trafficRemaining'), value: total === 0 ? t('unlimitedTraffic') : remaining !== undefined ? formatBytes(remaining, locale) : t('notProvided'), warning: remaining === 0 },
-    { icon: Clock3, label: t('daysRemaining'), value: noExpiration ? t('noExpiration') : days === undefined ? t('notProvided') : days === 0 ? t('expired') : t('daysValue', { count: days }), warning: days !== undefined && days <= 3 },
-    { icon: CalendarDays, label: t('expiresOn'), value: noExpiration ? t('noExpiration') : expirationDate ?? t('notProvided'), warning: days === 0 }
+    {
+      icon: Gauge,
+      label: t('trafficRemaining'),
+      value: info?.total === 0 ? t('unlimitedTraffic') : usage ? formatBytes(usage.remaining, locale) : t('notProvided'),
+      warning: usage?.remaining === 0
+    },
+    {
+      icon: Clock3,
+      label: t('daysRemaining'),
+      value: expiry.noExpiration
+        ? t('noExpiration')
+        : expiry.daysRemaining === undefined
+          ? t('notProvided')
+          : expiry.isExpired
+            ? t('expired')
+            : t('daysValue', { count: expiry.daysRemaining }),
+      warning: expiry.isExpiringSoon
+    },
+    {
+      icon: CalendarDays,
+      label: t('expiresOn'),
+      value: expiry.noExpiration ? t('noExpiration') : expirationDate ?? t('notProvided'),
+      warning: expiry.isExpired
+    }
   ]
 
   return (

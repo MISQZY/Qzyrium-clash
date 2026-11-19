@@ -25,12 +25,32 @@ export function subscriptionUsage(info?: ProfileUserInfo, runtimeDeltaBytes = 0)
   }
 }
 
+export function subscriptionExpiry(info?: ProfileUserInfo, now = Date.now()) {
+  const expire = info?.expire
+  const noExpiration = expire === 0
+  const valid = typeof expire === 'number' && Number.isFinite(expire) && expire > 0
+  const expiresMs = valid ? expire * 1000 : undefined
+  const validExpires = expiresMs !== undefined && !Number.isNaN(new Date(expiresMs).getTime()) ? expiresMs : undefined
+  const days = validExpires !== undefined ? Math.max(0, Math.ceil((validExpires - now) / 86_400_000)) : undefined
+  const isExpired = days === 0
+  const isExpiringSoon = days !== undefined && days <= 3
+
+  return {
+    expiresMs: validExpires,
+    daysRemaining: days,
+    isExpired,
+    isExpiringSoon,
+    noExpiration
+  }
+}
+
 export function subscriptionHealth(info?: ProfileUserInfo, now = Date.now()) {
   const usage = subscriptionUsage(info)
-  const expiry = info?.expire && Number.isFinite(info.expire) && info.expire > 0 ? info.expire * 1000 : undefined
+  const { expiresMs, isExpired, isExpiringSoon } = subscriptionExpiry(info, now)
   return {
     traffic: usage?.status === 'normal' ? undefined : usage?.status,
-    expiry: expiry !== undefined && Number.isFinite(expiry) && expiry <= now + 3 * 86_400_000
-      ? expiry <= now ? 'expired' as const : 'soon' as const : undefined
+    expiry: expiresMs !== undefined
+      ? isExpired ? 'expired' as const : isExpiringSoon ? 'soon' as const : undefined
+      : undefined
   }
 }
