@@ -207,17 +207,60 @@ export class CoreService implements BaseService {
     }
   }
 
+  private resolveUrl(rawUrl: string): string {
+    const mirror = this.settingService.getSettings().kernel.coreDownloadMirror?.trim().replace(/\/+$/, '')
+    if (!mirror) return rawUrl
+    return `${mirror}/${rawUrl}`
+  }
+
   private async fetchGithub<T>(endpoint: string): Promise<T> {
     const { owner, repo } = MIHOMO_REPOSITORY
     const url = `https://api.github.com/repos/${owner}/${repo}${endpoint}`
-    const response = await axios.get<T>(url, {
+    const targetUrl = this.resolveUrl(url)
+    const options = {
       headers: {
         Accept: 'application/vnd.github+json',
         'User-Agent': 'QzyriumVPN'
       },
       timeout: 15_000
-    })
-    return response.data
+    }
+    try {
+      const response = await axios.get<T>(targetUrl, options)
+      return response.data
+    } catch (directError) {
+      if (this.kernelService.getStatus() === 'running') {
+        const port = this.settingService.getSettings().kernel.mixedPort
+        try {
+          const response = await axios.get<T>(url, {
+            ...options,
+            proxy: { host: '127.0.0.1', port, protocol: 'http' }
+          })
+          return response.data
+        } catch {}
+      }
+      throw directError
+    }
+  }
+
+  private async fetchText(url: string, timeout = 10_000): Promise<string> {
+    const targetUrl = this.resolveUrl(url)
+    const options = { responseType: 'text' as const, timeout }
+    try {
+      const res = await axios.get<string>(targetUrl, options)
+      return res.data
+    } catch (err) {
+      if (this.kernelService.getStatus() === 'running') {
+        const port = this.settingService.getSettings().kernel.mixedPort
+        try {
+          const res = await axios.get<string>(url, {
+            ...options,
+            proxy: { host: '127.0.0.1', port, protocol: 'http' }
+          })
+          return res.data
+        } catch {}
+      }
+      throw err
+    }
   }
 
   async checkUpdate(channel?: CoreChannel): Promise<CoreUpdateStatus> {
@@ -248,11 +291,8 @@ export class CoreService implements BaseService {
         const checksumsAsset = release.assets.find((a) => a.name === 'checksums.txt')
         if (!sha256 && checksumsAsset) {
           try {
-            const checksumsRes = await axios.get<string>(checksumsAsset.browser_download_url, {
-              responseType: 'text',
-              timeout: 10_000
-            })
-            const parsed = parseChecksumsTxt(checksumsRes.data)
+            const checksumsData = await this.fetchText(checksumsAsset.browser_download_url, 10_000)
+            const parsed = parseChecksumsTxt(checksumsData)
             sha256 = parsed.get(asset.name)
           } catch (checksumErr) {
             logger.warn(`Failed to fetch checksums.txt: ${String(checksumErr)}`)
@@ -271,11 +311,8 @@ export class CoreService implements BaseService {
           const versionAsset = release.assets.find((a) => a.name === 'version.txt')
           if (versionAsset) {
             try {
-              const versionRes = await axios.get<string>(versionAsset.browser_download_url, {
-                responseType: 'text',
-                timeout: 5000
-              })
-              const txt = versionRes.data.trim()
+              const versionData = await this.fetchText(versionAsset.browser_download_url, 5000)
+              const txt = versionData.trim()
               if (txt) {
                 remoteVersion = txt
                 remoteBuild = extractBuildIdentifier(txt, asset.name)
@@ -376,16 +413,31 @@ export class CoreService implements BaseService {
     this.setStatus({ state: 'downloading', percent: 0, version: remoteVersion, build: remoteBuild })
     logger.info(`Downloading Mihomo core for channel ${channel} from ${downloadUrl}...`)
 
-    const response = await axios.get<ArrayBuffer>(downloadUrl, {
-      responseType: 'arraybuffer',
+    const targetDownloadUrl = this.resolveUrl(downloadUrl)
+    let response: { data: ArrayBuffer }
+    const downloadOptions = {
+      responseType: 'arraybuffer' as const,
       timeout: 120_000,
-      onDownloadProgress: (progress) => {
+      onDownloadProgress: (progress: { loaded: number; total?: number }) => {
         if (progress.total) {
           const percent = Math.min(100, Math.max(0, Math.round((progress.loaded / progress.total) * 100)))
           this.setStatus({ state: 'downloading', percent, version: remoteVersion, build: remoteBuild })
         }
       }
-    })
+    }
+    try {
+      response = await axios.get<ArrayBuffer>(targetDownloadUrl, downloadOptions)
+    } catch (downloadErr) {
+      if (this.kernelService.getStatus() === 'running') {
+        const port = this.settingService.getSettings().kernel.mixedPort
+        response = await axios.get<ArrayBuffer>(downloadUrl, {
+          ...downloadOptions,
+          proxy: { host: '127.0.0.1', port, protocol: 'http' }
+        })
+      } else {
+        throw downloadErr
+      }
+    }
 
     const archiveBuffer = Buffer.from(response.data)
 

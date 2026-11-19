@@ -98,6 +98,18 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
             channel={form.kernel.channel ?? 'stable'}
             onChannelChange={(channel) => draft.setForm(previous => ({ ...previous, kernel: { ...previous.kernel, channel } }))}
           />
+          <SettingRow title={t('coreDownloadMirror')} description={t('coreDownloadMirrorDescription')}>
+            <NativeSelect
+              aria-label={t('coreDownloadMirror')}
+              value={form.kernel.coreDownloadMirror ?? ''}
+              onChange={event => updateKernel({ coreDownloadMirror: event.target.value })}
+            >
+              <option value="">{t('coreMirrorDirect')}</option>
+              {['https://ghfast.top', 'https://ghproxy.net'].map((mirror) => (
+                <option key={mirror} value={mirror}>{mirror.replace(/^https?:\/\//, '')}</option>
+              ))}
+            </NativeSelect>
+          </SettingRow>
           <SettingRow title={t('mixedPortSource')}>
             <NativeSelect aria-label={t('mixedPortSource')} value={form.kernel.inheritMixedPort ? 'profile' : 'override'}
               onChange={event => updateKernel({ inheritMixedPort: event.target.value === 'profile' })}>
