@@ -29,6 +29,23 @@ export interface TrayMenuContext {
   actions: TrayMenuActions
 }
 
+function truncateLabel(text: string, maxLength: number): string {
+  return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text
+}
+
+function createRadioOptions<T extends string>(
+  options: { label: string; value: T }[],
+  selectedValue: T | undefined,
+  onSelect: (value: T) => void
+): MenuItemConstructorOptions[] {
+  return options.map(option => ({
+    label: option.label,
+    type: 'radio',
+    checked: option.value === selectedValue,
+    click: () => onSelect(option.value)
+  }))
+}
+
 export function buildProfileMenu(
   profiles: ProfileItem[],
   activeId: string | undefined,
@@ -41,16 +58,14 @@ export function buildProfileMenu(
 
   return {
     label: `${messages.profiles || 'Profiles'} (${activeName || '—'})`,
-    submenu: profiles.map((p) => {
-      const isSelected = p.id === activeId
-      const label = p.name.length > 40 ? `${p.name.slice(0, 37)}...` : p.name
-      return {
-        label,
-        type: 'radio',
-        checked: isSelected,
-        click: () => onSelectProfile(p.id)
-      }
-    })
+    submenu: createRadioOptions(
+      profiles.map((p) => ({
+        label: truncateLabel(p.name, 40),
+        value: p.id
+      })),
+      activeId,
+      onSelectProfile
+    )
   }
 }
 
@@ -59,35 +74,16 @@ export function buildModeMenu(
   messages: Record<string, string>,
   onSetRoutingMode: (mode: TunnelMode) => void
 ): MenuItemConstructorOptions {
-  const modeNames: Record<TunnelMode, string> = {
-    rule: messages.modeRule || 'Rule',
-    global: messages.modeGlobal || 'Global',
-    direct: messages.modeDirect || 'Direct'
-  }
-  const currentName = modeNames[currentMode] || messages.modeRule || 'Rule'
+  const modes: { value: TunnelMode; label: string }[] = [
+    { value: 'rule', label: messages.modeRule || 'Rule' },
+    { value: 'global', label: messages.modeGlobal || 'Global' },
+    { value: 'direct', label: messages.modeDirect || 'Direct' }
+  ]
+  const currentName = modes.find(m => m.value === currentMode)?.label || messages.modeRule || 'Rule'
 
   return {
     label: `${messages.routingMode || 'Routing mode'} (${currentName})`,
-    submenu: [
-      {
-        label: messages.modeRule || 'Rule',
-        type: 'radio',
-        checked: currentMode === 'rule',
-        click: () => onSetRoutingMode('rule')
-      },
-      {
-        label: messages.modeGlobal || 'Global',
-        type: 'radio',
-        checked: currentMode === 'global',
-        click: () => onSetRoutingMode('global')
-      },
-      {
-        label: messages.modeDirect || 'Direct',
-        type: 'radio',
-        checked: currentMode === 'direct',
-        click: () => onSetRoutingMode('direct')
-      }
-    ]
+    submenu: createRadioOptions(modes, currentMode, onSetRoutingMode)
   }
 }
 
@@ -105,35 +101,16 @@ export function buildRoutingTypeMenu(
       ? 'sysproxy'
       : 'off'
 
-  const typeNames: Record<'off' | 'sysproxy' | 'tun', string> = {
-    off: messages.routingTypeDisabled || 'Disabled',
-    sysproxy: messages.routingTypeProxy || messages.proxy || 'System proxy',
-    tun: messages.routingTypeTun || 'TUN'
-  }
-  const currentName = typeNames[currentRoutingType]
+  const types: { value: 'off' | 'sysproxy' | 'tun'; label: string }[] = [
+    { value: 'off', label: messages.routingTypeDisabled || 'Disabled' },
+    { value: 'sysproxy', label: messages.routingTypeProxy || messages.proxy || 'System proxy' },
+    { value: 'tun', label: messages.routingTypeTun || 'TUN' }
+  ]
+  const currentName = types.find(t => t.value === currentRoutingType)?.label || messages.routingTypeDisabled || 'Disabled'
 
   return {
     label: `${messages.routingType || 'Routing type'} (${currentName})`,
-    submenu: [
-      {
-        label: messages.routingTypeDisabled || 'Disabled',
-        type: 'radio',
-        checked: currentRoutingType === 'off',
-        click: () => onSetRoutingType('off')
-      },
-      {
-        label: messages.routingTypeProxy || messages.proxy || 'System proxy',
-        type: 'radio',
-        checked: currentRoutingType === 'sysproxy',
-        click: () => onSetRoutingType('sysproxy')
-      },
-      {
-        label: messages.routingTypeTun || 'TUN',
-        type: 'radio',
-        checked: currentRoutingType === 'tun',
-        click: () => onSetRoutingType('tun')
-      }
-    ]
+    submenu: createRadioOptions(types, currentRoutingType, onSetRoutingType)
   }
 }
 
@@ -173,23 +150,17 @@ export function buildProxyGroupMenus(
     const group = cachedProxies[groupName]
     const groupAll = isProxyGroup(group) ? group.all : []
     const groupNow = isProxyGroup(group) ? group.now : ''
-    const activeNode = groupNow
-      ? groupNow.length > 30
-        ? `${groupNow.slice(0, 27)}...`
-        : groupNow
-      : ''
+    const activeNode = groupNow ? truncateLabel(groupNow, 30) : ''
     const groupLabel = activeNode ? `${groupName}: ${activeNode}` : groupName
 
-    const nodeItems: MenuItemConstructorOptions[] = groupAll.map((nodeName: string) => {
-      const isSelected = groupNow === nodeName
-      const displayLabel = nodeName.length > 50 ? `${nodeName.slice(0, 47)}...` : nodeName
-      return {
-        label: displayLabel,
-        type: 'radio',
-        checked: isSelected,
-        click: () => onSelectProxy(groupName, nodeName)
-      }
-    })
+    const nodeItems = createRadioOptions(
+      groupAll.map((nodeName: string) => ({
+        label: truncateLabel(nodeName, 50),
+        value: nodeName
+      })),
+      groupNow,
+      (selectedNode) => onSelectProxy(groupName, selectedNode)
+    )
 
     return {
       label: groupLabel,
