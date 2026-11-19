@@ -33,8 +33,71 @@ export interface ProxyGroup extends ProxyNode {
 
 export type ProxyItem = ProxyNode | ProxyGroup
 
+export const BUILTIN_PROXY_NAMES = new Set([
+  'DIRECT',
+  'REJECT',
+  'REJECT-DROP',
+  'REJECTDROP',
+  'PASS',
+  'PASS-RULE',
+  'PASSRULE',
+  'PATHRULE',
+  'COMPATIBLE',
+  'GLOBAL',
+  'DNS-OUT',
+  'DNS'
+])
+
+export const NON_PROXY_TYPES = new Set([
+  'direct',
+  'reject',
+  'reject-drop',
+  'rejectdrop',
+  'compatible',
+  'pass',
+  'pass-rule',
+  'passrule',
+  'pathrule',
+  'dns'
+])
+
 export function isProxyGroup(item?: ProxyNode | null): item is ProxyGroup {
   return !!item && Array.isArray((item as ProxyGroup).all)
+}
+
+export function isRealProxyNode(name: string, proxies?: Record<string, ProxyNode>): boolean {
+  if (!name) return false
+  const upper = name.toUpperCase()
+  if (
+    BUILTIN_PROXY_NAMES.has(upper) ||
+    upper.startsWith('DNS-OUT') ||
+    upper.startsWith('PASS-RULE') ||
+    upper.startsWith('PASSRULE') ||
+    upper.startsWith('PATHRULE')
+  ) {
+    return false
+  }
+  if (!proxies) return true
+  const item = proxies[name]
+  if (!item) return true
+  if (isProxyGroup(item)) return false
+  const rawType = (item.type || '').toLowerCase().replace(/[-_]/g, '')
+  if (NON_PROXY_TYPES.has(rawType)) {
+    return false
+  }
+  return true
+}
+
+export function resolveLeafNode(name: string, proxies: Record<string, ProxyNode>, visited = new Set<string>()): string {
+  if (!name || visited.has(name) || visited.size > 20) return name
+  visited.add(name)
+  const item = proxies[name]
+  if (!item) return name
+  if (isProxyGroup(item) && item.now) {
+    const next = resolveLeafNode(item.now, proxies, visited)
+    if (next && isRealProxyNode(next, proxies)) return next
+  }
+  return name
 }
 
 export interface MihomoRule {

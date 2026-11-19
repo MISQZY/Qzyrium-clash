@@ -64,7 +64,8 @@ const rule = object({ id: name, type: name, payload: text, proxy: text,
     sourceOccurrence: integer(0), replacementRule: text,
     isCustom: boolean, isMoved: boolean, sourceIndex: integer(0) }) })
 const profilePatch = object(optionalFields({ name: text, url: text, autoUpdate: boolean,
-  updateViaProxy: boolean, sendHwid: boolean, interval: value => value === null || integer(15, 43200)(value), customUA: text }))
+  updateViaProxy: boolean, sendHwid: boolean, interval: value => value === null || integer(15, 43200)(value), customUA: text,
+  displayMode: oneOf('single', 'full', 'simple') }))
 const overlay = object(optionalFields({ color: text, symbolColor: text }))
 const theme: Check = value => {
   try { validateThemePack(value); return true } catch { return false }

@@ -84,6 +84,14 @@ function parseAnnounce(raw: string | undefined): string | undefined {
   return text.trim() || undefined
 }
 
+function parseDisplayMode(raw: string | undefined): 'single' | 'full' | undefined {
+  if (!raw || typeof raw !== 'string') return undefined
+  const normalized = raw.trim().toLowerCase()
+  if (normalized === 'full' || normalized === 'single') return normalized
+  if (normalized === 'simple') return 'single'
+  return undefined
+}
+
 export function parseSubscriptionMetadata(headers: Parameters<typeof subscriptionName>[0], content: string) {
   const interval = getHeader(headers, 'profile-update-interval')?.trim()
   const hours = interval && /^\d+$/.test(interval) ? Number(interval) : NaN
@@ -97,6 +105,7 @@ export function parseSubscriptionMetadata(headers: Parameters<typeof subscriptio
     userInfo: parseUserInfo(getHeader(headers, 'subscription-userinfo')),
     profileLogo: parseProfileLogo(getHeader(headers, 'profile-logo')),
     announce: parseAnnounce(getHeader(headers, 'announce') || getHeader(headers, 'profile-announce')),
-    supportUrl: parseSupportUrl(getHeader(headers, 'support-url'))
+    supportUrl: parseSupportUrl(getHeader(headers, 'support-url')),
+    displayMode: parseDisplayMode(getHeader(headers, 'display-mode') || getHeader(headers, 'profile-display-mode'))
   }
 }

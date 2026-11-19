@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback, useEffect } from 'react'
-import type { ProxyNode } from '@shared/mihomo'
+import { isProxyGroup, type ProxyNode } from '@shared/mihomo'
 import type { StoreCoordinator } from './types'
 import { loadDataset } from './loadDataset'
 
@@ -28,6 +28,19 @@ export function useProxiesStore(
 
   const selectProxyNode = useCallback(
     (group: string, node: string) => {
+      setProxies((prev) => {
+        const target = prev[group]
+        if (!target || !isProxyGroup(target)) return prev
+        const updated: Record<string, ProxyNode> = { ...prev, [group]: { ...target, now: node } }
+        if (group === 'GLOBAL') {
+          for (const [name, g] of Object.entries(prev)) {
+            if (name !== 'GLOBAL' && isProxyGroup(g) && g.all?.includes(node)) {
+              updated[name] = { ...g, now: node }
+            }
+          }
+        }
+        return updated
+      })
       return perform(() => window.api.mihomo.selectProxy(group, node))
     },
     [perform]

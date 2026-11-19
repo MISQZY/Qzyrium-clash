@@ -56,6 +56,17 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
     }
   }
 
+  const handleToggleDisplayMode = async (profile: ProfileItem) => {
+    const currentMode = profile.displayMode ?? profile.serverDisplayMode ?? 'full'
+    const nextMode = currentMode === 'full' ? 'single' : 'full'
+    try {
+      await window.api.profiles.updateInfo(profile.id, { displayMode: nextMode })
+      onRefreshAll()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
   return (
     <div className="page-scroll">
       {/* Header */}
@@ -94,6 +105,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
               onEditFile={setEditingFileProfile}
               onDelete={setProfileToDelete}
               onEditRules={setEditingProfile}
+              onToggleDisplayMode={handleToggleDisplayMode}
             />
           ))
         ) : (

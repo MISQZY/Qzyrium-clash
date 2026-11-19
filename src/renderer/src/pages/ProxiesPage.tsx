@@ -30,6 +30,7 @@ interface ProxiesPageProps {
   onRefresh?: () => Promise<unknown>
   profileId?: string
   serviceCheckTargets?: ServiceCheckTarget[]
+  displayMode?: 'single' | 'full'
 }
 
 export const ProxiesPage: React.FC<ProxiesPageProps> = ({
@@ -43,7 +44,8 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
   testConcurrency = 6,
   onRefresh,
   profileId,
-  serviceCheckTargets = DEFAULT_SERVICE_CHECK_TARGETS
+  serviceCheckTargets = DEFAULT_SERVICE_CHECK_TARGETS,
+  displayMode = 'full'
 }) => {
   const t = useTranslations('proxies')
 
@@ -56,7 +58,11 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
   // 2. Filter out groups marked with `hidden: true`.
   // 3. Filter out Mihomo's synthetic 'GLOBAL' unless mode is 'global'.
   // 4. Filter out built-in non-proxy targets (Direct, Reject, Pass, Compatible).
-  const groupNames = useMemo(() => visibleProxyGroups(proxies, rules, mode), [proxies, rules, mode])
+  const groupNames = useMemo(() => visibleProxyGroups(proxies, rules, mode, displayMode), [proxies, rules, mode, displayMode])
+
+  const getDisplayGroup = useCallback((name: string): ProxyGroup => {
+    return proxies[name] as ProxyGroup
+  }, [proxies])
 
   // By default, expand only the first group to avoid cognitive overload with 100+ nodes
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
@@ -87,7 +93,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
   const allNodes = useMemo(() => {
     const set = new Set<string>()
     for (const name of groupNames) {
-      const group = proxies[name]
+      const group = getDisplayGroup(name)
       if (isProxyGroup(group)) {
         for (const node of group.all || []) {
           set.add(node)
@@ -95,7 +101,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
       }
     }
     return Array.from(set)
-  }, [proxies, groupNames])
+  }, [groupNames, getDisplayGroup])
 
   const toggleGroup = useCallback((name: string) => {
     setExpandedGroups((prev) => {
@@ -130,7 +136,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
     }
 
     return groupNames.filter((name) => {
-      const group = proxies[name]
+      const group = getDisplayGroup(name)
       const groupNodes = isProxyGroup(group) ? group.all : []
 
       if (trimmedQuery) {
@@ -146,7 +152,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 
       return true
     })
-  }, [groupNames, proxies, trimmedQuery, onlyAvailable, delays])
+  }, [groupNames, getDisplayGroup, proxies, trimmedQuery, onlyAvailable, delays])
 
   return (
     <div className="page-scroll">
@@ -301,7 +307,7 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
       {filteredGroups.length > 0 ? (
         <div className="flex flex-col gap-3">
           {filteredGroups.map(groupName => <ProxyGroupCard key={groupName} groupName={groupName}
-            group={proxies[groupName] as ProxyGroup} proxies={proxies} delays={delays}
+            group={getDisplayGroup(groupName)} proxies={proxies} delays={delays}
             isExpanded={!!trimmedQuery || expandedGroups.has(groupName)} trimmedQuery={trimmedQuery} sortMode={sortMode}
             onlyAvailable={onlyAvailable}
             running={running} testingGroups={testingGroups} testingAll={testingAll} testingNodes={testingNodes}

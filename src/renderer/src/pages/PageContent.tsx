@@ -44,7 +44,8 @@ function ProxiesContent() {
   const { rules } = useRules()
   return <ProxiesPage running={coreStatus === 'running'} proxies={proxies} rules={rules} mode={settings.kernel.mode}
     delays={delays} onUpdateDelays={updateDelays} onSelectNode={selectProxyNode} testConcurrency={settings.general.delayTestConcurrency ?? 6}
-    onRefresh={refreshAll} profileId={activeProfile?.id} serviceCheckTargets={settings.general.serviceCheckTargets} />
+    onRefresh={refreshAll} profileId={activeProfile?.id} serviceCheckTargets={settings.general.serviceCheckTargets}
+    displayMode={activeProfile?.displayMode ?? activeProfile?.serverDisplayMode ?? 'full'} />
 }
 
 function ProfilesContent(props: ImportProps) {

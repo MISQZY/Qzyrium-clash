@@ -141,6 +141,7 @@ export class ProfileService implements BaseService {
         found.updateViaProxy = Boolean(patch.updateViaProxy)
       }
       if (patch.sendHwid !== undefined) found.sendHwid = patch.sendHwid
+      if (patch.displayMode !== undefined) found.displayMode = patch.displayMode
       found.updatedAt = Date.now()
     })
     logger.info(`Updated info for profile ${updated.name} (${id})`)
@@ -157,6 +158,7 @@ export class ProfileService implements BaseService {
     let supportUrl: string | undefined
     let serverInterval: number | undefined
     let deviceStatus: ProfileItem['deviceStatus']
+    let displayMode: ProfileItem['displayMode']
     let sendHwid = dto.sendHwid
 
     let targetUrl = dto.url?.trim()
@@ -170,7 +172,7 @@ export class ProfileService implements BaseService {
 
     if (dto.type === 'remote' && targetUrl) {
       logger.info(`Fetching remote subscription from: ${sanitizeUrl(targetUrl)}`)
-      ;({ content, providerName, userInfo, profileLogo, announce, supportUrl, serverInterval, deviceStatus, sendHwid } =
+      ;({ content, providerName, userInfo, profileLogo, announce, supportUrl, serverInterval, deviceStatus, sendHwid, displayMode } =
         await this.subscriptions.download(targetUrl, undefined, dto.updateViaProxy, dto.sendHwid))
       if (deviceStatus) throw new SubscriptionDownloadError(deviceStatus === 'limit' ? 'device-limit' : 'hwid-required', (this.settingService?.getSettings() ?? DEFAULT_APP_CONFIG).general)
     }
@@ -193,7 +195,9 @@ export class ProfileService implements BaseService {
       announce,
       supportUrl,
       serverInterval,
-      sendHwid: dto.type === 'remote' ? sendHwid : undefined
+      sendHwid: dto.type === 'remote' ? sendHwid : undefined,
+      serverDisplayMode: displayMode,
+      displayMode
     }
 
     await this.repository.add(item, content, this.selectionChange(() =>
@@ -217,7 +221,7 @@ export class ProfileService implements BaseService {
 
     if (item.type === 'remote' && item.url) {
       logger.info(`Updating remote profile ${item.name} from ${sanitizeUrl(item.url)}`)
-      const { content, providerName, userInfo, profileLogo, announce, supportUrl, serverInterval, deviceStatus, sendHwid } =
+      const { content, providerName, userInfo, profileLogo, announce, supportUrl, serverInterval, deviceStatus, sendHwid, displayMode } =
         await this.subscriptions.download(item.url, item.customUA, item.updateViaProxy, item.sendHwid)
       // Discard responses after deletion or a change to the request parameters.
       if (!sameSubscription(this.repository.get(id), item)) return false
@@ -244,6 +248,10 @@ export class ProfileService implements BaseService {
         current.supportUrl = supportUrl
         current.serverInterval = serverInterval
         current.deviceStatus = undefined
+        current.serverDisplayMode = displayMode
+        if (displayMode && !current.displayMode) {
+          current.displayMode = displayMode
+        }
         if (sendHwid) current.sendHwid = true
         if (providerName && current.nameSource && current.nameSource !== 'manual') {
           current.name = providerName

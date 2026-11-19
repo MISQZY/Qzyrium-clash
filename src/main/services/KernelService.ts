@@ -28,7 +28,7 @@ import { ProfileService } from './ProfileService'
 import { SettingService } from './SettingService'
 import type { GeoIpService } from './GeoIpService'
 import { isProcessElevated } from '../utils/elevation'
-import type { ProxyGroup } from '@shared/mihomo'
+import { isProxyGroup, type ProxyGroup } from '@shared/mihomo'
 import { offlineProxies } from '../utils/offline-proxies'
 import { flushSystemDns } from '../utils/network-transition'
 import { offlineRules, summarizeRules } from '@shared/rules'
@@ -644,6 +644,17 @@ export class KernelService implements BaseService {
         if (this.settingService.getSettings().general.autoCloseConnection) await this.apiClient.closeAllConnections()
       }
       await this.profileService.setSelectedProxy(profile.id, group, proxy)
+      const effectiveDisplayMode = profile.displayMode ?? profile.serverDisplayMode ?? 'full'
+      if (group === 'GLOBAL' || effectiveDisplayMode === 'single' || (effectiveDisplayMode as string) === 'simple') {
+        for (const [name, g] of Object.entries(proxies)) {
+          if (name !== group && isProxyGroup(g) && (g.type === 'Selector' || (g.type as string) === 'select') && g.all?.includes(proxy)) {
+            if (this.isProcessRunning()) {
+              try { await this.apiClient.selectProxy(name, proxy) } catch {}
+            }
+            await this.profileService.setSelectedProxy(profile.id, name, proxy)
+          }
+        }
+      }
       this.invalidateGlobe()
     })
   }

@@ -2,7 +2,7 @@ const path = require('node:path')
 
 const functional = ['test-runner', 'release-config', 'profile-activation', 'subscription-traffic', 'ipc', 'subscriptions', 'subscription-converter', 'remnawave', 'updates', 'startup', 'elevation', 'i18n',
   'kernel-lifecycle', 'kernel-failures', 'core-management', 'providers', 'core-inheritance', 'linux-routing', 'linux-proxy', 'profile-loading', 'profile-import', 'data-loading', 'connections', 'copy-feedback', 'process-icons', 'offline-proxies', 'proxy-latency', 'settings', 'themes',
-  'globe', 'globe-layout', 'globe-projection', 'recovery', 'system-proxy', 'network-watchdog', 'linux-proxy-watchdog', 'resources', 'traffic', 'diff-editor', 'rule-recovery', 'logs', 'log-batching', 'window-behavior', 'backup', 'diagnostics', 'service-checks']
+  'globe', 'globe-layout', 'globe-projection', 'recovery', 'system-proxy', 'network-watchdog', 'linux-proxy-watchdog', 'resources', 'traffic', 'diff-editor', 'rule-recovery', 'logs', 'log-batching', 'window-behavior', 'backup', 'diagnostics', 'service-checks', 'display-mode']
 const ui = ['ipc-ui', 'subscriptions-ui', 'subscription-traffic-ui', 'core-management-ui', 'config-preview-ui', 'ui', 'virtual-lists-ui', 'rules-ui', 'display-ui', 'globe-ui', 'theme-contrast-ui',
   'editors-ui', 'rule-editor-isolation-ui', 'stream-isolation-ui', 'profile-info-ui', 'shortcuts-ui', 'startup-theme-ui', 'offline-proxies-ui', 'proxy-order-ui',
   'localization-ui', 'updater-ui', 'tray', 'rule-recovery-ui', 'admin-ui', 'workspace-ui', 'globe-glow-ui', 'onboarding-ui', 'process-model', 'native-window-ui', 'service-checks-ui']

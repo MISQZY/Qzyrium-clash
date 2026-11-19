@@ -1,8 +1,8 @@
 import { useLocale, useTranslations, useCustomLocalization } from '../../i18n'
 
-import { RefreshCw, Trash2, Globe, FileCode, EllipsisVertical, Pencil, Check } from 'lucide-react'
+import { RefreshCw, Trash2, Globe, FileCode, EllipsisVertical, Pencil, Check, Layers, LayoutList } from 'lucide-react'
 import { RulesIcon } from '../../lib/icons'
-import { ProfileItem } from '@shared/profile'
+import { ProfileItem, canToggleProfileDisplayMode } from '@shared/profile'
 import { cn } from '../../lib/utils'
 
 import { Button } from '../ui/button'
@@ -28,6 +28,7 @@ interface ProfileCardProps {
   onEditFile: (profile: ProfileItem) => void
   onDelete: (profile: ProfileItem) => void
   onEditRules: (profile: ProfileItem) => void
+  onToggleDisplayMode?: (profile: ProfileItem) => void
 }
 
 export function ProfileCard({
@@ -41,11 +42,14 @@ export function ProfileCard({
   onEditInfo,
   onEditFile,
   onDelete,
-  onEditRules
+  onEditRules,
+  onToggleDisplayMode
 }: ProfileCardProps) {
   const t = useTranslations('profiles')
   const locale = useLocale()
   const customLocalization = useCustomLocalization()
+  const canToggleDisplayMode = canToggleProfileDisplayMode(p)
+  const isFull = (p.displayMode ?? p.serverDisplayMode ?? 'full') === 'full'
   const dateStr = new Date(p.updatedAt).toLocaleString(locale)
   return (
     <Card
@@ -88,6 +92,21 @@ export function ProfileCard({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            {canToggleDisplayMode && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                title={t(isFull ? 'displayModeFullTooltip' : 'displayModeSingleTooltip')}
+                aria-label={t(isFull ? 'displayModeFullTooltip' : 'displayModeSingleTooltip')}
+                onClick={() => onToggleDisplayMode?.(p)}
+                disabled={isSwitching}
+                aria-pressed={isFull}
+                className={cn('cursor-pointer transition-colors', isFull ? 'text-primary border-primary/40 bg-primary/10 shadow-2xs' : 'text-muted-foreground hover:text-foreground')}
+              >
+                {isFull ? <Layers className="size-3.5 shrink-0" /> : <LayoutList className="size-3.5 shrink-0" />}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="icon-sm"

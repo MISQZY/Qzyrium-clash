@@ -1,10 +1,14 @@
-import { isProxyGroup, type ProxyGroup, type ProxyNode, type MihomoRule } from '@shared/mihomo'
+import { isProxyGroup, NON_PROXY_TYPES, type ProxyGroup, type ProxyNode, type MihomoRule } from '@shared/mihomo'
 import type { TunnelMode } from '@shared/types'
 
 export type ProxySortMode = 'default' | 'latency' | 'name'
 
-export function visibleProxyGroups(proxies: Record<string, ProxyNode>, rules: MihomoRule[] | undefined, mode: TunnelMode): string[] {
-
+export function visibleProxyGroups(
+  proxies: Record<string, ProxyNode>,
+  rules: MihomoRule[] | undefined,
+  mode: TunnelMode,
+  displayMode: 'single' | 'full' = 'full'
+): string[] {
     const list: string[] = []
     const visited = new Set<string>()
 
@@ -13,8 +17,8 @@ export function visibleProxyGroups(proxies: Record<string, ProxyNode>, rules: Mi
       if (!isProxyGroup(item)) return false
       if (item.hidden) return false
       if (name === 'GLOBAL' && mode !== 'global') return false
-      const rawType = (item.type || '').toLowerCase()
-      if (rawType === 'direct' || rawType === 'reject' || rawType === 'compatible' || rawType === 'pass') {
+      const rawType = (item.type || '').toLowerCase().replace(/[-_]/g, '')
+      if (NON_PROXY_TYPES.has(rawType)) {
         return false
       }
       return true
@@ -65,8 +69,11 @@ export function visibleProxyGroups(proxies: Record<string, ProxyNode>, rules: Mi
     ])]
     const order = new Map(configuredOrder.map((name, index) => [name, index]))
     if (mode === 'global') order.set('GLOBAL', -1)
-    return list.sort((a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity))
-
+    const sorted = list.sort((a, b) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity))
+    if (displayMode === 'single' || (displayMode as string) === 'simple') {
+      return sorted.length > 0 ? [sorted[0]] : []
+    }
+    return sorted
 }
 
 export function sortProxyNodes(nodes: string[], sortMode: ProxySortMode, proxies: Record<string, ProxyNode>, delays: Record<string, number>): string[] {
