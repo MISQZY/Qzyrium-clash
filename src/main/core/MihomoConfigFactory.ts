@@ -4,6 +4,7 @@ import { CustomRuleItem } from '@shared/profile'
 import { resolveEffectiveRules } from '@shared/rules'
 import { parseProfileConfig } from '@shared/profile-config'
 import { resolveEffectiveCore, CORE_PORT_KEYS } from '@shared/effective-core'
+import { DEFAULT_GEOX_URLS } from '@shared/geodata'
 
 export function createMirrorUrlRewriter(mirror: string): (url: string) => string {
   const normalizedMirror = (mirror.trim() || 'https://ghfast.top').replace(/\/+$/, '')
@@ -198,11 +199,7 @@ export class MihomoConfigFactory {
 
     // Configure default geox-url when geo-auto-update is enabled
     if (parsed['geo-auto-update'] && (!parsed['geox-url'] || typeof parsed['geox-url'] !== 'object')) {
-      parsed['geox-url'] = {
-        geoip: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat',
-        geosite: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat',
-        mmdb: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/country.mmdb'
-      }
+      parsed['geox-url'] = { ...DEFAULT_GEOX_URLS }
     }
 
     // Optional mirror rewriting for external rule-providers & proxy-providers in restricted networks

@@ -18,6 +18,7 @@ import {
   parseChecksumsTxt,
   MIHOMO_REPOSITORY
 } from '@shared/core-version'
+import { DEFAULT_GEODATA_FILES } from '@shared/geodata'
 import { IPC_CHANNELS } from '@shared/ipc'
 import { logger } from '../utils/logger'
 import { getAppPaths, resolveCoreBinaryPath } from '../utils/paths'
@@ -267,11 +268,7 @@ export class CoreService implements BaseService {
       fs.mkdirSync(geoDir, { recursive: true })
     }
 
-    const files = [
-      { name: 'country.mmdb', url: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/country.mmdb' },
-      { name: 'geosite.dat', url: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat' },
-      { name: 'geoip.dat', url: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat' }
-    ]
+    const files = DEFAULT_GEODATA_FILES
 
     const updated: string[] = []
     try {
