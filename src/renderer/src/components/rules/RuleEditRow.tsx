@@ -1,5 +1,12 @@
 import { useState } from 'react'
-import { isLogicalRuleType, ruleTypes, isRuleSupportsNoResolve, isRuleSupportsSrc } from '@shared/rule-editor'
+import {
+  isLogicalRuleType,
+  ruleTypes,
+  isRuleSupportsNoResolve,
+  isRuleSupportsSrc,
+  sanitizeRuleParamsForType,
+  toggleRuleParam
+} from '@shared/rule-editor'
 
 import { LoaderCircle, X } from 'lucide-react'
 
@@ -7,7 +14,7 @@ import { Button } from '../ui/button'
 
 import { Input } from '../ui/input'
 import { Textarea } from '../ui/textarea'
-import { Switch } from '../ui/switch'
+import { RuleParamSwitch } from './RuleParamSwitch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { cn } from '../../lib/utils'
 import type { RuleEditorState } from '../../hooks/useRuleEditor'
@@ -41,10 +48,11 @@ export function RuleEditRow({ editor, rule }: RuleEditRowProps) {
                             <Select
                               value={editingDraft.type}
                               onValueChange={(sel) => {
-                                let extra = [...(editingDraft.additionalParams || [])]
-                                if (!isRuleSupportsNoResolve(sel)) extra = extra.filter((p) => p !== 'no-resolve')
-                                if (!isRuleSupportsSrc(sel)) extra = extra.filter((p) => p !== 'src')
-                                setEditingDraft({ ...editingDraft, type: sel, additionalParams: extra })
+                                setEditingDraft({
+                                  ...editingDraft,
+                                  type: sel,
+                                  additionalParams: sanitizeRuleParamsForType(sel, editingDraft.additionalParams)
+                                })
                               }}
                               disabled={validatingRule}
                             >
@@ -101,38 +109,30 @@ export function RuleEditRow({ editor, rule }: RuleEditRowProps) {
                           <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40">
                             <div className="flex items-center gap-3">
                               {isRuleSupportsNoResolve(editingDraft.type) && (
-                                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
-                                  <Switch
-                                    checked={editingDraft.additionalParams?.includes('no-resolve') || false}
-                                    onCheckedChange={(checked) => {
-                                      let p = [...(editingDraft.additionalParams || [])]
-                                      if (checked) {
-                                        if (!p.includes('no-resolve')) p.push('no-resolve')
-                                      } else {
-                                        p = p.filter((x) => x !== 'no-resolve')
-                                      }
-                                      setEditingDraft({ ...editingDraft, additionalParams: p })
-                                    }}
-                                  />
-                                  <span>no-resolve</span>
-                                </label>
+                                <RuleParamSwitch
+                                  param="no-resolve"
+                                  className="gap-1.5 text-[11px]"
+                                  checked={editingDraft.additionalParams?.includes('no-resolve') || false}
+                                  onCheckedChange={(checked) => {
+                                    setEditingDraft({
+                                      ...editingDraft,
+                                      additionalParams: toggleRuleParam(editingDraft.additionalParams, 'no-resolve', checked)
+                                    })
+                                  }}
+                                />
                               )}
                               {isRuleSupportsSrc(editingDraft.type) && (
-                                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
-                                  <Switch
-                                    checked={editingDraft.additionalParams?.includes('src') || false}
-                                    onCheckedChange={(checked) => {
-                                      let p = [...(editingDraft.additionalParams || [])]
-                                      if (checked) {
-                                        if (!p.includes('src')) p.push('src')
-                                      } else {
-                                        p = p.filter((x) => x !== 'src')
-                                      }
-                                      setEditingDraft({ ...editingDraft, additionalParams: p })
-                                    }}
-                                  />
-                                  <span>src</span>
-                                </label>
+                                <RuleParamSwitch
+                                  param="src"
+                                  className="gap-1.5 text-[11px]"
+                                  checked={editingDraft.additionalParams?.includes('src') || false}
+                                  onCheckedChange={(checked) => {
+                                    setEditingDraft({
+                                      ...editingDraft,
+                                      additionalParams: toggleRuleParam(editingDraft.additionalParams, 'src', checked)
+                                    })
+                                  }}
+                                />
                               )}
                             </div>
 

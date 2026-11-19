@@ -202,6 +202,20 @@ export const getRuleExample = (ruleType: string): string => {
   return ruleDefinitionsMap.get(ruleType.toUpperCase())?.example || ''
 }
 
+export function sanitizeRuleParamsForType(type: string, additionalParams: string[] = []): string[] {
+  let extra = [...additionalParams]
+  if (!isRuleSupportsNoResolve(type)) extra = extra.filter((p) => p !== 'no-resolve')
+  if (!isRuleSupportsSrc(type)) extra = extra.filter((p) => p !== 'src')
+  return extra
+}
+
+export function toggleRuleParam(params: string[] = [], param: string, enabled: boolean): string[] {
+  if (enabled) {
+    return params.includes(param) ? params : [...params, param]
+  }
+  return params.filter((p) => p !== param)
+}
+
 export const parseRuleStringToItem = (ruleStr: string, isCustom = false): RuleItem => {
   const parts = splitByTopLevelCommas(ruleStr).map((p) => p.trim())
   const firstPartIsNumber = parts.length >= 3 && parts[0] !== '' && !Number.isNaN(Number(parts[0]))

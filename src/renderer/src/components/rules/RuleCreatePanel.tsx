@@ -1,4 +1,11 @@
-import { ruleTypes, isRuleSupportsNoResolve, isRuleSupportsSrc, getRuleExample } from '@shared/rule-editor'
+import {
+  ruleTypes,
+  isRuleSupportsNoResolve,
+  isRuleSupportsSrc,
+  getRuleExample,
+  sanitizeRuleParamsForType,
+  toggleRuleParam
+} from '@shared/rule-editor'
 
 import { ArrowUpToLine, ArrowDownToLine, ChevronDown, HelpCircle } from 'lucide-react'
 
@@ -6,7 +13,7 @@ import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Input } from '../ui/input'
 import { Textarea } from '../ui/textarea'
-import { Switch } from '../ui/switch'
+import { RuleParamSwitch } from './RuleParamSwitch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { cn } from '../../lib/utils'
 import { useRuleDraft } from '../../hooks/useRuleDraft'
@@ -32,10 +39,7 @@ export function RuleCreatePanel({ editor }: RuleCreatePanelProps) {
                   <Select
                     value={newRule.type}
                     onValueChange={(sel) => {
-                      let extra = [...(newRule.additionalParams || [])]
-                      if (!isRuleSupportsNoResolve(sel)) extra = extra.filter((p) => p !== 'no-resolve')
-                      if (!isRuleSupportsSrc(sel)) extra = extra.filter((p) => p !== 'src')
-                      setNewRule({ ...newRule, type: sel, additionalParams: extra })
+                      setNewRule({ ...newRule, type: sel, additionalParams: sanitizeRuleParamsForType(sel, newRule.additionalParams) })
                     }}
                   >
                     <SelectTrigger aria-label={t('ruleType')} className="w-full min-w-0 font-mono"><SelectValue /></SelectTrigger>
@@ -127,38 +131,28 @@ export function RuleCreatePanel({ editor }: RuleCreatePanelProps) {
                 {(isRuleSupportsNoResolve(newRule.type) || isRuleSupportsSrc(newRule.type)) && (
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 border-t border-border/50">
                     {isRuleSupportsNoResolve(newRule.type) && (
-                      <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
-                        <Switch
-                          checked={newRule.additionalParams?.includes('no-resolve') || false}
-                          onCheckedChange={(checked) => {
-                            let params = [...(newRule.additionalParams || [])]
-                            if (checked) {
-                              if (!params.includes('no-resolve')) params.push('no-resolve')
-                            } else {
-                              params = params.filter((p) => p !== 'no-resolve')
-                            }
-                            setNewRule({ ...newRule, additionalParams: params })
-                          }}
-                        />
-                        <span>no-resolve</span>
-                      </label>
+                      <RuleParamSwitch
+                        param="no-resolve"
+                        checked={newRule.additionalParams?.includes('no-resolve') || false}
+                        onCheckedChange={(checked) => {
+                          setNewRule({
+                            ...newRule,
+                            additionalParams: toggleRuleParam(newRule.additionalParams, 'no-resolve', checked)
+                          })
+                        }}
+                      />
                     )}
                     {isRuleSupportsSrc(newRule.type) && (
-                      <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
-                        <Switch
-                          checked={newRule.additionalParams?.includes('src') || false}
-                          onCheckedChange={(checked) => {
-                            let params = [...(newRule.additionalParams || [])]
-                            if (checked) {
-                              if (!params.includes('src')) params.push('src')
-                            } else {
-                              params = params.filter((p) => p !== 'src')
-                            }
-                            setNewRule({ ...newRule, additionalParams: params })
-                          }}
-                        />
-                        <span>src</span>
-                      </label>
+                      <RuleParamSwitch
+                        param="src"
+                        checked={newRule.additionalParams?.includes('src') || false}
+                        onCheckedChange={(checked) => {
+                          setNewRule({
+                            ...newRule,
+                            additionalParams: toggleRuleParam(newRule.additionalParams, 'src', checked)
+                          })
+                        }}
+                      />
                     )}
                   </div>
                 )}
