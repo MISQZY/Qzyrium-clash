@@ -5,6 +5,38 @@ import { resolveEffectiveRules } from '@shared/rules'
 import { parseProfileConfig } from '@shared/profile-config'
 import { resolveEffectiveCore, CORE_PORT_KEYS } from '@shared/effective-core'
 
+export function createMirrorUrlRewriter(mirror: string): (url: string) => string {
+  const normalizedMirror = (mirror.trim() || 'https://ghfast.top').replace(/\/+$/, '')
+  return (url: string): string => {
+    const trimmed = url.trim()
+    if (/^https?:\/\/(?:raw\.githubusercontent\.com|github\.com)\//i.test(trimmed)) {
+      return `${normalizedMirror}/${trimmed}`
+    }
+    return trimmed
+  }
+}
+
+function rewriteProviderUrls(providers: unknown, rewriter: (url: string) => string): void {
+  if (providers && typeof providers === 'object' && !Array.isArray(providers)) {
+    for (const item of Object.values(providers as Record<string, unknown>)) {
+      if (item && typeof item === 'object' && 'url' in item && typeof item.url === 'string') {
+        item.url = rewriter(item.url)
+      }
+    }
+  }
+}
+
+function rewriteRecordUrls(record: unknown, rewriter: (url: string) => string): void {
+  if (record && typeof record === 'object' && !Array.isArray(record)) {
+    const target = record as Record<string, unknown>
+    for (const [key, val] of Object.entries(target)) {
+      if (typeof val === 'string') {
+        target[key] = rewriter(val)
+      }
+    }
+  }
+}
+
 export class MihomoConfigFactory {
   static createDefaultConfig(appConfig: AppConfig): Record<string, unknown> {
     return {
@@ -164,42 +196,21 @@ export class MihomoConfigFactory {
       parsed.rules = resolveEffectiveRules(parsed.rules, customRules, ruleIds)
     }
 
-    // Configure default or mirrored geox-url when geo-auto-update is enabled
-    if (parsed['geo-auto-update']) {
-      const mirror = (appConfig.kernel.coreDownloadMirror?.trim() || 'https://ghfast.top').replace(/\/+$/, '')
-      const prefix = appConfig.kernel.mirrorRuleProviders ? `${mirror}/` : ''
-      if (!parsed['geox-url'] || typeof parsed['geox-url'] !== 'object') {
-        parsed['geox-url'] = {
-          geoip: `${prefix}https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat`,
-          geosite: `${prefix}https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat`,
-          mmdb: `${prefix}https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/country.mmdb`
-        }
+    // Configure default geox-url when geo-auto-update is enabled
+    if (parsed['geo-auto-update'] && (!parsed['geox-url'] || typeof parsed['geox-url'] !== 'object')) {
+      parsed['geox-url'] = {
+        geoip: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat',
+        geosite: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat',
+        mmdb: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/country.mmdb'
       }
     }
 
     // Optional mirror rewriting for external rule-providers & proxy-providers in restricted networks
     if (appConfig.kernel.mirrorRuleProviders) {
-      const mirror = (appConfig.kernel.coreDownloadMirror?.trim() || 'https://ghfast.top').replace(/\/+$/, '')
-      for (const providerKey of ['rule-providers', 'proxy-providers'] as const) {
-        const providers = parsed[providerKey]
-        if (providers && typeof providers === 'object' && !Array.isArray(providers)) {
-          for (const item of Object.values(providers as Record<string, unknown>)) {
-            if (item && typeof item === 'object' && 'url' in item && typeof item.url === 'string') {
-              const url = item.url.trim()
-              if (/^https?:\/\/(?:raw\.githubusercontent\.com|github\.com)\//i.test(url)) {
-                item.url = `${mirror}/${url}`
-              }
-            }
-          }
-        }
-      }
-      if (parsed['geox-url'] && typeof parsed['geox-url'] === 'object' && !Array.isArray(parsed['geox-url'])) {
-        for (const [key, val] of Object.entries(parsed['geox-url'] as Record<string, unknown>)) {
-          if (typeof val === 'string' && /^https?:\/\/(?:raw\.githubusercontent\.com|github\.com)\//i.test(val.trim())) {
-            (parsed['geox-url'] as Record<string, unknown>)[key] = `${mirror}/${val.trim()}`
-          }
-        }
-      }
+      const rewriteUrl = createMirrorUrlRewriter(appConfig.kernel.coreDownloadMirror ?? '')
+      rewriteProviderUrls(parsed['rule-providers'], rewriteUrl)
+      rewriteProviderUrls(parsed['proxy-providers'], rewriteUrl)
+      rewriteRecordUrls(parsed['geox-url'], rewriteUrl)
     }
 
     const comments = (customRules ?? []).filter((rule) => !rule.isDeleted && rule.sourceRule === undefined &&
