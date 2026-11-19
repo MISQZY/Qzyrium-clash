@@ -1,7 +1,7 @@
 import { Globe } from 'lucide-react'
 import type { ConnectionItem } from '@shared/mihomo'
 import { CopyableCodeLine } from '../CopyableCodeLine'
-import { getSubDomains, createCidrRuleOption } from '../../lib/connections'
+import { getSubDomains, createCidrRuleOption, createRuleOption } from '../../lib/connections'
 import { useTranslations } from '../../i18n'
 import { ConnectionSection } from './ConnectionSection'
 
@@ -21,11 +21,8 @@ export function ConnectionDestinationSection({ metadata }: ConnectionDestination
               label={t('host')}
               value={metadata.host}
               clashRuleOptions={[
-                { label: 'DOMAIN', value: `DOMAIN,${metadata.host}` },
-                ...getSubDomains(metadata.host).map((sub) => ({
-                  label: 'DOMAIN-SUFFIX',
-                  value: `DOMAIN-SUFFIX,${sub}`
-                }))
+                createRuleOption('DOMAIN', metadata.host),
+                ...getSubDomains(metadata.host).map((sub) => createRuleOption('DOMAIN-SUFFIX', sub))
               ]}
             />
           </div>
@@ -37,8 +34,8 @@ export function ConnectionDestinationSection({ metadata }: ConnectionDestination
               label={t('sniffHost')}
               value={metadata.sniffHost}
               clashRuleOptions={[
-                { label: 'DOMAIN', value: `DOMAIN,${metadata.sniffHost}` },
-                { label: 'DOMAIN-SUFFIX', value: `DOMAIN-SUFFIX,${metadata.sniffHost}` }
+                createRuleOption('DOMAIN', metadata.sniffHost),
+                createRuleOption('DOMAIN-SUFFIX', metadata.sniffHost)
               ]}
             />
           </div>
@@ -58,9 +55,7 @@ export function ConnectionDestinationSection({ metadata }: ConnectionDestination
         <CopyableCodeLine
           label={t('destinationPort')}
           value={metadata.destinationPort}
-          clashRuleOptions={[
-            { label: 'DST-PORT', value: `DST-PORT,${metadata.destinationPort}` }
-          ]}
+          clashRuleOptions={[createRuleOption('DST-PORT', metadata.destinationPort)]}
         />
 
         {metadata.remoteDestination && (
@@ -76,10 +71,7 @@ export function ConnectionDestinationSection({ metadata }: ConnectionDestination
             label="ASN"
             value={metadata.destinationIPASN}
             clashRuleOptions={[
-              {
-                label: 'IP-ASN',
-                value: `IP-ASN,${metadata.destinationIPASN.split(' ')[0]}`
-              }
+              createRuleOption('IP-ASN', metadata.destinationIPASN.split(' ')[0])
             ]}
           />
         )}
@@ -88,10 +80,7 @@ export function ConnectionDestinationSection({ metadata }: ConnectionDestination
           <CopyableCodeLine
             label="GeoIP"
             value={metadata.destinationGeoIP.join(', ')}
-            clashRuleOptions={metadata.destinationGeoIP.map((code) => ({
-              label: 'GEOIP',
-              value: `GEOIP,${code}`
-            }))}
+            clashRuleOptions={metadata.destinationGeoIP.map((code) => createRuleOption('GEOIP', code))}
           />
         )}
       </div>

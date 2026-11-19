@@ -26,6 +26,10 @@ export interface RuleOption {
   value: string
 }
 
+export function createRuleOption(type: string, value: string): RuleOption {
+  return { label: type, value: `${type},${value}` }
+}
+
 export function createCidrRuleOption(type: 'IP-CIDR' | 'SRC-IP-CIDR', ip: string): RuleOption {
   const mask = isIPv6(ip) ? '/128' : '/32'
   return { label: type, value: `${type},${ip}${mask}` }

@@ -1,7 +1,7 @@
 import { Activity } from 'lucide-react'
 import type { ConnectionItem } from '@shared/mihomo'
 import { CopyableCodeLine } from '../CopyableCodeLine'
-import { createCidrRuleOption } from '../../lib/connections'
+import { createCidrRuleOption, createRuleOption } from '../../lib/connections'
 import { useTranslations } from '../../i18n'
 import { ConnectionSection } from './ConnectionSection'
 
@@ -29,9 +29,7 @@ export function ConnectionSourceSection({ metadata }: ConnectionSourceSectionPro
         <CopyableCodeLine
           label={t('sourcePort')}
           value={metadata.sourcePort}
-          clashRuleOptions={[
-            { label: 'SRC-PORT', value: `SRC-PORT,${metadata.sourcePort}` }
-          ]}
+          clashRuleOptions={[createRuleOption('SRC-PORT', metadata.sourcePort)]}
         />
 
         {metadata.inboundIP && (
@@ -46,9 +44,7 @@ export function ConnectionSourceSection({ metadata }: ConnectionSourceSectionPro
           <CopyableCodeLine
             label={t('inboundPort')}
             value={metadata.inboundPort}
-            clashRuleOptions={[
-              { label: 'SRC-PORT', value: `SRC-PORT,${metadata.inboundPort}` }
-            ]}
+            clashRuleOptions={[createRuleOption('SRC-PORT', metadata.inboundPort)]}
           />
         )}
 
@@ -56,9 +52,7 @@ export function ConnectionSourceSection({ metadata }: ConnectionSourceSectionPro
           <CopyableCodeLine
             label={t('inboundName')}
             value={metadata.inboundName}
-            clashRuleOptions={[
-              { label: 'IN-NAME', value: `IN-NAME,${metadata.inboundName}` }
-            ]}
+            clashRuleOptions={[createRuleOption('IN-NAME', metadata.inboundName)]}
           />
         )}
 
@@ -66,9 +60,7 @@ export function ConnectionSourceSection({ metadata }: ConnectionSourceSectionPro
           <CopyableCodeLine
             label={t('inboundUser')}
             value={metadata.inboundUser}
-            clashRuleOptions={[
-              { label: 'IN-USER', value: `IN-USER,${metadata.inboundUser}` }
-            ]}
+            clashRuleOptions={[createRuleOption('IN-USER', metadata.inboundUser)]}
           />
         )}
       </div>
