@@ -1,7 +1,7 @@
 import { Activity } from 'lucide-react'
 import type { ConnectionItem } from '@shared/mihomo'
 import { CopyableCodeLine } from '../CopyableCodeLine'
-import { isIPv6 } from '../../lib/connections'
+import { createCidrRuleOption } from '../../lib/connections'
 import { useTranslations } from '../../i18n'
 import { ConnectionSection } from './ConnectionSection'
 
@@ -23,14 +23,7 @@ export function ConnectionSourceSection({ metadata }: ConnectionSourceSectionPro
         <CopyableCodeLine
           label={t('sourceIP')}
           value={metadata.sourceIP}
-          clashRuleOptions={[
-            {
-              label: 'SRC-IP-CIDR',
-              value: `SRC-IP-CIDR,${metadata.sourceIP}${
-                isIPv6(metadata.sourceIP) ? '/128' : '/32'
-              }`
-            }
-          ]}
+          clashRuleOptions={[createCidrRuleOption('SRC-IP-CIDR', metadata.sourceIP)]}
         />
 
         <CopyableCodeLine
@@ -45,14 +38,7 @@ export function ConnectionSourceSection({ metadata }: ConnectionSourceSectionPro
           <CopyableCodeLine
             label={t('inboundIP')}
             value={metadata.inboundIP}
-            clashRuleOptions={[
-              {
-                label: 'SRC-IP-CIDR',
-                value: `SRC-IP-CIDR,${metadata.inboundIP}${
-                  isIPv6(metadata.inboundIP) ? '/128' : '/32'
-                }`
-              }
-            ]}
+            clashRuleOptions={[createCidrRuleOption('SRC-IP-CIDR', metadata.inboundIP)]}
           />
         )}
 

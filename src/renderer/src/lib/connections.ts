@@ -21,6 +21,16 @@ export function isIPv6(ip: string): boolean {
   return ip.includes(':')
 }
 
+export interface RuleOption {
+  label: string
+  value: string
+}
+
+export function createCidrRuleOption(type: 'IP-CIDR' | 'SRC-IP-CIDR', ip: string): RuleOption {
+  const mask = isIPv6(ip) ? '/128' : '/32'
+  return { label: type, value: `${type},${ip}${mask}` }
+}
+
 export function getProcessDisplayName(processPath?: string, process?: string, fallback = 'System'): string {
   return extractProcessName(processPath) || process || fallback
 }

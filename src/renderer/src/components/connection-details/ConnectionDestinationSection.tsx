@@ -1,7 +1,7 @@
 import { Globe } from 'lucide-react'
 import type { ConnectionItem } from '@shared/mihomo'
 import { CopyableCodeLine } from '../CopyableCodeLine'
-import { getSubDomains, isIPv6 } from '../../lib/connections'
+import { getSubDomains, createCidrRuleOption } from '../../lib/connections'
 import { useTranslations } from '../../i18n'
 import { ConnectionSection } from './ConnectionSection'
 
@@ -52,14 +52,7 @@ export function ConnectionDestinationSection({ metadata }: ConnectionDestination
         <CopyableCodeLine
           label={t('destinationIP')}
           value={metadata.destinationIP}
-          clashRuleOptions={[
-            {
-              label: 'IP-CIDR',
-              value: `IP-CIDR,${metadata.destinationIP}${
-                isIPv6(metadata.destinationIP) ? '/128' : '/32'
-              }`
-            }
-          ]}
+          clashRuleOptions={[createCidrRuleOption('IP-CIDR', metadata.destinationIP)]}
         />
 
         <CopyableCodeLine
@@ -74,14 +67,7 @@ export function ConnectionDestinationSection({ metadata }: ConnectionDestination
           <CopyableCodeLine
             label={t('remoteDestination')}
             value={metadata.remoteDestination}
-            clashRuleOptions={[
-              {
-                label: 'IP-CIDR',
-                value: `IP-CIDR,${metadata.remoteDestination}${
-                  isIPv6(metadata.remoteDestination) ? '/128' : '/32'
-                }`
-              }
-            ]}
+            clashRuleOptions={[createCidrRuleOption('IP-CIDR', metadata.remoteDestination)]}
           />
         )}
 
