@@ -6,6 +6,7 @@ import type { ProfileItem } from '@shared/profile'
 import type { CustomThemePack } from '@shared/theme'
 import { IPC_CHANNELS } from '@shared/ipc'
 import { normalizeSettings } from '@shared/settings-config'
+import { isSafeIdentifier } from '@shared/identifiers'
 import { validateIpcArguments } from '../ipc/argument-validation'
 import { writeFileAtomicAsync } from './atomicWrite'
 
@@ -19,8 +20,7 @@ export interface Backup {
   themes: CustomThemePack[]
 }
 const MAX_BACKUP_BYTES = 100 * 1024 * 1024
-const safeId = (value: unknown): value is string => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(value)
-  && !/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(value)
+const safeId = isSafeIdentifier
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
 const finite = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0
 

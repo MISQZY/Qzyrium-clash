@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from 'node:util'
 import type { ProfileItem } from '@shared/profile'
 import { getAppPaths, type AppPaths } from '../utils/paths'
 import { writeFileAtomicAsync } from '../utils/atomicWrite'
+import { resolveSafeChildPath } from '../utils/safe-path'
 import { logger } from '../utils/logger'
 
 export class ProfileRepository {
@@ -19,8 +20,7 @@ export class ProfileRepository {
   }
 
   private filename(id: string): string {
-    if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(id)) throw new Error(`Invalid profile id format: ${id}`)
-    return path.resolve(this.paths.profilesDir, `${id}.yaml`)
+    return resolveSafeChildPath(this.paths.profilesDir, id, 'yaml')
   }
 
   private parse(raw: string): ProfileItem[] {

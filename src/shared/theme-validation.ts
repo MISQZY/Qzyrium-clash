@@ -1,7 +1,8 @@
 import { BUILTIN_THEMES, type CustomThemePack } from './theme'
+import { isSafeIdentifier } from './identifiers'
 
 export const MAX_THEME_BYTES = 256 * 1024
-const reserved = /^(?:system|dark|light|con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
+const reservedThemeNames = new Set(['system', 'dark', 'light'])
 const plain = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
 const tokens = new Set(Object.keys(BUILTIN_THEMES[0].colors))
 const namedColors = new Set(('transparent aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen').split(' '))
@@ -21,7 +22,7 @@ function validateColor(value: string): void {
 }
 
 export function isCustomThemeId(value: unknown): value is string {
-  return typeof value === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(value) && !reserved.test(value)
+  return isSafeIdentifier(value) && !reservedThemeNames.has(value.toLowerCase())
 }
 
 /** Structural validation is shared by disk, IPC and renderer; Chromium checks CSS semantics on import. */

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import { writeFileAtomic } from '../utils/atomicWrite'
+import { resolveSafeChildPath } from '../utils/safe-path'
 import type { CustomThemePack } from '@shared/theme'
 import { isCustomThemeId, MAX_THEME_BYTES, validateThemePack } from '@shared/theme-validation'
 
@@ -19,12 +20,7 @@ export class ThemeStore {
     if (!isCustomThemeId(id)) {
       throw new Error(`Invalid theme id: ${id}`)
     }
-    const boundary = this.dir.endsWith(sep) ? this.dir : this.dir + sep
-    const filePath = resolve(join(this.dir, `${id}.json`))
-    if (!filePath.startsWith(boundary)) {
-      throw new Error(`Invalid theme id: ${id}`)
-    }
-    return filePath
+    return resolveSafeChildPath(this.dir, id, 'json')
   }
 
   listThemes(): CustomThemePack[] {
