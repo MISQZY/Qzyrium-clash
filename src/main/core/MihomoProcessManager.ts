@@ -14,6 +14,7 @@ import { networkWatchdog } from '../utils/network-watchdog'
 import { classifyKernelFailure, kernelFailureDetails, KernelOperationError } from '../utils/kernel-failure'
 import type { KernelFailure, KernelFailureReason } from '@shared/kernel-failure'
 import { getSystemBinary } from '../utils/system-binaries'
+import { ensureLinuxCoreCapabilities } from '../utils/linux-core-capabilities'
 
 const runFile = promisify(execFile)
 
@@ -149,6 +150,13 @@ export class MihomoProcessManager extends EventEmitter {
       const linux = process.platform === 'linux'
       const paths = getAppPaths()
       const tun = linux ? (yaml.parse(readFileSync(configPath, 'utf8')) as Record<string, unknown>)?.tun : undefined
+      if (linux && tun && (tun as Record<string, unknown>).enable) {
+        try {
+          await ensureLinuxCoreCapabilities(binary)
+        } catch (capErr) {
+          logger.warn(`Failed to ensure Linux TUN capabilities: ${String(capErr)}`)
+        }
+      }
       const command = linux ? process.execPath : binary
       const launchArgs = linux ? [path.join(paths.geoFilesDir, 'linux-core-supervisor.cjs'), binary, JSON.stringify(tun ?? null), ...args] : args
       const spawned = spawn(command, launchArgs, {
