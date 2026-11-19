@@ -20,6 +20,7 @@ import {
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Switch } from './ui/switch'
+import { CompactSwitchRow } from './CompactSwitchRow'
 
 interface ProfileInfoDialogProps {
   open: boolean
@@ -216,28 +217,27 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
                     <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                   </summary>
                   <div className="space-y-4 border-t border-border/60 p-3.5">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="space-y-0.5">
-                        <label htmlFor={`${id}-hwid`} className="cursor-pointer text-xs font-medium">{t('sendHwid')}</label>
-                        <p className="text-[11px] leading-relaxed text-muted-foreground">{t('sendHwidHint')}</p>
-                      </div>
-                      <Switch id={`${id}-hwid`} checked={sendHwid} onCheckedChange={setSendHwid} />
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="space-y-0.5">
-                        <label htmlFor={`${id}-proxy`} className="cursor-pointer text-xs font-medium">{t('updateViaProxy')}</label>
-                        <p id={`${id}-proxy-hint`} className="text-[11px] leading-relaxed text-muted-foreground">{t('updateViaProxyHint')}</p>
-                      </div>
-                      <Switch id={`${id}-proxy`} checked={updateViaProxy} onCheckedChange={setUpdateViaProxy} aria-describedby={`${id}-proxy-hint`} />
-                    </div>
-
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="space-y-0.5">
-                        <label htmlFor={`${id}-protocols-hidden`} className="cursor-pointer text-xs font-medium">{t('protocolsHidden')}</label>
-                        <p id={`${id}-protocols-hidden-hint`} className="text-[11px] leading-relaxed text-muted-foreground">{t('protocolsHiddenHint')}</p>
-                      </div>
-                      <Switch id={`${id}-protocols-hidden`} checked={protocolsHidden} onCheckedChange={setProtocolsHidden} aria-describedby={`${id}-protocols-hidden-hint`} />
-                    </div>
+                    <CompactSwitchRow
+                      id={`${id}-hwid`}
+                      label={t('sendHwid')}
+                      description={t('sendHwidHint')}
+                      checked={sendHwid}
+                      onCheckedChange={setSendHwid}
+                    />
+                    <CompactSwitchRow
+                      id={`${id}-proxy`}
+                      label={t('updateViaProxy')}
+                      description={t('updateViaProxyHint')}
+                      checked={updateViaProxy}
+                      onCheckedChange={setUpdateViaProxy}
+                    />
+                    <CompactSwitchRow
+                      id={`${id}-protocols-hidden`}
+                      label={t('protocolsHidden')}
+                      description={t('protocolsHiddenHint')}
+                      checked={protocolsHidden}
+                      onCheckedChange={setProtocolsHidden}
+                    />
 
                     <div className="space-y-2">
                       <label htmlFor={`${id}-ua`} className="text-xs font-medium">{t('customUA')}</label>

@@ -6,8 +6,8 @@ import { Button } from '../ui/button'
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog'
 import { Input } from '../ui/input'
-import { Switch } from '../ui/switch'
 import { Textarea } from '../ui/textarea'
+import { CompactSwitchRow } from '../CompactSwitchRow'
 
 import type { ProfileImportDraft } from '../../hooks/useProfileImport'
 
@@ -93,28 +93,24 @@ export function AddProfileDialog({ draft }: { draft: ProfileImportDraft }) {
                   <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="space-y-4 border-t border-border/60 p-3.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <label htmlFor="add-send-hwid" className="text-xs font-medium cursor-pointer">{t('sendHwid')}</label>
-                      <p className="text-[10px] text-muted-foreground">{t('sendHwidHint')}</p>
-                    </div>
-                    <Switch id="add-send-hwid" checked={draft.sendHwid} onCheckedChange={draft.setSendHwid} />
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <label htmlFor="add-update-via-proxy" className="text-xs font-medium cursor-pointer">
-                        {t('updateViaProxy')}
-                      </label>
-                      <p className="text-[10px] text-muted-foreground">
-                        {t('updateViaProxyHint')}
-                      </p>
-                    </div>
-                    <Switch
-                      id="add-update-via-proxy"
-                      checked={updateViaProxy}
-                      onCheckedChange={setUpdateViaProxy}
-                    />
-                  </div>
+                  <CompactSwitchRow
+                    id="add-send-hwid"
+                    label={t('sendHwid')}
+                    description={t('sendHwidHint')}
+                    descriptionClassName="text-[10px]"
+                    className="gap-3"
+                    checked={draft.sendHwid}
+                    onCheckedChange={draft.setSendHwid}
+                  />
+                  <CompactSwitchRow
+                    id="add-update-via-proxy"
+                    label={t('updateViaProxy')}
+                    description={t('updateViaProxyHint')}
+                    descriptionClassName="text-[10px]"
+                    className="gap-3"
+                    checked={updateViaProxy}
+                    onCheckedChange={setUpdateViaProxy}
+                  />
                 </div>
               </details>
             </>
