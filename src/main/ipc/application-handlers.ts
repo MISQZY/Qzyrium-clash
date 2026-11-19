@@ -3,7 +3,8 @@ import { IPC_CHANNELS } from '@shared/ipc'
 import type { ServiceManager } from '../services/ServiceManager'
 import { logger } from '../utils/logger'
 import { isProcessElevated, restartAsAdmin } from '../utils/elevation'
-import { saveRestartState, clearRestartState } from '../utils/restart-state'
+import { saveRestartState } from '../utils/restart-state'
+import { createRestartCoordinator } from '../services/restart-coordinator'
 import { getProcessIconDataUrl, clearProcessIconCache } from '../utils/process-icon'
 import type { TrustedRegistrar } from './trusted-handler'
 
@@ -43,29 +44,14 @@ export function registerApplicationHandlers(
   handle(IPC_CHANNELS.APP_RESTART_AS_ADMIN, async () => {
     const wasRunning = ['running', 'starting'].includes(services.kernelService.getStatus())
     saveRestartState({ running: wasRunning, visible: true, elevated: true })
-    try {
-      await services.sysProxyService.setCoreRunning(false)
-    } catch (err) {
-      logger.warn(`Failed to disable system proxy before admin restart: ${String(err)}`)
-    }
-    try {
-      await services.kernelService.stop()
-    } catch (err) {
-      logger.warn(`Failed to stop kernel before admin restart: ${String(err)}`)
-    }
-    try {
-      await services.desktopService.dispose()
-    } catch (err) {
-      logger.warn(`Failed to dispose desktop service before admin restart: ${String(err)}`)
-    }
+    const coordinator = createRestartCoordinator(services)
+    await coordinator.teardown()
     let restarted = false
-    try { restarted = await restartAsAdmin() }
-    finally {
+    try {
+      restarted = await restartAsAdmin()
+    } finally {
       if (!restarted) {
-        clearRestartState()
-        await services.desktopService.initialize()
-        if (wasRunning) await services.kernelService.start()
-        await services.sysProxyService.setCoreRunning(services.kernelService.getStatus() === 'running')
+        await coordinator.rollback(wasRunning)
       }
     }
     return restarted

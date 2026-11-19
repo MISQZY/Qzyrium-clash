@@ -14,7 +14,8 @@ import type { TrafficStats } from '@shared/types'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
 import { isProcessElevated } from '../utils/elevation'
-import { saveRestartState, readRestartState, clearRestartState } from '../utils/restart-state'
+import { saveRestartState, readRestartState } from '../utils/restart-state'
+import { createRestartCoordinator } from './restart-coordinator'
 
 const defaults = { SettingService, ProfileService, SysProxyService, KernelService, WindowService, TrayService, DesktopService, ThemeStore, UpdateService, NetworkModeController, CoreService }
 export type ServiceConstructors = typeof defaults
@@ -64,15 +65,10 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
     const updateService = new types.UpdateService((channel, payload) => windowService.broadcast(channel, payload), async () => {
       const window = windowService.getMainWindow()
       saveRestartState({ running: ['running', 'starting'].includes(kernelService.getStatus()), visible: !!window?.isVisible() && !window.isMinimized(), elevated: isProcessElevated(), coreOnly: windowService.isCoreOnlyMode() })
-      await desktopService.dispose()
-      await kernelService.stop()
-      await sysProxyService.setCoreRunning(false)
+      await createRestartCoordinator({ sysProxyService, kernelService, desktopService }).teardown()
     }, () => settingService.getSettings().general.autoCheckUpdates !== false, async () => {
       const state = readRestartState()
-      clearRestartState()
-      await desktopService.initialize()
-      if (state?.running) await kernelService.start()
-      await sysProxyService.setCoreRunning(kernelService.getStatus() === 'running')
+      await createRestartCoordinator({ sysProxyService, kernelService, desktopService }).rollback(Boolean(state?.running))
     }, {
       isCoreRunning: () => kernelService.getStatus() === 'running',
       startIdleCore: async () => { await kernelService.startIdleCore() },
