@@ -63,6 +63,7 @@ export interface AppConfig {
     controllerSecret: string
     allowLan: boolean
     coreDownloadMirror?: string
+    mirrorRuleProviders?: boolean
     options?: ConfigValues
     dns?: ConfigValues | null
     sniffer?: ConfigValues | null
@@ -155,6 +156,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     controllerSecret: 'qzyrium_secret_token',
     allowLan: false,
     coreDownloadMirror: '',
+    mirrorRuleProviders: false,
     tun: {
       enable: false,
       stack: 'gvisor',

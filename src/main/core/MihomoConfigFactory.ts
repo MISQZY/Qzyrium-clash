@@ -164,6 +164,24 @@ export class MihomoConfigFactory {
       parsed.rules = resolveEffectiveRules(parsed.rules, customRules, ruleIds)
     }
 
+    // Optional mirror rewriting for external rule-providers & proxy-providers in restricted networks
+    if (appConfig.kernel.mirrorRuleProviders) {
+      const mirror = (appConfig.kernel.coreDownloadMirror?.trim() || 'https://ghfast.top').replace(/\/+$/, '')
+      for (const providerKey of ['rule-providers', 'proxy-providers'] as const) {
+        const providers = parsed[providerKey]
+        if (providers && typeof providers === 'object' && !Array.isArray(providers)) {
+          for (const item of Object.values(providers as Record<string, unknown>)) {
+            if (item && typeof item === 'object' && 'url' in item && typeof item.url === 'string') {
+              const url = item.url.trim()
+              if (/^https?:\/\/(?:raw\.githubusercontent\.com|github\.com)\//i.test(url)) {
+                item.url = `${mirror}/${url}`
+              }
+            }
+          }
+        }
+      }
+    }
+
     const comments = (customRules ?? []).filter((rule) => !rule.isDeleted && rule.sourceRule === undefined &&
       (rule.enabled === false || rule.validationError)).map((rule) => {
       const fields = rule.type.toUpperCase() === 'MATCH'

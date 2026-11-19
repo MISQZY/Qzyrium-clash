@@ -266,5 +266,7 @@
   "tunIpv6RoutingDescription": "Направлять трафик IPv6 в виртуальный интерфейс. Отключите, если прокси-узлы поддерживают только IPv4, чтобы избежать таймаутов.",
   "coreDownloadMirror": "Источник загрузки ядра",
   "coreDownloadMirrorDescription": "Зеркало для загрузки ядра Mihomo при блокировке или замедлении GitHub.",
-  "coreMirrorDirect": "Напрямую с GitHub (Официальный)"
+  "coreMirrorDirect": "Напрямую с GitHub (Официальный)",
+  "mirrorRuleProviders": "Зеркалирование внешних правил",
+  "mirrorRuleProvidersDescription": "Загружать списки правил rule-providers с GitHub через зеркало при блокировках."
 }

@@ -110,6 +110,13 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
               ))}
             </NativeSelect>
           </SettingRow>
+          <SettingRow title={t('mirrorRuleProviders')} description={t('mirrorRuleProvidersDescription')}>
+            <Switch
+              aria-label={t('mirrorRuleProviders')}
+              checked={form.kernel.mirrorRuleProviders ?? false}
+              onCheckedChange={mirrorRuleProviders => updateKernel({ mirrorRuleProviders })}
+            />
+          </SettingRow>
           <SettingRow title={t('mixedPortSource')}>
             <NativeSelect aria-label={t('mixedPortSource')} value={form.kernel.inheritMixedPort ? 'profile' : 'override'}
               onChange={event => updateKernel({ inheritMixedPort: event.target.value === 'profile' })}>

@@ -266,5 +266,7 @@
   "tunIpv6RoutingDescription": "Route IPv6 packets through the virtual interface. Disable if proxy nodes only support IPv4 to avoid timeouts.",
   "coreDownloadMirror": "Core download source",
   "coreDownloadMirrorDescription": "Mirror used when downloading Mihomo binaries if GitHub is blocked or throttled.",
-  "coreMirrorDirect": "Direct GitHub (Official)"
+  "coreMirrorDirect": "Direct GitHub (Official)",
+  "mirrorRuleProviders": "Mirror external rule providers",
+  "mirrorRuleProvidersDescription": "Route rule-provider downloads hosted on GitHub through a mirror in restricted networks."
 }
