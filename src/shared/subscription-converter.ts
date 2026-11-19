@@ -33,6 +33,58 @@ function isValidPort(port: number): boolean {
   return Number.isInteger(port) && port >= 1 && port <= 65535
 }
 
+export interface StandardUriContext {
+  url: URL
+  server: string
+  port: number
+  name: string
+  params: URLSearchParams
+}
+
+export function parseStandardUriContext(uri: string, defaultPort = 443): StandardUriContext | null {
+  try {
+    const url = new URL(uri)
+    const server = cleanServerHost(url.hostname)
+    const port = Number(url.port || defaultPort)
+    if (!server || !isValidPort(port)) return null
+    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `${server}:${port}`
+    return { url, server, port, name, params: url.searchParams }
+  } catch {
+    return null
+  }
+}
+
+export function createTransportOptions(network: string, params: URLSearchParams): Record<string, unknown> {
+  const path = params.get('path') || '/'
+  const host = params.get('host')
+  const serviceName = params.get('serviceName')
+
+  const opts: Record<string, unknown> = {}
+  if (network === 'ws') {
+    opts['ws-opts'] = {
+      path,
+      ...(host ? { headers: { Host: host } } : {})
+    }
+  } else if (network === 'grpc') {
+    opts['grpc-opts'] = {
+      'grpc-service-name': serviceName ?? params.get('path') ?? ''
+    }
+  } else if (network === 'httpupgrade') {
+    opts['httpupgrade-opts'] = {
+      path,
+      ...(host ? { headers: { Host: host } } : {})
+    }
+  } else if (network === 'xhttp' || network === 'splithttp') {
+    const xhttpMode = params.get('mode') || params.get('xhttp-mode')
+    opts['xhttp-opts'] = {
+      path,
+      ...(host ? { headers: { Host: host } } : {}),
+      ...(xhttpMode ? { mode: xhttpMode } : {})
+    }
+  }
+  return opts
+}
+
 export function decodeBase64Safe(input: string): string | null {
   const cleaned = input.trim().replace(/\s+/g, '')
   if (cleaned.length < 2 || cleaned.replace(/=+$/, '').length % 4 === 1) return null
@@ -219,14 +271,11 @@ export function parseVmessUri(uri: string): ProxyNodeConfig | null {
 
 export function parseVlessUri(uri: string): ProxyNodeConfig | null {
   try {
-    const url = new URL(uri)
-    const server = cleanServerHost(url.hostname)
-    const port = Number(url.port || 443)
-    const uuid = url.username
-    if (!server || !isValidPort(port) || !uuid) return null
+    const ctx = parseStandardUriContext(uri, 443)
+    if (!ctx || !ctx.url.username) return null
+    const { server, port, name, params } = ctx
+    const uuid = ctx.url.username
 
-    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `${server}:${port}`
-    const params = url.searchParams
     const security = params.get('security')?.toLowerCase() || 'none'
     const pbk = params.get('pbk')
     if (security === 'reality' && !pbk) return null
@@ -235,9 +284,6 @@ export function parseVlessUri(uri: string): ProxyNodeConfig | null {
     const sni = params.get('sni') || params.get('host')
     const fp = params.get('fp')
     const sid = params.get('sid')
-    const path = params.get('path') || '/'
-    const host = params.get('host')
-    const serviceName = params.get('serviceName')
 
     const node: ProxyNodeConfig = {
       name,
@@ -246,7 +292,8 @@ export function parseVlessUri(uri: string): ProxyNodeConfig | null {
       port,
       uuid,
       udp: true,
-      network
+      network,
+      ...createTransportOptions(network, params)
     }
 
     if (flow) node.flow = flow
@@ -260,29 +307,6 @@ export function parseVlessUri(uri: string): ProxyNodeConfig | null {
           'public-key': pbk,
           ...(sid ? { 'short-id': sid } : {})
         }
-      }
-    }
-
-    if (network === 'ws') {
-      node['ws-opts'] = {
-        path,
-        ...(host ? { headers: { Host: host } } : {})
-      }
-    } else if (network === 'grpc') {
-      node['grpc-opts'] = {
-        'grpc-service-name': serviceName ?? params.get('path') ?? ''
-      }
-    } else if (network === 'httpupgrade') {
-      node['httpupgrade-opts'] = {
-        path,
-        ...(host ? { headers: { Host: host } } : {})
-      }
-    } else if (network === 'xhttp' || network === 'splithttp') {
-      const xhttpMode = params.get('mode') || params.get('xhttp-mode')
-      node['xhttp-opts'] = {
-        path,
-        ...(host ? { headers: { Host: host } } : {}),
-        ...(xhttpMode ? { mode: xhttpMode } : {})
       }
     }
 
@@ -419,21 +443,16 @@ export function parseSnellUri(uri: string): ProxyNodeConfig | null {
 
 export function parseTrojanUri(uri: string): ProxyNodeConfig | null {
   try {
-    const url = new URL(uri)
-    const server = cleanServerHost(url.hostname)
-    const port = Number(url.port || 443)
-    const password = safeDecodeURIComponent(url.username)
-    if (!server || !isValidPort(port) || !password) return null
+    const ctx = parseStandardUriContext(uri, 443)
+    if (!ctx || !ctx.url.username) return null
+    const { server, port, name, params } = ctx
+    const password = safeDecodeURIComponent(ctx.url.username)
+    if (!password) return null
 
-    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `${server}:${port}`
-    const params = url.searchParams
     const sni = params.get('sni') || params.get('peer')
     const alpn = params.get('alpn')
     const network = params.get('type')?.toLowerCase() || 'tcp'
     const fp = params.get('fp')
-    const path = params.get('path') || '/'
-    const host = params.get('host')
-    const serviceName = params.get('serviceName')
 
     const node: ProxyNodeConfig = {
       name,
@@ -442,35 +461,13 @@ export function parseTrojanUri(uri: string): ProxyNodeConfig | null {
       port,
       password,
       udp: true,
-      network
+      network,
+      ...createTransportOptions(network, params)
     }
 
     if (sni) node.sni = sni
     if (alpn) node.alpn = alpn.split(',').map((s) => s.trim())
     if (fp) node['client-fingerprint'] = fp
-
-    if (network === 'ws') {
-      node['ws-opts'] = {
-        path,
-        ...(host ? { headers: { Host: host } } : {})
-      }
-    } else if (network === 'grpc') {
-      node['grpc-opts'] = {
-        'grpc-service-name': serviceName ?? params.get('path') ?? ''
-      }
-    } else if (network === 'httpupgrade') {
-      node['httpupgrade-opts'] = {
-        path,
-        ...(host ? { headers: { Host: host } } : {})
-      }
-    } else if (network === 'xhttp' || network === 'splithttp') {
-      const xhttpMode = params.get('mode') || params.get('xhttp-mode')
-      node['xhttp-opts'] = {
-        path,
-        ...(host ? { headers: { Host: host } } : {}),
-        ...(xhttpMode ? { mode: xhttpMode } : {})
-      }
-    }
 
     return node
   } catch {
@@ -530,15 +527,12 @@ export function parseHysteria2Uri(uri: string): ProxyNodeConfig | null {
 
 export function parseTuicUri(uri: string): ProxyNodeConfig | null {
   try {
-    const url = new URL(uri)
-    const server = cleanServerHost(url.hostname)
-    const port = Number(url.port || 443)
-    const uuid = url.username
-    const password = url.password ? safeDecodeURIComponent(url.password) : undefined
-    if (!server || !isValidPort(port) || !uuid) return null
+    const ctx = parseStandardUriContext(uri, 443)
+    if (!ctx || !ctx.url.username) return null
+    const { server, port, name, params } = ctx
+    const uuid = ctx.url.username
+    const password = ctx.url.password ? safeDecodeURIComponent(ctx.url.password) : undefined
 
-    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `${server}:${port}`
-    const params = url.searchParams
     const sni = params.get('sni')
     const congestion = params.get('congestion_control')
     const alpn = params.get('alpn')
@@ -640,21 +634,31 @@ export function parseShadowsocksRUri(uri: string): ProxyNodeConfig | null {
   }
 }
 
+type UriParser = (uri: string) => ProxyNodeConfig | null
+
+const URI_PARSER_REGISTRY: ReadonlyArray<{ pattern: RegExp; parse: UriParser }> = [
+  { pattern: /^ssr:\/\//i, parse: parseShadowsocksRUri },
+  { pattern: /^ss:\/\//i, parse: parseShadowsocksUri },
+  { pattern: /^vmess:\/\//i, parse: parseVmessUri },
+  { pattern: /^vless:\/\//i, parse: parseVlessUri },
+  { pattern: /^trojan:\/\//i, parse: parseTrojanUri },
+  { pattern: /^(?:hysteria2|hy2):\/\//i, parse: parseHysteria2Uri },
+  { pattern: /^hysteria:\/\//i, parse: parseHysteriaUri },
+  { pattern: /^wireguard:\/\//i, parse: parseWireGuardUri },
+  { pattern: /^snell:\/\//i, parse: parseSnellUri },
+  { pattern: /^tuic:\/\//i, parse: parseTuicUri },
+  { pattern: /^(?:socks5|socks|http):\/\//i, parse: parseSocksHttpUri }
+]
+
 export function parseProxyUri(rawLine: string): ProxyNodeConfig | null {
   const line = rawLine.trim()
   if (!line || line.startsWith('#')) return null
 
-  if (/^ssr:\/\//i.test(line)) return parseShadowsocksRUri(line)
-  if (/^ss:\/\//i.test(line)) return parseShadowsocksUri(line)
-  if (/^vmess:\/\//i.test(line)) return parseVmessUri(line)
-  if (/^vless:\/\//i.test(line)) return parseVlessUri(line)
-  if (/^trojan:\/\//i.test(line)) return parseTrojanUri(line)
-  if (/^(?:hysteria2|hy2):\/\//i.test(line)) return parseHysteria2Uri(line)
-  if (/^hysteria:\/\//i.test(line)) return parseHysteriaUri(line)
-  if (/^wireguard:\/\//i.test(line)) return parseWireGuardUri(line)
-  if (/^snell:\/\//i.test(line)) return parseSnellUri(line)
-  if (/^tuic:\/\//i.test(line)) return parseTuicUri(line)
-  if (/^(?:socks5|socks|http):\/\//i.test(line)) return parseSocksHttpUri(line)
+  for (const entry of URI_PARSER_REGISTRY) {
+    if (entry.pattern.test(line)) {
+      return entry.parse(line)
+    }
+  }
 
   return null
 }
