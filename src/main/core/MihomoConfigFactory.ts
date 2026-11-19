@@ -129,16 +129,21 @@ export class MihomoConfigFactory {
           'default-nameserver': [
             '1.1.1.1',
             '8.8.8.8',
+            '77.88.8.8',
             '9.9.9.9'
           ],
           nameserver: [
             'https://cloudflare-dns.com/dns-query',
             'https://dns.google/dns-query',
-            'https://dns.quad9.net/dns-query'
+            'https://dns.quad9.net/dns-query',
+            '77.88.8.8'
           ],
           'proxy-server-nameserver': [
             'https://cloudflare-dns.com/dns-query',
-            'https://dns.google/dns-query'
+            'https://dns.google/dns-query',
+            '77.88.8.8',
+            '1.1.1.1',
+            '8.8.8.8'
           ],
           ...currentDns,
           enable: true
