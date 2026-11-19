@@ -305,7 +305,28 @@ const configFromBase64 = parseProfileConfig(base64Sub)
 assert.ok(Array.isArray(configFromBase64.proxies))
 assert.equal(configFromBase64.proxies.length, 3)
 
-// 13. Invalid content still throws expected error
+// 13. VLESS XHTTP & HTTPUpgrade transports
+const vlessXhttp = parseVlessUri('vless://uuid@vless.example.com:443?type=xhttp&path=/xhttp-path&host=custom.host&mode=packet-up#VLESS-XHTTP')
+assert.ok(vlessXhttp)
+assert.equal(vlessXhttp.network, 'xhttp')
+assert.deepEqual(vlessXhttp['xhttp-opts'], { path: '/xhttp-path', headers: { Host: 'custom.host' }, mode: 'packet-up' })
+
+const vlessHttpUpgrade = parseVlessUri('vless://uuid@vless.example.com:443?type=httpupgrade&path=/up-path&host=up.host#VLESS-Upgrade')
+assert.ok(vlessHttpUpgrade)
+assert.equal(vlessHttpUpgrade.network, 'httpupgrade')
+assert.deepEqual(vlessHttpUpgrade['httpupgrade-opts'], { path: '/up-path', headers: { Host: 'up.host' } })
+
+// 14. Hysteria 2 port ranges & hopping
+const hy2PortRange = parseHysteria2Uri('hy2://pass@hy2.example.com:20000-30000#Hy2-Range')
+assert.ok(hy2PortRange)
+assert.equal(hy2PortRange.server, 'hy2.example.com')
+assert.equal(hy2PortRange.ports, '20000-30000')
+
+const hy2Mport = parseHysteria2Uri('hy2://pass@hy2.example.com:443?mport=10000,10001,20000-25000#Hy2-Mport')
+assert.ok(hy2Mport)
+assert.equal(hy2Mport.ports, '10000,10001,20000-25000')
+
+// 15. Invalid content still throws expected error
 assert.throws(() => parseProfileConfig('this is not a valid proxy config or base64'), /Profile must contain a non-empty Clash\/Mihomo YAML object/)
 
 console.log('PASS: subscription converter correctly parses SS, VMess, VLESS, Trojan, Hysteria2, TUIC, Base64 subscriptions and converts to Clash YAML')

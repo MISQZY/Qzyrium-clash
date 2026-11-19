@@ -272,6 +272,18 @@ export function parseVlessUri(uri: string): ProxyNodeConfig | null {
       node['grpc-opts'] = {
         'grpc-service-name': serviceName ?? params.get('path') ?? ''
       }
+    } else if (network === 'httpupgrade') {
+      node['httpupgrade-opts'] = {
+        path,
+        ...(host ? { headers: { Host: host } } : {})
+      }
+    } else if (network === 'xhttp' || network === 'splithttp') {
+      const xhttpMode = params.get('mode') || params.get('xhttp-mode')
+      node['xhttp-opts'] = {
+        path,
+        ...(host ? { headers: { Host: host } } : {}),
+        ...(xhttpMode ? { mode: xhttpMode } : {})
+      }
     }
 
     const packetEncoding = params.get('packetEncoding') || params.get('packet-encoding')
@@ -318,7 +330,8 @@ export function parseWireGuardUri(uri: string): ProxyNodeConfig | null {
     if (mtu && !isNaN(mtu)) node.mtu = mtu
     if (reserved) {
       try {
-        node.reserved = reserved.split(',').map(Number)
+        const parts = reserved.split(',').map((v) => parseInt(v.trim(), 10)).filter((n) => Number.isInteger(n) && n >= 0 && n <= 255)
+        if (parts.length > 0) node.reserved = parts
       } catch {}
     }
 
@@ -445,6 +458,18 @@ export function parseTrojanUri(uri: string): ProxyNodeConfig | null {
       node['grpc-opts'] = {
         'grpc-service-name': serviceName ?? params.get('path') ?? ''
       }
+    } else if (network === 'httpupgrade') {
+      node['httpupgrade-opts'] = {
+        path,
+        ...(host ? { headers: { Host: host } } : {})
+      }
+    } else if (network === 'xhttp' || network === 'splithttp') {
+      const xhttpMode = params.get('mode') || params.get('xhttp-mode')
+      node['xhttp-opts'] = {
+        path,
+        ...(host ? { headers: { Host: host } } : {}),
+        ...(xhttpMode ? { mode: xhttpMode } : {})
+      }
     }
 
     return node
@@ -455,7 +480,17 @@ export function parseTrojanUri(uri: string): ProxyNodeConfig | null {
 
 export function parseHysteria2Uri(uri: string): ProxyNodeConfig | null {
   try {
-    const url = new URL(uri.replace(/^hy2:\/\//i, 'hysteria2://'))
+    let cleanUri = uri.replace(/^hy2:\/\//i, 'hysteria2://')
+    let ports: string | undefined
+    // Support port ranges or port hopping list in URI authority, e.g. host:20000-30000 or host:20000,20001
+    // WHATWG URL constructor rejects non-integer ports.
+    const portRangeMatch = /^(hysteria2:\/\/[^/?#]*?):(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)(?=[/?#]|$)/i.exec(cleanUri)
+    if (portRangeMatch && (portRangeMatch[2].includes('-') || portRangeMatch[2].includes(','))) {
+      ports = portRangeMatch[2]
+      const firstPort = parseInt(ports.split(/[,-]/)[0], 10) || 443
+      cleanUri = `${portRangeMatch[1]}:${firstPort}${cleanUri.slice(portRangeMatch[0].length)}`
+    }
+    const url = new URL(cleanUri)
     const server = cleanServerHost(url.hostname)
     const port = Number(url.port || 443)
     const password = safeDecodeURIComponent(url.password ? `${url.username}:${url.password}` : url.username)
@@ -467,6 +502,8 @@ export function parseHysteria2Uri(uri: string): ProxyNodeConfig | null {
     const obfs = params.get('obfs')
     const obfsPassword = params.get('obfs-password')
     const insecure = params.get('insecure') === '1'
+    const mport = params.get('mport') || params.get('ports')
+    if (mport) ports = mport
 
     const node: ProxyNodeConfig = {
       name,
@@ -477,6 +514,7 @@ export function parseHysteria2Uri(uri: string): ProxyNodeConfig | null {
       udp: true
     }
 
+    if (ports) node.ports = ports
     if (sni) node.sni = sni
     if (obfs) {
       node.obfs = obfs
