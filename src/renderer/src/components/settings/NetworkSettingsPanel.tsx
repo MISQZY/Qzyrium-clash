@@ -13,6 +13,7 @@ import { Card, CardContent } from '../ui/card'
 import { Input } from '../ui/input'
 import { Textarea } from '../ui/textarea'
 import { Switch } from '../ui/switch'
+import { SettingSwitchRow } from '../SettingSwitchRow'
 import { SettingsFields } from '../SettingsFields'
 import { coreFields, tunFields } from '@shared/settings-fields'
 import type { SettingsDraft } from '../../hooks/useSettingsDraft'
@@ -89,10 +90,10 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
             />
           </SettingRow>
           <SettingRow title={t('networkStack')} description={t('chooseHowTheVirtualInterfaceHandlesPackets')}><NativeSelect aria-label={t('networkStack')} value={form.kernel.tun.stack} onChange={(event) => updateTun({ stack: event.target.value as AppConfig['kernel']['tun']['stack'] })}><option value="system">{t('system')}</option><option value="gvisor">gVisor</option><option value="mixed">{t('mixed')}</option></NativeSelect></SettingRow>
-          <SettingRow title={t('automaticRouting')} description={t('createRoutesForTheVirtualInterface')}><Switch aria-label={t('automaticRouting')} checked={form.kernel.tun.autoRoute} onCheckedChange={(autoRoute) => updateTun({ autoRoute })} /></SettingRow>
-          <SettingRow title={t('strictRouting')} description={t('restrictTrafficThatCouldBypassTheVirtualInterface')}><Switch aria-label={t('strictRouting')} checked={form.kernel.tun.strictRoute} onCheckedChange={(strictRoute) => updateTun({ strictRoute })} /></SettingRow>
-          <SettingRow title={t('tunIpv6Routing')} description={t('tunIpv6RoutingDescription')}><Switch aria-label={t('tunIpv6Routing')} checked={form.kernel.tun.ipv6 ?? false} onCheckedChange={(ipv6) => updateTun({ ipv6 })} /></SettingRow>
-          <SettingRow title={t('resilientDnsFallback')} description={t('resilientDnsFallbackDescription')}><Switch aria-label={t('resilientDnsFallback')} checked={form.kernel.tun.resilientDns ?? true} onCheckedChange={(resilientDns) => updateTun({ resilientDns })} /></SettingRow>
+          <SettingSwitchRow title={t('automaticRouting')} description={t('createRoutesForTheVirtualInterface')} checked={form.kernel.tun.autoRoute} onCheckedChange={(autoRoute) => updateTun({ autoRoute })} />
+          <SettingSwitchRow title={t('strictRouting')} description={t('restrictTrafficThatCouldBypassTheVirtualInterface')} checked={form.kernel.tun.strictRoute} onCheckedChange={(strictRoute) => updateTun({ strictRoute })} />
+          <SettingSwitchRow title={t('tunIpv6Routing')} description={t('tunIpv6RoutingDescription')} checked={form.kernel.tun.ipv6 ?? false} onCheckedChange={(ipv6) => updateTun({ ipv6 })} />
+          <SettingSwitchRow title={t('resilientDnsFallback')} description={t('resilientDnsFallbackDescription')} checked={form.kernel.tun.resilientDns ?? true} onCheckedChange={(resilientDns) => updateTun({ resilientDns })} />
           <label className="mt-4 flex flex-col gap-2 text-xs font-medium">{t('dNSHijackDestinations')}<span className="font-normal text-muted-foreground">{t('oneEntryPerLineForExampleAny53')}</span><Textarea value={dnsHijack} onChange={(event) => { setDnsHijack(event.target.value); setDirty(true) }} rows={3} /></label>
           <SettingsDisclosure title={t('advancedTun')}><SettingsFields prefix="tun-options" fields={tunFields} value={form.kernel.tun.options ?? {}} onChange={(options) => updateTun({ options })} /></SettingsDisclosure>
         </>}
@@ -135,23 +136,21 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
               ))}
             </NativeSelect>
           </SettingRow>
-          <SettingRow title={t('mirrorRuleProviders')} description={t('mirrorRuleProvidersDescription')}>
-            <Switch
-              aria-label={t('mirrorRuleProviders')}
-              checked={form.kernel.mirrorRuleProviders ?? false}
-              onCheckedChange={mirrorRuleProviders => updateKernel({ mirrorRuleProviders })}
-            />
-          </SettingRow>
-          <SettingRow title={t('geoAutoUpdate')} description={t('geoAutoUpdateDescription')}>
-            <Switch
-              aria-label={t('geoAutoUpdate')}
-              checked={Boolean(form.kernel.resources?.['geo-auto-update'])}
-              onCheckedChange={geoAutoUpdate => {
-                const resources = { ...(form.kernel.resources ?? {}), 'geo-auto-update': geoAutoUpdate }
-                updateKernel({ resources })
-              }}
-            />
-          </SettingRow>
+          <SettingSwitchRow
+            title={t('mirrorRuleProviders')}
+            description={t('mirrorRuleProvidersDescription')}
+            checked={form.kernel.mirrorRuleProviders ?? false}
+            onCheckedChange={(mirrorRuleProviders) => updateKernel({ mirrorRuleProviders })}
+          />
+          <SettingSwitchRow
+            title={t('geoAutoUpdate')}
+            description={t('geoAutoUpdateDescription')}
+            checked={Boolean(form.kernel.resources?.['geo-auto-update'])}
+            onCheckedChange={(geoAutoUpdate) => {
+              const resources = { ...(form.kernel.resources ?? {}), 'geo-auto-update': geoAutoUpdate }
+              updateKernel({ resources })
+            }}
+          />
           <SettingRow title={t('geoDatabases')} description={t('geoDatabasesDescription')}>
             <div className="flex flex-col items-end gap-1.5">
               <Button
@@ -176,7 +175,12 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
             <label className="flex flex-col gap-2 text-xs font-medium">{t('controllerPort')}<Input type="number" min={1} max={65535} required value={form.kernel.controllerPort || ''} onChange={(event) => updateKernel({ controllerPort: Number(event.target.value) })} /></label>
           </div>
           <label className="mb-4 flex flex-col gap-2 text-xs font-medium">{t('controllerSecret')}<Input type="password" autoComplete="off" value={form.kernel.controllerSecret} onChange={(event) => updateKernel({ controllerSecret: event.target.value })} /></label>
-          <SettingRow title={t('allowLANAccess')} description={t('letOtherDevicesConnectToTheLocalProxy')}><Switch aria-label={t('allowLANAccess')} checked={form.kernel.allowLan} onCheckedChange={(allowLan) => updateKernel({ allowLan })} /></SettingRow>
+          <SettingSwitchRow
+            title={t('allowLANAccess')}
+            description={t('letOtherDevicesConnectToTheLocalProxy')}
+            checked={form.kernel.allowLan}
+            onCheckedChange={(allowLan) => updateKernel({ allowLan })}
+          />
           <SettingRow title={t('logLevelSource')}>
             <NativeSelect aria-label={t('logLevelSource')} value={form.kernel.inheritLogLevel ? 'profile' : 'override'}
               onChange={event => updateKernel({ inheritLogLevel: event.target.value === 'profile' })}>

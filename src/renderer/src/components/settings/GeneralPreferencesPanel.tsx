@@ -7,6 +7,7 @@ import { Download, Upload, Trash2, Palette, Power, Gauge, Keyboard, FileText, Ac
 import type { AppConfig } from '@shared/app-config'
 
 import { SettingRow } from '../Page'
+import { SettingSwitchRow } from '../SettingSwitchRow'
 
 import { Button } from '../ui/button'
 
@@ -199,14 +200,26 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
         </SettingsGroup>
         <SettingsGroup title={t('startupGroup')} description={t('startupDescription')} icon={<Power />}>
           {renderGeneralFields(['autoStart', 'autoStartAsAdmin'])}
-          <SettingRow title={t('startCoreOnLaunch')} description={t('automaticallyStartMihomoWhenQzyriumOpens')} id="general-autoConnect"><Switch id="general-autoConnect" aria-label={t('startCoreOnLaunch')} checked={form.general.autoConnect} onCheckedChange={(autoConnect) => updateGeneral({ autoConnect })} /></SettingRow>
+          <SettingSwitchRow
+            title={t('startCoreOnLaunch')}
+            description={t('automaticallyStartMihomoWhenQzyriumOpens')}
+            id="general-autoConnect"
+            checked={form.general.autoConnect}
+            onCheckedChange={(autoConnect) => updateGeneral({ autoConnect })}
+          />
           <SettingRow title={t('closeAction')} description={t('closeActionDescription')} id="general-closeAction">
             <NativeSelect id="general-closeAction" aria-label={t('closeAction')} value={form.general.closeAction ?? (form.general.minimizeToTray ? 'tray' : 'quit')}
               onChange={event => updateGeneral({ closeAction: event.target.value as AppConfig['general']['closeAction'], minimizeToTray: event.target.value !== 'quit' })}>
               <option value="tray">{t('closeToTray')}</option><option value="quit">{t('closeQuit')}</option><option value="core-only">{t('closeCoreOnly')}</option>
             </NativeSelect>
           </SettingRow>
-          <SettingRow title={t('silentStart')} description={t('silentStartDescription')} id="general-silentStart"><Switch id="general-silentStart" aria-label={t('silentStart')} checked={form.general.silentStart} onCheckedChange={(silentStart) => updateGeneral({ silentStart })} /></SettingRow>
+          <SettingSwitchRow
+            title={t('silentStart')}
+            description={t('silentStartDescription')}
+            id="general-silentStart"
+            checked={form.general.silentStart}
+            onCheckedChange={(silentStart) => updateGeneral({ silentStart })}
+          />
 
         </SettingsGroup>
         <SettingsGroup title={t('subscriptionsGroup')} description={t('subscriptionsDescription')} icon={<FileText />} collapsible>
