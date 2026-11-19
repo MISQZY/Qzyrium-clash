@@ -41,13 +41,17 @@ export interface StandardUriContext {
   params: URLSearchParams
 }
 
-export function parseStandardUriContext(uri: string, defaultPort = 443): StandardUriContext | null {
+export function parseStandardUriContext(
+  uri: string,
+  defaultPort = 443,
+  defaultNamePrefix = ''
+): StandardUriContext | null {
   try {
     const url = new URL(uri)
     const server = cleanServerHost(url.hostname)
     const port = Number(url.port || defaultPort)
     if (!server || !isValidPort(port)) return null
-    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `${server}:${port}`
+    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `${defaultNamePrefix}${server}:${port}`
     return { url, server, port, name, params: url.searchParams }
   } catch {
     return null
@@ -323,14 +327,12 @@ export function parseVlessUri(uri: string): ProxyNodeConfig | null {
 
 export function parseWireGuardUri(uri: string): ProxyNodeConfig | null {
   try {
-    const url = new URL(uri)
-    const server = cleanServerHost(url.hostname)
-    const port = Number(url.port || 51820)
+    const ctx = parseStandardUriContext(uri, 51820, 'WireGuard-')
+    if (!ctx) return null
+    const { url, server, port, name, params } = ctx
     const privateKey = safeDecodeURIComponent(url.username)
-    if (!server || !port || isNaN(port) || !privateKey) return null
+    if (!privateKey) return null
 
-    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `WireGuard-${server}:${port}`
-    const params = url.searchParams
     const publicKey = params.get('publickey') || params.get('public-key') || params.get('pk')
     const ip = params.get('ip') || params.get('address')
     const presharedKey = params.get('pre-shared-key') || params.get('presharedkey') || params.get('preshared-key') || params.get('psk')
@@ -367,13 +369,10 @@ export function parseWireGuardUri(uri: string): ProxyNodeConfig | null {
 
 export function parseHysteriaUri(uri: string): ProxyNodeConfig | null {
   try {
-    const url = new URL(uri)
-    const server = cleanServerHost(url.hostname)
-    const port = Number(url.port || 443)
-    if (!server || !port || isNaN(port)) return null
+    const ctx = parseStandardUriContext(uri, 443, 'Hysteria-')
+    if (!ctx) return null
+    const { url, server, port, name, params } = ctx
 
-    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `Hysteria-${server}:${port}`
-    const params = url.searchParams
     const auth = params.get('auth') || url.username || ''
     const peer = params.get('peer') || params.get('sni')
     const up = params.get('up') || params.get('upmbps')
@@ -406,14 +405,12 @@ export function parseHysteriaUri(uri: string): ProxyNodeConfig | null {
 
 export function parseSnellUri(uri: string): ProxyNodeConfig | null {
   try {
-    const url = new URL(uri)
-    const server = cleanServerHost(url.hostname)
-    const port = Number(url.port)
+    const ctx = parseStandardUriContext(uri, 0, 'Snell-')
+    if (!ctx) return null
+    const { url, server, port, name, params } = ctx
     const psk = safeDecodeURIComponent(url.username)
-    if (!server || !port || isNaN(port) || !psk) return null
+    if (!psk) return null
 
-    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `Snell-${server}:${port}`
-    const params = url.searchParams
     const version = params.get('version') ? Number(params.get('version')) : 1
     const obfs = params.get('obfs')
     const obfsHost = params.get('obfs-host')
@@ -487,14 +484,12 @@ export function parseHysteria2Uri(uri: string): ProxyNodeConfig | null {
       const firstPort = parseInt(ports.split(/[,-]/)[0], 10) || 443
       cleanUri = `${portRangeMatch[1]}:${firstPort}${cleanUri.slice(portRangeMatch[0].length)}`
     }
-    const url = new URL(cleanUri)
-    const server = cleanServerHost(url.hostname)
-    const port = Number(url.port || 443)
+    const ctx = parseStandardUriContext(cleanUri, 443)
+    if (!ctx) return null
+    const { url, server, port, name, params } = ctx
     const password = safeDecodeURIComponent(url.password ? `${url.username}:${url.password}` : url.username)
-    if (!server || !isValidPort(port) || !password) return null
+    if (!password) return null
 
-    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `${server}:${port}`
-    const params = url.searchParams
     const sni = params.get('sni')
     const obfs = params.get('obfs')
     const obfsPassword = params.get('obfs-password')
@@ -560,15 +555,12 @@ export function parseTuicUri(uri: string): ProxyNodeConfig | null {
 
 export function parseSocksHttpUri(uri: string): ProxyNodeConfig | null {
   try {
-    const url = new URL(uri)
-    const server = cleanServerHost(url.hostname)
-    const port = Number(url.port || (url.protocol.toLowerCase() === 'http:' ? 80 : 0))
-    if (!server || !isValidPort(port)) return null
+    const isHttp = uri.toLowerCase().startsWith('http://')
+    const ctx = parseStandardUriContext(uri, isHttp ? 80 : 0)
+    if (!ctx) return null
+    const { url, server, port, name } = ctx
 
-    const isHttp = url.protocol.toLowerCase().startsWith('http')
     const type = isHttp ? 'http' : 'socks5'
-    const name = safeDecodeURIComponent(url.hash.replace(/^#/, '')).trim() || `${server}:${port}`
-
     const node: ProxyNodeConfig = {
       name,
       type,
