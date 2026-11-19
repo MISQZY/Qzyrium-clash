@@ -1,6 +1,6 @@
 import { NativeSelect } from './ui/native-select'
 import React, { useId, useState } from 'react'
-import { Check, LoaderCircle, Globe, FileCode, RefreshCw, ChevronDown } from 'lucide-react'
+import { Globe, FileCode, RefreshCw, ChevronDown } from 'lucide-react'
 import type { ProfileItem } from '@shared/profile'
 import { useLocale, useTranslations, useCustomLocalization } from '../i18n'
 import { EmojiText } from './EmojiText'
@@ -18,6 +18,7 @@ import {
   DialogFooter
 } from './ui/dialog'
 import { Button } from './ui/button'
+import { SaveButton } from './ui/SaveButton'
 import { Input } from './ui/input'
 import { Switch } from './ui/switch'
 import { CompactSwitchRow } from './CompactSwitchRow'
@@ -253,10 +254,14 @@ export const ProfileInfoDialog: React.FC<ProfileInfoDialogProps> = ({
 
           <DialogFooter className="shrink-0 gap-2 border-t border-border/60 bg-muted/15 px-5 py-3.5">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>{t('cancel')}</Button>
-            <Button type="submit" disabled={saving} aria-busy={saving}>
-              {saving ? <LoaderCircle className="size-3.5 shrink-0 animate-spin" /> : <Check className="size-3.5 shrink-0" />}
-              {saving ? t('saving') : t('saveChanges')}
-            </Button>
+            <SaveButton
+              type="submit"
+              saving={saving}
+              label={t('saveChanges')}
+              savingLabel={t('saving')}
+              variant="default"
+              size="default"
+            />
           </DialogFooter>
         </form>
       </DialogContent>

@@ -1,7 +1,7 @@
 import React from 'react'
-import { Check, LoaderCircle } from 'lucide-react'
 import { DialogFooter } from '../ui/dialog'
 import { Button } from '../ui/button'
+import { SaveButton } from '../ui/SaveButton'
 import { FileEditorComparisonControls } from '../FileEditor'
 import { useTranslations } from '../../i18n'
 
@@ -42,26 +42,13 @@ export const ProfileFileEditorFooter: React.FC<ProfileFileEditorFooterProps> = (
         >
           {t('cancel')}
         </Button>
-        <Button
-          type="button"
-          variant="glow"
-          size="sm"
+        <SaveButton
+          saving={saving}
+          label={t('saveAndApply')}
+          savingLabel={t('saving')}
           onClick={onSave}
-          disabled={loading || saving}
-          className="gap-1.5"
-        >
-          {saving ? (
-            <>
-              <LoaderCircle className="size-3.5 animate-spin" />
-              <span>{t('saving')}</span>
-            </>
-          ) : (
-            <>
-              <Check className="size-3.5" />
-              <span>{t('saveAndApply')}</span>
-            </>
-          )}
-        </Button>
+          disabled={loading}
+        />
       </div>
     </DialogFooter>
   )
