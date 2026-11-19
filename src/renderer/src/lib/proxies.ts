@@ -70,6 +70,29 @@ export function visibleProxyGroups(
     return sorted
 }
 
+export function createProxyLatencyComparator(
+  proxies: Record<string, ProxyNode>,
+  delays: Record<string, number>
+): (a: string, b: string) => number {
+  const getWeight = (d?: number) => {
+    if (d === undefined) return 999998 // Untested comes before failed
+    if (d <= 0) return 999999 // Timeout / error comes last
+    return d
+  }
+
+  return (a, b) => {
+    const nodeDataA = proxies[a]
+    const nodeDataB = proxies[b]
+    const da = delays[a] ?? nodeDataA?.history?.[nodeDataA.history.length - 1]?.delay
+    const db = delays[b] ?? nodeDataB?.history?.[nodeDataB.history.length - 1]?.delay
+
+    const wa = getWeight(da)
+    const wb = getWeight(db)
+    if (wa !== wb) return wa - wb
+    return a.localeCompare(b)
+  }
+}
+
 export function sortProxyNodes(nodes: string[], sortMode: ProxySortMode, proxies: Record<string, ProxyNode>, delays: Record<string, number>): string[] {
       if (sortMode === 'default') return nodes
       const copy = [...nodes]
@@ -79,23 +102,7 @@ export function sortProxyNodes(nodes: string[], sortMode: ProxySortMode, proxies
       }
 
       if (sortMode === 'latency') {
-        return copy.sort((a, b) => {
-          const nodeDataA = proxies[a]
-          const nodeDataB = proxies[b]
-          const da = delays[a] ?? nodeDataA?.history?.[nodeDataA.history.length - 1]?.delay
-          const db = delays[b] ?? nodeDataB?.history?.[nodeDataB.history.length - 1]?.delay
-
-          const getWeight = (d?: number) => {
-            if (d === undefined) return 999998 // Untested comes before failed
-            if (d <= 0) return 999999 // Timeout / error comes last
-            return d
-          }
-
-          const wa = getWeight(da)
-          const wb = getWeight(db)
-          if (wa !== wb) return wa - wb
-          return a.localeCompare(b)
-        })
+        return copy.sort(createProxyLatencyComparator(proxies, delays))
       }
 
       return nodes
