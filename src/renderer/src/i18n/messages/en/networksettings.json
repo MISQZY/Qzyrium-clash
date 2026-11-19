@@ -268,5 +268,13 @@
   "coreDownloadMirrorDescription": "Mirror used when downloading Mihomo binaries if GitHub is blocked or throttled.",
   "coreMirrorDirect": "Direct GitHub (Official)",
   "mirrorRuleProviders": "Mirror external rule providers",
-  "mirrorRuleProvidersDescription": "Route rule-provider downloads hosted on GitHub through a mirror in restricted networks."
+  "mirrorRuleProvidersDescription": "Route rule-provider downloads hosted on GitHub through a mirror in restricted networks.",
+  "geoAutoUpdate": "Auto-update geodata",
+  "geoAutoUpdateDescription": "Periodically update GeoIP and GeoSite routing databases in Mihomo.",
+  "geoDatabases": "Geodata databases (GeoIP / GeoSite)",
+  "geoDatabasesDescription": "Update local routing databases (country.mmdb, geosite.dat, geoip.dat) directly from MetaCubeX.",
+  "updateGeo": "Update databases",
+  "updatingGeo": "Updating…",
+  "geoUpdateSuccess": "Databases updated successfully.",
+  "geoUpdateFailed": "Failed to update databases."
 }

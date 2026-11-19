@@ -263,6 +263,66 @@ export class CoreService implements BaseService {
     }
   }
 
+  private async downloadBinary(url: string, timeout = 60_000): Promise<ArrayBuffer> {
+    const targetUrl = this.resolveUrl(url)
+    const options = {
+      responseType: 'arraybuffer' as const,
+      timeout,
+      headers: { 'User-Agent': 'QzyriumVPN' }
+    }
+    try {
+      const response = await axios.get<ArrayBuffer>(targetUrl, options)
+      return response.data
+    } catch (directErr) {
+      if (this.kernelService.getStatus() === 'running') {
+        const port = this.settingService.getSettings().kernel.mixedPort
+        try {
+          const response = await axios.get<ArrayBuffer>(url, {
+            ...options,
+            proxy: { host: '127.0.0.1', port, protocol: 'http' }
+          })
+          return response.data
+        } catch {}
+      }
+      throw directErr
+    }
+  }
+
+  async updateGeoData(): Promise<{ success: boolean; updated: string[]; error?: string }> {
+    const paths = getAppPaths()
+    const geoDir = paths.mihomoDir
+    if (!fs.existsSync(geoDir)) {
+      fs.mkdirSync(geoDir, { recursive: true })
+    }
+
+    const files = [
+      { name: 'country.mmdb', url: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/country.mmdb' },
+      { name: 'geosite.dat', url: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat' },
+      { name: 'geoip.dat', url: 'https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat' }
+    ]
+
+    const updated: string[] = []
+    try {
+      for (const item of files) {
+        const dest = path.join(geoDir, item.name)
+        const temp = `${dest}.download`
+        const buffer = await this.downloadBinary(item.url, 60_000)
+        if (buffer.byteLength < 65536) {
+          throw new Error(`Downloaded file ${item.name} is too small (${buffer.byteLength} bytes)`)
+        }
+        await fsPromises.writeFile(temp, Buffer.from(buffer))
+        await fsPromises.rename(temp, dest)
+        updated.push(item.name)
+        logger.info(`Successfully updated geo database: ${item.name} (${buffer.byteLength} bytes)`)
+      }
+      return { success: true, updated }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      logger.error('Failed to update geo databases', err)
+      return { success: false, updated, error: message }
+    }
+  }
+
   async checkUpdate(channel?: CoreChannel): Promise<CoreUpdateStatus> {
     const targetChannel = channel ?? this.settingService.getSettings().kernel.channel ?? 'stable'
     const pending = this.checking.get(targetChannel)

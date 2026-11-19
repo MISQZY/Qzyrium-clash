@@ -51,6 +51,10 @@ export function registerKernelHandlers(
     return services.coreService.switchChannel(channel)
   })
 
+  handle(IPC_CHANNELS.KERNEL_UPDATE_GEO_DATA, () => {
+    return services.coreService.updateGeoData()
+  })
+
   handle(IPC_CHANNELS.MIHOMO_GET_CONFIGS, async () => {
     return await services.kernelService.getConfigs()
   })

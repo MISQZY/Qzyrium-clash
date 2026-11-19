@@ -86,6 +86,7 @@ const contracts = {
   [IPC_CHANNELS.KERNEL_CHECK_CORE_UPDATE]: [optional(oneOf('stable', 'alpha'))],
   [IPC_CHANNELS.KERNEL_INSTALL_CORE_UPDATE]: [oneOf('stable', 'alpha')],
   [IPC_CHANNELS.KERNEL_SWITCH_CHANNEL]: [oneOf('stable', 'alpha')],
+  [IPC_CHANNELS.KERNEL_UPDATE_GEO_DATA]: [],
   [IPC_CHANNELS.MIHOMO_GET_CONFIGS]: [], [IPC_CHANNELS.MIHOMO_PATCH_CONFIGS]: [config],
   [IPC_CHANNELS.MIHOMO_GET_EFFECTIVE_CORE]: [optional(settings)],
   [IPC_CHANNELS.MIHOMO_GET_CONFIG_PREVIEW]: [optional(settings)],

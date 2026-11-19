@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Button } from '../ui/button'
 import { NativeSelect } from '../ui/native-select'
 import { type SettingsSection } from '@shared/settings-config'
 import { SETTINGS_SECTIONS } from '../../lib/settings-sections'
@@ -27,6 +29,29 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
   const t = useTranslations('networksettings')
   const common = useTranslations('common')
   const { form, bypass, setBypass, dnsHijack, setDnsHijack, setDirty, setMessage, updateKernel, updateTun, updateSysProxy } = draft
+  const [geoUpdating, setGeoUpdating] = useState(false)
+  const [geoStatus, setGeoStatus] = useState<string | null>(null)
+
+  const handleUpdateGeo = async () => {
+    if (geoUpdating) return
+    setGeoUpdating(true)
+    setGeoStatus(null)
+    try {
+      if (window.api?.kernel?.updateGeoData) {
+        const result = await window.api.kernel.updateGeoData()
+        if (result.success) {
+          setGeoStatus(t('geoUpdateSuccess'))
+        } else {
+          setGeoStatus(result.error || t('geoUpdateFailed'))
+        }
+      }
+    } catch (err) {
+      setGeoStatus(err instanceof Error ? err.message : String(err))
+    } finally {
+      setGeoUpdating(false)
+    }
+  }
+
   const { title: titleKey, icon: Icon } = SETTINGS_SECTIONS[section]
   const title = t(titleKey)
   return <Card><CardContent className="p-5">
@@ -116,6 +141,29 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
               checked={form.kernel.mirrorRuleProviders ?? false}
               onCheckedChange={mirrorRuleProviders => updateKernel({ mirrorRuleProviders })}
             />
+          </SettingRow>
+          <SettingRow title={t('geoAutoUpdate')} description={t('geoAutoUpdateDescription')}>
+            <Switch
+              aria-label={t('geoAutoUpdate')}
+              checked={Boolean(form.kernel.resources?.['geo-auto-update'])}
+              onCheckedChange={geoAutoUpdate => {
+                const resources = { ...(form.kernel.resources ?? {}), 'geo-auto-update': geoAutoUpdate }
+                updateKernel({ resources })
+              }}
+            />
+          </SettingRow>
+          <SettingRow title={t('geoDatabases')} description={t('geoDatabasesDescription')}>
+            <div className="flex flex-col items-end gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={geoUpdating}
+                onClick={handleUpdateGeo}
+              >
+                {geoUpdating ? t('updatingGeo') : t('updateGeo')}
+              </Button>
+              {geoStatus && <span className="text-xs text-muted-foreground">{geoStatus}</span>}
+            </div>
           </SettingRow>
           <SettingRow title={t('mixedPortSource')}>
             <NativeSelect aria-label={t('mixedPortSource')} value={form.kernel.inheritMixedPort ? 'profile' : 'override'}

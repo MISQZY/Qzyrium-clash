@@ -268,5 +268,13 @@
   "coreDownloadMirrorDescription": "Зеркало для загрузки ядра Mihomo при блокировке или замедлении GitHub.",
   "coreMirrorDirect": "Напрямую с GitHub (Официальный)",
   "mirrorRuleProviders": "Зеркалирование внешних правил",
-  "mirrorRuleProvidersDescription": "Загружать списки правил rule-providers с GitHub через зеркало при блокировках."
+  "mirrorRuleProvidersDescription": "Загружать списки правил rule-providers с GitHub через зеркало при блокировках.",
+  "geoAutoUpdate": "Автообновление геоданных",
+  "geoAutoUpdateDescription": "Периодически обновлять базы маршрутизации GeoIP и GeoSite в ядре Mihomo.",
+  "geoDatabases": "Базы геоданных (GeoIP / GeoSite)",
+  "geoDatabasesDescription": "Загрузить свежие базы маршрутизации (country.mmdb, geosite.dat, geoip.dat) напрямую от MetaCubeX.",
+  "updateGeo": "Обновить базы",
+  "updatingGeo": "Обновление…",
+  "geoUpdateSuccess": "Базы успешно обновлены.",
+  "geoUpdateFailed": "Не удалось обновить базы."
 }

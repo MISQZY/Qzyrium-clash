@@ -55,7 +55,8 @@ const api: IElectronApi = {
     getCoreInfo: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_GET_CORE_INFO),
     checkCoreUpdate: (channel) => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_CHECK_CORE_UPDATE, channel),
     installCoreUpdate: (channel) => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_INSTALL_CORE_UPDATE, channel),
-    switchChannel: (channel) => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_SWITCH_CHANNEL, channel)
+    switchChannel: (channel) => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_SWITCH_CHANNEL, channel),
+    updateGeoData: () => ipcRenderer.invoke(IPC_CHANNELS.KERNEL_UPDATE_GEO_DATA)
   },
   mihomo: {
     getConfigs: () => ipcRenderer.invoke(IPC_CHANNELS.MIHOMO_GET_CONFIGS),

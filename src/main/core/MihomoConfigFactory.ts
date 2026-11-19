@@ -164,6 +164,19 @@ export class MihomoConfigFactory {
       parsed.rules = resolveEffectiveRules(parsed.rules, customRules, ruleIds)
     }
 
+    // Configure default or mirrored geox-url when geo-auto-update is enabled
+    if (parsed['geo-auto-update']) {
+      const mirror = (appConfig.kernel.coreDownloadMirror?.trim() || 'https://ghfast.top').replace(/\/+$/, '')
+      const prefix = appConfig.kernel.mirrorRuleProviders ? `${mirror}/` : ''
+      if (!parsed['geox-url'] || typeof parsed['geox-url'] !== 'object') {
+        parsed['geox-url'] = {
+          geoip: `${prefix}https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat`,
+          geosite: `${prefix}https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat`,
+          mmdb: `${prefix}https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/country.mmdb`
+        }
+      }
+    }
+
     // Optional mirror rewriting for external rule-providers & proxy-providers in restricted networks
     if (appConfig.kernel.mirrorRuleProviders) {
       const mirror = (appConfig.kernel.coreDownloadMirror?.trim() || 'https://ghfast.top').replace(/\/+$/, '')
@@ -177,6 +190,13 @@ export class MihomoConfigFactory {
                 item.url = `${mirror}/${url}`
               }
             }
+          }
+        }
+      }
+      if (parsed['geox-url'] && typeof parsed['geox-url'] === 'object' && !Array.isArray(parsed['geox-url'])) {
+        for (const [key, val] of Object.entries(parsed['geox-url'] as Record<string, unknown>)) {
+          if (typeof val === 'string' && /^https?:\/\/(?:raw\.githubusercontent\.com|github\.com)\//i.test(val.trim())) {
+            (parsed['geox-url'] as Record<string, unknown>)[key] = `${mirror}/${val.trim()}`
           }
         }
       }

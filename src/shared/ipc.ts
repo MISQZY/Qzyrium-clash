@@ -24,6 +24,7 @@ export const IPC_CHANNELS = {
   KERNEL_CHECK_CORE_UPDATE: 'kernel:check-core-update',
   KERNEL_INSTALL_CORE_UPDATE: 'kernel:install-core-update',
   KERNEL_SWITCH_CHANNEL: 'kernel:switch-channel',
+  KERNEL_UPDATE_GEO_DATA: 'kernel:update-geo-data',
 
   // Mihomo Core API
   MIHOMO_GET_CONFIGS: 'mihomo:get-configs',
@@ -156,6 +157,7 @@ export interface IElectronApi {
     checkCoreUpdate?: (channel?: CoreChannel) => Promise<CoreUpdateStatus>
     installCoreUpdate?: (channel: CoreChannel) => Promise<CoreVersionInfo>
     switchChannel?: (channel: CoreChannel) => Promise<CoreVersionInfo>
+    updateGeoData?: () => Promise<{ success: boolean; updated: string[]; error?: string }>
   }
   mihomo: {
     getConfigs: () => Promise<Record<string, unknown>>
