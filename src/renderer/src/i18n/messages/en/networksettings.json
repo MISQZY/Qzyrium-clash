@@ -259,5 +259,9 @@
   "coreOperationFailed": "Core operation failed",
   "checkingForCoreUpdates": "Checking for updates…",
   "checkForCoreUpdates": "Check for core updates",
-  "installAlphaCore": "Install Alpha core"
+  "installAlphaCore": "Install Alpha core",
+  "resilientDnsFallback": "Regional fallback DNS (77.88.8.8)",
+  "resilientDnsFallbackDescription": "Adds redundant bootstrap DNS for networks where Cloudflare and Google DoH are blocked by deep-packet inspection.",
+  "tunIpv6Routing": "TUN IPv6 routing",
+  "tunIpv6RoutingDescription": "Route IPv6 packets through the virtual interface. Disable if proxy nodes only support IPv4 to avoid timeouts."
 }

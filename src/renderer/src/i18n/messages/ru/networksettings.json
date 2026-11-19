@@ -259,5 +259,9 @@
   "coreOperationFailed": "Ошибка операции с ядром",
   "checkingForCoreUpdates": "Проверка обновлений ядра…",
   "checkForCoreUpdates": "Проверить обновления ядра",
-  "installAlphaCore": "Установить альфа-ядро"
+  "installAlphaCore": "Установить альфа-ядро",
+  "resilientDnsFallback": "Резервный региональный DNS (77.88.8.8)",
+  "resilientDnsFallbackDescription": "Добавляет резервный начальный DNS на случай блокировки DoH Cloudflare и Google через ТСПУ.",
+  "tunIpv6Routing": "Маршрутизация IPv6 в TUN",
+  "tunIpv6RoutingDescription": "Направлять трафик IPv6 в виртуальный интерфейс. Отключите, если прокси-узлы поддерживают только IPv4, чтобы избежать таймаутов."
 }

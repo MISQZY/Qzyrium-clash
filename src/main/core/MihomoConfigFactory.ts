@@ -64,8 +64,10 @@ export class MihomoConfigFactory {
 
     // TUN mode configuration
     if (appConfig.kernel.tun.enable) {
-      if (parsed['ipv6'] === undefined) {
-        parsed['ipv6'] = true
+      if (appConfig.kernel.tun.ipv6 !== undefined) {
+        parsed['ipv6'] = appConfig.kernel.tun.ipv6
+      } else if (parsed['ipv6'] === undefined) {
+        parsed['ipv6'] = false
       }
       parsed['tun'] = {
         ...(parsed.tun as Record<string, unknown> ?? {}),
@@ -109,6 +111,7 @@ export class MihomoConfigFactory {
       const currentDns = (parsed.dns && typeof parsed.dns === 'object' && !Array.isArray(parsed.dns))
         ? (parsed.dns as Record<string, unknown>)
         : {}
+      const useResilientDns = appConfig.kernel.tun.resilientDns !== false
       if (currentDns.enable !== true) {
         parsed['dns'] = {
           'enhanced-mode': 'fake-ip',
@@ -129,19 +132,19 @@ export class MihomoConfigFactory {
           'default-nameserver': [
             '1.1.1.1',
             '8.8.8.8',
-            '77.88.8.8',
+            ...(useResilientDns ? ['77.88.8.8'] : []),
             '9.9.9.9'
           ],
           nameserver: [
             'https://cloudflare-dns.com/dns-query',
             'https://dns.google/dns-query',
             'https://dns.quad9.net/dns-query',
-            '77.88.8.8'
+            ...(useResilientDns ? ['77.88.8.8'] : [])
           ],
           'proxy-server-nameserver': [
             'https://cloudflare-dns.com/dns-query',
             'https://dns.google/dns-query',
-            '77.88.8.8',
+            ...(useResilientDns ? ['77.88.8.8'] : []),
             '1.1.1.1',
             '8.8.8.8'
           ],

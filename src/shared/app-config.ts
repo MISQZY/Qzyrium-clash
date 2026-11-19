@@ -72,6 +72,8 @@ export interface AppConfig {
       autoRoute: boolean
       strictRoute: boolean
       dnsHijack: string[]
+      resilientDns?: boolean
+      ipv6?: boolean
       options?: ConfigValues
     }
   }
@@ -156,7 +158,9 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
       stack: 'gvisor',
       autoRoute: true,
       strictRoute: true,
-      dnsHijack: ['any:53']
+      dnsHijack: ['any:53'],
+      resilientDns: true,
+      ipv6: false
     }
   },
   sysProxy: {
