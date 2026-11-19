@@ -19,9 +19,13 @@ export function useProfilesStore(coord: StoreCoordinator): ProfilesStore {
 
   const switchActiveProfile = useCallback(
     (id: string) => {
+      const target = profiles.find((p) => p.id === id)
+      if (target) {
+        setActiveProfile(target)
+      }
       return coord.perform(() => window.api.profiles.setActive(id))
     },
-    [coord]
+    [coord, profiles]
   )
 
   const updateActiveProfile = useCallback(() => {

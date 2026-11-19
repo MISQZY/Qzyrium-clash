@@ -16,7 +16,8 @@ export function useProxiesStore(
   coord: StoreCoordinator,
   busy: boolean,
   refreshing: boolean,
-  loading: boolean
+  loading: boolean,
+  activeProfileId?: string
 ): ProxiesStore {
   const { perform, coreStatus, statusRevision, actionInProgress, reportError, dataRevision } = coord
   const [proxies, setProxies] = useState<Record<string, ProxyNode>>({})
@@ -25,6 +26,10 @@ export function useProxiesStore(
   const updateDelays = useCallback((updates: Record<string, number>) => {
     setDelays((prev) => ({ ...prev, ...updates }))
   }, [])
+
+  useEffect(() => {
+    setDelays({})
+  }, [activeProfileId])
 
   const selectProxyNode = useCallback(
     (group: string, node: string) => {
@@ -55,6 +60,7 @@ export function useProxiesStore(
     )
   }, [
     coreStatus,
+    activeProfileId,
     busy,
     refreshing,
     loading,

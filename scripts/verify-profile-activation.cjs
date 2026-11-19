@@ -24,6 +24,13 @@ async function verify() {
   events.length = 0
   await activateProfile(profiles, kernel, 'offline')
   assert.deepEqual(events, ['select:offline'])
+
+  // When VPN is disconnected (getStatus() === 'stopped') but idle core is running:
+  kernel.isProcessRunning = () => true
+  events.length = 0
+  await activateProfile(profiles, kernel, 'idle-core')
+  assert.deepEqual(events, ['select:idle-core', 'reload:idle-core'])
+
   console.log('PASS: shared tray/IPC profile activation rollback, retry, serialization and offline selection')
 }
 

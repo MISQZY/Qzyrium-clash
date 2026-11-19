@@ -12,7 +12,8 @@ export function useRulesStore(
   coord: StoreCoordinator,
   busy: boolean,
   refreshing: boolean,
-  loading: boolean
+  loading: boolean,
+  activeProfileId?: string
 ): RulesStore {
   const { visible, activeTab, settings, coreStatus, statusRevision, actionInProgress, reportError, dataRevision } = coord
   const [rules, setRules] = useState<MihomoRule[]>([])
@@ -36,6 +37,7 @@ export function useRulesStore(
     )
   }, [
     coreStatus,
+    activeProfileId,
     needsRules,
     scope,
     busy,

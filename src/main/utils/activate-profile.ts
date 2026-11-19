@@ -5,13 +5,19 @@ import { logger } from './logger'
 const pending = new WeakMap<ProfileService, Promise<void>>()
 
 /** Tray and IPC activation share one transaction and one queue. */
-export function activateProfile(profiles: ProfileService, kernel: Pick<KernelService, 'getStatus' | 'reloadConfig'>, id: string): Promise<void> {
+export function activateProfile(
+  profiles: ProfileService,
+  kernel: Pick<KernelService, 'getStatus' | 'reloadConfig'> & { isProcessRunning?: () => boolean },
+  id: string
+): Promise<void> {
   const task = (pending.get(profiles) ?? Promise.resolve()).then(async () => {
     const previousId = profiles.getActiveProfile()?.id
     if (previousId === id) return
     await profiles.setActiveProfile(id)
     try {
-      if (['running', 'starting'].includes(kernel.getStatus())) await kernel.reloadConfig()
+      if (kernel.isProcessRunning?.() || ['running', 'starting'].includes(kernel.getStatus())) {
+        await kernel.reloadConfig()
+      }
     } catch (error) {
       if (previousId && profiles.getActiveProfile()?.id === id) {
         await profiles.setActiveProfile(previousId)

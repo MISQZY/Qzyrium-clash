@@ -60,8 +60,8 @@ export function useAppStoreInternal() {
 
   const traffic = useTrafficSync(coord)
   const profiles = useProfilesStore(coord)
-  const proxies = useProxiesStore(coord, busy, refreshing, loading)
-  const rules = useRulesStore(coord, busy, refreshing, loading)
+  const proxies = useProxiesStore(coord, busy, refreshing, loading, profiles.activeProfile?.id)
+  const rules = useRulesStore(coord, busy, refreshing, loading, profiles.activeProfile?.id)
   const connections = useConnectionsSync(coord, busy, refreshing, loading)
   const logs = useLogsSync(coord)
 

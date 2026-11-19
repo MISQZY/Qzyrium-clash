@@ -11,8 +11,8 @@ export function registerProfileHandlers(
   const profileUpdates = new Map<string, Promise<void>>()
 
   const applyActiveProfile = async (id: string | undefined): Promise<void> => {
-    const status = services.kernelService.getStatus()
-    if (id && services.profileService.getActiveProfile()?.id === id && (status === 'running' || status === 'starting')) {
+    const isRunning = services.kernelService.isProcessRunning?.() || ['running', 'starting'].includes(services.kernelService.getStatus())
+    if (id && services.profileService.getActiveProfile()?.id === id && isRunning) {
       await services.kernelService.reloadConfig()
     }
   }
@@ -39,7 +39,8 @@ export function registerProfileHandlers(
     const active = services.profileService.getActiveProfile()?.id === id
     await services.profileService.deleteProfile(id)
     // Removing the final active profile also requires a default kernel configuration.
-    if (active && ['running', 'starting'].includes(services.kernelService.getStatus())) {
+    const isRunning = services.kernelService.isProcessRunning?.() || ['running', 'starting'].includes(services.kernelService.getStatus())
+    if (active && isRunning) {
       await services.kernelService.reloadConfig()
     }
   })
