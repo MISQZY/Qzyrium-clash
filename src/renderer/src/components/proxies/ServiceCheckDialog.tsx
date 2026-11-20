@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Bot,
   CircleCheck,
@@ -44,7 +44,15 @@ export function ServiceCheckDialog({
   const [error, setError] = useState(false)
   const [activeTab, setActiveTab] = useState<'geocheck' | 'endpoints'>('geocheck')
   const inFlight = useRef(false)
+  const isMounted = useRef(true)
   const titleRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    isMounted.current = true
+    return () => {
+      isMounted.current = false
+    }
+  }, [])
 
   const check = async () => {
     if (inFlight.current) return
@@ -57,12 +65,13 @@ export function ServiceCheckDialog({
         ...REMNAWAVE_GEOCHECK_TARGETS,
         ...targets.filter(t => !REMNAWAVE_GEOCHECK_TARGETS.some(g => g.id === t.id))
       ]
-      setResults(await window.api.mihomo.checkServices(nodeName, combinedTargets))
+      const data = await window.api.mihomo.checkServices(nodeName, combinedTargets)
+      if (isMounted.current) setResults(data)
     } catch {
-      setError(true)
+      if (isMounted.current) setError(true)
     } finally {
       inFlight.current = false
-      setTesting(false)
+      if (isMounted.current) setTesting(false)
     }
   }
 
