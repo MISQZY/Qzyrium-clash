@@ -3,6 +3,7 @@ import type { ServiceCheckTarget } from '@shared/service-check'
 import { powerMonitor } from 'electron'
 import { installGeoResources } from '../core/installGeoResources'
 import { KernelGlobeResolver } from '../core/KernelGlobeResolver'
+import { cleanAbandonedServiceCheckDirs } from '../core/ServiceCheckProxy'
 import type { ActiveConfigBuilder } from '../core/ActiveConfigBuilder'
 import { restoreProxySelection } from '../core/ProxySelection'
 import type { TrafficAccounting } from '../core/TrafficAccounting'
@@ -274,6 +275,7 @@ export class KernelService implements BaseService {
   async initialize(): Promise<void> {
     powerMonitor?.on('suspend', this.onSuspend)
     powerMonitor?.on('resume', this.onResume)
+    await cleanAbandonedServiceCheckDirs(getAppPaths().mihomoDir).catch(() => {})
     const settings = this.settingService.getSettings()
     if (this.startupRunning ?? settings.general.autoConnect) {
       await this.start()

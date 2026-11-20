@@ -158,7 +158,7 @@ async function run() {
   await fs.mkdir(temp, { recursive: true })
   const providerPath = path.join(dir, 'cache.yaml')
   await fs.writeFile(providerPath, 'proxies: []\n')
-  const { buildServiceCheckConfig } = load('src/main/core/ServiceCheckProxy.ts')
+  const { buildServiceCheckConfig, cleanAbandonedServiceCheckDirs } = load('src/main/core/ServiceCheckProxy.ts')
   const probe = await buildServiceCheckConfig({
     'external-controller': '0.0.0.0:9090', 'mixed-port': 7890, tun: { enable: true }, rules: ['MATCH,DIRECT'],
     listeners: [{ port: 12345 }], 'proxy-providers': { cached: { type: 'http', path: 'cache.yaml', url: 'https://should-not-download.example/' } },
@@ -177,6 +177,13 @@ async function run() {
   assert.equal(probe['proxy-groups'][0]['empty-fallback'], 'REJECT')
   assert.equal(probe['proxy-groups'][0].filter, '^Provider host \\[NL\\]\\x601$')
   assert.equal(await fs.readFile(path.join(temp, probe['proxy-providers'].cached.path), 'utf8'), 'proxies: []\n')
+
+  const abandoned = path.join(dir, 'service-check-abandoned-123')
+  await fs.mkdir(abandoned, { recursive: true })
+  await fs.writeFile(path.join(abandoned, 'temp.txt'), 'abandoned')
+  assert.equal(await fs.stat(abandoned).then(() => true).catch(() => false), true)
+  await cleanAbandonedServiceCheckDirs(dir)
+  assert.equal(await fs.stat(abandoned).then(() => true).catch(() => false), false, 'abandoned service check directories are cleaned up')
   console.log('PASS: configurable services, persistence/reset/IPC validation, selected host routing, concurrency limit, HTTP verdicts and older-core fallback')
   console.log('PASS: regional block/anti-bot/unknown classification, Netflix restricted catalogue, text/JSON matching, bounded redirects and cancellation')
   console.log('PASS: isolated probe config, cached providers without downloads, exact host filters, frozen groups and REJECT fallback')

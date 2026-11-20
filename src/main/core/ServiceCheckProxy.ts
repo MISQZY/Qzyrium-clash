@@ -105,3 +105,22 @@ export async function withServiceCheckProxy<T>(options: {
     }
   }
 }
+
+/**
+ * Scavenges abandoned service-check temporary directories that may have been left behind
+ * by crashed, killed, or abruptly terminated application instances.
+ */
+export async function cleanAbandonedServiceCheckDirs(baseDir: string): Promise<void> {
+  try {
+    const base = path.resolve(baseDir)
+    const entries = await fs.readdir(base, { withFileTypes: true })
+    for (const entry of entries) {
+      if (entry.isDirectory() && entry.name.startsWith('service-check-')) {
+        const target = path.join(base, entry.name)
+        await fs.rm(target, { recursive: true, force: true }).catch(() => {})
+      }
+    }
+  } catch {
+    // Ignore missing directory or permission errors
+  }
+}
