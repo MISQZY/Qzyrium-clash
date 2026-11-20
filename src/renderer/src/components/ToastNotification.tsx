@@ -70,19 +70,11 @@ export function ToastNotification({
         className
       )}
     >
-      <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-1.5 w-full">
+      <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-1.5 w-full pr-7">
         <div className={cn('flex items-center gap-1.5 font-semibold text-xs tracking-wide', headerColorClass)}>
           <IconComponent className="size-4 shrink-0" />
           <span>{displayTitle}</span>
         </div>
-        <button
-          type="button"
-          aria-label={closeLabel || common('close')}
-          onClick={onClose}
-          className="shrink-0 rounded-md p-1 -mr-1 -my-1 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
-        >
-          <X className="size-3.5" />
-        </button>
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5 text-foreground w-full">
@@ -125,6 +117,15 @@ export function ToastNotification({
 
         {children}
       </div>
+
+      <button
+        type="button"
+        aria-label={closeLabel || common('close')}
+        onClick={onClose}
+        className="absolute top-2.5 right-2.5 shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
+      >
+        <X className="size-3.5" />
+      </button>
     </Alert>
   )
 }
