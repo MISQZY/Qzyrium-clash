@@ -114,19 +114,33 @@ const ConnectionsView = memo(function ConnectionsView({ connections, onRefresh, 
     <Page
       title={selectedProcessKey && activeProcessGroup ? activeProcessGroup.name : t('connections')}
       actions={
-        <ConnectionToolbar viewMode={viewMode} selectedProcessKey={selectedProcessKey}
-          setViewMode={setViewMode} setSelectedProcessKey={setSelectedProcessKey}
-          connectionCount={connections.connections.length} actions={actions}
-          paused={paused} onTogglePause={onTogglePause} />
+        <ConnectionToolbar
+          selectedProcessKey={selectedProcessKey}
+          setSelectedProcessKey={setSelectedProcessKey}
+          connectionCount={connections.connections.length}
+          actions={actions}
+          paused={paused}
+          onTogglePause={onTogglePause}
+        />
       }
     >
       {/* Search & Filters Header */}
       <div data-tour="connections">
-      <ConnectionFilters query={query} setQuery={setQuery} protocolFilter={protocolFilter}
-        setProtocolFilter={setProtocolFilter} sortBy={sortBy} setSortBy={setSortBy}
-        viewMode={viewMode} selectedProcessKey={selectedProcessKey}
-        processCount={processGroups.length} connectionCount={matchingConnections.length}
-        paused={paused} />
+        <ConnectionFilters
+          query={query}
+          setQuery={setQuery}
+          protocolFilter={protocolFilter}
+          setProtocolFilter={setProtocolFilter}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          selectedProcessKey={selectedProcessKey}
+          setSelectedProcessKey={setSelectedProcessKey}
+          processCount={processGroups.length}
+          connectionCount={matchingConnections.length}
+          paused={paused}
+        />
       </div>
 
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
