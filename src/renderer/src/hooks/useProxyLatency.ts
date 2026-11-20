@@ -3,6 +3,19 @@ import type { ProxyNode } from '@shared/mihomo'
 import { createLatencyTestPool, runLatencyTests } from '../lib/latency-tests'
 
 const idleTesting = () => ({ groups: new Set<string>(), all: false, nodes: new Set<string>() })
+
+function hasCatalogChanged(prev: Record<string, unknown>, curr: Record<string, unknown>): boolean {
+  if (prev === curr) return false
+  const prevKeys = Object.keys(prev)
+  const currKeys = Object.keys(curr)
+  if (prevKeys.length === 0 || currKeys.length === 0) return true
+  if (prevKeys.length !== currKeys.length) return true
+  for (let i = 0; i < currKeys.length; i++) {
+    if (!Object.prototype.hasOwnProperty.call(prev, currKeys[i])) return true
+  }
+  return false
+}
+
 type TestSession = {
   controller: AbortController
   test: (name: string) => Promise<number>
@@ -21,6 +34,7 @@ export function useProxyLatency(options: {
   const pending = useRef<TestSession | null>(null)
   const publish = useRef(options.onUpdateDelays)
   publish.current = options.onUpdateDelays
+  const catalogRef = useRef(options.proxies)
 
   useEffect(() => {
     if (!options.running) {
@@ -31,11 +45,22 @@ export function useProxyLatency(options: {
   }, [options.running])
 
   useEffect(() => {
+    if (hasCatalogChanged(catalogRef.current, options.proxies)) {
+      catalogRef.current = options.proxies
+      pending.current?.controller.abort()
+      pending.current = null
+      setTesting(idleTesting())
+    } else {
+      catalogRef.current = options.proxies
+    }
+  }, [options.proxies])
+
+  useEffect(() => {
     return () => {
       pending.current?.controller.abort()
       pending.current = null
     }
-  }, [])
+  }, [options.concurrency])
 
   const updateTesting = (session: TestSession) => {
     setTesting({
