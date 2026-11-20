@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, Copy } from 'lucide-react'
 import { useTranslations } from '../i18n'
 import { copyToClipboard } from '../lib/clipboard'
@@ -24,15 +24,19 @@ export function CopyableCodeLine({
 }: CopyableCodeLineProps) {
   const t = useTranslations('connections')
   const [copied, setCopied] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const textToCopy = copyValue ?? value
+
+  useEffect(() => () => clearTimeout(timer.current), [])
 
   const handleCopy = async (text: string, e?: React.MouseEvent) => {
     e?.stopPropagation()
     const ok = await copyToClipboard(text)
     if (ok) {
+      clearTimeout(timer.current)
       setCopied(true)
       onCopy?.(text)
-      setTimeout(() => setCopied(false), 1600)
+      timer.current = setTimeout(() => setCopied(false), 1600)
     }
   }
 

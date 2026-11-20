@@ -1,6 +1,6 @@
 import { type ProcessGroup } from '../lib/connections'
 import { useTranslations } from '../i18n'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { ConnectionItem } from '@shared/mihomo'
 
@@ -10,6 +10,8 @@ export function useConnectionActions(onRefresh: () => void) {
   const [closing, setClosing] = useState(false)
   const [error, setError] = useState('')
   const isMounted = useRef(true)
+  const onRefreshRef = useRef(onRefresh)
+  onRefreshRef.current = onRefresh
 
   useEffect(() => {
     isMounted.current = true
@@ -18,15 +20,15 @@ export function useConnectionActions(onRefresh: () => void) {
     }
   }, [])
 
-  const close = async (id?: string) => {
+  const close = useCallback(async (id?: string) => {
     if (!window.api || closing || (!id && !confirm(t('terminateAllActiveSessions')))) return
     setClosing(true)
     setError('')
     try {
       if (id) {
         await window.api.mihomo.closeConnection(id)
-        if (isMounted.current && selectedConnection?.id === id) {
-          setSelectedConnection(null)
+        if (isMounted.current) {
+          setSelectedConnection((prev) => (prev?.id === id ? null : prev))
         }
       } else {
         await window.api.mihomo.closeAllConnections()
@@ -34,32 +36,35 @@ export function useConnectionActions(onRefresh: () => void) {
           setSelectedConnection(null)
         }
       }
-      if (isMounted.current) onRefresh()
+      if (isMounted.current) onRefreshRef.current()
     } catch (err) {
       if (isMounted.current) setError(err instanceof Error ? err.message : String(err))
     } finally {
       if (isMounted.current) setClosing(false)
     }
-  }
+  }, [closing, t])
 
-  const closeProcessConnections = async (group: ProcessGroup) => {
+  const closeProcessConnections = useCallback(async (group: ProcessGroup) => {
     if (!window.api || closing) return
     setClosing(true)
     setError('')
     try {
       await Promise.all(group.connections.map((item) => window.api.mihomo.closeConnection(item.id)))
-      if (isMounted.current && selectedConnection && group.connections.some((c) => c.id === selectedConnection.id)) {
-        setSelectedConnection(null)
+      if (isMounted.current) {
+        setSelectedConnection((prev) => (prev && group.connections.some((c) => c.id === prev.id) ? null : prev))
       }
-      if (isMounted.current) onRefresh()
+      if (isMounted.current) onRefreshRef.current()
     } catch (err) {
       if (isMounted.current) setError(err instanceof Error ? err.message : String(err))
     } finally {
       if (isMounted.current) setClosing(false)
     }
-  }
+  }, [closing])
 
-  return { selectedConnection, setSelectedConnection, closing, error, close, closeProcessConnections }
+  return useMemo(
+    () => ({ selectedConnection, setSelectedConnection, closing, error, close, closeProcessConnections }),
+    [selectedConnection, closing, error, close, closeProcessConnections]
+  )
 }
 
 export type ConnectionActions = ReturnType<typeof useConnectionActions>

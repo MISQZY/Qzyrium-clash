@@ -2,7 +2,7 @@ import { GlobeRouteOverlay } from './globe/GlobeRouteOverlay'
 import { GlobeRouteList } from './globe/GlobeRouteList'
 import { useGlobeRenderer } from '../hooks/useGlobeRenderer'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { useTranslations } from '../i18n'
 
@@ -60,13 +60,31 @@ export function ConnectionGlobe({
     [activeId, projected, routes]
   )
 
-  const familyRef = useRef('sans-serif')
-  useEffect(() => {
+  const [family, setFamily] = useState('sans-serif')
+  useLayoutEffect(() => {
     if (sceneRef.current) {
-      familyRef.current = getComputedStyle(sceneRef.current).fontFamily || 'sans-serif'
+      const computed = getComputedStyle(sceneRef.current).fontFamily
+      if (computed) setFamily(computed)
     }
   }, [sceneRef])
-  const family = familyRef.current
+
+  useEffect(() => {
+    const scene = sceneRef.current
+    if (!scene) return
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const factor = event.ctrlKey
+        ? Math.max(0.5, Math.min(1.5, 1 - event.deltaY * 0.01))
+        : (event.deltaY < 0 ? 1.1 : 0.9)
+      camera.current.scale = Math.max(0.8, Math.min(2, camera.current.scale * factor))
+      invalidate.current()
+    }
+    scene.addEventListener('wheel', handleWheel, { passive: false })
+    return () => {
+      scene.removeEventListener('wheel', handleWheel)
+    }
+  }, [camera, invalidate, sceneRef])
+
   const toggleEndpoint = (ids: string[]) => {
     setExpandedId((current) => current !== null && ids.includes(current) ? null : ids[0])
   }
@@ -94,14 +112,6 @@ export function ConnectionGlobe({
           camera.current.phi += (event.clientX - drag.current.x) * 0.005
           camera.current.theta = Math.max(-1.45, Math.min(1.45, camera.current.theta + (event.clientY - drag.current.y) * 0.005))
           drag.current = { x: event.clientX, y: event.clientY }
-          invalidate.current()
-        }}
-        onWheel={(event) => {
-          event.preventDefault()
-          const factor = event.ctrlKey
-            ? Math.max(0.5, Math.min(1.5, 1 - event.deltaY * 0.01))
-            : (event.deltaY < 0 ? 1.1 : 0.9)
-          camera.current.scale = Math.max(0.8, Math.min(2, camera.current.scale * factor))
           invalidate.current()
         }}
         onKeyDown={(event) => {
