@@ -82,7 +82,7 @@ export class NetworkModeController {
     let startedCore = false
     try {
       if (candidate.kernel.tun.enable && (previous.sysProxy.enable || this.proxy.getStatus().enabled)) {
-        await this.proxy.setSysProxy(false)
+        await this.proxy.setSysProxy(false, false)
         proxyDisabled = true
       }
       if (modeOnly && this.kernel.getStatus() === 'running') {
@@ -102,7 +102,7 @@ export class NetworkModeController {
         await this.proxy.setCoreRunning(true)
       }
       if (patch.sysProxy || (previous.kernel.mixedPort !== updated.kernel.mixedPort && updated.sysProxy.enable)) {
-        await this.proxy.setSysProxy(updated.sysProxy.enable)
+        await this.proxy.setSysProxy(updated.sysProxy.enable, false)
       }
       this.changed(!!patch.general)
       return updated
@@ -115,7 +115,7 @@ export class NetworkModeController {
         }
         if (liveModeChanged && this.kernel.getStatus() === 'running') await this.kernel.patchConfigs({ mode: previous.kernel.mode })
         if (saved && kernelChanged && !modeOnly && running()) await this.kernel.restart()
-        if (proxyDisabled || (saved && patch.sysProxy)) await this.proxy.setSysProxy(previous.sysProxy.enable)
+        if (proxyDisabled || (saved && patch.sysProxy)) await this.proxy.setSysProxy(previous.sysProxy.enable, false)
         if (patch.general) await this.applyDesktop(previous)
       }
       await recover().catch(recoveryError => logger.error('Failed to restore previous network settings', recoveryError))

@@ -69,15 +69,17 @@ export class SysProxyService implements BaseService {
     return this.proxyUpdate
   }
 
-  setSysProxy(enable: boolean): Promise<void> {
+  setSysProxy(enable: boolean, persist = true): Promise<void> {
     return this.enqueue(async () => {
       const previous = this.settingService.getSettings().sysProxy.enable
       await this.applySysProxy(enable && this.coreRunning)
-      try {
-        await this.settingService.updateSettings({ sysProxy: { ...this.settingService.getSettings().sysProxy, enable } })
-      } catch (error) {
-        await this.applySysProxy(previous && this.coreRunning)
-        throw error
+      if (persist) {
+        try {
+          await this.settingService.updateSettings({ sysProxy: { ...this.settingService.getSettings().sysProxy, enable } })
+        } catch (error) {
+          await this.applySysProxy(previous && this.coreRunning)
+          throw error
+        }
       }
     })
   }
