@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const path = require('node:path')
 const ts = require('typescript')
 function load(file, deps, runtime = process) {
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
@@ -34,6 +35,7 @@ async function verify() {
       login.push(options.openAtLogin)
     } } },
     './logger': { logger: { info() {}, warn(message) { warnings.push(message) } } },
+    './system-binaries': { getSystemBinary: (name) => path.join(runtime.env.SystemRoot || 'C:\\Windows', 'System32', name) },
     'node:child_process': { execFile: (file, args, options, callback) => {
       assert.equal(require('node:path').basename(file), 'schtasks.exe', 'only native Task Scheduler is invoked')
       assert.equal(options.windowsHide, true)

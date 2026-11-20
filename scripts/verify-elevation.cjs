@@ -26,7 +26,8 @@ const deps = {
   path,
   electron: { app: { isPackaged: true } },
   './paths': { getAppPaths: () => ({ tasksDir: 'tasks', runnerBinaryPath: runner }) },
-  './logger': { logger: { warn() {}, info() {} } }
+  './logger': { logger: { warn() {}, info() {} } },
+  './system-binaries': { getSystemBinary: (name) => path.join(runtime.env.SystemRoot || 'C:\\Windows', 'System32', name) }
 }
 const exportsObject = {}
 const code = ts.transpileModule(fs.readFileSync('src/main/utils/elevate-task.ts', 'utf8'), {

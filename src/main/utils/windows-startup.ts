@@ -3,14 +3,13 @@ import { execFile } from 'node:child_process'
 import path from 'node:path'
 import type { AppConfig } from '@shared/app-config'
 import { logger } from './logger'
+import { getSystemBinary } from './system-binaries'
 
 // Old releases passed encoded PowerShell commands directly to the process;
 // they did not install .ps1 files. Only their per-user startup tasks persist.
 export async function removeLegacyStartupTasks(): Promise<void> {
   if (process.platform !== 'win32') return
-  const schtasks = process.env.SystemRoot
-    ? path.join(process.env.SystemRoot, 'System32', 'schtasks.exe')
-    : 'schtasks.exe'
+  const schtasks = getSystemBinary('schtasks.exe')
   const options = { windowsHide: true, timeout: 5000, maxBuffer: 4 * 1024 * 1024 }
   const run = (args: string[]): Promise<string> => new Promise((resolve, reject) => {
     execFile(schtasks, args, options, (error, stdout) => error ? reject(error) : resolve(stdout))

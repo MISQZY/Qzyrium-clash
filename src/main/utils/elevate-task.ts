@@ -5,6 +5,7 @@ import path from 'path'
 import { app } from 'electron'
 import { getAppPaths } from './paths'
 import { logger } from './logger'
+import { getSystemBinary } from './system-binaries'
 
 export const ELEVATE_TASK_NAME = 'Qzyrium-clash-run-v2'
 const LEGACY_TASK_NAME = 'Qzyrium-clash-run'
@@ -75,9 +76,7 @@ export function createElevateTaskSync(): boolean {
     const xmlContent = getElevateTaskXml(targetRunner, process.execPath, path.join(taskDir, 'param.txt'))
     writeFileSync(taskXmlPath, Buffer.from(`\ufeff${xmlContent}`, 'utf16le'), { flag: 'wx' })
 
-    const schtasks = process.env?.SystemRoot
-      ? path.join(process.env.SystemRoot, 'System32', 'schtasks.exe')
-      : 'schtasks.exe'
+    const schtasks = getSystemBinary('schtasks.exe')
 
     execFileSync(schtasks, ['/create', '/tn', ELEVATE_TASK_NAME, '/xml', taskXmlPath, '/f'], {
       windowsHide: true,
@@ -111,9 +110,7 @@ export function tryRunElevateTask(args: string[] = []): boolean {
     const cleanArgs = args.filter((arg) => /^--admin-restart=\d+$/.test(arg) || /^(clash|qzyrium|mihomo):\/\/[^\r\n"]+$/i.test(arg))
     writeFileSync(paramPath, cleanArgs.join('\n'), 'utf8')
 
-    const schtasks = process.env?.SystemRoot
-      ? path.join(process.env.SystemRoot, 'System32', 'schtasks.exe')
-      : 'schtasks.exe'
+    const schtasks = getSystemBinary('schtasks.exe')
 
     execFileSync(schtasks, ['/run', '/tn', ELEVATE_TASK_NAME], {
       windowsHide: true,
@@ -130,9 +127,7 @@ export function tryRunElevateTask(args: string[] = []): boolean {
 export function checkElevateTask(): boolean {
   if (process.platform !== 'win32') return false
   try {
-    const schtasks = process.env?.SystemRoot
-      ? path.join(process.env.SystemRoot, 'System32', 'schtasks.exe')
-      : 'schtasks.exe'
+    const schtasks = getSystemBinary('schtasks.exe')
 
     execFileSync(schtasks, ['/query', '/tn', ELEVATE_TASK_NAME], {
       windowsHide: true,
@@ -147,9 +142,7 @@ export function checkElevateTask(): boolean {
 function deleteTask(name: string): void {
   if (process.platform !== 'win32') return
   try {
-    const schtasks = process.env?.SystemRoot
-      ? path.join(process.env.SystemRoot, 'System32', 'schtasks.exe')
-      : 'schtasks.exe'
+    const schtasks = getSystemBinary('schtasks.exe')
 
     execFileSync(schtasks, ['/delete', '/tn', name, '/f'], {
       windowsHide: true,
