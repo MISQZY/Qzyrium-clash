@@ -71,7 +71,7 @@ export function RuleListPanel({ editor }: RuleListPanelProps) {
               </div>
 
               {/* Rules Scrollable Container */}
-              <div className="flex-1 min-h-0 min-w-0 overflow-y-auto pr-1 flex flex-col gap-1.5">
+              <div className="flex-1 min-h-0 min-w-0 pr-1 flex flex-col gap-1.5">
                 {filteredRules.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-48 text-muted-foreground text-xs text-center">
                     <ListTree className="size-8 mb-2 opacity-30" />

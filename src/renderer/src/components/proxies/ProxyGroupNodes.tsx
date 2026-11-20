@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { memo, useCallback, useMemo } from 'react'
 import { Globe } from 'lucide-react'
 import { canCheckProxyServices } from '@shared/service-check'
 import type { ProxyNode } from '@shared/mihomo'
@@ -51,17 +51,19 @@ export function ProxyGroupNodes({ groupName, nodes, activeNow, proxies, delays, 
     return sortProxyNodes(matchingNodes, sortMode, proxies, sortingDelays)
   }, [nodes, trimmedQuery, groupName, onlyAvailable, proxies, sortMode, sortingDelays])
 
+  const renderItem = useCallback((nodeName: string) => {
+    return <ProxyNodeCard nodeName={nodeName} nodeData={proxies[nodeName]}
+      selected={activeNow === nodeName} groupName={groupName}
+      delay={delays[nodeName] ?? proxies[nodeName]?.history?.[proxies[nodeName].history.length - 1]?.delay}
+      loading={testingNodes.has(nodeName)} onSelect={onSelect}
+      canCheck={canCheckProxyServices(proxies[nodeName])} onCheckServices={onCheckServices}
+      protocolsHidden={protocolsHidden} />
+  }, [proxies, activeNow, groupName, delays, testingNodes, onSelect, onCheckServices, protocolsHidden])
+
   return (
     <div className="px-4 pb-4 pt-1 border-t border-border/50 bg-background/30">
       {sortedNodes.length > 0 ? (
-        <VirtualList data={sortedNodes} itemKey={name => name} twoColumns className="pt-3" renderItem={(nodeName) => {
-            return <ProxyNodeCard nodeName={nodeName} nodeData={proxies[nodeName]}
-              selected={activeNow === nodeName} groupName={groupName}
-              delay={delays[nodeName] ?? proxies[nodeName]?.history?.[proxies[nodeName].history.length - 1]?.delay}
-              loading={testingNodes.has(nodeName)} onSelect={onSelect}
-              canCheck={canCheckProxyServices(proxies[nodeName])} onCheckServices={onCheckServices}
-              protocolsHidden={protocolsHidden} />
-          }} />
+        <VirtualList data={sortedNodes} itemKey={name => name} twoColumns className="pt-3" renderItem={renderItem} />
       ) : (
         <p className="empty-state py-6">{t(!running && nodes.length === 0 ? 'noCachedNodes' : 'noProxyNodesMatchYourSearch')}</p>
       )}
