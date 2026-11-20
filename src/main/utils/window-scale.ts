@@ -102,6 +102,10 @@ export function watchWindowScale(window: BrowserWindow): void {
   window.on('resized', () => finishResize())
   window.on('hide', () => finishResize(false))
   window.on('minimize', () => finishResize(false))
+  window.on('closed', () => {
+    clearTimeout(resizeTimer)
+    resizeTimer = undefined
+  })
   window.on('resize', () => update())
   // Navigation/recovery can reset the zoom associated with the renderer origin.
   window.webContents.on('did-finish-load', () => update(true))
