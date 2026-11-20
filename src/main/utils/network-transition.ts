@@ -44,7 +44,8 @@ export function flushSystemDns(): void {
       }
     })
   } else if (process.platform === 'linux') {
-    execFile('resolvectl', ['flush-caches'], (err) => {
+    const resolvectl = ['/usr/bin/resolvectl', '/bin/resolvectl'].find(existsSync) ?? 'resolvectl'
+    execFile(resolvectl, ['flush-caches'], (err) => {
       if (!err) {
         logger.info('Flushed systemd-resolved DNS cache')
       }
