@@ -17,6 +17,9 @@ export function validateAppConfig(config: AppConfig): void {
   for (const port of [config.kernel.mixedPort, config.kernel.controllerPort]) {
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Ports must be between 1 and 65535')
   }
+  if (typeof config.kernel.controllerSecret !== 'string' || !config.kernel.controllerSecret.trim()) {
+    throw new Error('Kernel controller secret must be a non-empty string')
+  }
   if (!config.kernel.inheritMixedPort && config.kernel.mixedPort === config.kernel.controllerPort) throw new Error('Mixed and controller ports must be different')
   if (config.kernel.channel !== undefined && !['stable', 'alpha'].includes(config.kernel.channel)) throw new Error('Invalid core channel')
   if (!['rule', 'global', 'direct'].includes(config.kernel.mode)) throw new Error('Invalid routing mode')

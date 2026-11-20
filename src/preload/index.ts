@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, IpcRendererEvent, webFrame } from 'electron
 import { AddProfileDto, IElectronApi, IPC_CHANNELS } from '@shared/ipc'
 import { AppConfig } from '@shared/app-config'
 import { CoreState, LogEntry, TrafficStats } from '@shared/types'
+import type { CoreUpdateStatus } from '@shared/core-version'
 import type { BootAppearance } from '@shared/appearance'
 
 ipcRenderer.on('window:zoom-changed', (_event, factor: number) => {
@@ -196,8 +197,8 @@ const api: IElectronApi = {
         ipcRenderer.removeListener(IPC_CHANNELS.EVENT_CORE_STATUS, listener)
       }
     },
-    onCoreUpdateStatus: (callback: (status: any) => void) => {
-      const listener = (_: IpcRendererEvent, status: any): void => callback(status)
+    onCoreUpdateStatus: (callback: (status: CoreUpdateStatus) => void) => {
+      const listener = (_: IpcRendererEvent, status: CoreUpdateStatus): void => callback(status)
       ipcRenderer.on(IPC_CHANNELS.EVENT_CORE_UPDATE_STATUS, listener)
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.EVENT_CORE_UPDATE_STATUS, listener)
@@ -235,5 +236,5 @@ if (process.contextIsolated) {
     console.error('Failed to expose api bridge:', error)
   }
 } else {
-  Object.assign(window, { api })
+  throw new Error('Qzyrium requires context isolation to be enabled')
 }

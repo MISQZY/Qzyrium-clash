@@ -14,7 +14,7 @@ export function parseSubscriptionImportUrl(input: string): ParsedSubscriptionUrl
         const params = new URLSearchParams(trimmed.slice(qIndex + 1))
         const targetUrl = params.get('url')
         const targetName = params.get('name')
-        if (targetUrl) {
+        if (targetUrl?.trim()) {
           return {
             url: targetUrl.trim(),
             name: targetName?.trim() || undefined
@@ -24,6 +24,7 @@ export function parseSubscriptionImportUrl(input: string): ParsedSubscriptionUrl
     } catch {
       // fallback
     }
+    return { url: '' }
   }
 
   return { url: trimmed }

@@ -219,8 +219,17 @@ export class WindowService implements BaseService {
         spellcheck: false,
         preload: path.join(__dirname, '../preload/index.js'),
         sandbox: true,
-        contextIsolation: true
+        contextIsolation: true,
+        nodeIntegration: false,
+        nodeIntegrationInWorker: false,
+        nodeIntegrationInSubFrames: false,
+        webSecurity: true,
+        allowRunningInsecureContent: false
       }
+    })
+
+    this.mainWindow.webContents.on('will-attach-webview', (e) => {
+      e.preventDefault()
     })
 
     watchWindowScale(this.mainWindow)
@@ -239,9 +248,16 @@ export class WindowService implements BaseService {
     this.mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
       const devUrl = !app.isPackaged && process.env.ELECTRON_RENDERER_URL
       if (devUrl) {
-        if (!navigationUrl.startsWith(devUrl)) {
+        try {
+          const navOrigin = new URL(navigationUrl).origin
+          const devOrigin = new URL(devUrl).origin
+          if (navOrigin !== devOrigin) {
+            event.preventDefault()
+            logger.warn(`Blocked unauthorized navigation attempt to: ${navigationUrl}`)
+          }
+        } catch {
           event.preventDefault()
-          logger.warn(`Blocked unauthorized navigation attempt to: ${navigationUrl}`)
+          logger.warn(`Blocked malformed navigation attempt: ${navigationUrl}`)
         }
       } else {
         try {
