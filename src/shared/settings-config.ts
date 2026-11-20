@@ -3,7 +3,7 @@ import { validateAppConfig } from './settings-validation'
 import { editableServiceCheckTargets } from './service-check'
 
 export type SettingsSection = 'settings' | 'sysproxy' | 'tun' | 'mihomo'
-export interface SettingsDraftValues { form: AppConfig; bypass: string; dnsHijack: string }
+export interface SettingsDraftValues { form: AppConfig; bypass: string; dnsHijack: string; fallbackDns?: string }
 
 const lines = (value: string): string[] => value.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
 const sectionPatches: Record<SettingsSection, (draft: SettingsDraftValues, saved: AppConfig) => Partial<AppConfig>> = {
@@ -12,8 +12,12 @@ const sectionPatches: Record<SettingsSection, (draft: SettingsDraftValues, saved
   sysproxy: ({ form, bypass }, saved) => ({ sysProxy: { ...form.sysProxy,
     host: form.sysProxy.host?.trim() || DEFAULT_APP_CONFIG.sysProxy.host,
     enable: saved.sysProxy.enable, bypass: lines(bypass) } }),
-  tun: ({ form, dnsHijack }, saved) => ({ kernel: { ...saved.kernel,
-    tun: { ...form.kernel.tun, dnsHijack: lines(dnsHijack) } } }),
+  tun: ({ form, dnsHijack, fallbackDns }, saved) => ({ kernel: { ...saved.kernel,
+    tun: {
+      ...form.kernel.tun,
+      dnsHijack: lines(dnsHijack),
+      fallbackDns: fallbackDns !== undefined ? lines(fallbackDns) : (form.kernel.tun.fallbackDns ?? saved.kernel.tun.fallbackDns ?? DEFAULT_APP_CONFIG.kernel.tun.fallbackDns)
+    } } }),
   mihomo: ({ form }, saved) => ({ kernel: { ...form.kernel, tun: saved.kernel.tun } })
 }
 

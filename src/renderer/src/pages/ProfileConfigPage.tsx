@@ -8,6 +8,8 @@ import { Page } from '../components/Page'
 import { SettingsFields } from '../components/SettingsFields'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
+import { Switch } from '../components/ui/switch'
+import { Textarea } from '../components/ui/textarea'
 import { cn } from '../lib/utils'
 
 interface DohPreset {
@@ -63,8 +65,17 @@ export function ProfileConfigPage({
   const [value, setValue] = useState<ConfigValues>(settings.kernel[section] ?? {})
   const [dirty, setDirty] = useState(false)
   const [message, setMessage] = useState('')
+  const [fallbackEnabled, setFallbackEnabled] = useState(settings.kernel.tun.resilientDns ?? false)
+  const [fallbackText, setFallbackText] = useState((settings.kernel.tun.fallbackDns ?? ['77.88.8.8']).join('\n'))
+
   useEffect(() => {
-    if (!dirty) setValue(settings.kernel[section] ?? {})
+    if (!dirty) {
+      setValue(settings.kernel[section] ?? {})
+      if (section === 'dns') {
+        setFallbackEnabled(settings.kernel.tun.resilientDns ?? false)
+        setFallbackText((settings.kernel.tun.fallbackDns ?? ['77.88.8.8']).join('\n'))
+      }
+    }
   }, [settings, section, dirty])
   const fields = section === 'dns' ? dnsFields : section === 'sniffer' ? snifferFields : resourceFields
   return <Page title={common(section)} actions={
@@ -81,17 +92,35 @@ export function ProfileConfigPage({
           <span>{t('backToSettings')}</span>
         </Button>
       )}
-      <Button type="submit" form={`override-${section}`} disabled={busy || !dirty || !enabled} size="sm">
+      <Button type="submit" form={`override-${section}`} disabled={busy || !dirty || (!enabled && section !== 'dns')} size="sm">
         <Save className="size-3.5" />
         {busy ? t('saving') : t('saveChanges')}
       </Button>
     </div>
   }>
-    <form data-unsaved-changes={dirty} id={`override-${section}`} className="relative flex flex-col gap-4" onSubmit={(event) => {
+    <form data-unsaved-changes={dirty} id={`override-${section}`} className="relative flex flex-col gap-4" onSubmit={async (event) => {
       event.preventDefault()
-      if (busy || !enabled) return
+      if (busy || (!enabled && section !== 'dns')) return
       setMessage('')
-      void onSaveSettings({ kernel: { ...settings.kernel, [section]: value } }).then(() => { setDirty(false); setMessage(t('changesSaved')) }).catch(() => setMessage(t('changesCouldNotBeAppliedCheckTheErrorAbove')))
+      const patch: Partial<AppConfig> = { kernel: { ...settings.kernel } }
+      if (enabled) {
+        patch.kernel![section] = value
+      }
+      if (section === 'dns') {
+        const list = fallbackText.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+        patch.kernel!.tun = {
+          ...settings.kernel.tun,
+          resilientDns: fallbackEnabled,
+          fallbackDns: list
+        }
+      }
+      try {
+        await onSaveSettings(patch)
+        setDirty(false)
+        setMessage(t('changesSaved'))
+      } catch {
+        setMessage(t('changesCouldNotBeAppliedCheckTheErrorAbove'))
+      }
     }}>
       {enabled && section === 'dns' && (
         <Card className="border border-border/70 bg-card/60 p-4 rounded-xl">
@@ -153,6 +182,50 @@ export function ProfileConfigPage({
                 )
               })}
             </div>
+          </div>
+        </Card>
+      )}
+      {section === 'dns' && (
+        <Card className="border border-border/70 bg-card/60 p-4 rounded-xl">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-semibold text-foreground">
+                  {t('resilientDnsFallback')}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {t('resilientDnsFallbackDescription')}
+                </span>
+              </div>
+              <Switch
+                aria-label={t('resilientDnsFallback')}
+                checked={fallbackEnabled}
+                onCheckedChange={(checked) => {
+                  setFallbackEnabled(checked)
+                  setDirty(true)
+                  setMessage('')
+                }}
+              />
+            </div>
+            {fallbackEnabled && (
+              <div className="flex flex-col gap-1.5 pt-1">
+                <span className="text-xs font-medium">{t('fallbackDnsServers')}</span>
+                <Textarea
+                  value={fallbackText}
+                  placeholder={t('fallbackDnsPlaceholder')}
+                  onChange={(e) => {
+                    setFallbackText(e.target.value)
+                    setDirty(true)
+                    setMessage('')
+                  }}
+                  rows={2}
+                  className="font-mono text-xs"
+                />
+                <span className="text-[11px] text-muted-foreground">
+                  {t('oneEntryPerLineForExample778888')}
+                </span>
+              </div>
+            )}
           </div>
         </Card>
       )}

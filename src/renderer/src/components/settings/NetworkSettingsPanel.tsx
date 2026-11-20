@@ -93,7 +93,6 @@ export function NetworkSettingsPanel({ section, draft, settings, sysProxy, busy,
           <SettingSwitchRow title={t('automaticRouting')} description={t('createRoutesForTheVirtualInterface')} checked={form.kernel.tun.autoRoute} onCheckedChange={(autoRoute) => updateTun({ autoRoute })} />
           <SettingSwitchRow title={t('strictRouting')} description={t('restrictTrafficThatCouldBypassTheVirtualInterface')} checked={form.kernel.tun.strictRoute} onCheckedChange={(strictRoute) => updateTun({ strictRoute })} />
           <SettingSwitchRow title={t('tunIpv6Routing')} description={t('tunIpv6RoutingDescription')} checked={form.kernel.tun.ipv6 ?? false} onCheckedChange={(ipv6) => updateTun({ ipv6 })} />
-          <SettingSwitchRow title={t('resilientDnsFallback')} description={t('resilientDnsFallbackDescription')} checked={form.kernel.tun.resilientDns ?? true} onCheckedChange={(resilientDns) => updateTun({ resilientDns })} />
           <label className="mt-4 flex flex-col gap-2 text-xs font-medium">{t('dNSHijackDestinations')}<span className="font-normal text-muted-foreground">{t('oneEntryPerLineForExampleAny53')}</span><Textarea value={dnsHijack} onChange={(event) => { setDnsHijack(event.target.value); setDirty(true) }} rows={3} /></label>
           <SettingsDisclosure title={t('advancedTun')}><SettingsFields prefix="tun-options" fields={tunFields} value={form.kernel.tun.options ?? {}} onChange={(options) => updateTun({ options })} /></SettingsDisclosure>
         </>}

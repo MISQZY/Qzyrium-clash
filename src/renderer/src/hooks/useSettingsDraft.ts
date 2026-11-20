@@ -8,6 +8,7 @@ export function useSettingsDraft(section: SettingsSection, settings: AppConfig,
   const [form, setForm] = useState(settings)
   const [bypass, setBypass] = useState(settings.sysProxy.bypass.join('\n'))
   const [dnsHijack, setDnsHijack] = useState(settings.kernel.tun.dnsHijack.join('\n'))
+  const [fallbackDns, setFallbackDns] = useState((settings.kernel.tun.fallbackDns ?? ['77.88.8.8']).join('\n'))
   const [dirty, setDirty] = useState(false)
   const [message, setMessage] = useState<MessageKey<'networksettings'> | ''>('')
 
@@ -20,6 +21,7 @@ export function useSettingsDraft(section: SettingsSection, settings: AppConfig,
     setForm(settings)
     setBypass(settings.sysProxy.bypass.join('\n'))
     setDnsHijack(settings.kernel.tun.dnsHijack.join('\n'))
+    setFallbackDns((settings.kernel.tun.fallbackDns ?? ['77.88.8.8']).join('\n'))
   }, [settings, dirty])
 
   const updateKernel = (patch: Partial<AppConfig['kernel']>) => {
@@ -40,13 +42,16 @@ export function useSettingsDraft(section: SettingsSection, settings: AppConfig,
   }
   const discard = () => {
     setForm(settings); setBypass(settings.sysProxy.bypass.join('\n'))
-    setDnsHijack(settings.kernel.tun.dnsHijack.join('\n')); setDirty(false); setMessage('')
+    setDnsHijack(settings.kernel.tun.dnsHijack.join('\n'))
+    setFallbackDns((settings.kernel.tun.fallbackDns ?? ['77.88.8.8']).join('\n'))
+    setDirty(false); setMessage('')
   }
   const resetToDefaults = () => {
     const reset = resetSettingsSection(form, section)
     setForm(reset)
     setBypass(reset.sysProxy.bypass.join('\n'))
     setDnsHijack(reset.kernel.tun.dnsHijack.join('\n'))
+    setFallbackDns((reset.kernel.tun.fallbackDns ?? ['77.88.8.8']).join('\n'))
     setDirty(true)
   }
   const save = async (event: FormEvent) => {
@@ -55,11 +60,11 @@ export function useSettingsDraft(section: SettingsSection, settings: AppConfig,
       setMessage('mixedAndControllerPortsMustBeDifferent'); return
     }
     try {
-      await onSave(createSettingsSectionPatch(section, { form, bypass, dnsHijack }, settings))
+      await onSave(createSettingsSectionPatch(section, { form, bypass, dnsHijack, fallbackDns }, settings))
       setDirty(false); setMessage('changesSaved')
     } catch { setMessage('changesCouldNotBeAppliedCheckTheErrorAbove') }
   }
-  return { form, setForm, bypass, setBypass, dnsHijack, setDnsHijack, dirty, setDirty, message, setMessage,
+  return { form, setForm, bypass, setBypass, dnsHijack, setDnsHijack, fallbackDns, setFallbackDns, dirty, setDirty, message, setMessage,
     updateKernel, updateTun, updateGeneral, updateSysProxy, discard, resetToDefaults, save }
 }
 

@@ -149,13 +149,16 @@ function verifyConfiguration() {
   assert.equal(restoreSettings({ kernel: { controllerSecret: DEFAULT_APP_CONFIG.kernel.controllerSecret } }, initial).kernel.controllerSecret, 'fixture-unique-secret', 'shared legacy secret is migrated')
   assert.equal(restoreSettings({ kernel: { controllerSecret: 'custom' } }, initial).kernel.controllerSecret, 'custom')
   assert.equal(mergeSettings(initial, { kernel: { tun: { enable: true } } }).kernel.tun.stack, initial.kernel.tun.stack, 'nested patches retain TUN preferences')
-  const draft = { form: structuredClone(initial), bypass: ' localhost \r\n\n 10.* ', dnsHijack: ' any:53\n tcp://any:53 ' }
+  const draft = { form: structuredClone(initial), bypass: ' localhost \r\n\n 10.* ', dnsHijack: ' any:53\n tcp://any:53 ', fallbackDns: ' 77.88.8.8\n 1.1.1.1 ' }
   draft.form.kernel.mixedPort = 1234
   draft.form.kernel.tun.enable = true
   draft.form.sysProxy.enable = true
   const tunPatch = createSettingsSectionPatch('tun', draft, initial)
   assert.equal(tunPatch.kernel.mixedPort, initial.kernel.mixedPort, 'TUN save preserves saved ports')
   assert.deepEqual(tunPatch.kernel.tun.dnsHijack, ['any:53', 'tcp://any:53'])
+  assert.deepEqual(tunPatch.kernel.tun.fallbackDns, ['77.88.8.8', '1.1.1.1'])
+  assert.equal(DEFAULT_APP_CONFIG.kernel.tun.resilientDns, false, 'fallback DNS is disabled by default')
+  assert.deepEqual(DEFAULT_APP_CONFIG.kernel.tun.fallbackDns, ['77.88.8.8'], 'fallback DNS default addresses configured')
   const corePatch = createSettingsSectionPatch('mihomo', draft, initial)
   assert.equal(corePatch.kernel.tun.enable, false, 'core save preserves saved capture preference')
   const proxyPatch = createSettingsSectionPatch('sysproxy', draft, initial)
@@ -186,6 +189,18 @@ function verifyConfiguration() {
   assert.equal(yaml.parse(MihomoConfigFactory.synthesize(profile, config)).tun.mtu, 1400)
   config.kernel.tun.options['auto-detect-interface'] = false
   assert.equal(yaml.parse(MihomoConfigFactory.synthesize(profile, config)).tun['auto-detect-interface'], false, 'explicit false survives TUN synthesis')
+
+  // Synthetic DNS when subscription DNS is absent
+  const cleanProfile = 'proxies: []\nproxy-groups: []\nrules: [MATCH,DIRECT]\n'
+  const defaultSynthDns = yaml.parse(MihomoConfigFactory.synthesize(cleanProfile, config)).dns
+  assert.ok(!defaultSynthDns['default-nameserver'].includes('77.88.8.8'), 'disabled fallback DNS omits fallback addresses')
+
+  config.kernel.tun.resilientDns = true
+  config.kernel.tun.fallbackDns = ['1.2.3.4']
+  const customSynthDns = yaml.parse(MihomoConfigFactory.synthesize(cleanProfile, config)).dns
+  assert.ok(customSynthDns['default-nameserver'].includes('1.2.3.4'), 'enabled fallback DNS includes configured servers')
+  assert.ok(customSynthDns.nameserver.includes('1.2.3.4'))
+  config.kernel.tun.resilientDns = false
   const base64Sample = 'aHlzdGVyaWEyOi8vbm9kZTE='
   assert.throws(() => MihomoConfigFactory.synthesize(base64Sample, config), /Profile must contain/, 'invalid profiles must never silently enable direct routing')
   const invalid = fresh()

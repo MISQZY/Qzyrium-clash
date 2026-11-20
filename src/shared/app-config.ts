@@ -76,6 +76,7 @@ export interface AppConfig {
       strictRoute: boolean
       dnsHijack: string[]
       resilientDns?: boolean
+      fallbackDns?: string[]
       ipv6?: boolean
       options?: ConfigValues
     }
@@ -165,7 +166,8 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
       autoRoute: true,
       strictRoute: true,
       dnsHijack: ['any:53'],
-      resilientDns: true,
+      resilientDns: false,
+      fallbackDns: ['77.88.8.8'],
       ipv6: false
     }
   },

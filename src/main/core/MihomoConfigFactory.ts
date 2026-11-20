@@ -144,7 +144,10 @@ export class MihomoConfigFactory {
       const currentDns = (parsed.dns && typeof parsed.dns === 'object' && !Array.isArray(parsed.dns))
         ? (parsed.dns as Record<string, unknown>)
         : {}
-      const useResilientDns = appConfig.kernel.tun.resilientDns !== false
+      const useResilientDns = appConfig.kernel.tun.resilientDns === true
+      const fallbackDns = (appConfig.kernel.tun.fallbackDns && appConfig.kernel.tun.fallbackDns.length > 0)
+        ? appConfig.kernel.tun.fallbackDns
+        : ['77.88.8.8']
       if (currentDns.enable !== true) {
         parsed['dns'] = {
           'enhanced-mode': 'fake-ip',
@@ -165,19 +168,19 @@ export class MihomoConfigFactory {
           'default-nameserver': [
             '1.1.1.1',
             '8.8.8.8',
-            ...(useResilientDns ? ['77.88.8.8'] : []),
+            ...(useResilientDns ? fallbackDns : []),
             '9.9.9.9'
           ],
           nameserver: [
             'https://cloudflare-dns.com/dns-query',
             'https://dns.google/dns-query',
             'https://dns.quad9.net/dns-query',
-            ...(useResilientDns ? ['77.88.8.8'] : [])
+            ...(useResilientDns ? fallbackDns : [])
           ],
           'proxy-server-nameserver': [
             'https://cloudflare-dns.com/dns-query',
             'https://dns.google/dns-query',
-            ...(useResilientDns ? ['77.88.8.8'] : []),
+            ...(useResilientDns ? fallbackDns : []),
             '1.1.1.1',
             '8.8.8.8'
           ],

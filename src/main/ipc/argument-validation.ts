@@ -49,7 +49,7 @@ const general = object(optionalFields({ ...primitiveDefaults(DEFAULT_APP_CONFIG.
   language: oneOf('ru', 'en'), shortcuts: record(text), customLocalizations: list(localization),
   customLocalization: value => value === null || text(value) }))
 const tun = object(optionalFields({ ...primitiveDefaults(DEFAULT_APP_CONFIG.kernel.tun),
-  stack: oneOf('system', 'gvisor', 'mixed'), dnsHijack: list(text), options: config }))
+  stack: oneOf('system', 'gvisor', 'mixed'), dnsHijack: list(text), fallbackDns: list(text), options: config }))
 const nullableConfig: Check = value => value === null || config(value)
 const settings = object(optionalFields({ general,
   kernel: object(optionalFields({ ...primitiveDefaults(DEFAULT_APP_CONFIG.kernel), tun,
