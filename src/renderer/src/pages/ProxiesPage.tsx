@@ -168,17 +168,12 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {groupNames.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleExpandAll}
-              className="text-xs gap-1.5"
-            >
-              <ChevronsUpDown className="size-4 text-muted-foreground" />
-              <span>{allExpanded ? t('collapseAll') : t('expandAll')}</span>
-            </Button>
-          )}
+          <ProvidersDialog
+            key={profileId}
+            kind="proxies"
+            running={running}
+            onUpdated={onRefresh}
+          />
 
           <Button
             onClick={() => testAll(allNodes)}
@@ -200,13 +195,6 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
               </span>
             </span>
           </Button>
-
-          <ProvidersDialog
-            key={profileId}
-            kind="proxies"
-            running={running}
-            onUpdated={onRefresh}
-          />
         </div>
       </div>
 
@@ -240,6 +228,18 @@ export const ProxiesPage: React.FC<ProxiesPageProps> = ({
 
           {/* Filters & Sorting Controls */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* Expand / Collapse All */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleExpandAll}
+              className="text-xs h-8 gap-1.5 shrink-0"
+              title={allExpanded ? t('collapseAll') : t('expandAll')}
+            >
+              <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+              <span>{allExpanded ? t('collapseAll') : t('expandAll')}</span>
+            </Button>
+
             {/* Available Only Toggle Button */}
             <Button
               type="button"
