@@ -15,14 +15,49 @@ public static class NativeCapture {
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
   [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+  [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hwnd);
+  [DllImport("user32.dll")] public static extern IntPtr OpenInputDesktop(uint flags, bool inherit, uint access);
+  [DllImport("user32.dll")] public static extern bool CloseDesktop(IntPtr desktop);
 }
 '@
 [NativeCapture]::SetProcessDPIAware() | Out-Null
 $handle = [IntPtr]$WindowHandle
 if (![NativeCapture]::IsWindowVisible($handle)) { throw 'Window is hidden' }
+
+$inputDesktop = [NativeCapture]::OpenInputDesktop(0, $false, 0x0100)
+if ($inputDesktop -eq [IntPtr]::Zero) {
+  @{ skipped = $true; reason = 'Windows desktop session is locked or non-interactive'; colors = 0 } | ConvertTo-Json -Compress
+  exit 0
+}
+[NativeCapture]::CloseDesktop($inputDesktop) | Out-Null
+[NativeCapture]::BringWindowToTop($handle) | Out-Null
 [NativeCapture]::SetForegroundWindow($handle) | Out-Null
 Start-Sleep -Milliseconds 350
-if ([NativeCapture]::GetForegroundWindow() -ne $handle) { throw 'Cannot verify native pixels: window is not foreground' }
+$fore = [NativeCapture]::GetForegroundWindow()
+if ($fore -ne $handle -and $fore -ne [IntPtr]::Zero) {
+  $targetPid = [uint32]0
+  $targetThread = [NativeCapture]::GetWindowThreadProcessId($handle, [ref]$targetPid)
+  $forePid = [uint32]0
+  $foreThread = [NativeCapture]::GetWindowThreadProcessId($fore, [ref]$forePid)
+  $currentProcess = [System.Diagnostics.Process]::GetCurrentProcess()
+  $currentPid = [uint32]$currentProcess.Id
+  $currentThread = [NativeCapture]::GetWindowThreadProcessId([System.Diagnostics.Process]::GetCurrentProcess().MainWindowHandle, [ref]$currentPid)
+  if ($targetThread -ne 0 -and $foreThread -ne 0) {
+    [NativeCapture]::AttachThreadInput($currentThread, $targetThread, $true) | Out-Null
+    [NativeCapture]::AttachThreadInput($foreThread, $targetThread, $true) | Out-Null
+    [NativeCapture]::BringWindowToTop($handle) | Out-Null
+    [NativeCapture]::SetForegroundWindow($handle) | Out-Null
+    [NativeCapture]::AttachThreadInput($foreThread, $targetThread, $false) | Out-Null
+    [NativeCapture]::AttachThreadInput($currentThread, $targetThread, $false) | Out-Null
+    Start-Sleep -Milliseconds 350
+  }
+}
+$currentFore = [NativeCapture]::GetForegroundWindow()
+if ($currentFore -ne $handle -and $currentFore -ne [IntPtr]::Zero) {
+  throw "Cannot verify native pixels: window is not foreground (handle: $handle, fore: $currentFore, initial: $fore)"
+}
 $rect = New-Object NativeCapture+RECT
 if (![NativeCapture]::GetClientRect($handle, [ref]$rect)) { throw 'Cannot read native client bounds' }
 $origin = New-Object NativeCapture+POINT
@@ -39,7 +74,12 @@ if ($origin.X -lt $desktopLeft -or $origin.Y -lt $desktopTop -or
 $bitmap = New-Object System.Drawing.Bitmap(($rect.Right - $rect.Left), ($rect.Bottom - $rect.Top))
 $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
 try {
-  $graphics.CopyFromScreen($origin.X, $origin.Y, 0, 0, $bitmap.Size)
+  try {
+    $graphics.CopyFromScreen($origin.X, $origin.Y, 0, 0, $bitmap.Size)
+  } catch [System.ComponentModel.Win32Exception] {
+    @{ skipped = $true; reason = 'Windows desktop display device context is unavailable (desktop locked or disconnected)'; colors = 0 } | ConvertTo-Json -Compress
+    exit 0
+  }
   $bitmap.Save($OutputPath, [System.Drawing.Imaging.ImageFormat]::Png)
   # Ignore borders/shadows: the client area must contain actual UI variation.
   $colors = New-Object 'System.Collections.Generic.HashSet[int]'

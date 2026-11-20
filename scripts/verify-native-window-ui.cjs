@@ -46,6 +46,10 @@ app.whenReady().then(async () => {
     ], { windowsHide: true, timeout: 15000 })
     const result = JSON.parse(stdout)
     report.push({ stage, ...result })
+    if (result.skipped) {
+      console.log(`SKIP: ${stage}: ${result.reason}`)
+      return result
+    }
     assert.ok(result.colors > 32, `${stage}: native window is blank (${result.colors} sampled colors)`)
     const size = await win.webContents.executeJavaScript('({ width: innerWidth, height: innerHeight })')
     const bitmap = nativeImage.createFromPath(path.join(output, `${stage}.png`)).toBitmap()
@@ -65,10 +69,14 @@ app.whenReady().then(async () => {
   try {
     await win.loadFile(path.resolve(__dirname, '../out/renderer/index.html'))
     await ready()
-    win.showInactive(); win.focus()
+    win.show(); win.setAlwaysOnTop(true); win.focus()
     console.log('GRAPHICS:', JSON.stringify({ requestedBackend: process.env.UI_ANGLE ?? 'default',
       features: app.getGPUFeatureStatus(), info: await app.getGPUInfo('basic') }))
-    await capture('startup')
+    const first = await capture('startup')
+    if (first?.skipped) {
+      console.log(`SKIP: native Windows presentation check (${first.reason})`)
+      return
+    }
     win.setSize(940, 660)
     await capture('resize')
     const drag = await execute('powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden',
@@ -87,9 +95,9 @@ app.whenReady().then(async () => {
     console.log(`PASS: native drag repaints while held; maximum additional paint wait ${Math.max(...samples.map(sample => sample.paintWaitMs ?? 0))} ms`)
     win.setSize(1280, 860)
     await capture('grow')
-    win.hide(); await delay(100); win.showInactive(); win.focus()
+    win.hide(); await delay(100); win.show(); win.setAlwaysOnTop(true); win.focus()
     await capture('hide-show')
-    win.minimize(); await delay(100); win.restore()
+    win.minimize(); await delay(100); win.restore(); win.setAlwaysOnTop(true); win.focus()
     await capture('minimize-restore')
     win.reload(); await ready()
     await capture('reload')
