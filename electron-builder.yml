@@ -6,7 +6,7 @@ electronFuses:
   runAsNode: true
   enableCookieEncryption: true
   enableNodeOptionsEnvironmentVariable: false
-  enableNodeCliInspectArguments: false
+  enableNodeCliInspectArguments: true
   enableEmbeddedAsarIntegrityValidation: true
   onlyLoadAppFromAsar: true
 publish:
