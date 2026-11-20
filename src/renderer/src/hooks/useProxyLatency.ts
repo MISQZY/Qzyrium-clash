@@ -23,9 +23,19 @@ export function useProxyLatency(options: {
   publish.current = options.onUpdateDelays
 
   useEffect(() => {
-    setTesting(idleTesting())
-    return () => { pending.current?.controller.abort(); pending.current = null }
-  }, [options.proxies, options.concurrency, options.running])
+    if (!options.running) {
+      pending.current?.controller.abort()
+      pending.current = null
+      setTesting(idleTesting())
+    }
+  }, [options.running])
+
+  useEffect(() => {
+    return () => {
+      pending.current?.controller.abort()
+      pending.current = null
+    }
+  }, [])
 
   const updateTesting = (session: TestSession) => {
     setTesting({
@@ -65,6 +75,7 @@ export function useProxyLatency(options: {
       if (pending.current === session) {
         session.jobs.delete(group)
         updateTesting(session)
+        if (!session.jobs.size) pending.current = null
       }
     }
   }
