@@ -343,10 +343,10 @@ export class WindowService implements BaseService {
     this.mainWindow.webContents.setWindowOpenHandler((details) => {
       try {
         const parsed = new URL(details.url)
-        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        if (parsed.protocol === 'https:') {
           void shell.openExternal(details.url)
         } else {
-          logger.warn(`Blocked opening unsafe external URL scheme: ${parsed.protocol}`)
+          logger.warn(`Blocked opening non-HTTPS external URL scheme: ${parsed.protocol}`)
         }
       } catch {
         logger.warn(`Blocked invalid external URL: ${details.url}`)
