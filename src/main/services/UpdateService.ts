@@ -71,7 +71,7 @@ export class UpdateService implements BaseService {
     if (this.autoCheckEnabled()) void this.checkUpdates()
   }
 
-  private listen(event: Parameters<typeof autoUpdater.on>[0], listener: (...args: any[]) => void): void {
+  private listen(event: Parameters<typeof autoUpdater.on>[0], listener: Parameters<typeof autoUpdater.on>[1]): void {
     autoUpdater.on(event, listener)
     this.listeners.push(() => autoUpdater.removeListener(event, listener))
   }

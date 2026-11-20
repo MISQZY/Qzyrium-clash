@@ -50,7 +50,7 @@ export class SubscriptionClient {
           pinned.hostname = address.family === 6 ? `[${address.address}]` : address.address
         }
         const agentLookup = (_hostname: string, optionsOrCb: unknown, maybeCb?: unknown) => {
-          const cb = (typeof optionsOrCb === 'function' ? optionsOrCb : maybeCb) as ((err: Error | null, addressOrAddresses: any, family?: number) => void) | undefined
+          const cb = (typeof optionsOrCb === 'function' ? optionsOrCb : maybeCb) as ((err: Error | null, addressOrAddresses: string | { address: string; family: number }[], family?: number) => void) | undefined
           if (cb) {
             const isAll = typeof optionsOrCb === 'object' && optionsOrCb !== null && (optionsOrCb as { all?: boolean }).all
             if (isAll) {
