@@ -25,7 +25,7 @@ export function useProxyLatency(options: {
   useEffect(() => {
     setTesting(idleTesting())
     return () => { pending.current?.controller.abort(); pending.current = null }
-  }, [options.proxies, options.concurrency])
+  }, [options.proxies, options.concurrency, options.running])
 
   const updateTesting = (session: TestSession) => {
     setTesting({
