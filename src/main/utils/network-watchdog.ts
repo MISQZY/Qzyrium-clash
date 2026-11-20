@@ -56,7 +56,8 @@ export class NetworkWatchdog {
       await this.waitFor('READY', 25_000)
       this.ready = true
     } catch (error) {
-      child.stdin.end()
+      try { child.stdin.end() } catch {}
+      try { child.kill() } catch {}
       this.child = undefined
       throw error
     }
@@ -90,6 +91,8 @@ export class NetworkWatchdog {
       const onExit = () => { clearTimeout(timer); this.child = undefined; resolve() }
       const timer = setTimeout(() => {
         child.removeListener('exit', onExit)
+        try { child.kill() } catch {}
+        this.child = undefined
         reject(new Error('Network watchdog shutdown timed out'))
       }, 25_000)
       child.once('exit', onExit)
