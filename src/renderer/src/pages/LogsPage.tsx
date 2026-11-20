@@ -9,6 +9,7 @@ import { VirtualList } from '../components/VirtualList'
 import { createLogPresenter, formatLogTime } from '../lib/log-presentation'
 import { LogRow } from '../components/logs/LogRow'
 import { copyToClipboard } from '../lib/clipboard'
+import { cn } from '../lib/utils'
 
 interface LogsPageProps {
   logs: LogEntry[]
@@ -121,42 +122,29 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
 
   return (
     <div className="flex-1 min-w-0 min-h-0 h-full p-5 flex flex-col gap-4 overflow-hidden">
-      {/* Header & Controls */}
+      {/* Header & Global Actions */}
       <div className="page-heading shrink-0">
-        <div>
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight">{t('logs')}</h1>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Level Filter Buttons */}
-          <div className="flex items-center rounded-lg bg-muted/60 border border-border p-0.5 text-xs">
-            {logLevels.map((lvl) => (
+          <div className="flex items-center rounded-lg bg-muted/60 border border-border p-0.5 text-xs" role="group" aria-label={t('logSource')}>
+            {(['mihomo', 'app'] as const).map(value => (
               <button
-                key={lvl}
-                onClick={() => setLevelFilter(lvl)}
-                aria-pressed={levelFilter === lvl}
-                className={`px-2.5 py-1 rounded-md capitalize font-medium transition-colors cursor-pointer ${
-                  levelFilter === lvl
-                    ? 'bg-card text-primary shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                key={value}
+                type="button"
+                onClick={() => { scrollPosition.current = 0; setSource(value) }}
+                aria-pressed={source === value}
+                className={cn(
+                  'px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer',
+                  source === value ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                )}
               >
-                {common(lvl)}
+                {t(value === 'app' ? 'applicationLogs' : 'connectionLogs')}
               </button>
             ))}
           </div>
+        </div>
 
-          <Button
-            onClick={() => setAutoScroll((value) => !value)}
-            aria-pressed={autoScroll}
-            variant={autoScroll ? 'default' : 'outline'}
-            size="sm"
-            className="gap-1.5"
-          >
-            <AutoscrollIcon className="size-3.5" />
-            <span className="text-[11px]">{t('autoscroll')}</span>
-          </Button>
-
+        <div className="flex items-center gap-2">
           <Button
             onClick={() => void handleCopy()}
             variant="outline"
@@ -184,18 +172,52 @@ export const LogsPage: React.FC<LogsPageProps> = ({ logs, onClear }) => {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 shrink-0">
-        <div className="flex items-center gap-1" role="group" aria-label={t('logSource')}>
-          {(['mihomo', 'app'] as const).map(value => (
-            <Button key={value} size="sm" variant={source === value ? 'default' : 'outline'}
-              aria-pressed={source === value} onClick={() => { scrollPosition.current = 0; setSource(value) }}>
-              {t(value === 'app' ? 'applicationLogs' : 'connectionLogs')}
-            </Button>
-          ))}
+      {/* Search and Filters Toolbar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+        <Input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder={t('searchLogs')}
+          aria-label={t('searchLogs')}
+          title={t('searchLogs')}
+          className="max-w-sm h-8 text-xs"
+        />
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Level Filter Buttons */}
+          <div className="flex items-center rounded-lg bg-muted/60 border border-border p-0.5 text-xs">
+            {logLevels.map((lvl) => (
+              <button
+                key={lvl}
+                onClick={() => setLevelFilter(lvl)}
+                aria-pressed={levelFilter === lvl}
+                className={`px-2.5 py-1 rounded-md capitalize font-medium transition-colors cursor-pointer ${
+                  levelFilter === lvl
+                    ? 'bg-card text-primary shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {common(lvl)}
+              </button>
+            ))}
+          </div>
+
+          <Button
+            onClick={() => setAutoScroll((value) => !value)}
+            aria-pressed={autoScroll}
+            variant={autoScroll ? 'default' : 'outline'}
+            size="sm"
+            className="gap-1.5 h-8 text-xs"
+          >
+            <AutoscrollIcon className="size-3.5" />
+            <span className="text-[11px]">{t('autoscroll')}</span>
+          </Button>
+
+          <span className="text-xs text-muted-foreground tabular-nums shrink-0 px-1">
+            {filteredLogs.length} / {sourceLogs.length}
+          </span>
         </div>
-        <Input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
-          placeholder={t('searchLogs')} aria-label={t('searchLogs')} title={t('searchLogs')} className="max-w-sm" />
-        <span className="text-xs text-muted-foreground tabular-nums shrink-0">{filteredLogs.length} / {sourceLogs.length}</span>
       </div>
 
       {/* Terminal View Container */}
