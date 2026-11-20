@@ -11,7 +11,8 @@ export function parseSubscriptionImportUrl(input: string): ParsedSubscriptionUrl
     try {
       const qIndex = trimmed.indexOf('?')
       if (qIndex !== -1) {
-        const params = new URLSearchParams(trimmed.slice(qIndex + 1))
+        const queryPart = trimmed.slice(qIndex + 1).split('#')[0]
+        const params = new URLSearchParams(queryPart)
         const targetUrl = params.get('url')
         const targetName = params.get('name')
         if (targetUrl?.trim()) {

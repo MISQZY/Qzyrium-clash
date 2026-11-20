@@ -63,6 +63,15 @@ function verifyClashUrls() {
   assert.equal(parsedClash.url, 'https://provider.example.com/api/v1/sub?token=123')
   assert.equal(parsedClash.name, 'My Proxy Server')
 
+  const clashLinkWithFragment = 'clash://install-config?url=' + encodeURIComponent('https://provider.example.com/sub') + '&name=ServerName#fragmentPart'
+  const parsedFragment = parseSubscriptionImportUrl(clashLinkWithFragment)
+  assert.equal(parsedFragment.url, 'https://provider.example.com/sub')
+  assert.equal(parsedFragment.name, 'ServerName')
+
+  const unencodedWithFragment = 'clash://install-config?url=https://plain.example.com/sub#trailing'
+  const parsedUnencoded = parseSubscriptionImportUrl(unencodedWithFragment)
+  assert.equal(parsedUnencoded.url, 'https://plain.example.com/sub')
+
   const qzyriumLink = 'qzyrium://install-config?url=' + encodeURIComponent('https://provider.example.com/sub2')
   const parsedQz = parseSubscriptionImportUrl(qzyriumLink)
   assert.equal(parsedQz.url, 'https://provider.example.com/sub2')
