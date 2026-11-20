@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { CoreChannel } from '@shared/core-version'
+import type { AppConfig } from '@shared/app-config'
 import type { SettingService } from '../services/SettingService'
 import type { ProfileService } from '../services/ProfileService'
 import type { ActiveConfigBuilder } from './ActiveConfigBuilder'
@@ -11,7 +12,7 @@ import type { MihomoProcessManager } from './MihomoProcessManager'
 import { getAppPaths, resolveCoreBinaryPath } from '../utils/paths'
 import { logger } from '../utils/logger'
 
-const runFile = typeof promisify === 'function' ? promisify(execFile) : () => Promise.resolve({ stdout: '', stderr: '' })
+const runFile = promisify(execFile)
 
 export interface BinaryInstallationActions {
   promote: () => Promise<string>
@@ -21,7 +22,7 @@ export interface BinaryInstallationActions {
 
 export interface CoreLifecycleActions {
   stopCore: () => Promise<void>
-  startCore: (settings?: any, binary?: string, persistRules?: boolean) => Promise<void>
+  startCore: (settings?: AppConfig, binary?: string, persistRules?: boolean) => Promise<void>
   isRunning: () => boolean
 }
 

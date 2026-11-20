@@ -12,13 +12,10 @@ export function provideDomainStores(stores: DomainStores, children: ReactNode): 
     bind(contexts.RefreshContext, stores.refreshAll),
     bind(contexts.NavigationContext, stores.navigation),
     bind(contexts.KernelContext, stores.kernel),
-    bind(contexts.TrafficContext, stores.traffic),
     bind(contexts.ProfilesContext, stores.profiles),
     bind(contexts.SettingsContext, stores.settings),
     bind(contexts.ProxiesContext, stores.proxies),
-    bind(contexts.RulesContext, stores.rules),
-    bind(contexts.ConnectionsContext, stores.connections),
-    bind(contexts.LogsContext, stores.logs),
+    bind(contexts.RulesContext, stores.rules)
   ]
   return providers.reduceRight<ReactNode>((tree, provide) => provide(tree), children)
 }

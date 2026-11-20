@@ -11,7 +11,6 @@ export {
   useNavigation,
   KernelContext,
   useKernel,
-  TrafficContext,
   useTraffic,
   ProfilesContext,
   useProfiles,
@@ -21,9 +20,7 @@ export {
   useProxies,
   RulesContext,
   useRules,
-  ConnectionsContext,
   useConnections,
-  LogsContext,
   useLogs
 } from './store-contexts'
 

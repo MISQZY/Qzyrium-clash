@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
-import { join, resolve, sep } from 'node:path'
+import { join } from 'node:path'
 import { writeFileAtomic } from '../utils/atomicWrite'
 import { resolveSafeChildPath } from '../utils/safe-path'
+import { logger } from '../utils/logger'
 import type { CustomThemePack } from '@shared/theme'
 import { isCustomThemeId, MAX_THEME_BYTES, validateThemePack } from '@shared/theme-validation'
 
@@ -38,7 +39,7 @@ export class ThemeStore {
           return pack
         } catch {
           this.skippedFiles.push(f)
-          console.warn(`Skipped invalid custom theme: ${f}`)
+          logger.warn(`Skipped invalid custom theme: ${f}`)
           return null
         }
       })
