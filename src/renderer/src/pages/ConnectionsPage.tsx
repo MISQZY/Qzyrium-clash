@@ -80,6 +80,14 @@ const ConnectionsView = memo(function ConnectionsView({ connections, onRefresh, 
     [actions, setRuleTargetConnection]
   )
 
+  const drilldownConnectionActions = useMemo(
+    () => ({
+      ...actions,
+      onQuickRule: undefined
+    }),
+    [actions]
+  )
+
   const renderConnectionCard = useCallback(
     (item: ConnectionItem) => (
       <ConnectionCard
@@ -89,6 +97,17 @@ const ConnectionsView = memo(function ConnectionsView({ connections, onRefresh, 
       />
     ),
     [connectionActions]
+  )
+
+  const renderDrilldownConnectionCard = useCallback(
+    (item: ConnectionItem) => (
+      <ConnectionCard
+        key={item.id}
+        item={item}
+        actions={drilldownConnectionActions}
+      />
+    ),
+    [drilldownConnectionActions]
   )
 
   return (
@@ -120,7 +139,7 @@ const ConnectionsView = memo(function ConnectionsView({ connections, onRefresh, 
           <ProcessGroupHero group={activeProcessGroup} actions={actions} onQuickRule={setRuleTargetGroup} />
 
           {/* List of connections for this process */}
-          <VirtualList data={activeProcessGroup.connections} itemKey={item => item.id} renderItem={renderConnectionCard} />
+          <VirtualList data={activeProcessGroup.connections} itemKey={item => item.id} renderItem={renderDrilldownConnectionCard} />
         </div>
       ) : viewMode === 'process' ? (
         /* Level 1: Process Cards List */
