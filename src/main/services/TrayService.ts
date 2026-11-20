@@ -75,11 +75,11 @@ export class TrayService implements BaseService {
     const downRate = Math.max(0, Number.isFinite(stats.down) ? stats.down : 0)
     this.traffic.up = upRate
     this.traffic.down = downRate
-    if (this.lastTrafficSample > 0) {
-      const deltaSec = Math.max(0, Math.min(5, (now - this.lastTrafficSample) / 1000))
-      this.traffic.totalUp += Math.round(upRate * deltaSec)
-      this.traffic.totalDown += Math.round(downRate * deltaSec)
-    }
+    const deltaSec = this.lastTrafficSample > 0
+      ? Math.max(0, Math.min(5, (now - this.lastTrafficSample) / 1000))
+      : 1
+    this.traffic.totalUp += Math.round(upRate * deltaSec)
+    this.traffic.totalDown += Math.round(downRate * deltaSec)
     this.lastTrafficSample = now
     if (this.kernelService.getStatus() === 'running' && now - this.lastToolTipUpdate >= 5000) {
       this.lastToolTipUpdate = now
