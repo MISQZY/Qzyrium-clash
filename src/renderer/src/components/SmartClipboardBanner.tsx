@@ -62,6 +62,10 @@ function isProbableSubscriptionUrl(text: string): boolean {
 export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
   const t = useTranslations('profiles')
   const { profiles } = useProfiles()
+  const profilesRef = useRef(profiles)
+  profilesRef.current = profiles
+  const onImportRef = useRef(onImport)
+  onImportRef.current = onImport
 
   const [detected, setDetected] = useState<{ url: string; name?: string } | null>(null)
   const dismissedUrls = useRef<Set<string>>(new Set())
@@ -83,7 +87,7 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
       if (dismissedUrls.current.has(targetUrl) || dismissedUrls.current.has(text)) return
 
       // Don't show if already exists in active profiles
-      const alreadyExists = profiles.some(
+      const alreadyExists = profilesRef.current.some(
         (p) => p.url && (p.url.trim() === targetUrl || p.url.trim() === text)
       )
       if (alreadyExists) return
@@ -94,7 +98,7 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
         dismissedUrls.current.add(targetUrl)
         dismissedUrls.current.add(text)
         setDetected(null)
-        onImport({ url: targetUrl, name: parsed.name })
+        onImportRef.current({ url: targetUrl, name: parsed.name })
         window.dispatchEvent(
           new CustomEvent('qzyrium:insert-profile-url', {
             detail: { url: targetUrl, name: parsed.name }
@@ -114,7 +118,7 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
     } catch {
       // Ignore errors
     }
-  }, [profiles, onImport])
+  }, [])
 
   useEffect(() => {
     if (!detected) return
@@ -124,7 +128,7 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
         const toInsert = detected
         dismissedUrls.current.add(toInsert.url)
         setDetected(null)
-        onImport(toInsert)
+        onImportRef.current(toInsert)
         window.dispatchEvent(
           new CustomEvent('qzyrium:insert-profile-url', {
             detail: toInsert
@@ -138,7 +142,7 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
     }
     const interval = setInterval(checkModal, 150)
     return () => clearInterval(interval)
-  }, [detected, onImport])
+  }, [detected])
 
   useEffect(() => {
     const handleCheck = () => {
