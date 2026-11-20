@@ -36,13 +36,25 @@ export function notifySystemProxyChanged(): void {
  */
 export function flushSystemDns(): void {
   if (process.platform === 'win32') {
-    execFile(getSystemBinary('ipconfig.exe'), ['/flushdns'], { windowsHide: true }, (err) => {
-      if (err) {
-        logger.debug(`Failed to flush Windows DNS cache: ${String(err)}`)
-      } else {
-        logger.info('Flushed Windows DNS cache successfully')
+    if (typeof app?.getPath === 'function') {
+      try {
+        const runner = getAppPaths().runnerBinaryPath
+        if (existsSync(runner)) {
+          execFile(runner, ['--flush-dns'], { windowsHide: true }, (err) => {
+            if (err) {
+              logger.debug(`Failed to flush Windows DNS cache via helper: ${String(err)}`)
+              fallbackWinDnsFlush()
+            } else {
+              logger.info('Flushed Windows DNS cache successfully via resolver API')
+            }
+          })
+          return
+        }
+      } catch (err) {
+        logger.debug(`Could not invoke DNS flush runner: ${String(err)}`)
       }
-    })
+    }
+    fallbackWinDnsFlush()
   } else if (process.platform === 'linux') {
     const resolvectl = ['/usr/bin/resolvectl', '/bin/resolvectl'].find(existsSync) ?? 'resolvectl'
     execFile(resolvectl, ['flush-caches'], (err) => {
@@ -51,4 +63,14 @@ export function flushSystemDns(): void {
       }
     })
   }
+}
+
+function fallbackWinDnsFlush(): void {
+  execFile(getSystemBinary('ipconfig.exe'), ['/flushdns'], { windowsHide: true }, (err) => {
+    if (err) {
+      logger.debug(`Failed to flush Windows DNS cache: ${String(err)}`)
+    } else {
+      logger.info('Flushed Windows DNS cache successfully')
+    }
+  })
 }

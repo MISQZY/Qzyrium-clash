@@ -13,6 +13,9 @@ namespace QzyriumRunner
         [DllImport("wininet.dll", SetLastError = true)]
         static extern bool InternetSetOption(IntPtr hInternet, int dwOption, IntPtr lpBuffer, int dwBufferLength);
 
+        [DllImport("dnsapi.dll", EntryPoint = "DnsFlushResolverCache")]
+        static extern int DnsFlushResolverCache();
+
         const int INTERNET_OPTION_REFRESH = 37;
         const int INTERNET_OPTION_SETTINGS_CHANGED = 39;
 
@@ -20,6 +23,12 @@ namespace QzyriumRunner
         {
             InternetSetOption(IntPtr.Zero, INTERNET_OPTION_SETTINGS_CHANGED, IntPtr.Zero, 0);
             InternetSetOption(IntPtr.Zero, INTERNET_OPTION_REFRESH, IntPtr.Zero, 0);
+        }
+
+        static void FlushDnsCache()
+        {
+            try { DnsFlushResolverCache(); }
+            catch { }
         }
         // UAC consent registers this installation, including custom/portable paths.
         // Restrict the launcher to its sibling application, without requiring
@@ -66,6 +75,11 @@ namespace QzyriumRunner
                 if (args.Length == 1 && args[0] == "--refresh-proxy")
                 {
                     RefreshInternetSettings();
+                    return 0;
+                }
+                if (args.Length == 1 && args[0] == "--flush-dns")
+                {
+                    FlushDnsCache();
                     return 0;
                 }
                 if (args.Length == 2 && args[0] == "--check-install") return MatchesInstallation(args[1]) ? 0 : 1;
