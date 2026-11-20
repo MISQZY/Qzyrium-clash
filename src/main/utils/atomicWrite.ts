@@ -53,7 +53,16 @@ export async function writeFileAtomicAsync(
     if (backup) {
       try {
         await fs.copyFile(filePath, backupTemp)
-        await fs.rename(backupTemp, `${filePath}.bak`)
+        for (let attempt = 0; ; attempt++) {
+          try {
+            await fs.rename(backupTemp, `${filePath}.bak`)
+            break
+          } catch (error) {
+            const code = (error as NodeJS.ErrnoException).code
+            if ((code !== 'EPERM' && code !== 'EBUSY') || attempt >= 12) throw error
+            await new Promise((resolve) => setTimeout(resolve, Math.min(200, 50 * (attempt + 1))))
+          }
+        }
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       }
