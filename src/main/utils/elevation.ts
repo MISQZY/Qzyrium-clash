@@ -119,49 +119,14 @@ export function restartAsAdmin(): Promise<boolean> {
 
       const vbsScript = `On Error Resume Next\nSet s = CreateObject("Shell.Application")\ns.ShellExecute "${escapedTarget}", "${escapedArgs}", "${escapedDir}", "runas", 1\nIf Err.Number <> 0 Then\n  WScript.Quit Err.Number\nEnd If\n`
 
-      const tryPowerShellFallback = (): void => {
-        try {
-          const psPath = getSystemBinary('powershell.exe')
-          const psTarget = sanitizeArg(execPath).replace(/'/g, "''")
-          const psDir = sanitizeArg(workingDir).replace(/'/g, "''")
-          const psArgList = cleanArgs
-            .map((a: string) => `"${a.replace(/"/g, '`"')}"`)
-            .join(' ')
-            .replace(/'/g, "''")
-          const psArgs = [
-            '-NoProfile',
-            '-NonInteractive',
-            '-WindowStyle',
-            'Hidden',
-            '-Command',
-            `Start-Process -FilePath '${psTarget}' -ArgumentList '${psArgList}' -WorkingDirectory '${psDir}' -Verb RunAs`
-          ]
-          execFile(psPath, psArgs, { windowsHide: true }, (psErr) => {
-            if (psErr) {
-              logger.warn(`Failed to relaunch process via PowerShell UAC fallback: ${String(psErr)}`)
-              if (typeof electronApp.requestSingleInstanceLock === 'function') {
-                electronApp.requestSingleInstanceLock()
-              }
-              resolve(false)
-              return
-            }
-            electronApp.exit(0)
-            resolve(true)
-          })
-        } catch (psErr) {
-          logger.warn(`Could not spawn PowerShell for elevation fallback: ${String(psErr)}`)
-          if (typeof electronApp.requestSingleInstanceLock === 'function') {
-            electronApp.requestSingleInstanceLock()
-          }
-          resolve(false)
-        }
-      }
-
       try {
         writeFileSync(vbsPath, vbsScript, { encoding: 'utf8', flag: 'wx' })
       } catch (writeErr) {
-        logger.warn(`Failed to create elevation script, attempting PowerShell fallback: ${String(writeErr)}`)
-        tryPowerShellFallback()
+        logger.error('Failed to create elevation script', writeErr)
+        if (typeof electronApp.requestSingleInstanceLock === 'function') {
+          electronApp.requestSingleInstanceLock()
+        }
+        resolve(false)
         return
       }
 
@@ -175,14 +140,13 @@ export function restartAsAdmin(): Promise<boolean> {
             const exitCode = (err as { code?: number | string }).code
             if (exitCode === 1223 || exitCode === '1223' || (typeof err.message === 'string' && err.message.includes('1223'))) {
               logger.info('User cancelled UAC elevation prompt')
-              if (typeof electronApp.requestSingleInstanceLock === 'function') {
-                electronApp.requestSingleInstanceLock()
-              }
-              resolve(false)
-              return
+            } else {
+              logger.warn(`Failed to relaunch process as Administrator: ${String(err)}`)
             }
-            logger.warn(`wscript.exe elevation failed (${String(err)}), attempting PowerShell fallback...`)
-            tryPowerShellFallback()
+            if (typeof electronApp.requestSingleInstanceLock === 'function') {
+              electronApp.requestSingleInstanceLock()
+            }
+            resolve(false)
             return
           }
 
