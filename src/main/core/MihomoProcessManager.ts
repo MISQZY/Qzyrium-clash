@@ -212,7 +212,7 @@ export class MihomoProcessManager extends EventEmitter {
         if (!this.explicitStop) {
           this.reportFailure(new Error(`Mihomo exited unexpectedly, signal ${signal}`), 'crash', code)
           this.setState('error')
-        } else {
+        } else if (this.state !== 'error') {
           this.setState('stopped')
         }
       })
@@ -228,7 +228,11 @@ export class MihomoProcessManager extends EventEmitter {
           }
         }
       }
-      await this.waitForReady(spawned, controllerPort, secret, sequence, () => exitedPrematurely, () => exitCode)
+      try {
+        await this.waitForReady(spawned, controllerPort, secret, sequence, () => exitedPrematurely, () => exitCode)
+      } finally {
+        spawned.removeListener('exit', onPrematureExit)
+      }
     } catch (err) {
       if (sequence === this.startSequence && !this.explicitStop) {
         this.reportFailure(err)
@@ -301,7 +305,17 @@ export class MihomoProcessManager extends EventEmitter {
       const onExit = () => { clearTimeout(timer); resolve() }
       const timer = setTimeout(() => {
         child.removeListener('exit', onExit)
-        try { child.kill('SIGKILL') } catch {}
+        try {
+          if (process.platform === 'win32' && child.pid) {
+            execFile(getSystemBinary('taskkill.exe'), ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true }, () => {})
+          } else {
+            child.kill('SIGKILL')
+          }
+        } catch {}
+        if (this.childProcess === child) {
+          this.childProcess = null
+          this.setState('error')
+        }
         reject(new Error('Timed out waiting for Mihomo to stop'))
       }, process.platform === 'linux' ? 65_000 : 5000)
       child.once('exit', onExit)
