@@ -97,7 +97,11 @@ export function registerApplicationHandlers(
   })
 
   handle(IPC_CHANNELS.APP_READ_CLIPBOARD, async () => {
-    return clipboard.readText()
+    const text = await clipboard.readText()
+    if (text.length > 8192) {
+      return text.slice(0, 8192)
+    }
+    return text
   })
 
   handle(IPC_CHANNELS.APP_GET_BOOT_SNAPSHOT, async () => {

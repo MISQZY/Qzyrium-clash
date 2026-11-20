@@ -63,7 +63,7 @@ export async function readClipboard(): Promise<string> {
   if (typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
     try {
       const text = await navigator.clipboard.readText()
-      if (typeof text === 'string') return text.trim()
+      if (typeof text === 'string') return (text.length > 8192 ? text.slice(0, 8192) : text).trim()
     } catch {
       // Ignore fallback errors
     }

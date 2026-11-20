@@ -123,7 +123,7 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
   useEffect(() => {
     if (!detected) return
     // If Add Profile modal opens while banner is displayed, auto-insert into modal and dismiss banner
-    const checkModal = () => {
+    const checkModal = (): boolean => {
       if (document.getElementById('profile-url')) {
         const toInsert = detected
         dismissedUrls.current.add(toInsert.url)
@@ -138,10 +138,20 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
         if (input) {
           input.focus()
         }
+        return true
       }
+      return false
     }
-    const interval = setInterval(checkModal, 150)
-    return () => clearInterval(interval)
+
+    if (checkModal()) return
+
+    const observer = new MutationObserver(() => {
+      if (checkModal()) {
+        observer.disconnect()
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
   }, [detected])
 
   useEffect(() => {
