@@ -73,6 +73,40 @@ async function main() {
   assert.equal((await service.locateHost('4.2.2.1')).ip, '4.2.2.1', 'secondary GeoIP provider works when primary is unavailable')
 
   const helpers = load('src/main/utils/globe-routes.ts', {})
+  const cobe = load('src/renderer/src/lib/cobe-globe.ts', {})
+  const mockStorage = new Map()
+  global.localStorage = {
+    getItem: (key) => mockStorage.get(key) ?? null,
+    setItem: (key, val) => mockStorage.set(key, String(val)),
+    removeItem: (key) => mockStorage.delete(key)
+  }
+
+  cobe.clearSavedCamera()
+  assert.deepEqual(cobe.getSavedCamera(), cobe.defaultCamera(), 'uninitialized camera defaults to defaultCamera')
+
+  cobe.saveGlobeCamera({ phi: 1.2345, theta: -0.4567, scale: 1.5 })
+  assert.deepEqual(cobe.getSavedCamera(), { phi: 1.2345, theta: -0.4567, scale: 1.5 }, 'saved camera position is preserved and restored')
+  assert.ok(mockStorage.has(cobe.GLOBE_CAMERA_STORAGE_KEY), 'camera is written to localStorage')
+
+  // Normalization and clamping
+  cobe.saveGlobeCamera({ phi: Math.PI * 3, theta: 2.5, scale: 3.0 })
+  const clamped = cobe.getSavedCamera()
+  assert.equal(Math.abs(clamped.phi), Number(Math.PI.toFixed(4)), 'phi is normalized to [-PI, PI]')
+  assert.equal(clamped.theta, 1.45, 'theta is clamped to max 1.45')
+  assert.equal(clamped.scale, 2.0, 'scale is clamped to max 2.0')
+
+  // Corrupted localStorage handling
+  mockStorage.set(cobe.GLOBE_CAMERA_STORAGE_KEY, '{ invalid json')
+  cobe.clearSavedCamera()
+  assert.deepEqual(cobe.getSavedCamera(), cobe.defaultCamera(), 'corrupted storage falls back to defaultCamera')
+
+  mockStorage.set(cobe.GLOBE_CAMERA_STORAGE_KEY, JSON.stringify({ phi: 'invalid', theta: null }))
+  cobe.clearSavedCamera()
+  assert.deepEqual(cobe.getSavedCamera(), cobe.defaultCamera(), 'invalid schema falls back to defaultCamera')
+
+  cobe.clearSavedCamera()
+  delete global.localStorage
+
   const { connectionRoutes } = load('src/renderer/src/lib/globe.ts', { '../i18n/catalogs': { translate: (_locale, _namespace, key) => key } })
   const located = { origin: a, routes: [{ node: 'fixture', location: a }] }
   assert.deepEqual(connectionRoutes({ ...located, origin: null }, {}, {}), [], 'missing origin cannot fabricate a route from Moscow')

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import createGlobe, { landPoints, type Globe } from '../lib/canvas-globe'
 import type { GlobeRoute } from '../lib/globe'
-import { defaultCamera, globeLayout, projectRoutes, type Viewport, type ProjectedRoute } from '../lib/cobe-globe'
+import { defaultCamera, getSavedCamera, saveGlobeCamera, globeLayout, projectRoutes, type Viewport, type ProjectedRoute } from '../lib/cobe-globe'
 import { readGlobeColor, DORMANT_COLOR_DARK, DORMANT_COLOR_LIGHT } from '../lib/globe-palette'
 
 const IGNITION_DURATION = 950
@@ -11,8 +11,8 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
   const sceneRef = useRef<HTMLDivElement>(null)
 
   // Camera orientation is maintained permanently; user rotations are never overridden by routes or tunnels.
-  const camera = useRef(defaultCamera())
-  const renderedCamera = useRef(defaultCamera())
+  const camera = useRef(getSavedCamera())
+  const renderedCamera = useRef({ ...camera.current })
   const velocity = useRef({ phi: 0, theta: 0 })
   const viewport = useRef<Viewport>({ width: 1, height: 1, reserved: 0 })
   const renderedScaleRef = useRef(camera.current.scale)
@@ -61,6 +61,24 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
     let renderedPhi = -999
     let renderedTheta = -999
     let lastFrameTime = 0
+    let wasVelocityActive = false
+
+    let saveTimeout: ReturnType<typeof setTimeout> | null = null
+    const scheduleSave = () => {
+      if (saveTimeout !== null) clearTimeout(saveTimeout)
+      saveTimeout = setTimeout(() => {
+        saveTimeout = null
+        saveGlobeCamera(camera.current)
+      }, 250)
+    }
+
+    const flushSave = () => {
+      if (saveTimeout !== null) {
+        clearTimeout(saveTimeout)
+        saveTimeout = null
+      }
+      saveGlobeCamera(camera.current)
+    }
 
     const draw = () => {
       rAfId = null
@@ -75,6 +93,7 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
       const v = velocity.current
       const hasVelocity = Math.abs(v.phi) > 0.001 || Math.abs(v.theta) > 0.001
       if (hasVelocity) {
+        wasVelocityActive = true
         camera.current.phi += v.phi * dt
         camera.current.theta = Math.max(-1.45, Math.min(1.45, camera.current.theta + v.theta * dt))
 
@@ -90,6 +109,9 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
         if (Math.abs(v.theta) <= 0.001) v.theta = 0
 
         schedule()
+      } else if (wasVelocityActive) {
+        wasVelocityActive = false
+        flushSave()
       }
 
       // 2. Smooth camera rotation angle interpolation (LERP / exponential damping)
@@ -219,6 +241,10 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
         scene.style.setProperty('--globe-radius', `${activeRadius}px`)
         canvas.dataset.globeReady = 'true'
         canvas.dataset.frameCount = String(++frames)
+
+        if (frames >= 4 && cameraChanged) {
+          scheduleSave()
+        }
       }
 
       if (frames < 4 || resized || cameraChanged) {
@@ -287,13 +313,17 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
     theme.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] })
     const onVisibilityChange = () => {
       if (document.visibilityState !== 'hidden') schedule()
+      else flushSave()
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('beforeunload', flushSave)
 
     return () => {
       disposed = true; invalidate.current = () => {}
       if (rAfId !== null) cancelAnimationFrame(rAfId)
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3)
+      window.removeEventListener('beforeunload', flushSave)
+      flushSave()
       resize.disconnect(); theme.disconnect()
       window.removeEventListener('resize', measureScene)
       document.removeEventListener('visibilitychange', onVisibilityChange)

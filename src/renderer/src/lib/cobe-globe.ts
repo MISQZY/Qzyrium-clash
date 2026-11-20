@@ -20,6 +20,69 @@ const radians = Math.PI / 180
 const vector = ([lon, lat]: Coordinate): Vector => [Math.cos(lat * radians) * Math.cos(lon * radians), Math.sin(lat * radians), -Math.cos(lat * radians) * Math.sin(lon * radians)]
 export const defaultCamera = (): Camera => ({ phi: -1.95, theta: 0.55, scale: 1.38 })
 
+export const GLOBE_CAMERA_STORAGE_KEY = 'globe_camera_position_v1'
+
+let cachedCamera: Camera | null = null
+
+export function getSavedCamera(): Camera {
+  if (cachedCamera) return { ...cachedCamera }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(GLOBE_CAMERA_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<Camera>
+        if (
+          typeof parsed.phi === 'number' && Number.isFinite(parsed.phi) &&
+          typeof parsed.theta === 'number' && Number.isFinite(parsed.theta) &&
+          typeof parsed.scale === 'number' && Number.isFinite(parsed.scale)
+        ) {
+          const loaded: Camera = {
+            phi: parsed.phi,
+            theta: Math.max(-1.45, Math.min(1.45, parsed.theta)),
+            scale: Math.max(0.8, Math.min(2, parsed.scale))
+          }
+          cachedCamera = loaded
+          return { ...loaded }
+        }
+      }
+    }
+  } catch {}
+  return defaultCamera()
+}
+
+export function saveGlobeCamera(camera: Camera): void {
+  if (
+    !Number.isFinite(camera.phi) ||
+    !Number.isFinite(camera.theta) ||
+    !Number.isFinite(camera.scale)
+  ) return
+
+  let phi = camera.phi % (Math.PI * 2)
+  if (phi > Math.PI) phi -= Math.PI * 2
+  if (phi < -Math.PI) phi += Math.PI * 2
+
+  const sanitized: Camera = {
+    phi: Number(phi.toFixed(4)),
+    theta: Number(Math.max(-1.45, Math.min(1.45, camera.theta)).toFixed(4)),
+    scale: Number(Math.max(0.8, Math.min(2, camera.scale)).toFixed(4))
+  }
+  cachedCamera = sanitized
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(GLOBE_CAMERA_STORAGE_KEY, JSON.stringify(sanitized))
+    }
+  } catch {}
+}
+
+export function clearSavedCamera(): void {
+  cachedCamera = null
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(GLOBE_CAMERA_STORAGE_KEY)
+    }
+  } catch {}
+}
+
 const surfaceCache = new WeakMap<Float32Array, Map<string, Vector>>()
 
 /** Use the actual land samples, so a tunnel replaces a surface dot. */
