@@ -1,5 +1,5 @@
 import { GlobalModeIcon, RulesIcon } from '../lib/icons'
-import { PanelLeft, PanelRight } from 'lucide-react'
+import { PanelLeft } from 'lucide-react'
 import { Tooltip } from 'radix-ui'
 import { memo, useState, type ReactElement } from 'react'
 import type { CoreState, TunnelMode } from '@shared/types'
@@ -50,7 +50,7 @@ export const Sidebar = memo(function Sidebar({ position = 'left', activeTab, onS
   const connectionMode = tunEnabled ? 'tun' : 'sysproxy'
   const isHorizontal = position === 'top' || position === 'bottom'
   const effectiveOpen = isHorizontal ? false : open
-  const ToggleIcon = position === 'right' ? PanelRight : PanelLeft
+  const ToggleIcon = PanelLeft
   const statusText = coreStatus === 'starting'
     ? t('vpnStarting')
     : coreStatus === 'error'

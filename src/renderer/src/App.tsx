@@ -70,17 +70,20 @@ function Workspace() {
   const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem('sidebar_state') !== 'collapsed')
   const toggleSidebar = useCallback(() => setSidebarOpen((open) => !open), [])
   useEffect(() => { localStorage.setItem('sidebar_state', sidebarOpen ? 'expanded' : 'collapsed') }, [sidebarOpen])
+  const sidebarPosition = settings.general.sidebarPosition ?? 'left'
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() === 'b' && (event.ctrlKey || event.metaKey) && !event.altKey && !event.repeat) {
         if (event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable="true"]')) return
+        if (sidebarPosition === 'top' || sidebarPosition === 'bottom') return
         event.preventDefault()
         toggleSidebar()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [toggleSidebar])
+  }, [toggleSidebar, sidebarPosition])
 
   useEffect(() => {
     const handleFocus = () => { document.documentElement.dataset.windowFocused = 'true' }
@@ -183,8 +186,6 @@ function Workspace() {
   const handleUpdateMode = useCallback((mode: TunnelMode) => {
     void saveSettingsRef.current({ kernel: { ...settings.kernel, mode } }).catch(() => {})
   }, [settings.kernel])
-
-  const sidebarPosition = settings.general.sidebarPosition ?? 'left'
 
   return <div className="app-shell">
     <TitleBar />
