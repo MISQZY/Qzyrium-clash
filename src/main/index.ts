@@ -161,11 +161,12 @@ if (useAdminLaunch) {
   }
 }
 
-// Enforce single instance lock with retry support for admin restarts
+// Enforce single instance lock with retry support for admin restarts and updater relaunches
+const isUpdated = process.argv.includes('--updated')
 let gotTheLock = app.requestSingleInstanceLock()
-if (!gotTheLock && adminRestartPid) {
+if (!gotTheLock && (adminRestartPid || isUpdated)) {
   const retryStart = Date.now()
-  while (!gotTheLock && Date.now() - retryStart < 3000) {
+  while (!gotTheLock && Date.now() - retryStart < 5000) {
     sleepSync(200)
     gotTheLock = app.requestSingleInstanceLock()
   }
@@ -290,6 +291,11 @@ if (!gotTheLock) {
 
   app.on('before-quit', async (event) => {
     if (services) {
+      if (services.updateService?.isQuittingForUpdate) {
+        services.windowService.setQuitting(true)
+        logger.info('Application quitting for update, allowing installer to proceed...')
+        return
+      }
       event.preventDefault()
       if (shuttingDown) return
       shuttingDown = true

@@ -27,6 +27,7 @@ export class UpdateService implements BaseService {
   private whatsNew: Promise<WhatsNewPayload | null> = Promise.resolve(null)
   private listeners: Array<() => void> = []
   private installing = false
+  public isQuittingForUpdate = false
   private checkInProgress = false
   private lifetime = new AbortController()
 
@@ -64,7 +65,19 @@ export class UpdateService implements BaseService {
       this.setStatus({ state: 'downloaded', version: info.version })
       void this.clearProxy()
       // Cleanup finishes before the installer starts replacing files or relaunching the app.
-      void this.prepareInstall().then(() => autoUpdater.quitAndInstall(true, true)).catch((error) => this.fail(error))
+      void this.prepareInstall().then(() => {
+        this.isQuittingForUpdate = true
+        if (typeof app?.releaseSingleInstanceLock === 'function') {
+          app.releaseSingleInstanceLock()
+        }
+        autoUpdater.quitAndInstall(true, true)
+      }).catch((error) => this.fail(error))
+    })
+    this.listen('before-quit-for-update' as any, () => {
+      this.isQuittingForUpdate = true
+      if (typeof app?.releaseSingleInstanceLock === 'function') {
+        app.releaseSingleInstanceLock()
+      }
     })
     // Check failures also reject checkForUpdates(); handle them once in the retry loop.
     this.listen('error', (error: Error) => { if (!this.checkInProgress) this.fail(error) })
@@ -87,6 +100,7 @@ export class UpdateService implements BaseService {
     void this.clearProxy()
     if (this.installing) {
       this.installing = false
+      this.isQuittingForUpdate = false
       void this.recoverInstall().catch((recoveryError) => logger.error('Unable to restore session after failed installation', recoveryError))
     }
   }
