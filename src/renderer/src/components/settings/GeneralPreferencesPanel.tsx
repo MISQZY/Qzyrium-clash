@@ -99,6 +99,18 @@ export function GeneralPreferencesPanel({ draft, busy }: { draft: SettingsDraft;
           <SettingRow title={t('appearance')} description={t('followYourSystemThemeOrChooseOneExplicitly')}>
             <ThemeSelect value={form.general.theme} onValueChange={(theme) => updateGeneral({ theme })} />
           </SettingRow>
+          <SettingRow title={t('sidebarPosition')} description={t('sidebarPositionHint')}>
+            <NativeSelect
+              aria-label={t('sidebarPosition')}
+              value={form.general.sidebarPosition ?? 'left'}
+              onChange={(event) => updateGeneral({ sidebarPosition: event.target.value as AppConfig['general']['sidebarPosition'] })}
+            >
+              <option value="left">{t('sidebarPositionLeft')}</option>
+              <option value="right">{t('sidebarPositionRight')}</option>
+              <option value="top">{t('sidebarPositionTop')}</option>
+              <option value="bottom">{t('sidebarPositionBottom')}</option>
+            </NativeSelect>
+          </SettingRow>
           <CustomLocalizationSettings general={form.general} onChange={updateGeneral} />
           <SettingsDisclosure title={t('customThemesTitle')}>
             <div className="flex flex-wrap items-center gap-2">

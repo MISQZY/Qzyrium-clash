@@ -144,6 +144,13 @@ export const generalFields: SettingsField[] = [
   field('updateProfilesOnStart', 'Update stale subscriptions at startup', 'Обновлять устаревшие подписки при запуске', 'boolean'),
   field('profileStartupMaxAgeHours', 'Subscription age before startup update (h)', 'Возраст подписки для обновления при запуске (ч)', 'number', { min: 1, max: 720 }),
   field('closeAction', 'When closing the window', 'При закрытии окна', 'select', { options: ['tray', 'quit', 'core-only'] }),
+  field('sidebarPosition', 'Sidebar position', 'Расположение боковой панели', 'select', {
+    options: ['left', 'right', 'top', 'bottom'],
+    ...desc(
+      'Screen edge where the navigation sidebar is docked.',
+      'Сторона окна, к которой прикреплена панель навигации.'
+    )
+  }),
   ...(['app', 'connection'] as const).flatMap(source => {
     const en = source === 'app' ? 'Application logs' : 'Connection logs'
     const ru = source === 'app' ? 'Логи приложения' : 'Логи подключений'

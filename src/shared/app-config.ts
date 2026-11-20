@@ -18,6 +18,7 @@ export interface AppConfig {
     minimizeToTray: boolean
     closeAction?: 'tray' | 'quit' | 'core-only'
     theme: ThemePreference
+    sidebarPosition?: 'left' | 'right' | 'top' | 'bottom'
     language: 'en' | 'ru'
     customLocalizations?: CustomLocalizationPack[]
     customLocalization?: string | null
@@ -113,6 +114,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     minimizeToTray: true,
     closeAction: 'tray',
     theme: 'dark',
+    sidebarPosition: 'left',
     language: 'ru',
     liteDashboard: false,
     onlyVpnTraffic: true,
