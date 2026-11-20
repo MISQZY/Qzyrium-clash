@@ -145,8 +145,14 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
       void checkClipboard()
     }
 
+    let copyTimer: ReturnType<typeof setTimeout> | undefined
+    const handleCopy = () => {
+      clearTimeout(copyTimer)
+      copyTimer = setTimeout(handleCheck, 100)
+    }
+
     window.addEventListener('focus', handleCheck)
-    window.addEventListener('copy', () => setTimeout(handleCheck, 100))
+    window.addEventListener('copy', handleCopy)
     const handleVisibility = () => {
       if (!document.hidden) handleCheck()
     }
@@ -155,10 +161,11 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
     const timer = setTimeout(handleCheck, 500)
 
     return () => {
-      window.removeEventListener('focus', handleCheck)
-      window.removeEventListener('copy', handleCheck)
-      document.removeEventListener('visibilitychange', handleVisibility)
+      clearTimeout(copyTimer)
       clearTimeout(timer)
+      window.removeEventListener('focus', handleCheck)
+      window.removeEventListener('copy', handleCopy)
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [checkClipboard])
 
