@@ -122,13 +122,19 @@ export function restartAsAdmin(): Promise<boolean> {
       const tryPowerShellFallback = (): void => {
         try {
           const psPath = getSystemBinary('powershell.exe')
+          const psTarget = sanitizeArg(execPath).replace(/'/g, "''")
+          const psDir = sanitizeArg(workingDir).replace(/'/g, "''")
+          const psArgList = cleanArgs
+            .map((a: string) => `"${a.replace(/"/g, '`"')}"`)
+            .join(' ')
+            .replace(/'/g, "''")
           const psArgs = [
             '-NoProfile',
             '-NonInteractive',
             '-WindowStyle',
             'Hidden',
             '-Command',
-            `Start-Process -FilePath '${escapedTarget.replace(/'/g, "''")}' -ArgumentList '${escapedArgs.replace(/'/g, "''")}' -WorkingDirectory '${escapedDir.replace(/'/g, "''")}' -Verb RunAs`
+            `Start-Process -FilePath '${psTarget}' -ArgumentList '${psArgList}' -WorkingDirectory '${psDir}' -Verb RunAs`
           ]
           execFile(psPath, psArgs, { windowsHide: true }, (psErr) => {
             if (psErr) {
@@ -166,6 +172,15 @@ export function restartAsAdmin(): Promise<boolean> {
         (err) => {
           try { unlinkSync(vbsPath) } catch { /* ignore */ }
           if (err) {
+            const exitCode = (err as { code?: number | string }).code
+            if (exitCode === 1223 || exitCode === '1223' || (typeof err.message === 'string' && err.message.includes('1223'))) {
+              logger.info('User cancelled UAC elevation prompt')
+              if (typeof electronApp.requestSingleInstanceLock === 'function') {
+                electronApp.requestSingleInstanceLock()
+              }
+              resolve(false)
+              return
+            }
             logger.warn(`wscript.exe elevation failed (${String(err)}), attempting PowerShell fallback...`)
             tryPowerShellFallback()
             return
