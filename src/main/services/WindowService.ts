@@ -190,6 +190,17 @@ export class WindowService implements BaseService {
   }
 
   async createWindow(): Promise<BrowserWindow> {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      return this.mainWindow
+    }
+    const existing = typeof BrowserWindow?.getAllWindows === 'function'
+      ? BrowserWindow.getAllWindows().find((w) => !w.isDestroyed())
+      : null
+    if (existing) {
+      this.mainWindow = existing
+      return existing
+    }
+
     this.cancelAutoRelease()
     this.logBatcher.clear()
     this.imports.resetRenderer()

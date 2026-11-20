@@ -204,9 +204,11 @@ if (!gotTheLock) {
   app.on('second-instance', (_, commandLine) => {
     const proto = extractProtocolUrl(commandLine)
     if (proto) pendingProtocolUrls.push(proto)
-    if (!services || !servicesReady) return
+    if (!services) return
     services.windowService.show()
-    for (const url of pendingProtocolUrls.splice(0)) services.windowService.queueProfileImport(url)
+    if (servicesReady) {
+      for (const url of pendingProtocolUrls.splice(0)) services.windowService.queueProfileImport(url)
+    }
   })
 
   app.whenReady().then(async () => {

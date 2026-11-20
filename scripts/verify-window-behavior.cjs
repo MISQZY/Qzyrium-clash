@@ -274,6 +274,39 @@ async function advance(milliseconds) {
   auto.setQuitting(true)
   await advance(60_000)
   assert.equal(window.isDestroyed(), false, 'shutdown cancels automatic release')
+
+  // Verify concurrent and duplicate window creation prevention
+  const singletonService = new exportsObject.WindowService({ getSettings: () => ({ general: { autoReleaseWindow: false } }) })
+  let windowAllocations = 0
+  class CountingWindow extends FixtureWindow {
+    constructor(opts) {
+      super(opts)
+      windowAllocations++
+    }
+  }
+  const origWindow = dependencies.electron.BrowserWindow
+  dependencies.electron.BrowserWindow = CountingWindow
+  try {
+    const [w1, w2, w3] = await Promise.all([
+      singletonService.createWindow(),
+      singletonService.createWindow(),
+      singletonService.createWindow()
+    ])
+    assert.equal(windowAllocations, 1, 'concurrent createWindow calls allocate only one window')
+    assert.equal(w1, w2)
+    assert.equal(w2, w3)
+
+    const w4 = await singletonService.createWindow()
+    assert.equal(windowAllocations, 1, 'subsequent createWindow call returns existing window')
+    assert.equal(w4, w1)
+
+    singletonService.show()
+    assert.equal(windowAllocations, 1, 'show() call does not create additional window')
+  } finally {
+    dependencies.electron.BrowserWindow = origWindow
+  }
+
   console.log('PASS: window presentation, close modes and queued imports across core-only renderer recreation')
   console.log('PASS: automatic release deadline, show cancellation, dirty/editor postponement, retry, disable and stale idle responses')
+  console.log('PASS: duplicate window creation guard and concurrent creation singleton')
 })().catch(error => { console.error(error); process.exitCode = 1 })
