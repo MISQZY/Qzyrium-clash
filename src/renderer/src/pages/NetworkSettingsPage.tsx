@@ -120,15 +120,16 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
 
   return <Page title={title} actions={
     <div className="flex items-center gap-2">
-      {dirty && (
+      {section !== 'settings' && onNavigate && (
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="sm"
-          onClick={discard}
-          className="text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => onNavigate('settings')}
+          className="gap-1.5"
         >
-          {t('discard')}
+          <ArrowLeft className="size-3.5" />
+          <span>{t('backToSettings')}</span>
         </Button>
       )}
       <Button
@@ -141,16 +142,15 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
       >
         {t('resetSection')}
       </Button>
-      {section !== 'settings' && onNavigate && (
+      {dirty && (
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="sm"
-          onClick={() => onNavigate('settings')}
-          className="gap-1.5"
+          onClick={discard}
+          className="text-xs text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="size-3.5" />
-          <span>{t('backToSettings')}</span>
+          {t('discard')}
         </Button>
       )}
       <Button type="submit" form={`settings-${section}`} size="sm" disabled={busy || !dirty}>
