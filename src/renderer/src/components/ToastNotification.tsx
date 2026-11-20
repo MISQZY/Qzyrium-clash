@@ -12,6 +12,7 @@ export interface ToastNotificationProps {
   title?: string
   icon?: LucideIcon
   onClose: () => void
+  closeLabel?: string
   children?: ReactNode
   className?: string
 }
@@ -22,6 +23,7 @@ export function ToastNotification({
   title,
   icon: CustomIcon,
   onClose,
+  closeLabel,
   children,
   className
 }: ToastNotificationProps) {
@@ -75,7 +77,7 @@ export function ToastNotification({
         </div>
         <button
           type="button"
-          aria-label={common('close')}
+          aria-label={closeLabel || common('close')}
           onClick={onClose}
           className="shrink-0 rounded-md p-1 -mr-1 -my-1 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
         >

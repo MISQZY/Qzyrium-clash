@@ -205,6 +205,7 @@ function Workspace() {
           <ToastNotification
             variant="destructive"
             message={errorMessage ?? ''}
+            closeLabel={t('dismissError')}
             onClose={dismissError}
           >
             {requiresAdmin && (
