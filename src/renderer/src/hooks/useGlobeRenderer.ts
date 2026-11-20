@@ -12,6 +12,8 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
 
   // Camera orientation is maintained permanently; user rotations are never overridden by routes or tunnels.
   const camera = useRef(defaultCamera())
+  const renderedCamera = useRef(defaultCamera())
+  const velocity = useRef({ phi: 0, theta: 0 })
   const viewport = useRef<Viewport>({ width: 1, height: 1, reserved: 0 })
   const renderedScaleRef = useRef(camera.current.scale)
   const surface = useRef<Float32Array | undefined>(undefined)
@@ -56,6 +58,8 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
     let cachedDormantColor: [number, number, number] | null = null
     let renderedRadius = -1
     let renderedScale = -1
+    let renderedPhi = -999
+    let renderedTheta = -999
     let lastFrameTime = 0
 
     const draw = () => {
@@ -63,10 +67,61 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
       if (disposed || !globe) return
       const view = viewport.current
       if (view.width < 2 || view.height < 2) return
-      const layout = globeLayout(camera.current, view)
       const now = performance.now()
       const dt = lastFrameTime > 0 ? Math.min(0.1, Math.max(0.001, (now - lastFrameTime) / 1000)) : 0.016
       lastFrameTime = now
+
+      // 1. Inertia / momentum update with exponential decay
+      const v = velocity.current
+      const hasVelocity = Math.abs(v.phi) > 0.001 || Math.abs(v.theta) > 0.001
+      if (hasVelocity) {
+        camera.current.phi += v.phi * dt
+        camera.current.theta = Math.max(-1.45, Math.min(1.45, camera.current.theta + v.theta * dt))
+
+        const friction = 3.2
+        const decay = Math.exp(-dt * friction)
+        v.phi *= decay
+        v.theta *= decay
+
+        if (camera.current.theta <= -1.45 || camera.current.theta >= 1.45) {
+          v.theta = 0
+        }
+        if (Math.abs(v.phi) <= 0.001) v.phi = 0
+        if (Math.abs(v.theta) <= 0.001) v.theta = 0
+
+        schedule()
+      }
+
+      // 2. Smooth camera rotation angle interpolation (LERP / exponential damping)
+      if (frames < 4 || renderedPhi === -999) {
+        renderedPhi = camera.current.phi
+        renderedTheta = camera.current.theta
+      } else {
+        const phiDiff = camera.current.phi - renderedPhi
+        const thetaDiff = camera.current.theta - renderedTheta
+        const angleDiff = Math.hypot(phiDiff, thetaDiff)
+
+        if (angleDiff > 0.0002) {
+          const blend = 1 - Math.exp(-dt * 20)
+          renderedPhi += phiDiff * blend
+          renderedTheta += thetaDiff * blend
+          if (Math.abs(camera.current.phi - renderedPhi) <= 0.0002) {
+            renderedPhi = camera.current.phi
+          }
+          if (Math.abs(camera.current.theta - renderedTheta) <= 0.0002) {
+            renderedTheta = camera.current.theta
+          }
+          schedule()
+        } else {
+          renderedPhi = camera.current.phi
+          renderedTheta = camera.current.theta
+        }
+      }
+      renderedCamera.current.phi = renderedPhi
+      renderedCamera.current.theta = renderedTheta
+
+      // 3. Smooth radius / scale interpolation
+      const layout = globeLayout(camera.current, view)
 
       if (frames < 4 || renderedRadius <= 0) {
         renderedRadius = layout.radius
@@ -85,6 +140,7 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
       }
       renderedScale = renderedRadius / (view.height * 0.4)
       renderedScaleRef.current = renderedScale
+      renderedCamera.current.scale = renderedScale
 
       const activeRadius = renderedRadius
       const activeOffset: [number, number] = [
@@ -94,7 +150,7 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
       const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
       const palette = `${theme}:${document.documentElement.dataset.theme}:${document.documentElement.style.cssText}`
       const resized = sizedWidth !== view.width || sizedHeight !== view.height || lastDpr !== window.devicePixelRatio
-      const cameraChanged = Math.abs(lastPhi - camera.current.phi) > 0.0001 || Math.abs(lastTheta - camera.current.theta) > 0.0001 || Math.abs(lastScale - renderedScale) > 0.0001
+      const cameraChanged = Math.abs(lastPhi - renderedPhi) > 0.0001 || Math.abs(lastTheta - renderedTheta) > 0.0001 || Math.abs(lastScale - renderedScale) > 0.0001
       const themeChanged = lastTheme !== palette
 
       // Determine colors and brightness based on running state and smooth ignition transition
@@ -139,8 +195,8 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
 
       if (frames < 4 || resized || cameraChanged || themeChanged || colorChanged) {
         globe.update({
-          phi: camera.current.phi,
-          theta: camera.current.theta,
+          phi: renderedPhi,
+          theta: renderedTheta,
           scale: renderedScale,
           offset: activeOffset,
           baseColor: targetColor,
@@ -152,8 +208,8 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
         sizedHeight = view.height
         lastDpr = window.devicePixelRatio
         lastTheme = palette
-        lastPhi = camera.current.phi
-        lastTheta = camera.current.theta
+        lastPhi = renderedPhi
+        lastTheta = renderedTheta
         lastScale = renderedScale
         lastColor = targetColor
         lastBrightness = targetBrightness
@@ -166,7 +222,7 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
       }
 
       if (frames < 4 || resized || cameraChanged) {
-        setProjected(surface.current ? projectRoutes(routesRef.current, { ...camera.current, scale: renderedScale }, view, surface.current) : [])
+        setProjected(surface.current ? projectRoutes(routesRef.current, { phi: renderedPhi, theta: renderedTheta, scale: renderedScale }, view, surface.current) : [])
       }
     }
 
@@ -179,7 +235,7 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
     void landPoints().then((points) => {
       if (disposed) return
       surface.current = points
-      setProjected(projectRoutes(routesRef.current, { ...camera.current, scale: renderedScaleRef.current }, viewport.current, points))
+      setProjected(projectRoutes(routesRef.current, { ...renderedCamera.current }, viewport.current, points))
       schedule()
     }).catch(() => {})
 
@@ -250,7 +306,7 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
   useEffect(() => {
     invalidate.current()
     if (viewport.current.width > 1 && viewport.current.height > 1) {
-      setProjected(surface.current ? projectRoutes(routesRef.current, { ...camera.current, scale: renderedScaleRef.current }, viewport.current, surface.current) : [])
+      setProjected(surface.current ? projectRoutes(routesRef.current, { ...renderedCamera.current }, viewport.current, surface.current) : [])
     }
   }, [geometryKey])
 
@@ -264,5 +320,5 @@ export function useGlobeRenderer(running: boolean, routes: GlobeRoute[]) {
     })
   }, [projectedGeometry, routes])
 
-  return { hostRef, sceneRef, camera, viewport, projected, unavailable, invalidate }
+  return { hostRef, sceneRef, camera, renderedCamera, viewport, projected, unavailable, invalidate, velocity }
 }
