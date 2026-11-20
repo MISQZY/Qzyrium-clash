@@ -455,17 +455,19 @@ export class KernelService implements BaseService {
     this.apiClient.stopAllStreams()
     if (this.getStatus() === 'running' || this.isProcessRunning()) {
       try {
+        const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+          let timer: ReturnType<typeof setTimeout> | undefined
+          return Promise.race([
+            promise,
+            new Promise<T>((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), ms) })
+          ]).finally(() => clearTimeout(timer))
+        }
+
         // Gracefully request Mihomo to teardown TUN adapter before process termination
-        await Promise.race([
-          this.apiClient.patchConfigs({ tun: { enable: false } }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))
-        ]).catch(() => {})
+        await withTimeout(this.apiClient.patchConfigs({ tun: { enable: false } }), 800).catch(() => {})
 
         // Gracefully close active proxy streams in Mihomo engine
-        await Promise.race([
-          this.apiClient.closeAllConnections(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 500))
-        ]).catch(() => {})
+        await withTimeout(this.apiClient.closeAllConnections(), 500).catch(() => {})
       } catch {
         // Fallback silently if API is unreachable
       }
