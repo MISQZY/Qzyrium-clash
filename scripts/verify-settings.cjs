@@ -201,6 +201,11 @@ function verifyConfiguration() {
   invalid.kernel.controllerSecret = 'a'.repeat(257)
   assert.throws(() => validateAppConfig(invalid), /at most 256/)
   invalid.kernel.controllerSecret = fresh().kernel.controllerSecret
+  invalid.kernel.coreDownloadMirror = 'invalid-mirror-url'
+  assert.throws(() => validateAppConfig(invalid), /HTTP or HTTPS/)
+  invalid.kernel.coreDownloadMirror = 'https://ghfast.top'
+  assert.doesNotThrow(() => validateAppConfig(invalid))
+  invalid.kernel.coreDownloadMirror = fresh().kernel.coreDownloadMirror
   invalid.general.shortcuts = { showWindow: 'Ctrl+Q', tun: 'ctrl+q' }
   assert.throws(() => validateAppConfig(invalid), /unique/)
   invalid.general.shortcuts = { showWindow: 'Control+Shift+Q', tun: 'Shift+Ctrl+q' }

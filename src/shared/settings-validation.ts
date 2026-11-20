@@ -38,6 +38,7 @@ export function validateAppConfig(config: AppConfig): void {
   const extra = Object.fromEntries(generalFields.filter(({ key }) => key in config.general).map(({ key }) => [key, config.general[key as keyof AppConfig['general']]]))
   validateFields(extra, generalFields, 'general')
   if (config.general.delayTestUrl && !/^https?:\/\//i.test(config.general.delayTestUrl)) throw new Error('Latency test URL must use HTTP or HTTPS')
+  if (config.kernel.coreDownloadMirror && !/^https?:\/\//i.test(config.kernel.coreDownloadMirror)) throw new Error('Core download mirror must use HTTP or HTTPS')
   const shortcuts = config.general.shortcuts ?? {}
   const actions: readonly string[] = SHORTCUT_ACTIONS
   if (Object.keys(shortcuts).some((key) => !actions.includes(key)) || Object.values(shortcuts).some((value) => typeof value !== 'string')) throw new Error('Invalid shortcut action')
