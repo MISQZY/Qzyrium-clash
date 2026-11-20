@@ -5,6 +5,7 @@ import { registerIpcHandlers } from './ipc/registerHandlers'
 import { ServiceManager } from './services/ServiceManager'
 import { logger } from './utils/logger'
 import { readFileSync, existsSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { IPC_CHANNELS } from '@shared/ipc'
 import { normalizeSettings } from '@shared/settings-config'
@@ -16,6 +17,7 @@ import { checkElevateTask, createElevateTaskSync, tryRunElevateTask } from './ut
 import { readElevationState, recordElevationAttempt, rememberElevation } from './utils/elevation-state'
 import { renderingSwitches } from '@shared/rendering-policy'
 import { networkWatchdog } from './utils/network-watchdog'
+import { getSystemBinary } from './utils/system-binaries'
 
 app.setName('Qzyrium-clash')
 electronApp.setAppUserModelId('com.qzyrium.vpn')
@@ -96,10 +98,22 @@ function extractAdminRestartPid(): number | null {
 
 function sleepSync(ms: number): void {
   try {
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+    if (process.platform === 'win32') {
+      const ping = getSystemBinary('ping.exe')
+      spawnSync(ping, ['192.0.2.1', '-n', '1', '-w', String(Math.max(1, ms))], {
+        windowsHide: true,
+        stdio: 'ignore',
+        timeout: ms + 2000
+      })
+    } else {
+      spawnSync('sleep', [String(Math.max(0.05, ms / 1000))], {
+        stdio: 'ignore',
+        timeout: ms + 2000
+      })
+    }
   } catch {
     const start = Date.now()
-    while (Date.now() - start < ms) { /* busy wait fallback */ }
+    while (Date.now() - start < ms) { /* fallback */ }
   }
 }
 
@@ -279,6 +293,8 @@ if (!gotTheLock) {
       event.preventDefault()
       if (shuttingDown) return
       shuttingDown = true
+      const deadline = setTimeout(() => app.exit(0), 10_000)
+      deadline.unref()
       logger.info('Application quitting, performing cleanup...')
       services.windowService.setQuitting(true)
       await services.dispose()
