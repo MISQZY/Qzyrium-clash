@@ -196,6 +196,11 @@ function verifyConfiguration() {
   invalid.kernel.options = { port: invalid.kernel.mixedPort }
   assert.throws(() => validateAppConfig(invalid), /unique/)
   invalid.kernel.options = {}
+  invalid.kernel.controllerSecret = 'invalid\nsecret'
+  assert.throws(() => validateAppConfig(invalid), /newlines/)
+  invalid.kernel.controllerSecret = 'a'.repeat(257)
+  assert.throws(() => validateAppConfig(invalid), /at most 256/)
+  invalid.kernel.controllerSecret = fresh().kernel.controllerSecret
   invalid.general.shortcuts = { showWindow: 'Ctrl+Q', tun: 'ctrl+q' }
   assert.throws(() => validateAppConfig(invalid), /unique/)
   invalid.general.shortcuts = { showWindow: 'Control+Shift+Q', tun: 'Shift+Ctrl+q' }

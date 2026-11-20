@@ -20,6 +20,9 @@ export function validateAppConfig(config: AppConfig): void {
   if (typeof config.kernel.controllerSecret !== 'string' || !config.kernel.controllerSecret.trim()) {
     throw new Error('Kernel controller secret must be a non-empty string')
   }
+  if (config.kernel.controllerSecret.length > 256 || /[\r\n\0]/.test(config.kernel.controllerSecret)) {
+    throw new Error('Kernel controller secret cannot contain newlines and must be at most 256 characters')
+  }
   if (!config.kernel.inheritMixedPort && config.kernel.mixedPort === config.kernel.controllerPort) throw new Error('Mixed and controller ports must be different')
   if (config.kernel.channel !== undefined && !['stable', 'alpha'].includes(config.kernel.channel)) throw new Error('Invalid core channel')
   if (!['rule', 'global', 'direct'].includes(config.kernel.mode)) throw new Error('Invalid routing mode')
