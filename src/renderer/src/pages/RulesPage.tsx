@@ -60,12 +60,6 @@ export function RulesPage({
       title={t('rules')}
       actions={
         <>
-          <ProvidersDialog
-            key={profileId}
-            kind="rules"
-            running={running}
-            onUpdated={onRefresh}
-          />
           <Button
             variant="outline"
             size="sm"
@@ -75,6 +69,12 @@ export function RulesPage({
             <Sliders className="size-3.5" />
             <span>{t('splitTunneling')}</span>
           </Button>
+          <ProvidersDialog
+            key={profileId}
+            kind="rules"
+            running={running}
+            onUpdated={onRefresh}
+          />
           <Button
             variant="outline"
             size="sm"
