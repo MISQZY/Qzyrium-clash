@@ -55,6 +55,7 @@ export class TrayService implements BaseService {
     this.statusIcons = {}
     this.cachedProxies = {}
     this.traffic = { up: 0, down: 0, totalUp: 0, totalDown: 0 }
+    this.lastTrafficSample = 0
   }
 
   setProxySelection(group: string, proxy: string): void {
@@ -65,16 +66,21 @@ export class TrayService implements BaseService {
   }
 
   private lastToolTipUpdate = 0
+  private lastTrafficSample = 0
 
   updateTraffic(stats: TrafficStats): void {
     if (!this.tray) return
+    const now = Date.now()
     const upRate = Math.max(0, Number.isFinite(stats.up) ? stats.up : 0)
     const downRate = Math.max(0, Number.isFinite(stats.down) ? stats.down : 0)
     this.traffic.up = upRate
     this.traffic.down = downRate
-    this.traffic.totalUp += upRate
-    this.traffic.totalDown += downRate
-    const now = Date.now()
+    if (this.lastTrafficSample > 0) {
+      const deltaSec = Math.max(0, Math.min(5, (now - this.lastTrafficSample) / 1000))
+      this.traffic.totalUp += Math.round(upRate * deltaSec)
+      this.traffic.totalDown += Math.round(downRate * deltaSec)
+    }
+    this.lastTrafficSample = now
     if (this.kernelService.getStatus() === 'running' && now - this.lastToolTipUpdate >= 5000) {
       this.lastToolTipUpdate = now
       this.updateToolTip()
