@@ -133,10 +133,11 @@ export function connectionRoutes(
     const isNodeInChain = (c: { chains: string[] }) =>
       c.chains.includes(node) || c.chains.at(-1) === node || (chain !== undefined && chain.some((h) => c.chains.includes(h.node)))
 
-    const connectionCount = activeConnections.filter(isNodeInChain).length
-
     // 1. Find live connections routed through this node or chain
     const matching = activeConnections.filter(isNodeInChain)
+    if (connections?.connections !== undefined && matching.length === 0) return
+
+    const connectionCount = matching.length
 
     const parentGroups = Object.entries(proxies).filter(
       ([name, p]) => name !== 'GLOBAL' && (p.now === node || (Array.isArray((p as { all?: string[] }).all) && (p as { all?: string[] }).all?.includes(node)))

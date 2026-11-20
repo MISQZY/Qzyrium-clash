@@ -58,7 +58,15 @@ export function DashboardRoutesProvider({ running, connecting, settings, activeP
   )
 
   const routeNames = JSON.stringify(routes.map((route) => route.node).sort())
-  const statusMessage = locations.status === 'origin-unavailable' ? t('originUnavailable') : locations.status === 'server-unavailable' ? t('serverUnavailable') : locations.status === 'geoip-unavailable' ? t('geoipUnavailable') : locations.status === 'direct' ? t('directConnection') : routes.length ? routes.some((route) => route.approximate) ? t('localGeoipLocations') : t('geoipLocations') : t('noLocatedRoutes')
+  const statusMessage = locations.status === 'origin-unavailable'
+    ? t('originUnavailable')
+    : locations.status === 'server-unavailable'
+    ? t('serverUnavailable')
+    : locations.status === 'geoip-unavailable'
+    ? t('geoipUnavailable')
+    : locations.status === 'direct'
+    ? t('directConnection')
+    : ''
 
   useEffect(() => {
     if (!visible || liteMode || !running || !window.api || routeNames === '[]') return
@@ -104,7 +112,8 @@ export function DashboardGlobe({ running }: { running: boolean }) {
 export function DashboardMapNotes({ running }: { running: boolean }) {
   const { locating, statusMessage } = useDashboardRoutes()
   const t = useTranslations('dashboard')
-  return <div className={`overview-map-notes${running ? '' : ' invisible'}`} role="status" aria-hidden={!running}>
-    <p>{locating ? t('locatingRoutes') : statusMessage}</p>
+  const message = locating ? t('locatingRoutes') : statusMessage
+  return <div className={`overview-map-notes${running ? '' : ' invisible'}${!message ? ' is-empty' : ''}`} role="status" aria-hidden={!running || !message}>
+    <p>{message}</p>
   </div>
 }
