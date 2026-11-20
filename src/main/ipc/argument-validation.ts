@@ -7,8 +7,8 @@ import { validateThemePack } from '@shared/theme-validation'
 type Check = (value: unknown) => boolean
 type InvokeChannel = Exclude<typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS], `event:${string}`>
 const optional = (check: Check): Check => value => value === undefined || check(value)
-const text: Check = value => typeof value === 'string'
-const name: Check = value => text(value) && (value as string).length > 0 && !(value as string).includes('\0')
+const text: Check = value => typeof value === 'string' && (value as string).length <= 25 * 1024 * 1024
+const name: Check = value => text(value) && (value as string).length > 0 && (value as string).length <= 2048 && !(value as string).includes('\0')
 const boolean: Check = value => typeof value === 'boolean'
 const integer = (min: number, max = Number.MAX_SAFE_INTEGER): Check => value =>
   typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max

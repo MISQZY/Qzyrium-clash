@@ -50,9 +50,10 @@ export function validateRulePayload(type: string, payload: string): boolean {
     case 'IP-CIDR':
     case 'IP-CIDR6':
     case 'SRC-IP-CIDR':
+      return isCIDR(value)
     case 'IP-SUFFIX':
     case 'SRC-IP-SUFFIX':
-      return isCIDR(value)
+      return isCIDR(value) || isIPv4(value) || (!value.includes('/') && !/[\s,]/.test(value))
     case 'SRC-PORT':
     case 'DST-PORT':
     case 'IN-PORT':
