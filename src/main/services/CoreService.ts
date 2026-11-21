@@ -28,6 +28,7 @@ import type { SettingService } from './SettingService'
 import type { NetworkModeController } from './NetworkModeController'
 import { writeFileAtomicAsync } from '../utils/atomicWrite'
 import { grantLinuxCoreCapabilities } from '../utils/linux-core-capabilities'
+import { assertTrustedExecutable, canManageProtectedCoreStore, ensureProtectedCoreStore, usesProtectedCoreStore } from '../utils/executable-security'
 
 const runFile = promisify(execFile)
 
@@ -65,7 +66,8 @@ export class CoreService implements BaseService {
 
   async initialize(): Promise<void> {
     const paths = getAppPaths()
-    if (!fs.existsSync(paths.coresDir)) {
+    if (usesProtectedCoreStore() && !canManageProtectedCoreStore()) return
+    if (!usesProtectedCoreStore() && !fs.existsSync(paths.coresDir)) {
       fs.mkdirSync(paths.coresDir, { recursive: true })
     }
     // Recovery must finish before KernelService initializes and starts the selected core.
@@ -156,6 +158,7 @@ export class CoreService implements BaseService {
   async inspectBinary(binaryPath: string): Promise<{ version: string; build?: string; raw: string }> {
     try {
       if (!fs.existsSync(binaryPath)) return { version: 'unknown', raw: '' }
+      assertTrustedExecutable(binaryPath)
       const { stdout } = await runFile(binaryPath, ['-v'], { windowsHide: true, timeout: 5000 })
       const raw = stdout.trim()
       const match = /Mihomo\s+(?:Meta\s+)?([^\s]+)(?:.*?((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+[^\r\n]+))?/i.exec(raw)
@@ -177,8 +180,8 @@ export class CoreService implements BaseService {
     const stableCustomPath = path.join(paths.coresDir, 'stable', `mihomo${ext}`)
     const alphaPath = path.join(paths.coresDir, 'alpha', `mihomo${ext}`)
 
-    const hasAlpha = fs.existsSync(alphaPath)
-    const hasCustomStable = fs.existsSync(stableCustomPath)
+    const hasAlpha = fs.existsSync(alphaPath) && (!usesProtectedCoreStore() || !fs.existsSync(this.installationPaths('alpha').journal))
+    const hasCustomStable = fs.existsSync(stableCustomPath) && (!usesProtectedCoreStore() || !fs.existsSync(this.installationPaths('stable').journal))
 
     const bundledInfo = await this.inspectBinary(paths.coreBinaryPath)
     const stableInfo = hasCustomStable
@@ -414,6 +417,7 @@ export class CoreService implements BaseService {
   }
 
   private async installCoreNow(channel: CoreChannel): Promise<CoreVersionInfo> {
+    ensureProtectedCoreStore()
     const updateCheck = await this.checkUpdate(channel)
     if (updateCheck.state === 'error') {
       throw new Error(updateCheck.message)

@@ -4,6 +4,7 @@ import net from 'node:net'
 import path from 'node:path'
 import yaml from 'yaml'
 import type { ProxyNode } from '@shared/mihomo'
+import { assertTrustedExecutable } from '../utils/executable-security'
 
 export async function buildServiceCheckConfig(raw: Record<string, unknown>, name: string, port: number,
   sourceDir: string, tempDir: string, proxies: Record<string, ProxyNode>): Promise<Record<string, unknown>> {
@@ -84,6 +85,7 @@ export async function withServiceCheckProxy<T>(options: {
     const configPath = path.join(tempDir, 'config.yaml')
     await fs.writeFile(configPath, yaml.stringify(config), { mode: 0o600 })
     options.signal.throwIfAborted()
+    assertTrustedExecutable(options.binary)
     child = spawn(options.binary, ['-d', tempDir, '-f', configPath], { windowsHide: true, stdio: 'ignore' })
     let failed = false
     exited = new Promise(resolve => { child!.once('exit', () => { failed = true; resolve() }); child!.once('error', () => { failed = true; resolve() }) })

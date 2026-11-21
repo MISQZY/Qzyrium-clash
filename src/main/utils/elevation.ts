@@ -7,6 +7,7 @@ import { app } from 'electron'
 import { logger } from './logger'
 import { checkElevateTask, tryRunElevateTask } from './elevate-task'
 import { getSystemBinary } from './system-binaries'
+import { assertTrustedInstallation } from './executable-security'
 
 let cachedElevated: boolean | null = null
 
@@ -19,10 +20,7 @@ export function isProcessElevated(): boolean {
   }
 
   try {
-    const systemRoot = process.env?.SystemRoot
-    const fltmc = systemRoot
-      ? path.join(systemRoot, 'System32', 'fltmc.exe')
-      : 'fltmc.exe'
+    const fltmc = getSystemBinary('fltmc.exe')
     execFileSync(fltmc, [], { stdio: 'ignore', windowsHide: true })
     cachedElevated = true
     return true
@@ -31,10 +29,7 @@ export function isProcessElevated(): boolean {
   }
 
   try {
-    const systemRoot = process.env?.SystemRoot
-    const whoami = systemRoot
-      ? path.join(systemRoot, 'System32', 'whoami.exe')
-      : 'whoami.exe'
+    const whoami = getSystemBinary('whoami.exe')
     const out = execFileSync(whoami, ['/groups'], { encoding: 'utf8', windowsHide: true })
     cachedElevated = out.includes('S-1-16-12288') || out.includes('S-1-16-16384')
   } catch {
@@ -61,6 +56,7 @@ export function restartAsAdmin(): Promise<boolean> {
 
       const execPath = process.execPath
       const isPackaged = electronApp.isPackaged
+      if (isPackaged) assertTrustedInstallation()
       const workingDir = isPackaged ? path.dirname(execPath) : (electronApp.getAppPath() || process.cwd())
       const appUserData = typeof electronApp.getPath === 'function' ? electronApp.getPath('userData') : ''
 

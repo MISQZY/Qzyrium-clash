@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Reflection;
+using System.Security.AccessControl;
+using System.Security.Principal;
 
 static class RunnerTests
 {
@@ -28,8 +30,31 @@ static class RunnerTests
         if ((bool)Invoke("MatchesInstallation", target))
             throw new Exception("Missing application accepted");
         File.WriteAllText(target, "test fixture");
-        if (!(bool)Invoke("MatchesInstallation", target))
-            throw new Exception("Custom user-writable installation rejected");
+        if ((bool)Invoke("MatchesInstallation", target))
+            throw new Exception("User-writable installation accepted for elevation");
+        var acl = new DirectorySecurity();
+        acl.SetOwner(new SecurityIdentifier("S-1-5-32-544"));
+        acl.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier("S-1-5-32-544"), FileSystemRights.FullControl, AccessControlType.Allow));
+        acl.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier("S-1-5-32-545"), FileSystemRights.ReadAndExecute, AccessControlType.Allow));
+        if (!(bool)Invoke("TrustedAcl", acl, false)) throw new Exception("Protected ACL rejected");
+        acl.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier("S-1-5-32-545"), FileSystemRights.CreateDirectories, AccessControlType.Allow));
+        if ((bool)Invoke("TrustedAcl", acl, false)) throw new Exception("Writable runtime directory accepted");
+        if (!(bool)Invoke("TrustedAcl", acl, true)) throw new Exception("Safe ProgramData ancestor rejected");
+        acl.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier("S-1-5-32-545"), FileSystemRights.DeleteSubdirectoriesAndFiles, AccessControlType.Allow));
+        if ((bool)Invoke("TrustedAcl", acl, true)) throw new Exception("Replaceable parent directory accepted");
+        var userOwned = new DirectorySecurity();
+        userOwned.SetOwner(WindowsIdentity.GetCurrent().User);
+        userOwned.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier("S-1-5-32-545"), FileSystemRights.ReadAndExecute, AccessControlType.Allow));
+        if ((bool)Invoke("TrustedAcl", userOwned, false)) throw new Exception("Unprivileged owner accepted");
+        foreach (string generic in new[] { "GA", "GW" })
+        {
+            var genericAcl = new DirectorySecurity();
+            genericAcl.SetSecurityDescriptorSddlForm("O:BAG:BAD:(A;;" + generic + ";;;AU)");
+            if ((bool)Invoke("TrustedAcl", genericAcl, false)) throw new Exception("Generic write rights accepted: " + generic);
+        }
+        string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        string systemLibrary = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "kernel32.dll");
+        if (!(bool)Invoke("ProtectedPath", systemLibrary, windows)) throw new Exception("Protected Windows file rejected");
         string foreignTarget = Path.Combine(args[0], "other.exe");
         File.WriteAllText(foreignTarget, "test fixture");
         if ((bool)Invoke("MatchesInstallation", foreignTarget))

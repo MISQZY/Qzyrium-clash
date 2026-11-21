@@ -7,9 +7,14 @@ const ts = require('typescript')
 
 const calls = [], files = new Map()
 let validInstallation = true
+let protectedInstallation = true
 const runner = 'D:\\Custom apps\\Qzyrium & clash\\resources\\files\\qzyrium-run.exe'
 const runtime = { platform: 'win32', execPath: 'D:\\Custom apps\\Qzyrium & clash\\Qzyrium-clash.exe', env: { SystemRoot: 'C:\\Windows' } }
 const deps = {
+  './executable-security': {
+    assertTrustedInstallation() { if (!protectedInstallation) throw new Error('Unsafe executable location') },
+    assertTrustedExecutable() { if (!protectedInstallation) throw new Error('Unsafe executable location') }
+  },
   child_process: { execFileSync(file, args, options) {
     calls.push({ file, args })
     assert.equal(options.windowsHide, true)
@@ -47,6 +52,13 @@ assert.equal(exportsObject.createElevateTaskSync(), false)
 assert.ok(!calls.some(call => call.args.includes('/create')), 'invalid installations cannot register tasks')
 assert.equal(exportsObject.tryRunElevateTask(['--inspect=9229', '--admin-restart=123', 'qzyrium://install-config?url=a%20b', 'bad\nargument']), true)
 assert.equal(files.get(path.join('tasks', 'param.txt')), '--admin-restart=123\nqzyrium://install-config?url=a%20b')
+protectedInstallation = false
+calls.length = 0
+assert.equal(exportsObject.createElevateTaskSync(), false)
+assert.equal(exportsObject.tryRunElevateTask([]), false)
+assert.equal(exportsObject.checkElevateTask(), false)
+assert.equal(calls.length, 0, 'reject writable installations before executing even --check-install or a scheduled task')
+protectedInstallation = true
 
 const startupCode = ts.transpileModule(fs.readFileSync('src/main/index.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true }

@@ -19,6 +19,8 @@
 !macro customInstall
   ; The installer runs with administrative privileges (perMachine: true).
   nsExec::Exec '"$SYSDIR\schtasks.exe" /delete /tn "Qzyrium-clash-run" /f'
+  ; Existing elevated tasks must not retain a runner from an older, writable installation.
+  nsExec::Exec '"$SYSDIR\schtasks.exe" /delete /tn "Qzyrium-clash-run-v2" /f'
   !insertmacro removeLegacyStartupTasks
 !macroend
 

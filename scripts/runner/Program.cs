@@ -5,6 +5,8 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Security.AccessControl;
+using System.Security.Principal;
 
 namespace QzyriumRunner
 {
@@ -30,14 +32,57 @@ namespace QzyriumRunner
             try { DnsFlushResolverCache(); }
             catch { }
         }
-        // UAC consent registers this installation, including custom/portable paths.
-        // Restrict the launcher to its sibling application, without requiring
-        // administrator-owned directories or ACLs on the installation's parents.
+        static bool TrustedOwner(SecurityIdentifier sid)
+        {
+            return sid.Value == "S-1-5-18" || sid.Value == "S-1-5-32-544" ||
+                sid.Value == "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464";
+        }
+
+        static bool TrustedAcl(FileSystemSecurity acl, bool ancestor)
+        {
+            if (!TrustedOwner((SecurityIdentifier)acl.GetOwner(typeof(SecurityIdentifier)))) return false;
+            if (new RawSecurityDescriptor(acl.GetSecurityDescriptorBinaryForm(), 0).DiscretionaryAcl == null) return false;
+            int mask = ancestor ? 0x100D0040 : 0x500D0156;
+            foreach (FileSystemAccessRule rule in acl.GetAccessRules(true, true, typeof(SecurityIdentifier)))
+            {
+                if (rule.AccessControlType != AccessControlType.Allow ||
+                    (rule.PropagationFlags & PropagationFlags.InheritOnly) != 0) continue;
+                if (!TrustedOwner((SecurityIdentifier)rule.IdentityReference) &&
+                    (((int)rule.FileSystemRights & mask) != 0)) return false;
+            }
+            return true;
+        }
+
+        static bool ProtectedPath(string filename, string boundary)
+        {
+            try
+            {
+                FileSystemInfo item = Directory.Exists(filename) ? (FileSystemInfo)new DirectoryInfo(filename) : new FileInfo(filename);
+                bool ancestor = false;
+                while (item != null)
+                {
+                    if (!item.Exists || (item.Attributes & FileAttributes.ReparsePoint) != 0) return false;
+                    var directory = item as DirectoryInfo;
+                    FileSystemSecurity acl = directory != null ? (FileSystemSecurity)directory.GetAccessControl() : ((FileInfo)item).GetAccessControl();
+                    if (!TrustedAcl(acl, ancestor)) return false;
+                    if (string.Equals(item.FullName.TrimEnd('\\'), boundary.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)) ancestor = true;
+                    item = directory != null ? directory.Parent : ((FileInfo)item).Directory;
+                }
+                return true;
+            }
+            catch { return false; }
+        }
+
+        // Only protected installations may opt into persistent elevation.
+        // The application verifies this runner independently before registering
+        // the task; this check also protects later launches of the sibling app.
         static bool MatchesInstallation(string target)
         {
             string root = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", ".."));
             return string.Equals(Path.GetFullPath(target), Path.Combine(root, "Qzyrium-clash.exe"), StringComparison.OrdinalIgnoreCase) &&
-                File.Exists(target);
+                ProtectedPath(target, root) &&
+                ProtectedPath(Path.Combine(root, "resources", "app.asar"), root) &&
+                ProtectedPath(typeof(Program).Assembly.Location, root);
         }
 
         // The parameter file is untrusted. Accept only protocol imports and the

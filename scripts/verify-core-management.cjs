@@ -65,6 +65,7 @@ a087ace56595d2a12f66518ab690fa9e563c129fe6583936cdd5f1f9b60a7a82  ./mihomo-windo
 async function verifyBinaryResolution() {
   const existingFiles = new Set(['/app/sidecar/mihomo.exe', '/userData/cores/alpha/mihomo.exe'])
   const { resolveCoreBinaryPath } = load('src/main/utils/paths.ts', {
+    './executable-security': { usesProtectedCoreStore: () => false },
     electron: {
       app: {
         getPath: () => '/userData',

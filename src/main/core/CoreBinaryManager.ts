@@ -11,6 +11,7 @@ import type { ActiveConfigBuilder } from './ActiveConfigBuilder'
 import type { MihomoProcessManager } from './MihomoProcessManager'
 import { getAppPaths, resolveCoreBinaryPath } from '../utils/paths'
 import { logger } from '../utils/logger'
+import { assertTrustedExecutable } from '../utils/executable-security'
 
 const runFile = promisify(execFile)
 
@@ -46,6 +47,7 @@ export class CoreBinaryManager {
       if (activeProfile && content === null) throw new Error('Active profile file is missing')
       const configYaml = await this.configBuilder.prepare(content, testSettings, activeProfile?.id, candidateBinaryPath, false)
       await fs.writeFile(testConfigFile, configYaml, 'utf8')
+      assertTrustedExecutable(candidateBinaryPath)
       await runFile(candidateBinaryPath, ['-t', '-d', paths.mihomoDir, '-f', testConfigFile], {
         windowsHide: true,
         timeout: 15_000,

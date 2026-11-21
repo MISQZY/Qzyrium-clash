@@ -3,7 +3,13 @@ const path = require('node:path')
 const assert = require('node:assert/strict')
 
 const main = fs.readFileSync(path.resolve('out/main/index.js'), 'utf8')
-assert.ok(!/powershell\.exe|pwsh\.exe|EncodedCommand|\.ps1\b/i.test(main), 'application main bundle must not invoke PowerShell or install PowerShell scripts')
+// ACL verification must bootstrap through the OS, before trusting bundled EXEs.
+// Allow only this fixed, in-memory policy; never restore shell-based launchers
+// or installed .ps1 helpers.
+assert.ok(!/pwsh\.exe|\.ps1\b/i.test(main), 'application main bundle must not install or launch PowerShell script files')
+assert.equal((main.match(/powershell\.exe/gi) ?? []).length, 1, 'only the ACL verifier may invoke PowerShell')
+assert.equal((main.match(/EncodedCommand/g) ?? []).length, 1, 'only the fixed in-memory ACL policy may use an encoded command')
+assert.match(main, /trustedSystemBinary\(["']WindowsPowerShell\/v1\.0\/powershell\.exe["']\)/, 'ACL verification must resolve PowerShell independently of mutable environment variables')
 assert.ok(!main.includes('qzyrium-windows'), 'removed Windows helper must not be referenced by the main bundle')
 assert.ok(!/require\(["']\.\.\/utils\/elevation["']\)/.test(main), 'bundled elevation guard must not require an absent source module')
 assert.ok(!/require\(["']\.\/logger["']\)/.test(main), 'admin restart logger must be included in the bundle')

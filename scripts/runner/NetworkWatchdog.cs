@@ -125,7 +125,7 @@ static class NetworkWatchdog
 
     static int Main(string[] args)
     {
-        if (args.Length != 4) return 1;
+        if (args.Length != 5) return 1;
         try
         {
             using (Process parent = Process.GetProcessById(int.Parse(args[0])))
@@ -134,12 +134,13 @@ static class NetworkWatchdog
                 if (!SamePath(ExecutablePath(parent), args[1])) return 1;
                 DateTime started = parent.StartTime.ToUniversalTime();
                 string directory = Path.GetFullPath(args[3]);
-                // Core updates live in userData. Accept only the two installed
-                // channel paths alongside the bundled core, never arbitrary paths.
+                // The parent resolves the protected core store. Keep its exact
+                // channel paths alongside the bundled core in the allowlist.
+                string cores = Path.GetFullPath(args[4]);
                 string[] executables = {
                     args[2],
-                    Path.Combine(directory, "cores", "stable", "mihomo.exe"),
-                    Path.Combine(directory, "cores", "alpha", "mihomo.exe")
+                    Path.Combine(cores, "stable", "mihomo.exe"),
+                    Path.Combine(cores, "alpha", "mihomo.exe")
                 };
                 using (FileStream session = LockSession(Path.Combine(directory, "network-session.lock")))
                 {

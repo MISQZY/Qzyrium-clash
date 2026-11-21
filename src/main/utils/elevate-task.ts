@@ -6,6 +6,7 @@ import { app } from 'electron'
 import { getAppPaths } from './paths'
 import { logger } from './logger'
 import { getSystemBinary } from './system-binaries'
+import { assertTrustedExecutable, assertTrustedInstallation } from './executable-security'
 
 export const ELEVATE_TASK_NAME = 'Qzyrium-clash-run-v2'
 const LEGACY_TASK_NAME = 'Qzyrium-clash-run'
@@ -57,6 +58,7 @@ export function createElevateTaskSync(): boolean {
   if (process.platform !== 'win32') return false
   let taskXmlPath: string | undefined
   try {
+    assertTrustedInstallation()
     const paths = getAppPaths()
     const taskDir = paths.tasksDir
     const targetRunner = paths.runnerBinaryPath
@@ -70,6 +72,7 @@ export function createElevateTaskSync(): boolean {
     }
 
     if (!app.isPackaged) return false
+    assertTrustedExecutable(targetRunner, true)
     execFileSync(targetRunner, ['--check-install', process.execPath], { windowsHide: true, timeout: 10000, stdio: 'pipe' })
     // Keep the task definition beside the bundled helper and create it exclusively.
     taskXmlPath = path.join(path.dirname(targetRunner), `.elevate-${randomUUID()}.xml`)
@@ -97,6 +100,7 @@ export function createElevateTaskSync(): boolean {
 export function tryRunElevateTask(args: string[] = []): boolean {
   if (process.platform !== 'win32') return false
   try {
+    assertTrustedInstallation()
     const paths = getAppPaths()
     if (!existsSync(paths.runnerBinaryPath)) {
       logger.warn(`Elevated task runner not found at ${paths.runnerBinaryPath}`)
@@ -127,6 +131,7 @@ export function tryRunElevateTask(args: string[] = []): boolean {
 export function checkElevateTask(): boolean {
   if (process.platform !== 'win32') return false
   try {
+    assertTrustedInstallation()
     const schtasks = getSystemBinary('schtasks.exe')
 
     execFileSync(schtasks, ['/query', '/tn', ELEVATE_TASK_NAME], {

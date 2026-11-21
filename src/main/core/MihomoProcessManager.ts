@@ -15,6 +15,7 @@ import { classifyKernelFailure, kernelFailureDetails, KernelOperationError } fro
 import type { KernelFailure, KernelFailureReason } from '@shared/kernel-failure'
 import { getSystemBinary } from '../utils/system-binaries'
 import { ensureLinuxCoreCapabilities } from '../utils/linux-core-capabilities'
+import { assertTrustedExecutable } from '../utils/executable-security'
 
 const runFile = promisify(execFile)
 
@@ -159,6 +160,7 @@ export class MihomoProcessManager extends EventEmitter {
       }
       const command = linux ? process.execPath : binary
       const launchArgs = linux ? [path.join(paths.geoFilesDir, 'linux-core-supervisor.cjs'), binary, JSON.stringify(tun ?? null), ...args] : args
+      assertTrustedExecutable(command)
       const spawned = spawn(command, launchArgs, {
         windowsHide: true,
         stdio: [linux ? 'pipe' : 'ignore', 'pipe', 'pipe'],

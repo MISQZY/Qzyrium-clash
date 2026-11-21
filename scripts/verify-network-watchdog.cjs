@@ -20,9 +20,10 @@ async function verify() {
   const coreSource = path.join(directory, 'Core.cs')
   fs.writeFileSync(coreSource, 'class Core { static void Main() { System.Threading.Thread.Sleep(60000); } }')
   compile([`/out:${fixture}`, coreSource])
-  const stable = path.join(directory, 'cores', 'stable', 'mihomo.exe')
-  const alpha = path.join(directory, 'cores', 'alpha', 'mihomo.exe')
-  const foreign = path.join(directory, 'cores', 'other', 'mihomo.exe')
+  const protectedCores = path.join(directory, 'protected-runtime', 'cores')
+  const stable = path.join(protectedCores, 'stable', 'mihomo.exe')
+  const alpha = path.join(protectedCores, 'alpha', 'mihomo.exe')
+  const foreign = path.join(directory, 'cores', 'stable', 'mihomo.exe')
   for (const destination of [stable, alpha, foreign]) {
     fs.mkdirSync(path.dirname(destination), { recursive: true })
     fs.copyFileSync(fixture, destination)
@@ -32,7 +33,7 @@ async function verify() {
     const { spawn } = require('node:child_process');
     const { loadTypeScript } = require(${JSON.stringify(path.resolve('scripts/fixtures/typescript.cjs'))});
     const { NetworkWatchdog } = loadTypeScript(${JSON.stringify(path.resolve('src/main/utils/network-watchdog.ts'))}, {
-      './paths': { getAppPaths: () => ({ geoFilesDir: ${JSON.stringify(directory)}, coreBinaryPath: ${JSON.stringify(fixture)}, userData: ${JSON.stringify(directory)} }) },
+      './paths': { getAppPaths: () => ({ geoFilesDir: ${JSON.stringify(directory)}, coreBinaryPath: ${JSON.stringify(fixture)}, userData: ${JSON.stringify(directory)}, coresDir: ${JSON.stringify(protectedCores)} }) },
       './logger': { logger: { error() {} } },
       'node:child_process': { spawn: (file, args, options) => spawn(${JSON.stringify(watchdog)}, args, options) }
     });
