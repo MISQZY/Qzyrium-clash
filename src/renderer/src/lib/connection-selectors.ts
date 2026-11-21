@@ -10,9 +10,15 @@ export function filterConnections(items: readonly ConnectionItem[], query: strin
   return items.filter(item => {
     if (protocol !== 'all' && item.metadata.network.toLowerCase() !== protocol) return false
     if (!q) return true
-    const process = extractProcessName(item.metadata.processPath) || item.metadata.process || ''
-    return `${process} ${item.metadata.host || ''} ${item.metadata.destinationIP || ''} ${item.metadata.processPath || ''} ${item.rule || ''} ${item.chains.join(' ')}`
-      .toLowerCase().includes(q)
+    if (item.metadata.host && item.metadata.host.toLowerCase().includes(q)) return true
+    if (item.metadata.destinationIP && item.metadata.destinationIP.toLowerCase().includes(q)) return true
+    if (item.metadata.process && item.metadata.process.toLowerCase().includes(q)) return true
+    if (item.metadata.processPath && item.metadata.processPath.toLowerCase().includes(q)) return true
+    if (item.rule && item.rule.toLowerCase().includes(q)) return true
+    if (item.chains?.some(chain => chain.toLowerCase().includes(q))) return true
+    const process = extractProcessName(item.metadata.processPath)
+    if (process && process.toLowerCase().includes(q)) return true
+    return false
   })
 }
 
@@ -34,7 +40,7 @@ export function createConnectionComparator(
   systemLabel: string
 ): (a: ConnectionItem, b: ConnectionItem) => number {
   if (sort === 'traffic') return (a, b) => b.download + b.upload - (a.download + a.upload)
-  if (sort === 'time') return (a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()
+  if (sort === 'time') return (a, b) => (b.start > a.start ? 1 : b.start < a.start ? -1 : 0)
   return (a, b) => {
     const nameA = extractProcessName(a.metadata.processPath) || a.metadata.process || systemLabel
     const nameB = extractProcessName(b.metadata.processPath) || b.metadata.process || systemLabel
@@ -49,7 +55,7 @@ export function groupConnections(items: readonly ConnectionItem[], sort: Connect
     const rawPath = item.metadata.processPath || item.metadata.process || ''
     const name = resolveConnectionProcessName(item, systemLabel)
     const key = rawPath || item.metadata.process || name || 'system'
-    const start = new Date(item.start).getTime()
+    const start = Date.parse(item.start) || 0
     const existing = groups.get(key)
     if (existing) {
       existing.connections.push(item)
