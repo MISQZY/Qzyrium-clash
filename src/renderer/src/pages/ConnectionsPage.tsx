@@ -110,6 +110,19 @@ const ConnectionsView = memo(function ConnectionsView({ connections, onRefresh, 
     [drilldownConnectionActions]
   )
 
+  const renderProcessGroupCard = useCallback(
+    (group: ProcessGroup) => (
+      <ProcessGroupCard
+        group={group}
+        onSelect={setSelectedProcessKey}
+        onClose={actions.closeProcessConnections}
+        onQuickRule={setRuleTargetGroup}
+        closing={actions.closing}
+      />
+    ),
+    [actions.closeProcessConnections, actions.closing]
+  )
+
   return (
     <Page
       title={selectedProcessKey && activeProcessGroup ? activeProcessGroup.name : t('connections')}
@@ -161,15 +174,7 @@ const ConnectionsView = memo(function ConnectionsView({ connections, onRefresh, 
           <VirtualList
             data={processGroups}
             itemKey={group => group.key}
-            renderItem={group => (
-              <ProcessGroupCard
-                group={group}
-                onSelect={setSelectedProcessKey}
-                onClose={actions.closeProcessConnections}
-                onQuickRule={setRuleTargetGroup}
-                closing={actions.closing}
-              />
-            )}
+            renderItem={renderProcessGroupCard}
           />
 
           {!processGroups.length && (
