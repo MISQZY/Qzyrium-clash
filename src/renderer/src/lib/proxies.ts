@@ -89,7 +89,7 @@ export function createProxyLatencyComparator(
     const wa = getWeight(da)
     const wb = getWeight(db)
     if (wa !== wb) return wa - wb
-    return a.localeCompare(b)
+    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
   }
 }
 
@@ -98,7 +98,7 @@ export function sortProxyNodes(nodes: string[], sortMode: ProxySortMode, proxies
       const copy = [...nodes]
 
       if (sortMode === 'name') {
-        return copy.sort((a, b) => a.localeCompare(b))
+        return copy.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
       }
 
       if (sortMode === 'latency') {
