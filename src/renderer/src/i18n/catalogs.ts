@@ -48,6 +48,17 @@ export type Namespace = keyof typeof catalogs.en
 export type MessageKey<N extends Namespace> = keyof typeof catalogs.en[N] & string
 type Message = string | Partial<Record<Intl.LDMLPluralRule, string>>
 
+const pluralRulesCache = new Map<string, Intl.PluralRules>()
+
+function getPluralRules(locale: string): Intl.PluralRules {
+  let rules = pluralRulesCache.get(locale)
+  if (!rules) {
+    rules = new Intl.PluralRules(locale)
+    pluralRulesCache.set(locale, rules)
+  }
+  return rules
+}
+
 /** Translation values stay text, including remote names and error details. */
 export function translate<N extends Namespace>(locale: Locale, namespace: N, key: MessageKey<N>, values: Record<string, string | number> = {}, custom?: CustomLocalizationPack): string {
   const messages = catalogs[locale][namespace] as Record<string, Message>
@@ -55,7 +66,7 @@ export function translate<N extends Namespace>(locale: Locale, namespace: N, key
   const customMessage = custom?.messages[namespace]?.[key]
   const message = customMessage ?? messages[key] ?? fallback[key]
   if (!message) return key
-  const text = typeof message === 'string' ? message : message[new Intl.PluralRules(customMessage ? custom!.locale : locale).select(Number(values.count))] ?? message.other!
+  const text = typeof message === 'string' ? message : message[getPluralRules(customMessage ? custom!.locale : locale).select(Number(values.count))] ?? message.other!
   return text.replace(/(?<!\{)\{(\w+)\}(?!\})/g, (_, name: string) => String(values[name] ?? `{${name}}`))
 }
 
