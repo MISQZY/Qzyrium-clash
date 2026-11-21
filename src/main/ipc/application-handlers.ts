@@ -115,7 +115,10 @@ export function registerApplicationHandlers(
       sessionStartedAt: coreStatus === 'running'
         ? await (services.kernelService.getSessionStartedAt?.() ?? Promise.resolve(null))
         : null,
-      sysProxy: await services.sysProxyService.getStatus()
+      sysProxy: await (async () => {
+        await services.sysProxyService.waitForUpdates?.()
+        return services.sysProxyService.getStatus()
+      })()
     }
   })
 }
