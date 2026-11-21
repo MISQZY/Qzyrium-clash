@@ -6,7 +6,16 @@ if (process.type === 'renderer') {
   const expose = contextBridge.exposeInMainWorld.bind(contextBridge)
   contextBridge.exposeInMainWorld = (name, api) => {
     api.profiles.getRawConfig = async () => 'rules:\n  - DOMAIN,base.example,DIRECT\n  - MATCH,DIRECT\n'
-    api.profiles.validateCustomRules = async (_, rules) => rules
+    let holdValidation = false, releaseValidation
+    api.uiTest.holdRuleValidation = () => { holdValidation = true }
+    api.uiTest.releaseRuleValidation = () => { releaseValidation(); releaseValidation = undefined }
+    api.profiles.validateCustomRules = async (_, rules) => {
+      if (holdValidation) {
+        holdValidation = false
+        await new Promise(resolve => { releaseValidation = resolve })
+      }
+      return rules
+    }
     expose(name, api)
   }
   require('./verify-ui.cjs')
@@ -71,8 +80,17 @@ if (process.type === 'renderer') {
       await waitFor(`!document.querySelector('[role="dialog"] fieldset')`)
       await setInput('[role="dialog"] input[type="text"][placeholder*="Search"]', '')
       await waitFor(`document.querySelector('[role="dialog"] fieldset input')?.value === 'edited.example'`)
+      await evaluate(`window.api.uiTest.holdRuleValidation()`)
       await click('Save')
-      await waitFor(`document.querySelector('[role="dialog"] p[title="edited.example"]')`)
+      await waitFor(`document.querySelector('[role="dialog"] fieldset')?.disabled`)
+      await evaluate(`document.querySelector('[role="dialog"] p[title="base.example"]').closest('[draggable]').click()`)
+      await waitFor(`document.querySelector('[role="dialog"] fieldset input')?.value === 'base.example'`)
+      await evaluate(`window.api.uiTest.releaseRuleValidation()`)
+      await waitFor(`document.querySelector('[role="dialog"] fieldset input')?.value === 'base.example' && !document.querySelector('[role="dialog"] fieldset').disabled`)
+      assert.ok(await evaluate(`!!document.querySelector('[role="dialog"] p[title="edited.example"]')`), 'pending validation commits the original rule')
+      await setInput('[role="dialog"] fieldset input', 'second.example')
+      await click('Save')
+      await waitFor(`document.querySelector('[role="dialog"] p[title="second.example"]')`)
 
       await click('YAML Mode')
       await waitFor(`!!document.querySelector('[role="dialog"] .cm-content')`)
@@ -91,8 +109,9 @@ if (process.type === 'renderer') {
       await waitFor(`!document.querySelector('[role="dialog"]')`)
       const saved = await evaluate(`window.api.profiles.getCustomRules('remote')`)
       assert.equal(saved.some(rule => rule.payload === 'yaml.example'), true, 'saving reads the latest YAML draft')
+      assert.equal(saved.some(rule => rule.payload === 'second.example'), true, 'the editor opened during validation remains usable and saves its draft')
       assert.deepEqual(errors, [])
-      console.log('PASS: isolated create/inline/YAML typing, draft restoration after filtering, mode switching and saving')
+      console.log('PASS: isolated create/inline/YAML typing, draft restoration, validation ownership, mode switching and saving')
     } finally { win.destroy(); app.quit() }
   }).catch(error => { console.error(error); app.exit(1) })
 }

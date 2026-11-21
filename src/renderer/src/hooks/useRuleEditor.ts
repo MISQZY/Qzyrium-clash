@@ -227,8 +227,12 @@ export function useRuleEditor({ open, profile, onSaved, onOpenChange }: RuleEdit
       setRules((prev) => prev.map((rule) => rule.id === draft.id
         ? { ...draft, validationError: result.validationError }
         : rule))
-      setEditingId(null)
-      editingDraftRef.current = null
+      // Another row may have been opened while this validation was pending.
+      // Commit the validated rule without closing that newer editing session.
+      if (editingDraftRef.current === editingDraft) {
+        setEditingId(null)
+        editingDraftRef.current = null
+      }
     } catch (err) {
       if (request === ruleValidationRequest.current) setError(err instanceof Error ? err.message : String(err))
     } finally {
