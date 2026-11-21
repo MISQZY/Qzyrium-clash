@@ -24,7 +24,7 @@ function executeCheck(check, directory, { liveOutput = true } = {}) {
     const logPath = path.join(directory, `${check.id}.log`)
     const log = fs.createWriteStream(logPath)
     const child = spawn(executable, [check.file, ...check.args], {
-      cwd: root, windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe']
+      cwd: root, windowsHide: check.runtime !== 'electron', detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe']
     })
     let timedOut = false, settled = false
     const timer = setTimeout(() => { timedOut = true; stopProcessTree(child) }, check.timeoutMs)
