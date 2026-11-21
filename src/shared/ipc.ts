@@ -238,6 +238,7 @@ export interface IElectronApi {
     onUpdaterStatus: (callback: (status: AppUpdaterStatus) => void) => () => void
     onSettingsChanged: (callback: () => void) => () => void
     onTraffic: (callback: (data: TrafficStats) => void) => () => void
+    /** @deprecated Use onLogs instead for batch delivery */
     onLog: (callback: (log: LogEntry) => void) => () => void
     onLogs?: (callback: (logs: LogEntry[]) => void) => () => void
     onCoreStatus: (callback: (status: CoreState) => void) => () => void

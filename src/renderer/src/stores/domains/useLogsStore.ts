@@ -43,7 +43,7 @@ export function useLogsSync(coord: StoreCoordinator): LogsStoreState {
   }, [coord.settings.general.maxLogs])
 
   useEffect(() => {
-    if (!window.api?.events?.onLog) return
+    if (!window.api?.events?.onLogs && !window.api?.events?.onLog) return
     const append = (batch: LogEntry[]) => {
       logBuffer.current.resize(maxLogsRef.current ?? 300)
       for (const log of batch) logBuffer.current.push(log)
