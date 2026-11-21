@@ -127,7 +127,8 @@ export class GeoIpService {
           const { data } = await axios.get(url, { proxy: false, timeout: 2500, signal, maxRedirects: 0, maxContentLength: 32_768 })
           if (this.disposed) return null
           if (!data || data.success === false || data.error || typeof data.ip !== 'string' || !publicIp(data.ip) || !Number.isFinite(data.longitude) || !Number.isFinite(data.latitude) || Math.abs(data.longitude) > 180 || Math.abs(data.latitude) > 90) continue
-          const countryCode = typeof data.country_code === 'string' ? data.country_code : typeof data.countryCode === 'string' ? data.countryCode : undefined
+          const rawCode = typeof data.country_code === 'string' ? data.country_code : typeof data.countryCode === 'string' ? data.countryCode : undefined
+          const countryCode = rawCode ? rawCode.toUpperCase() : undefined
           return { ip: data.ip, longitude: data.longitude, latitude: data.latitude, city: typeof data.city === 'string' ? data.city : '', country: typeof data.country_name === 'string' ? data.country_name : typeof data.country === 'string' ? data.country : '', countryCode, precision: data.city ? 'city' : 'country' }
         } catch { /* Try a second provider within the same total time budget. */ }
       }
