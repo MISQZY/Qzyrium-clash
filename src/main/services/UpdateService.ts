@@ -113,7 +113,13 @@ export class UpdateService implements BaseService {
     if (startup) return startup
     if (force) {
       if (!this.cachedCurrentNotes) {
-        this.cachedCurrentNotes = this.fetchCurrentNotes()
+        this.cachedCurrentNotes = this.fetchCurrentNotes().then((result) => {
+          if (!result) this.cachedCurrentNotes = null
+          return result
+        }).catch((err) => {
+          this.cachedCurrentNotes = null
+          throw err
+        })
       }
       return this.cachedCurrentNotes
     }
@@ -344,6 +350,7 @@ export class UpdateService implements BaseService {
     this.lifetime.abort()
     for (const remove of this.listeners) remove()
     this.listeners = []
+    this.cachedCurrentNotes = null
     await this.clearProxy()
   }
 }

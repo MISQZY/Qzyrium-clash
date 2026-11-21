@@ -165,6 +165,21 @@ async function verify() {
   await offline.initialize()
   assert.equal(await offline.service.getWhatsNew(), null)
   assert.equal(offline.saved(), '0.3.0', 'failed notes do not reannounce the update')
+
+  let failFetch = true
+  const retryable = fixture({ lastVersion: '0.3.0', fetch: (url) => {
+    if (failFetch) throw new Error('offline')
+    if (url.includes('/releases?')) return [{ tag_name: 'v0.3.0' }, { tag_name: 'v0.2.0' }]
+    return { commits: [{ commit: { message: 'Feature update' } }] }
+  } })
+  await retryable.initialize()
+  assert.equal(await retryable.service.getWhatsNew(true), null, 'returns null when offline')
+  failFetch = false
+  const retryNotes = await retryable.service.getWhatsNew(true)
+  assert.equal(retryNotes?.entries?.[0]?.version, '0.3.0', 'retries on demand after network failure')
+  const cachedRetryNotes = await retryable.service.getWhatsNew(true)
+  assert.equal(cachedRetryNotes, retryNotes, 'caches successful on-demand notes')
+  await retryable.service.dispose()
   const yaml = require('yaml').parse(fs.readFileSync('electron-builder.yml', 'utf8'))
   assert.equal(yaml.publish.repo, 'Qzyrium-clash')
   console.log('PASS: updater concurrency, download progress, cleanup before install, retry, portable/dev, first launch, upgrades, skipped versions, network failure and release configuration')
