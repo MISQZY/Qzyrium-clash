@@ -31,7 +31,13 @@ async function verify() {
       updateProvider: async () => { updates++ } }
   })
   assert.deepEqual(await kernel.getProviders('proxies'), [])
-  await assert.rejects(kernel.updateProvider('rules', 'remote'), /Start the VPN core/)
+  const deadline = setTimeout(() => { console.error('Provider lifecycle did not settle'); process.exit(1) }, 5000)
+  try {
+    await assert.rejects(kernel.updateProvider('rules', 'remote'), /Start the VPN core/)
+    let continued = false
+    await kernel.enqueueLifecycle(async () => { continued = true })
+    assert.equal(continued, true, 'rejected offline update must not block subsequent lifecycle operations')
+  } finally { clearTimeout(deadline) }
   state = 'running'
   for (const name of ['missing', 'local']) await assert.rejects(kernel.updateProvider('rules', name), /cannot be updated/)
   await kernel.updateProvider('rules', 'remote')

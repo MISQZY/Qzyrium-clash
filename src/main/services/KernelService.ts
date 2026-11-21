@@ -572,9 +572,6 @@ export class KernelService implements BaseService {
 
   async updateProvider(kind: ProviderKind, name: string): Promise<void> {
     return this.enqueueLifecycle(async () => {
-      if (!this.isProcessRunning()) {
-        await this.startIdleCore()
-      }
       if (!this.isProcessRunning()) throw new Error('Start the VPN core before updating providers')
       const providers = await this.apiClient.getProviders(kind)
       const provider = providers.find(item => item.name === name)
