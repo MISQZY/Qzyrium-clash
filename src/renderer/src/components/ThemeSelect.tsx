@@ -43,7 +43,7 @@ export function ThemeSelect({ value, onValueChange, ariaLabel, className }: Them
       </select>
 
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger aria-label={label} className={className ?? 'w-52'}>
+        <SelectTrigger aria-label={label} className={className ?? 'w-56'}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

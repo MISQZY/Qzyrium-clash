@@ -10,11 +10,13 @@ import type { NavTab } from '../../lib/navigation'
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
 import type { SettingsDraft } from '../../hooks/useSettingsDraft'
+import { BackupSettings } from './BackupSettings'
+import { DiagnosticSettings } from './DiagnosticSettings'
 
 export { SettingsNetworkLinks } from './SettingsNetworkLinks'
 
-export function SettingsOverview({ draft, onNavigate }: {
-  draft: SettingsDraft; onNavigate?: (tab: NavTab) => void
+export function SettingsOverview({ draft, disabled = false, onNavigate }: {
+  draft: SettingsDraft; disabled?: boolean; onNavigate?: (tab: NavTab) => void
 }) {
   const t = useTranslations('networksettings')
   const tourT = useTranslations('app')
@@ -84,104 +86,107 @@ export function SettingsOverview({ draft, onNavigate }: {
       <div className="settings-versions grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Qzyrium App Version Card */}
         <Card>
-          <CardContent className="p-5 flex flex-col gap-4 h-full">
-            <div className="flex flex-col items-start justify-between gap-4 h-full">
-              <div className="flex items-start gap-3 min-w-0 w-full">
-                <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
-                  <img src={druseSvg} alt="Qzyrium" className="size-5 shrink-0 object-contain" />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-sm font-semibold text-foreground break-words">{t('appVersionTitle')}</span>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-muted-foreground font-mono truncate">{appVersion ? `v${appVersion}` : '—'}</span>
-                    {updateStatus && (
-                      <span className={`text-[11px] font-medium ${updateStatus.type === 'latest' ? 'text-success' : updateStatus.type === 'available' ? 'text-primary font-semibold' : 'text-destructive'}`}>
-                        • {updateStatus.type === 'available' ? t('updateAvailable', { version: updateStatus.version ?? '' }) : updateStatus.type === 'latest' ? t('latestVersionInstalled') : updateStatus.type === 'unsupported' ? t('updateUnsupported') : updateStatus.type === 'downloading' ? t('updateDownloading') : updateStatus.type === 'downloaded' ? t('updateInstalling') : t('updateCheckFailed')}
-                      </span>
-                    )}
-                  </div>
+          <CardContent className="p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3 h-full">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
+                <img src={druseSvg} alt="Qzyrium" className="size-5 shrink-0 object-contain" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-semibold text-foreground truncate">{t('appVersionTitle')}</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground font-mono">{appVersion ? `v${appVersion}` : '—'}</span>
+                  {updateStatus && (
+                    <span className={`text-[11px] font-medium ${updateStatus.type === 'latest' ? 'text-success' : updateStatus.type === 'available' ? 'text-primary font-semibold' : 'text-destructive'}`}>
+                      • {updateStatus.type === 'available' ? t('updateAvailable', { version: updateStatus.version ?? '' }) : updateStatus.type === 'latest' ? t('latestVersionInstalled') : updateStatus.type === 'unsupported' ? t('updateUnsupported') : updateStatus.type === 'downloading' ? t('updateDownloading') : updateStatus.type === 'downloaded' ? t('updateInstalling') : t('updateCheckFailed')}
+                    </span>
+                  )}
                 </div>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={checkingUpdates}
-                onClick={handleCheckUpdates}
-                className="gap-1.5 self-start max-w-full h-auto min-h-7.5 py-1.5 whitespace-normal text-left text-xs cursor-pointer"
-              >
-                <RefreshCw className={`size-3.5 shrink-0 text-muted-foreground ${checkingUpdates ? 'animate-spin' : ''}`} />
-                <span>{checkingUpdates ? t('checkingForUpdates') : t('checkForUpdates')}</span>
-              </Button>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={checkingUpdates}
+              onClick={handleCheckUpdates}
+              className="gap-1.5 self-start xl:self-center shrink-0 text-xs cursor-pointer w-full xl:w-56 justify-center whitespace-nowrap"
+            >
+              <RefreshCw className={`size-3.5 shrink-0 text-muted-foreground ${checkingUpdates ? 'animate-spin' : ''}`} />
+              <span>{checkingUpdates ? t('checkingForUpdates') : t('checkForUpdates')}</span>
+            </Button>
           </CardContent>
         </Card>
 
         {/* Mihomo Core Version Card */}
         <Card>
-          <CardContent className="p-5 flex flex-col gap-4 h-full">
-            <div className="flex flex-col items-start justify-between gap-4 h-full">
-              <div className="flex items-start gap-3 min-w-0 w-full">
-                <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
-                  <CoreIcon className="size-4.5" />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-sm font-semibold text-foreground break-words">{t('mihomoCoreVersion')}</span>
-                    {coreInfo && (
-                      <span
-                        className={`rounded px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider ${
-                          coreInfo.channel === 'alpha'
-                            ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
-                            : 'bg-primary/15 text-primary border border-primary/30'
-                        }`}
-                      >
-                        {coreInfo.channel}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground font-mono truncate">
-                    {coreInfo?.installedVersion || coreVersion || '—'}
-                    {coreInfo?.installedBuild ? ` (${coreInfo.installedBuild})` : ''}
-                  </span>
-                </div>
+          <CardContent className="p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3 h-full">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
+                <CoreIcon className="size-4.5" />
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                data-nav-target="mihomo"
-                onClick={() => onNavigate?.('mihomo')}
-                className="gap-1.5 self-start max-w-full h-auto min-h-7.5 py-1.5 whitespace-normal text-left text-xs cursor-pointer"
-              >
-                <CoreIcon className="size-3.5 shrink-0" />
-                <span>{t('coreSettings')}</span>
-                <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
-              </Button>
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-sm font-semibold text-foreground truncate">{t('mihomoCoreVersion')}</span>
+                  {coreInfo && (
+                    <span
+                      className={`rounded px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider ${
+                        coreInfo.channel === 'alpha'
+                          ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                          : 'bg-primary/15 text-primary border border-primary/30'
+                      }`}
+                    >
+                      {coreInfo.channel}
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground font-mono truncate">
+                  {coreInfo?.installedVersion || coreVersion || '—'}
+                  {coreInfo?.installedBuild ? ` (${coreInfo.installedBuild})` : ''}
+                </span>
+              </div>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-nav-target="mihomo"
+              onClick={() => onNavigate?.('mihomo')}
+              className="gap-1.5 self-start xl:self-center shrink-0 text-xs cursor-pointer w-full xl:w-56 justify-center whitespace-nowrap"
+            >
+              <CoreIcon className="size-3.5 shrink-0" />
+              <span>{t('coreSettings')}</span>
+              <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+            </Button>
           </CardContent>
         </Card>
       </div>
 
-      {/* Application Files */}
+      {/* Maintenance: Application files, Backup, Diagnostics */}
       <Card>
-        <CardContent className="p-5">
-          <h2 className="mb-4 text-sm font-semibold">{t('applicationFiles')}</h2>
-          <div className="flex flex-wrap gap-2">
-            {(['data', 'profiles', 'appLogs', 'connectionLogs'] as const).map((target) => (
-              <Button
-                key={target}
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  void window.api?.window.openFolder(target).catch(() => setMessage('couldNotOpenTheFolder'))
-                }}
-              >
-                <Folder className="size-3.5" />
-                {t(`${target}Folder`)}
-              </Button>
-            ))}
+        <CardContent className="p-4 sm:p-5 flex flex-col divide-y divide-border/60">
+          {/* Application Files */}
+          <div className="pb-4">
+            <h2 className="mb-2.5 text-sm font-semibold">{t('applicationFiles')}</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {(['data', 'profiles', 'appLogs', 'connectionLogs'] as const).map((target) => (
+                <Button
+                  key={target}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    void window.api?.window.openFolder(target).catch(() => setMessage('couldNotOpenTheFolder'))
+                  }}
+                  className="w-full justify-center gap-1.5"
+                >
+                  <Folder className="size-3.5 shrink-0" />
+                  <span className="truncate">{t(`${target}Folder`)}</span>
+                </Button>
+              ))}
+            </div>
           </div>
+
+          <BackupSettings disabled={disabled} />
+          <DiagnosticSettings disabled={disabled} />
         </CardContent>
       </Card>
     </>

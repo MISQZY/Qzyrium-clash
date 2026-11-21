@@ -1,6 +1,4 @@
 import { GeneralPreferencesPanel } from '../components/settings/GeneralPreferencesPanel'
-import { BackupSettings } from '../components/settings/BackupSettings'
-import { DiagnosticSettings } from '../components/settings/DiagnosticSettings'
 import { SettingsOverview } from '../components/settings/SettingsOverview'
 import { SettingsNetworkLinks } from '../components/settings/SettingsNetworkLinks'
 import { NetworkSettingsPanel } from '../components/settings/NetworkSettingsPanel'
@@ -224,9 +222,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
         handleRestartAsAdmin={handleRestartAsAdmin} setTunAdminPrompt={setTunAdminPrompt} />}
       {section === 'settings' && <GeneralPreferencesPanel draft={draft} busy={busy} />}
     </form>
-    {section === 'settings' && <SettingsOverview draft={draft} onNavigate={onNavigate} />}
-    {section === 'settings' && <BackupSettings disabled={busy || dirty} />}
-    {section === 'settings' && <DiagnosticSettings disabled={busy || dirty} />}
+    {section === 'settings' && <SettingsOverview draft={draft} disabled={busy || dirty} onNavigate={onNavigate} />}
 
     <SaveBar
       formId={`settings-${section}`}

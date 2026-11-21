@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { FileDown } from 'lucide-react'
 import { useTranslations } from '../../i18n'
-import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
 
 export function DiagnosticSettings({ disabled }: { disabled: boolean }) {
@@ -15,10 +14,29 @@ export function DiagnosticSettings({ disabled }: { disabled: boolean }) {
     catch { setStatus('diagnosticsFailed') }
     finally { setPending(false) }
   }
-  return <Card><CardContent className="p-5">
-    <h2 className="text-sm font-semibold">{t('diagnosticsTitle')}</h2>
-    <p className="mt-1 text-xs text-muted-foreground">{t('diagnosticsDescription')}</p>
-    <Button type="button" size="sm" variant="outline" data-maintenance="diagnostics" className="mt-4" disabled={disabled || pending} onClick={() => void save()}><FileDown className="size-3.5" />{t('exportDiagnostics')}</Button>
-    {status && <p role="status" className="mt-3 text-xs text-muted-foreground">{t(status)}</p>}
-  </CardContent></Card>
+  return (
+    <div className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        <h2 className="text-sm font-semibold">{t('diagnosticsTitle')}</h2>
+        <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+          {t('diagnosticsDescription')}
+        </p>
+        {status && <p role="status" className="mt-2 text-xs text-muted-foreground">{t(status)}</p>}
+      </div>
+      <div className="flex flex-col gap-2 shrink-0 w-full sm:w-56">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          data-maintenance="diagnostics"
+          disabled={disabled || pending}
+          onClick={() => void save()}
+          className="w-full gap-2 justify-center whitespace-nowrap"
+        >
+          <FileDown className="size-3.5 shrink-0" />
+          <span>{t('exportDiagnostics')}</span>
+        </Button>
+      </div>
+    </div>
+  )
 }
