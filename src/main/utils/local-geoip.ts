@@ -140,10 +140,17 @@ export class LocalGeoIp {
     let bytes: number[]
     if (family === 4) bytes = ip.split('.').map(Number)
     else {
-      if (ip.includes('.')) return null
-      const [left, right] = ip.split('::').map((half) => half ? half.split(':') : [])
-      const words = right ? [...left, ...Array(8 - left.length - right.length).fill('0'), ...right] : left
-      bytes = words.flatMap((word) => { const value = parseInt(word, 16); return [value >> 8, value & 255] })
+      const cleanIp = ip.split('%')[0]
+      const lastColon = cleanIp.lastIndexOf(':')
+      const candidateV4 = cleanIp.slice(lastColon + 1)
+      if (isIP(candidateV4) === 4) {
+        bytes = candidateV4.split('.').map(Number)
+      } else {
+        if (cleanIp.includes('.')) return null
+        const [left, right] = cleanIp.split('::').map((half) => half ? half.split(':') : [])
+        const words = right ? [...left, ...Array(8 - left.length - right.length).fill('0'), ...right] : left
+        bytes = words.flatMap((word) => { const value = parseInt(word, 16); return [value >> 8, value & 255] })
+      }
     }
     const worker = this.ensureWorker()
     if (!worker) return null

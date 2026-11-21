@@ -160,8 +160,8 @@ async function main() {
   let beats = 0
   const heartbeat = setInterval(() => beats++, 1)
   try {
-    const results = await Promise.all(['8.8.8.8', '77.88.8.8', '223.5.5.5', '2001:4860:4860::8888'].map((ip) => localDb.lookup(ip)))
-    assert.deepEqual(results.map((result) => result?.country), ['United States', 'Russia', 'China', 'United States'])
+    const results = await Promise.all(['8.8.8.8', '77.88.8.8', '223.5.5.5', '2001:4860:4860::8888', '::ffff:8.8.8.8'].map((ip) => localDb.lookup(ip)))
+    assert.deepEqual(results.map((result) => result?.country), ['United States', 'Russia', 'China', 'United States', 'United States'])
     assert.ok(results.every((result) => result.precision === 'country' && Number.isFinite(result.latitude)))
     assert.ok(beats > 0, 'GeoIP scan runs off the main event loop')
     localDb.shutdownWorker()
