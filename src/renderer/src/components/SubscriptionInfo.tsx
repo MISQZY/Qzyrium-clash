@@ -6,6 +6,17 @@ import { formatBytes } from '../lib/format'
 import { SubscriptionUsageBar } from './SubscriptionUsageBar'
 import { subscriptionExpiry, subscriptionUsage } from '@shared/subscription-health'
 
+const dateTimeFormatCache = new Map<string, Intl.DateTimeFormat>()
+
+function getExpiryDateFormatter(locale: string): Intl.DateTimeFormat {
+  let formatter = dateTimeFormatCache.get(locale)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' })
+    dateTimeFormatCache.set(locale, formatter)
+  }
+  return formatter
+}
+
 export function SubscriptionInfo({ info }: { info?: ProfileUserInfo }) {
   const t = useTranslations('profiles')
   const locale = useLocale()
@@ -18,7 +29,7 @@ export function SubscriptionInfo({ info }: { info?: ProfileUserInfo }) {
   const usage = subscriptionUsage(info)
   const expiry = subscriptionExpiry(info, now)
   const expirationDate = expiry.expiresMs !== undefined
-    ? new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(expiry.expiresMs)
+    ? getExpiryDateFormatter(locale).format(expiry.expiresMs)
     : undefined
   const items = [
     {
