@@ -9,7 +9,6 @@ import { writeFileAtomicAsync } from '../utils/atomicWrite'
 
 export class SettingService implements BaseService {
   private config: AppConfig = createInitialSettings()
-  private snapshot: AppConfig = structuredClone(this.config)
   private settingsPath: string
   private pendingSave: Promise<void> = Promise.resolve()
 
@@ -41,7 +40,6 @@ export class SettingService implements BaseService {
         }
       }
     }
-    this.snapshot = structuredClone(this.config)
     logger.configureSettings(this.config.general)
   }
 
@@ -50,7 +48,7 @@ export class SettingService implements BaseService {
   }
 
   getSettings(): AppConfig {
-    return this.snapshot
+    return structuredClone(this.config)
   }
 
   updateSettings(patch: Partial<AppConfig>): Promise<AppConfig> {
@@ -64,7 +62,6 @@ export class SettingService implements BaseService {
     const next = mergeSettings(this.config, patch)
     await writeFileAtomicAsync(this.settingsPath, JSON.stringify(next, null, 2), 'utf-8', true)
     this.config = next
-    this.snapshot = structuredClone(next)
     logger.configureSettings(next.general)
     return this.getSettings()
   }
