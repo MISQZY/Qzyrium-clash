@@ -107,11 +107,14 @@ export class DesktopService implements BaseService {
   private schedule(config = this.settings.getSettings()): void {
     clearTimeout(this.timer)
     if (this.disposed || !config.general.autoUpdateProfiles || this.updating) return
+    const shortestMinutes = Math.min(config.general.profileUpdateInterval ?? 60, ...this.profiles.getProfiles()
+      .filter((profile) => profile.type === 'remote' && profile.autoUpdate !== false)
+      .map((profile) => subscriptionUpdateInterval(profile, config.general.profileUpdateInterval ?? 60)))
+    // Cap delay at 2^31 - 1 to prevent Node.js 32-bit signed integer setTimeout overflow
+    const delayMs = Math.min(2_147_483_647, Math.max(1, shortestMinutes) * 60_000)
     this.timer = setTimeout(() => {
       this.updating = this.updateSubscriptions().finally(() => { this.updating = null; this.schedule() })
-    }, Math.min(config.general.profileUpdateInterval ?? 60, ...this.profiles.getProfiles()
-      .filter((profile) => profile.type === 'remote' && profile.autoUpdate !== false)
-      .map((profile) => subscriptionUpdateInterval(profile, config.general.profileUpdateInterval ?? 60))) * 60_000)
+    }, delayMs)
     this.timer.unref()
   }
 
