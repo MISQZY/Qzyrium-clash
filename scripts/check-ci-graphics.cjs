@@ -12,7 +12,7 @@ for (const backend of ['d3d11-warp', 'swiftshader']) {
     console.log(`Checking native window presentation with ${backend}, launch ${attempt}/2`)
     const result = spawnSync(require('electron'), [path.join(__dirname, 'verify-native-window-ui.cjs')], {
       cwd: path.resolve(__dirname, '..'), env: { ...process.env, UI_ANGLE: backend },
-      windowsHide: true, encoding: 'utf8', timeout: Number(process.env.CI_GRAPHICS_TIMEOUT) || 180_000, maxBuffer: 4 * 1024 * 1024
+      encoding: 'utf8', timeout: Number(process.env.CI_GRAPHICS_TIMEOUT) || 180_000, maxBuffer: 4 * 1024 * 1024
     })
     const log = (result.stdout ?? '') + (result.stderr ?? '') + (result.error ? `\n${result.error.message}` : '')
     fs.writeFileSync(path.join(output, `${backend}-${attempt}.log`), log)
