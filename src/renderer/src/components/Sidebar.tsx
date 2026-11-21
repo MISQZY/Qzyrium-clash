@@ -77,7 +77,7 @@ export const Sidebar = memo(function Sidebar({ position = 'left', activeTab, onS
       </div>
     )}
     <nav data-tour="navigation" aria-label={t('navigation')} className="sidebar-nav">
-      {sidebarNavigation.map((group, groupIndex) => <div key={group.id} className={`sidebar-group ${group.id === 'application' && !isHorizontal ? 'mt-auto' : ''} ${groupIndex > 0 && isHorizontal ? 'sidebar-group-horizontal-secondary' : ''}`}>
+      {sidebarNavigation.map((group) => <div key={group.id} className={`sidebar-group ${group.id === 'application' ? (isHorizontal ? 'ml-auto' : 'mt-auto') : ''}`}>
         {group.id === 'application' && <UpdateIndicator />}
         <div className={`flex ${isHorizontal ? 'flex-row' : 'flex-col'} ${isHorizontal ? 'gap-1.5' : 'gap-1'}`}>{group.items.map(({ id, icon: Icon }) => <SidebarHint key={id} label={t(id)} open={effectiveOpen} position={position}><button type="button" onClick={() => onSelectTab(id)} aria-label={t(id)} aria-current={activeTab === id ? 'page' : undefined} className={`sidebar-link ${isHorizontal ? '' : 'w-full'} ${activeTab === id ? 'sidebar-link-active' : ''}`}>
           <Icon className="size-4 shrink-0" /><span className="sidebar-label truncate">{t(id)}</span>
