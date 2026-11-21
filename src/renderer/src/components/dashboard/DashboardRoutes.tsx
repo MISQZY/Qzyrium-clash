@@ -37,6 +37,10 @@ export function DashboardRoutesProvider({ running, connecting, settings, activeP
   }, [proxies])
 
   useEffect(() => {
+    setLocations(EMPTY_LOCATIONS)
+  }, [activeProfile?.id])
+
+  useEffect(() => {
     if (!running) {
       setLocations(EMPTY_LOCATIONS)
       setLocating(false)
