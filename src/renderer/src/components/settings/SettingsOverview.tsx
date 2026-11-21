@@ -96,7 +96,7 @@ export function SettingsOverview({ draft, disabled = false, onNavigate }: {
             <h2 className="text-sm font-semibold">{tourT('tourSettingsTitle')}</h2>
             <p className="mt-1 text-xs text-muted-foreground">{tourT('tourSettingsDescription')}</p>
           </div>
-          <Button size="sm" variant="outline" onClick={startTour} data-tour-restart>{tourT('tourRestart')}</Button>
+          <Button size="sm" variant="outline" onClick={startTour} data-tour-restart className="h-auto min-h-8 py-1.5 px-3 text-center leading-snug whitespace-normal">{tourT('tourRestart')}</Button>
         </CardContent>
       </Card>
 
@@ -147,10 +147,10 @@ export function SettingsOverview({ draft, disabled = false, onNavigate }: {
               size="sm"
               disabled={checkingUpdates}
               onClick={handleCheckUpdates}
-              className="gap-1.5 self-start xl:self-center shrink-0 text-xs cursor-pointer w-full xl:w-56 justify-center whitespace-nowrap"
+              className="gap-1.5 self-start xl:self-center shrink-0 text-xs cursor-pointer w-full xl:w-56 justify-center h-auto min-h-8 py-1.5 px-3 text-center leading-snug whitespace-normal"
             >
               <RefreshCw className={`size-3.5 shrink-0 text-muted-foreground ${checkingUpdates ? 'animate-spin' : ''}`} />
-              <span>{checkingUpdates ? t('checkingForUpdates') : t('checkForUpdates')}</span>
+              <span className="break-words text-center">{checkingUpdates ? t('checkingForUpdates') : t('checkForUpdates')}</span>
             </Button>
           </CardContent>
         </Card>
@@ -189,10 +189,10 @@ export function SettingsOverview({ draft, disabled = false, onNavigate }: {
               size="sm"
               data-nav-target="mihomo"
               onClick={() => onNavigate?.('mihomo')}
-              className="gap-1.5 self-start xl:self-center shrink-0 text-xs cursor-pointer w-full xl:w-56 justify-center whitespace-nowrap"
+              className="gap-1.5 self-start xl:self-center shrink-0 text-xs cursor-pointer w-full xl:w-56 justify-center h-auto min-h-8 py-1.5 px-3 text-center leading-snug whitespace-normal"
             >
               <CoreIcon className="size-3.5 shrink-0" />
-              <span>{t('coreSettings')}</span>
+              <span className="break-words text-center">{t('coreSettings')}</span>
               <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
             </Button>
           </CardContent>
@@ -214,10 +214,10 @@ export function SettingsOverview({ draft, disabled = false, onNavigate }: {
                   onClick={() => {
                     void window.api?.window.openFolder(target).catch(() => setMessage('couldNotOpenTheFolder'))
                   }}
-                  className="w-full justify-center gap-1.5"
+                  className="w-full justify-center gap-1.5 h-auto min-h-8 py-1.5 px-2 text-center leading-snug whitespace-normal"
                 >
                   <Folder className="size-3.5 shrink-0" />
-                  <span className="truncate">{t(`${target}Folder`)}</span>
+                  <span className="break-words line-clamp-2">{t(`${target}Folder`)}</span>
                 </Button>
               ))}
             </div>

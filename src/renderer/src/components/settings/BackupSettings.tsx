@@ -33,10 +33,10 @@ export function BackupSettings({ disabled }: { disabled: boolean }) {
           data-maintenance="export-backup"
           disabled={disabled || pending}
           onClick={() => void run(false)}
-          className="w-full gap-2 justify-center whitespace-nowrap"
+          className="w-full gap-2 justify-center h-auto min-h-8 py-1.5 px-3 text-center leading-snug whitespace-normal"
         >
           <Download className="size-3.5 shrink-0" />
-          <span>{t('exportBackup')}</span>
+          <span className="break-words text-center">{t('exportBackup')}</span>
         </Button>
         <Button
           type="button"
@@ -45,10 +45,10 @@ export function BackupSettings({ disabled }: { disabled: boolean }) {
           data-maintenance="import-backup"
           disabled={disabled || pending}
           onClick={() => void run(true)}
-          className="w-full gap-2 justify-center whitespace-nowrap"
+          className="w-full gap-2 justify-center h-auto min-h-8 py-1.5 px-3 text-center leading-snug whitespace-normal"
         >
           <Upload className="size-3.5 shrink-0" />
-          <span>{t('importBackup')}</span>
+          <span className="break-words text-center">{t('importBackup')}</span>
         </Button>
       </div>
     </div>

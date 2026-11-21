@@ -31,10 +31,10 @@ export function DiagnosticSettings({ disabled }: { disabled: boolean }) {
           data-maintenance="diagnostics"
           disabled={disabled || pending}
           onClick={() => void save()}
-          className="w-full gap-2 justify-center whitespace-nowrap"
+          className="w-full gap-2 justify-center h-auto min-h-8 py-1.5 px-3 text-center leading-snug whitespace-normal"
         >
           <FileDown className="size-3.5 shrink-0" />
-          <span>{t('exportDiagnostics')}</span>
+          <span className="break-words text-center">{t('exportDiagnostics')}</span>
         </Button>
       </div>
     </div>

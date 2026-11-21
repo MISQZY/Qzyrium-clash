@@ -212,10 +212,10 @@ export function CoreVersionSection({ channel, onChannelChange }: CoreVersionSect
           size="sm"
           disabled={busy || updateStatus.state === 'downloading' || updateStatus.state === 'testing'}
           onClick={handleCheckUpdates}
-          className="gap-1.5 text-xs cursor-pointer"
+          className="gap-1.5 text-xs cursor-pointer h-auto min-h-8 py-1.5 px-3 text-center leading-snug whitespace-normal"
         >
           <RefreshCw className={`size-3.5 text-muted-foreground ${busy || updateStatus.state === 'checking' ? 'animate-spin' : ''}`} />
-          <span>{busy || updateStatus.state === 'checking' ? t('checkingForCoreUpdates') : t('checkForCoreUpdates')}</span>
+          <span className="break-words text-center">{busy || updateStatus.state === 'checking' ? t('checkingForCoreUpdates') : t('checkForCoreUpdates')}</span>
         </Button>
 
         {isAlpha && !isTargetAlphaInstalled && (
