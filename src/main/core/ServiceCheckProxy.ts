@@ -5,11 +5,12 @@ import path from 'node:path'
 import yaml from 'yaml'
 import type { ProxyNode } from '@shared/mihomo'
 
-export async function buildServiceCheckConfig(raw: Record<string, any>, name: string, port: number,
+export async function buildServiceCheckConfig(raw: Record<string, unknown>, name: string, port: number,
   sourceDir: string, tempDir: string, proxies: Record<string, ProxyNode>): Promise<Record<string, unknown>> {
   const providers: Record<string, unknown> = {}
   let index = 0
-  for (const [key, value] of Object.entries(raw['proxy-providers'] ?? {}) as [string, Record<string, any>][]) {
+  const rawProviders = (raw['proxy-providers'] && typeof raw['proxy-providers'] === 'object' ? raw['proxy-providers'] : {}) as Record<string, Record<string, unknown>>
+  for (const [key, value] of Object.entries(rawProviders)) {
     if (value.type === 'inline') { providers[key] = { ...value, 'health-check': { enable: false } }; continue }
     if (typeof value.path !== 'string') throw new Error('Proxy provider has no local cache')
     const filename = `provider-${index++}.yaml`
@@ -18,9 +19,11 @@ export async function buildServiceCheckConfig(raw: Record<string, any>, name: st
     const { url: _url, interval: _interval, ...provider } = value
     providers[key] = { ...provider, type: 'file', path: filename, 'health-check': { enable: false } }
   }
+  const rawProxies = Array.isArray(raw.proxies) ? raw.proxies as Record<string, unknown>[] : []
+  const rawGroups = Array.isArray(raw['proxy-groups']) ? raw['proxy-groups'] as Record<string, unknown>[] : []
   const known = new Set(['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE',
-    ...(raw.proxies ?? []).map((proxy: Record<string, unknown>) => String(proxy.name)),
-    ...(raw['proxy-groups'] ?? []).map((group: Record<string, unknown>) => String(group.name))])
+    ...rawProxies.map((proxy) => String(proxy.name)),
+    ...rawGroups.map((group) => String(group.name))])
   const frozenGroup = (groupName: string, selection: string) => known.has(selection)
     ? { name: groupName, type: 'select', proxies: [selection] }
     : { name: groupName, type: 'select', 'include-all-providers': true,
@@ -29,7 +32,7 @@ export async function buildServiceCheckConfig(raw: Record<string, any>, name: st
   // their native overrides and provides a REJECT fallback if a host disappears.
   let alias = '__qzyrium_service_check__'
   while (known.has(alias)) alias += '_'
-  const groups = (raw['proxy-groups'] ?? []).map((group: Record<string, unknown>) => {
+  const groups = rawGroups.map((group) => {
     const now = proxies[String(group.name)]?.now ?? 'REJECT'
     return frozenGroup(String(group.name), now)
   })
