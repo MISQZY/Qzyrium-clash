@@ -21,13 +21,12 @@ export function AutoFitTrafficText({ text }: AutoFitTrafficTextProps) {
     const container = containerRef.current
     const textEl = textRef.current
     if (!container || !textEl) return
-    textEl.style.transform = 'none'
     const containerWidth = container.clientWidth
     const textWidth = textEl.scrollWidth
     if (containerWidth > 0 && textWidth > 0 && textWidth > containerWidth) {
       const scale = Math.max(0.65, (containerWidth - 1) / textWidth)
       textEl.style.transform = `scale(${scale})`
-    } else {
+    } else if (textEl.style.transform) {
       textEl.style.transform = ''
     }
   }
