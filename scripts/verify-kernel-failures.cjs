@@ -12,6 +12,8 @@ async function verify() {
     ['listen tcp: bind: Обычно разрешается только одно использование адреса сокета', 'port-in-use'],
     ['listen tcp: bind: An attempt was made to access a socket in a way forbidden by its access permissions.', 'permission'],
     ['Start TUN listening error: operation not permitted', 'permission'],
+    ['create tun interface: failed to create adapter', 'permission'],
+    ['WintunCreateAdapter failed with code 5', 'permission'],
     ['Parse config error: yaml: line 4: did not find expected key', 'configuration'],
     ['Mihomo controller did not become ready within 15 seconds', 'timeout'],
     ['panic: runtime error: invalid memory address', 'crash']

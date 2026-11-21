@@ -23,7 +23,7 @@ export function classifyKernelFailure(error: unknown, output: readonly string[] 
   if (error instanceof KernelOperationError) reason = error.reason
   else if (context === 'watchdog') reason = 'watchdog'
   else if (/EADDRINUSE|address already in use|Only one usage of each socket address|разрешается только одно использование.*сокет|bind[^\n]*(?:10048|already in use)/i.test(details)) reason = 'port-in-use'
-  else if (/\b(?:EACCES|EPERM)\b|permission denied|access (?:is )?denied|operation not permitted|requires? (?:admin|elevation)|insufficient privileges|required privilege.*not held|forbidden by its access permissions|отказано в доступе/i.test(details)) reason = 'permission'
+  else if (/\b(?:EACCES|EPERM)\b|permission denied|access (?:is )?denied|operation not permitted|requires? (?:admin|elevation)|insufficient privileges|required privilege.*not held|forbidden by its access permissions|отказано в доступе|start tun listening error|wintuncreateadapter|wintunopenadapter|create tun (?:interface|device)/i.test(details)) reason = 'permission'
   else if (/\bENOENT\b/.test(details) && (context !== 'configuration' || /\bspawn\b/i.test(details))) reason = 'missing-core'
   else if (context === 'configuration' || /parse (?:config|yaml)|yaml:|unmarshal|invalid (?:config|profile)|rules\[\d+\]|Profile (?:validation failed|file is missing)|Profile does not contain|Profile must contain/i.test(details)) reason = 'configuration'
   else if (/timed? out|timeout|did not become ready|ECONNABORTED|ETIMEDOUT/i.test(details)) reason = 'timeout'

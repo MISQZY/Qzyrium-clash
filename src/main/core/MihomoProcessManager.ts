@@ -178,7 +178,14 @@ export class MihomoProcessManager extends EventEmitter {
         if (this.childProcess !== spawned) return
         const entry = parseMihomoLog(line, fallback)
         if (!entry) return
-        const isTunError = entry.payload.includes('Start TUN listening error') || entry.payload.includes('configure tun interface')
+        const payloadLower = entry.payload.toLowerCase()
+        const isTunError = payloadLower.includes('start tun listening error') ||
+          payloadLower.includes('configure tun interface') ||
+          payloadLower.includes('create tun interface') ||
+          payloadLower.includes('create tun device') ||
+          payloadLower.includes('wintuncreateadapter') ||
+          payloadLower.includes('wintunopenadapter') ||
+          (payloadLower.includes('auto route') && payloadLower.includes('error'))
         if (isTunError) entry.type = 'error'
         logger.writeEntry(entry)
         if (entry.type === 'error' || entry.type === 'warning') {
