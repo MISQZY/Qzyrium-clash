@@ -5,7 +5,6 @@ import { registerIpcHandlers } from './ipc/registerHandlers'
 import { ServiceManager } from './services/ServiceManager'
 import { logger } from './utils/logger'
 import { readFileSync, existsSync } from 'node:fs'
-import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { IPC_CHANNELS } from '@shared/ipc'
 import { normalizeSettings } from '@shared/settings-config'
@@ -17,7 +16,6 @@ import { checkElevateTask, createElevateTaskSync, tryRunElevateTask } from './ut
 import { readElevationState, recordElevationAttempt, rememberElevation } from './utils/elevation-state'
 import { renderingSwitches } from '@shared/rendering-policy'
 import { networkWatchdog } from './utils/network-watchdog'
-import { getSystemBinary } from './utils/system-binaries'
 
 app.setName('Qzyrium-clash')
 electronApp.setAppUserModelId('com.qzyrium.vpn')
@@ -56,18 +54,18 @@ if (initialProtocolUrl) pendingProtocolUrls.push(initialProtocolUrl)
 // Memory optimization and acceleration switches must be applied before app.ready.
 let lowMemoryMode = false
 let isolateGpu = false
+let bootSettings: AppConfig | undefined
 try {
-  let boot: AppConfig | undefined
   for (const name of ['settings.json', 'settings.json.bak']) {
     try {
-      boot = normalizeSettings(JSON.parse(readFileSync(path.join(app.getPath('userData'), name), 'utf8')))
+      bootSettings = normalizeSettings(JSON.parse(readFileSync(path.join(app.getPath('userData'), name), 'utf8')))
       break
     } catch { /* Match SettingService recovery before Chromium starts. */ }
   }
-  lowMemoryMode = boot?.general.lowMemoryMode === true
-  isolateGpu = boot?.general.isolateGpu === true || (typeof process !== 'undefined' && process.argv?.includes('--isolate-gpu'))
+  lowMemoryMode = bootSettings?.general.lowMemoryMode === true
+  isolateGpu = bootSettings?.general.isolateGpu === true || (typeof process !== 'undefined' && process.argv?.includes('--isolate-gpu'))
   // Memory saving must retain GPU composition for interactive Windows resize.
-  if (boot?.general.disableGpu === true) {
+  if (bootSettings?.general.disableGpu === true) {
     app.disableHardwareAcceleration()
   }
 } catch {
@@ -98,19 +96,7 @@ function extractAdminRestartPid(): number | null {
 
 function sleepSync(ms: number): void {
   try {
-    if (process.platform === 'win32') {
-      const ping = getSystemBinary('ping.exe')
-      spawnSync(ping, ['192.0.2.1', '-n', '1', '-w', String(Math.max(1, ms))], {
-        windowsHide: true,
-        stdio: 'ignore',
-        timeout: ms + 2000
-      })
-    } else {
-      spawnSync('sleep', [String(Math.max(0.05, ms / 1000))], {
-        stdio: 'ignore',
-        timeout: ms + 2000
-      })
-    }
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.max(1, ms))
   } catch {
     const start = Date.now()
     while (Date.now() - start < ms) { /* fallback */ }
@@ -189,11 +175,15 @@ if (!gotTheLock) {
     }
   })
 
-  for (const name of ['settings.json', 'settings.json.bak']) {
-    try {
-      logger.configureSettings(normalizeSettings(JSON.parse(readFileSync(path.join(app.getPath('userData'), name), 'utf8'))).general)
-      break
-    } catch { /* Use a valid backup or the default log policy. */ }
+  if (bootSettings?.general) {
+    logger.configureSettings(bootSettings.general)
+  } else {
+    for (const name of ['settings.json', 'settings.json.bak']) {
+      try {
+        logger.configureSettings(normalizeSettings(JSON.parse(readFileSync(path.join(app.getPath('userData'), name), 'utf8'))).general)
+        break
+      } catch { /* Use a valid backup or the default log policy. */ }
+    }
   }
   logger.initialize()
   app.on('child-process-gone', (_event, details) => {
