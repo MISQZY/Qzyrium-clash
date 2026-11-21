@@ -1,14 +1,17 @@
 import { useTranslations } from '../../i18n'
 import { useTour } from '../../providers/TourProvider'
 import { TourMascot } from '../TourMascot'
-import { useState, useEffect } from 'react'
-import { Folder, ChevronRight, RefreshCw } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import { Folder, ChevronRight, RefreshCw, Sparkles } from 'lucide-react'
+import { Tooltip } from 'radix-ui'
 import druseSvg from '../../assets/brand/druse.svg'
 import { CoreIcon } from '../../lib/icons'
 import type { CoreVersionInfo } from '@shared/core-version'
 import type { NavTab } from '../../lib/navigation'
 import { Card, CardContent } from '../ui/card'
 import { Button } from '../ui/button'
+import { ToastNotification } from '../ToastNotification'
 import type { SettingsDraft } from '../../hooks/useSettingsDraft'
 import { BackupSettings } from './BackupSettings'
 import { DiagnosticSettings } from './DiagnosticSettings'
@@ -26,12 +29,27 @@ export function SettingsOverview({ draft, disabled = false, onNavigate }: {
   const [coreInfo, setCoreInfo] = useState<CoreVersionInfo | null>(null)
   const [appVersion, setAppVersion] = useState<string>('')
   const [checkingUpdates, setCheckingUpdates] = useState(false)
-  const [updateStatus, setUpdateStatus] = useState<{ type: 'latest' | 'available' | 'error' | 'unsupported' | 'downloading' | 'downloaded'; version?: string } | null>(null)
+  const [updateStatus, setUpdateStatus] = useState<{ type: 'latest' | 'available' | 'downloading' | 'downloaded'; version?: string } | null>(null)
+  const [toast, setToast] = useState<{ variant: 'warning' | 'destructive' | 'info'; message: string } | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showToast = (toastData: { variant: 'warning' | 'destructive' | 'info'; message: string }) => {
+    setToast(toastData)
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = setTimeout(() => setToast(null), 6000)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    }
+  }, [])
 
   const handleCheckUpdates = async () => {
     if (checkingUpdates) return
     setCheckingUpdates(true)
     setUpdateStatus(null)
+    setToast(null)
     try {
       if (window.api?.app?.checkUpdates) {
         const result = await window.api.app.checkUpdates()
@@ -40,7 +58,11 @@ export function SettingsOverview({ draft, disabled = false, onNavigate }: {
             type: 'available',
             version: result.version
           })
-        } else if (result.state === 'unsupported' || result.state === 'downloading' || result.state === 'downloaded' || result.state === 'error') {
+        } else if (result.state === 'unsupported') {
+          showToast({ variant: 'warning', message: t('updateUnsupported') })
+        } else if (result.state === 'error') {
+          showToast({ variant: 'destructive', message: t('updateCheckFailed') })
+        } else if (result.state === 'downloading' || result.state === 'downloaded') {
           setUpdateStatus({ type: result.state })
         } else if (result.state === 'not-available') {
           setUpdateStatus({
@@ -48,14 +70,10 @@ export function SettingsOverview({ draft, disabled = false, onNavigate }: {
           })
         }
       } else {
-        setUpdateStatus({
-          type: 'unsupported'
-        })
+        showToast({ variant: 'warning', message: t('updateUnsupported') })
       }
     } catch {
-      setUpdateStatus({
-        type: 'error'
-      })
+      showToast({ variant: 'destructive', message: t('updateCheckFailed') })
     } finally {
       setCheckingUpdates(false)
     }
@@ -70,7 +88,7 @@ export function SettingsOverview({ draft, disabled = false, onNavigate }: {
   }, [])
 
   return (
-    <>
+    <Tooltip.Provider delayDuration={200}>
       <Card data-tour="restart-tour">
         <CardContent className="flex flex-wrap items-center gap-4 p-4">
           <div className="tour-settings-mascot"><TourMascot pose="smirk" /></div>
@@ -95,9 +113,29 @@ export function SettingsOverview({ draft, disabled = false, onNavigate }: {
                 <span className="text-sm font-semibold text-foreground truncate">{t('appVersionTitle')}</span>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-muted-foreground font-mono">{appVersion ? `v${appVersion}` : '—'}</span>
+                  <Tooltip.Root>
+                    <Tooltip.Trigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        className="size-6.5 rounded-md border-border/80 bg-muted/40 shadow-2xs hover:bg-muted hover:text-foreground hover:border-primary/50 text-muted-foreground transition-colors cursor-pointer"
+                        onClick={() => window.dispatchEvent(new CustomEvent('qzyrium:open-whats-new'))}
+                        aria-label={tourT('whatsNewTitle')}
+                      >
+                        <Sparkles className="size-3.5" />
+                      </Button>
+                    </Tooltip.Trigger>
+                    <Tooltip.Portal>
+                      <Tooltip.Content side="top" sideOffset={6} className="sidebar-tooltip">
+                        {tourT('whatsNewTitle')}
+                        <Tooltip.Arrow className="fill-popover" />
+                      </Tooltip.Content>
+                    </Tooltip.Portal>
+                  </Tooltip.Root>
                   {updateStatus && (
-                    <span className={`text-[11px] font-medium ${updateStatus.type === 'latest' ? 'text-success' : updateStatus.type === 'available' ? 'text-primary font-semibold' : 'text-destructive'}`}>
-                      • {updateStatus.type === 'available' ? t('updateAvailable', { version: updateStatus.version ?? '' }) : updateStatus.type === 'latest' ? t('latestVersionInstalled') : updateStatus.type === 'unsupported' ? t('updateUnsupported') : updateStatus.type === 'downloading' ? t('updateDownloading') : updateStatus.type === 'downloaded' ? t('updateInstalling') : t('updateCheckFailed')}
+                    <span className={`text-[11px] font-medium ${updateStatus.type === 'latest' ? 'text-success' : 'text-primary font-semibold'}`}>
+                      • {updateStatus.type === 'available' ? t('updateAvailable', { version: updateStatus.version ?? '' }) : updateStatus.type === 'latest' ? t('latestVersionInstalled') : updateStatus.type === 'downloading' ? t('updateDownloading') : updateStatus.type === 'downloaded' ? t('updateInstalling') : ''}
                     </span>
                   )}
                 </div>
@@ -189,6 +227,15 @@ export function SettingsOverview({ draft, disabled = false, onNavigate }: {
           <DiagnosticSettings disabled={disabled} />
         </CardContent>
       </Card>
-    </>
+
+      {toast && createPortal(
+        <ToastNotification
+          variant={toast.variant}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />,
+        document.body
+      )}
+    </Tooltip.Provider>
   )
 }
