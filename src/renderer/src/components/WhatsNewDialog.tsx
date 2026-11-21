@@ -23,7 +23,7 @@ export function WhatsNewDialog() {
     }
 
     const handleOpen = async () => {
-      let data = payload
+      let data = await window.api?.app?.getWhatsNew?.(true).catch(() => null)
       if (!data && window.api?.app?.getWhatsNew) {
         try {
           data = await window.api.app.getWhatsNew()
@@ -42,7 +42,7 @@ export function WhatsNewDialog() {
       active = false
       window.removeEventListener('qzyrium:open-whats-new', handleOpen)
     }
-  }, [tourIndex, payload])
+  }, [tourIndex])
 
   if (!payload || !open || tourIndex !== null) return null
 

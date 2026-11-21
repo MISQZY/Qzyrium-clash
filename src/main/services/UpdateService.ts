@@ -106,7 +106,65 @@ export class UpdateService implements BaseService {
   }
 
   getStatus(): AppUpdaterStatus { return this.status }
-  getWhatsNew(): Promise<WhatsNewPayload | null> { return this.whatsNew }
+  private cachedCurrentNotes: Promise<WhatsNewPayload | null> | null = null
+
+  async getWhatsNew(force = false): Promise<WhatsNewPayload | null> {
+    const startup = await this.whatsNew
+    if (startup) return startup
+    if (force) {
+      if (!this.cachedCurrentNotes) {
+        this.cachedCurrentNotes = this.fetchCurrentNotes()
+      }
+      return this.cachedCurrentNotes
+    }
+    return null
+  }
+
+  private async fetchCurrentNotes(): Promise<WhatsNewPayload | null> {
+    const currentVersion = app.getVersion()
+    try {
+      const releases: GithubRelease[] = []
+      for (let page = 1; page <= 5; page++) {
+        const batch = await this.githubGet<GithubRelease[]>(`/releases?per_page=30&page=${page}`)
+        releases.push(...batch.filter((release) => !release.draft && !release.prerelease && isStableVersion(release.tag_name)))
+        if (batch.length < 30 || releases.some((release) => compareVersions(release.tag_name, currentVersion) < 0)) break
+      }
+      releases.sort((a, b) => compareVersions(b.tag_name, a.tag_name))
+
+      const targetReleaseIndex = releases.findIndex((r) => compareVersions(r.tag_name, currentVersion) === 0)
+      const release = targetReleaseIndex !== -1 ? releases[targetReleaseIndex] : releases[0]
+      if (!release) return null
+
+      const previousRelease = targetReleaseIndex !== -1 ? releases[targetReleaseIndex + 1] : releases[1]
+      const previousTag = previousRelease?.tag_name
+
+      let notes: string[] = []
+      if (previousTag) {
+        try {
+          const comparison = await this.githubGet<GithubCompare>(`/compare/${encodeURIComponent(previousTag)}...${encodeURIComponent(release.tag_name)}?per_page=100&page=1`)
+          notes.push(...comparison.commits.map(({ commit }) => commit.message.split('\n')[0].trim()).filter((subject) => subject && !subject.startsWith('Merge ') && !BUMP_COMMIT.test(subject)))
+          notes.reverse()
+        } catch (error) {
+          logger.warn(`Unable to load commit notes for ${release.tag_name}: ${String(error)}`)
+        }
+      }
+      if (!notes.length && release.body?.trim()) {
+        notes = [release.body.trim()]
+      }
+
+      const version = release.tag_name.replace(/^v/, '')
+      const fromVersion = previousRelease ? previousRelease.tag_name.replace(/^v/, '') : version
+
+      return {
+        fromVersion,
+        toVersion: version,
+        entries: [{ version, notes }]
+      }
+    } catch (error) {
+      logger.error('Unable to fetch current release notes', error)
+      return null
+    }
+  }
 
   private async clearProxy(): Promise<void> {
     try {

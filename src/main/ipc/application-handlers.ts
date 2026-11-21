@@ -71,7 +71,7 @@ export function registerApplicationHandlers(
 
   handle(IPC_CHANNELS.APP_DOWNLOAD_UPDATE, () => services.updateService.downloadUpdate())
 
-  handle(IPC_CHANNELS.APP_GET_WHATS_NEW, () => services.updateService.getWhatsNew())
+  handle(IPC_CHANNELS.APP_GET_WHATS_NEW, (_event, force?: boolean) => services.updateService.getWhatsNew(force))
 
   handle(IPC_CHANNELS.APP_OPEN_URL, async (_, url: string) => {
     if (typeof url === 'string') {

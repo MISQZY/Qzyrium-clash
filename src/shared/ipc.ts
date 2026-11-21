@@ -226,7 +226,7 @@ export interface IElectronApi {
     checkUpdates: () => Promise<AppUpdaterStatus>
     getUpdaterStatus: () => Promise<AppUpdaterStatus>
     downloadUpdate: () => Promise<void>
-    getWhatsNew: () => Promise<WhatsNewPayload | null>
+    getWhatsNew: (force?: boolean) => Promise<WhatsNewPayload | null>
     openUrl: (url: string) => Promise<void>
     copyToClipboard: (text: string) => Promise<boolean>
     readClipboard?: () => Promise<string>
