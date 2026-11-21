@@ -179,7 +179,8 @@ export class SysProxyService implements BaseService {
   private async ensurePacServer(): Promise<string> {
     if (!this.pacServer) {
       const server = createServer((request, response) => {
-        if (request.url !== '/proxy.pac') { response.writeHead(404); response.end(); return }
+        const pathname = request.url ? request.url.split('?')[0] : ''
+        if (pathname !== '/proxy.pac') { response.writeHead(404); response.end(); return }
         response.writeHead(200, { 'Content-Type': 'application/x-ns-proxy-autoconfig', 'Cache-Control': 'no-cache' })
         response.end(this.pacContent)
       })
