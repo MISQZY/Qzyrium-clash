@@ -26,7 +26,7 @@ async function verify() {
   const safe = kernelFailureDetails(new Error('download https://user:pass@provider.invalid/private?token=secret failed; password=private-password'))
   assert.ok(!safe.includes('private-password') && !safe.includes('token=secret') && !safe.includes('user:pass'))
   const logs = [], children = [], events = []
-  let watchdogFailure = false
+  let watchdogFailure = false, delayExit = false
   const { MihomoProcessManager } = load('src/main/core/MihomoProcessManager.ts', {
     fs: { existsSync: () => true },
     '../utils/paths': { getAppPaths: () => ({ coreBinaryPath: '/fixture/mihomo', geoFilesDir: '/fixture/files' }) },
@@ -35,10 +35,10 @@ async function verify() {
     child_process: {
       spawn: () => {
         const child = Object.assign(new EventEmitter(), { pid: 100 + children.length, stdout: new EventEmitter(), stderr: new EventEmitter() })
-        child.kill = () => { child.emit('exit', 1, null); return true }
+        child.kill = () => { if (!delayExit) child.emit('exit', 1, null); return true }
         children.push(child); return child
       },
-      execFile: (_file, _args, _options, callback) => { callback(null); children.at(-1).emit('exit', 1, null) }
+      execFile: (_file, _args, _options, callback) => { callback(null); if (!delayExit) children.at(-1).emit('exit', 1, null) }
     }
   })
   const manager = new MihomoProcessManager()
@@ -65,6 +65,18 @@ async function verify() {
   const count = events.length
   await manager.stop()
   assert.equal(events.length, count, 'intentional shutdown is not reported as a crash')
+  await manager.start('/work', '/work/config.yaml', 9095, 'secret')
+  const stuck = children.at(-1)
+  const childCount = children.length
+  // The OS can accept a kill request without delivering exit before the deadline.
+  delayExit = true
+  await assert.rejects(manager.stop(), /Timed out/)
+  await assert.rejects(manager.start('/work', '/work/config.yaml', 9095, 'secret'), /previous Mihomo process/)
+  assert.equal(children.length, childCount, 'a timed out stop must not orphan the live child')
+  stuck.emit('exit', 0, null)
+  delayExit = false
+  await manager.start('/work', '/work/config.yaml', 9095, 'secret')
+  await manager.stop()
   for (const language of ['en', 'ru']) {
     const message = kernelFailureMessage({ reason: 'port-in-use', occurredAt: '' }, { ...config.general, language })
     assert.ok(message.includes(language === 'ru' ? 'порт' : 'port'))

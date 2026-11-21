@@ -320,7 +320,6 @@ export class MihomoProcessManager extends EventEmitter {
           }
         } catch {}
         if (this.childProcess === child) {
-          this.childProcess = null
           this.setState('error')
         }
         reject(new Error('Timed out waiting for Mihomo to stop'))
