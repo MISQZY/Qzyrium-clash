@@ -352,7 +352,30 @@ assert.equal(wgDual.ip, '10.0.0.2')
 assert.equal(wgDual.ipv6, 'fd00::2')
 assert.deepEqual(wgDual.reserved, [0, 1, 2])
 
-// 16. Invalid content still throws expected error
+// 16. HTTPS and SOCKS proxies
+const httpsProxy = parseProxyUri('https://usr:pwd@https.example.com:8443?sni=custom.sni&allow_insecure=1#HTTPS-Node')
+assert.ok(httpsProxy)
+assert.equal(httpsProxy.type, 'http')
+assert.equal(httpsProxy.server, 'https.example.com')
+assert.equal(httpsProxy.port, 8443)
+assert.equal(httpsProxy.username, 'usr')
+assert.equal(httpsProxy.password, 'pwd')
+assert.equal(httpsProxy.tls, true)
+assert.equal(httpsProxy.sni, 'custom.sni')
+assert.equal(httpsProxy['skip-cert-verify'], true)
+
+const socks5hProxy = parseProxyUri('socks5h://socks.example.com:1080#Socks-Default')
+assert.ok(socks5hProxy)
+assert.equal(socks5hProxy.type, 'socks5')
+assert.equal(socks5hProxy.port, 1080)
+
+const ssWithEmbeddedQuery = parseProxyUri('ss://' + Buffer.from('aes-128-gcm:pass@1.1.1.1:8388?plugin=obfs-local;obfs=http#test').toString('base64'))
+assert.ok(ssWithEmbeddedQuery)
+assert.equal(ssWithEmbeddedQuery.server, '1.1.1.1')
+assert.equal(ssWithEmbeddedQuery.port, 8388)
+assert.equal(ssWithEmbeddedQuery.plugin, 'obfs')
+
+// 17. Invalid content still throws expected error
 assert.throws(() => parseProfileConfig('this is not a valid proxy config or base64'), /Profile must contain a non-empty Clash\/Mihomo YAML object/)
 
 console.log('PASS: subscription converter correctly parses SS, VMess, VLESS, Trojan, Hysteria2, TUIC, Base64 subscriptions and converts to Clash YAML')

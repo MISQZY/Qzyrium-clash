@@ -121,7 +121,7 @@ export function parseShadowsocksUri(uri: string): ProxyNodeConfig | null {
 
     const body = withoutFragment.replace(/^ss:\/\//i, '')
     const [mainPart, queryString] = body.split('?')
-    const queryParams = new URLSearchParams(queryString || '')
+    let queryParams = new URLSearchParams(queryString || '')
 
     let cipher = ''
     let password = ''
@@ -154,7 +154,16 @@ export function parseShadowsocksUri(uri: string): ProxyNodeConfig | null {
       if (!decoded || !decoded.includes('@')) return null
       const atIndex = decoded.lastIndexOf('@')
       const userInfoPart = decoded.slice(0, atIndex)
-      const serverPortPart = decoded.slice(atIndex + 1).replace(/\/.*$/, '')
+      let serverPortPart = decoded.slice(atIndex + 1).replace(/\/.*$/, '')
+      const qIndex = serverPortPart.indexOf('?')
+      if (qIndex !== -1) {
+        if (!queryString) queryParams = new URLSearchParams(serverPortPart.slice(qIndex + 1))
+        serverPortPart = serverPortPart.slice(0, qIndex)
+      }
+      const hIndex = serverPortPart.indexOf('#')
+      if (hIndex !== -1) {
+        serverPortPart = serverPortPart.slice(0, hIndex)
+      }
 
       const colonIndex = userInfoPart.indexOf(':')
       if (colonIndex === -1) return null
@@ -461,7 +470,7 @@ export function parseTrojanUri(uri: string): ProxyNodeConfig | null {
     const alpn = params.get('alpn')
     const network = params.get('type')?.toLowerCase() || 'tcp'
     const fp = params.get('fp')
-    const insecure = params.get('allowInsecure') === '1' || params.get('insecure') === '1' || params.get('allowInsecure')?.toLowerCase() === 'true' || params.get('insecure')?.toLowerCase() === 'true'
+    const insecure = params.get('allow_insecure') === '1' || params.get('allowInsecure') === '1' || params.get('insecure') === '1' || params.get('allow_insecure')?.toLowerCase() === 'true' || params.get('allowInsecure')?.toLowerCase() === 'true' || params.get('insecure')?.toLowerCase() === 'true'
 
     const node: ProxyNodeConfig = {
       name,
@@ -574,10 +583,13 @@ export function parseTuicUri(uri: string): ProxyNodeConfig | null {
 
 export function parseSocksHttpUri(uri: string): ProxyNodeConfig | null {
   try {
-    const isHttp = uri.toLowerCase().startsWith('http://')
-    const ctx = parseStandardUriContext(uri, isHttp ? 80 : 0)
+    const scheme = (uri.split('://')[0] || '').toLowerCase()
+    const isHttps = scheme === 'https'
+    const isHttp = isHttps || scheme === 'http'
+    const defaultPort = isHttps ? 443 : isHttp ? 80 : 0
+    const ctx = parseStandardUriContext(uri, defaultPort, isHttp ? (isHttps ? 'HTTPS-' : 'HTTP-') : '')
     if (!ctx) return null
-    const { url, server, port, name } = ctx
+    const { url, server, port, name, params } = ctx
 
     const type = isHttp ? 'http' : 'socks5'
     const node: ProxyNodeConfig = {
@@ -589,6 +601,14 @@ export function parseSocksHttpUri(uri: string): ProxyNodeConfig | null {
 
     if (url.username) node.username = safeDecodeURIComponent(url.username)
     if (url.password) node.password = safeDecodeURIComponent(url.password)
+
+    if (isHttps) {
+      node.tls = true
+      const sni = params.get('sni') || params.get('peer')
+      if (sni) node.sni = sni
+      const insecure = params.get('allow_insecure') === '1' || params.get('allowInsecure') === '1' || params.get('insecure') === '1' || params.get('allow_insecure')?.toLowerCase() === 'true' || params.get('allowInsecure')?.toLowerCase() === 'true' || params.get('insecure')?.toLowerCase() === 'true'
+      if (insecure) node['skip-cert-verify'] = true
+    }
 
     return node
   } catch {
@@ -658,7 +678,7 @@ const URI_PARSER_REGISTRY: ReadonlyArray<{ pattern: RegExp; parse: UriParser }> 
   { pattern: /^wireguard:\/\//i, parse: parseWireGuardUri },
   { pattern: /^snell:\/\//i, parse: parseSnellUri },
   { pattern: /^tuic:\/\//i, parse: parseTuicUri },
-  { pattern: /^(?:socks5|socks|http):\/\//i, parse: parseSocksHttpUri }
+  { pattern: /^(?:socks5h?|socks|https?):\/\//i, parse: parseSocksHttpUri }
 ]
 
 export function parseProxyUri(rawLine: string): ProxyNodeConfig | null {
