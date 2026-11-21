@@ -27,7 +27,14 @@ export function DashboardRoutesProvider({ running, connecting, settings, activeP
   const liteMode = Boolean(settings.general.liteDashboard)
   const [locations, setLocations] = useState<GlobeLocations>(EMPTY_LOCATIONS)
   const [locating, setLocating] = useState(false)
-  const selectionKey = useMemo(() => JSON.stringify(Object.entries(proxies).filter(([, node]) => node.now).map(([name, node]) => [name, node.now])), [proxies])
+  const selectionKey = useMemo(() => {
+    const parts: string[] = []
+    for (const name in proxies) {
+      const now = proxies[name]?.now
+      if (now) parts.push(`${name}:${now}`)
+    }
+    return parts.sort().join(';')
+  }, [proxies])
 
   useEffect(() => {
     if (!running) {
@@ -57,7 +64,14 @@ export function DashboardRoutesProvider({ running, connecting, settings, activeP
     [shouldShowRoutes, locations, proxies, delays, connections, settings.kernel.mode, rules, locale, settings.general]
   )
 
-  const routeNames = JSON.stringify(routes.map((route) => route.node).sort())
+  const routeNodes = useMemo(() => {
+    const set = new Set<string>()
+    for (const route of routes) {
+      if (route.node) set.add(route.node)
+    }
+    return Array.from(set).sort()
+  }, [routes])
+  const routeKey = routeNodes.join('|')
   const statusMessage = locations.status === 'origin-unavailable'
     ? t('originUnavailable')
     : locations.status === 'server-unavailable'
@@ -69,11 +83,11 @@ export function DashboardRoutesProvider({ running, connecting, settings, activeP
     : ''
 
   useEffect(() => {
-    if (!visible || liteMode || !running || !window.api || routeNames === '[]') return
+    if (!visible || liteMode || !running || !window.api || routeNodes.length === 0) return
     let disposed = false
     let timer: ReturnType<typeof setTimeout>
     const measure = async () => {
-      const nodes = JSON.parse(routeNames) as string[]
+      const nodes = routeNodes
       const results: PromiseSettledResult<number>[] = new Array(nodes.length)
       let next = 0
       await Promise.all(Array.from({ length: Math.min(settings.general.delayTestConcurrency ?? 6, nodes.length) }, async () => {
@@ -91,7 +105,7 @@ export function DashboardRoutesProvider({ running, connecting, settings, activeP
     }
     void measure()
     return () => { disposed = true; clearTimeout(timer) }
-  }, [visible, liteMode, running, routeNames, onUpdateDelays, settings.general.delayTestConcurrency])
+  }, [visible, liteMode, running, routeKey, routeNodes, onUpdateDelays, settings.general.delayTestConcurrency])
 
   const value = useMemo(() => ({ routes, pendingNodes: locations.pendingNodes, statusMessage, locating }),
     [routes, locations.pendingNodes, statusMessage, locating])
