@@ -26,12 +26,15 @@ function executeCheck(check, directory, { liveOutput = true } = {}) {
     const child = spawn(executable, [check.file, ...check.args], {
       cwd: root, windowsHide: check.runtime !== 'electron', detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe']
     })
-    let timedOut = false, settled = false
+    let timedOut = false, settled = false, successMessage = false, outputTail = ''
     const timer = setTimeout(() => { timedOut = true; stopProcessTree(child) }, check.timeoutMs)
     const finish = (exitCode, signal, error) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
+      if (!error && exitCode === 0 && check.requireSuccessMessage && !successMessage) {
+        error = new Error('Check exited without reporting successful completion')
+      }
       const result = {
         id: check.id, status: timedOut ? 'timeout' : error ? 'error' : exitCode === 0 ? 'passed' : 'failed',
         exitCode, signal, durationMs: Date.now() - started, logPath,
@@ -40,7 +43,15 @@ function executeCheck(check, directory, { liveOutput = true } = {}) {
       log.end(() => resolve(result))
     }
     for (const [stream, output] of [[child.stdout, process.stdout], [child.stderr, process.stderr]]) {
-      stream.on('data', data => { log.write(data); if (liveOutput) output.write(data) })
+      stream.on('data', data => {
+        log.write(data)
+        if (stream === child.stdout) {
+          const chunk = outputTail + data.toString()
+          successMessage ||= /^(?:PASS(?: [^:\r\n]+)?:|SKIP:|Rule recovery verified)/m.test(chunk)
+          outputTail = chunk.slice(-256)
+        }
+        if (liveOutput) output.write(data)
+      })
     }
     child.once('error', error => finish(null, null, error))
     child.once('close', (code, signal) => finish(code, signal))

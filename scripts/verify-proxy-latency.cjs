@@ -93,8 +93,10 @@ async function run() {
     await fresh
     options.running = false
     render()
-    await render().testGroup('offline', ['offline'])
-    assert.equal(requests.some(request => request.name === 'offline'), false)
+    const offline = render().testGroup('offline', ['offline'])
+    assert.equal(requests.some(request => request.name === 'offline'), true, 'offline latency testing may start the idle core')
+    finish('offline', 70)
+    await offline
     for (const slot of slots) slot?.cleanup?.()
     console.log('PASS: concurrent groups, shared request limit, node deduplication, independent progress, test-all exclusion and stale-result protection')
   } finally {

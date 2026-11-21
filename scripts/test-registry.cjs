@@ -9,6 +9,7 @@ const ui = ['ipc-ui', 'subscriptions-ui', 'subscription-traffic-ui', 'core-manag
 
 const check = (id, suite, runtime, args = []) => Object.freeze({
   id, suite, runtime, file: path.join(__dirname, `verify-${id}.cjs`), args: Object.freeze(args),
+  requireSuccessMessage: runtime === 'node' && ['functional', 'build'].includes(suite),
   timeoutMs: runtime === 'electron' ? 300_000 : 90_000
 })
 const checks = Object.freeze([

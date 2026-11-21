@@ -232,7 +232,8 @@ async function verifyWakeRecovery() {
   manager.getState = () => state
   Object.assign(api, { startTrafficStream() { trafficStreams++ }, stopTrafficStream() { assert.fail('Hiding the interface must preserve tray traffic') }, stopAllStreams() {}, getVersion: async () => { if (!healthy) throw new Error('offline'); return { version: 'test' } } })
   const { KernelService } = load('src/main/services/KernelService.ts', {
-    electron: { powerMonitor: power }, '../utils/logger': { logger }
+    electron: { powerMonitor: power }, '../utils/logger': { logger },
+    '../utils/paths': { getAppPaths: () => ({ mihomoDir: path.resolve('artifacts/kernel-lifecycle') }) }
   }, { setTimeout: (fn, ms) => { const timer = { fn, ms, unref() {} }; timers.add(timer); return timer }, clearTimeout: timer => timers.delete(timer) })
   const kernel = new KernelService({ getSettings: () => config }, {}, {
     processManager: manager, apiClient: api, geoIp: { dispose() {}, releaseWorker() {} }, configBuilder: {}, trafficAccounting: {}

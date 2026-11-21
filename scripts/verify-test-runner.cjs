@@ -25,23 +25,25 @@ async function verify() {
   const fixture = (id, source, timeoutMs = 10_000) => {
     const file = path.join(directory, `${id}.cjs`)
     fs.writeFileSync(file, source)
-    return { id, file, runtime: 'node', args: [], timeoutMs }
+    return { id, file, runtime: 'node', args: [], timeoutMs, requireSuccessMessage: true }
   }
   const cases = [
-    fixture('pass', "console.log('first passed')"),
+    fixture('pass', "console.log('PASS fixture: first passed')"),
+    fixture('incomplete', 'async function check() { await new Promise(() => {}); console.log("PASS: unreachable") } check()'),
     fixture('fail', "console.error('intentional failure'); process.exit(23)"),
     fixture('timeout', 'setInterval(() => {}, 1000)', 500),
     { id: 'missing', file: path.join(directory, 'missing.cjs'), runtime: 'node',
       executable: path.join(directory, 'missing-runtime.exe'), args: [], timeoutMs: 1000 },
-    fixture('after-failure', `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'continued')`)
+    fixture('after-failure', `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'continued'); console.log('PASS: continued')`)
   ]
   const report = await runChecks('fixture', cases, { outputDir: directory, liveOutput: false })
-  assert.deepEqual(report.results.map(result => result.status), ['passed', 'failed', 'timeout', 'error', 'passed'])
-  assert.equal(report.results[1].exitCode, 23)
+  assert.deepEqual(report.results.map(result => result.status), ['passed', 'error', 'failed', 'timeout', 'error', 'passed'])
+  assert.match(report.results[1].error, /without reporting successful completion/)
+  assert.equal(report.results[2].exitCode, 23)
   assert.equal(report.passed, 2)
-  assert.equal(report.failed, 3)
+  assert.equal(report.failed, 4)
   assert.equal(fs.readFileSync(marker, 'utf8'), 'continued', 'execution continues after all kinds of failure')
-  assert.ok(fs.readFileSync(report.results[1].logPath, 'utf8').includes('intentional failure'))
+  assert.ok(fs.readFileSync(report.results[2].logPath, 'utf8').includes('intentional failure'))
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(directory, 'report.json'), 'utf8')), report)
   console.log('PASS: registry covers every test; runner continues after failure, timeout and launch errors and persists complete results/logs')
 }
