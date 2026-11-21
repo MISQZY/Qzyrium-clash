@@ -71,7 +71,7 @@ export function SubscriptionInfo({ info }: { info?: ProfileUserInfo }) {
         </div>
       ))}
     </dl>
-    {subscriptionUsage(info) && <div className="mt-3 border-t border-border/40 pt-3"><SubscriptionUsageBar info={info} /></div>}
+    {usage && <div className="mt-3 border-t border-border/40 pt-3"><SubscriptionUsageBar info={info} /></div>}
     </div>
   )
 }
