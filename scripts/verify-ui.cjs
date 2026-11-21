@@ -17,7 +17,7 @@ if (process.type === 'renderer') {
   }
   let state = 'running'
   let sessionStartedAt = Date.now() - 3600000
-  let trafficCallback, statusCallback, logCallback
+  let trafficCallback, statusCallback, logCallback, visibilityCallback
   let configFile = null, savedConfig = null
   const maintenanceCalls = []
   let customThemes = JSON.parse(localStorage.getItem('qzyrium:customThemeCache') || '[]')
@@ -59,6 +59,8 @@ if (process.type === 'renderer') {
   api.mihomo.updateProvider = async (kind, name) => { providerCalls.push({ kind, name }) }
   api.uiTest.getProviderCalls = () => providerCalls
   api.uiTest.getSettings = () => settings
+  api.events.onWindowVisibility = callback => { visibilityCallback = callback; return () => { visibilityCallback = undefined } }
+  api.uiTest.emitWindowVisibility = visible => visibilityCallback?.(visible)
   let coreFailure = null, failureCallback
   api.kernel.getFailure = async () => coreFailure
   api.events.onCoreFailure = callback => { failureCallback = callback; return () => { failureCallback = undefined } }
@@ -434,9 +436,19 @@ if (process.type === 'renderer') {
       await setControl('#dns-nameserver-policy', '[1, 2]')
       assert.equal(await evaluate(`document.querySelector('#dns-nameserver-policy').checkValidity()`), false, 'DNS policy must be a YAML mapping')
       await setControl('#dns-nameserver-policy', 'example.com: 1.1.1.1')
+      await evaluate(`window.api.uiTest.emitWindowVisibility(true)`)
+      await delay(100)
+      assert.equal(await evaluate(`document.querySelector('#dns-nameserver').value`), 'https://1.1.1.1/dns-query\nhttps://dns.google/dns-query', 'window refresh preserves the DNS draft')
+      assert.equal(await evaluate(`document.querySelector('#override-dns').dataset.unsavedChanges`), 'true')
       await evaluate(`document.querySelector('button[form="override-dns"]').click()`)
       await waitFor(`document.querySelector('button[form="override-dns"]').disabled`)
       assert.deepEqual(await evaluate(`window.api.settings.get().then(s => s.kernel.dns.nameserver)`), ['https://1.1.1.1/dns-query', 'https://dns.google/dns-query'])
+      await evaluate(`window.api.settings.get().then(s => window.api.settings.update({ kernel: { ...s.kernel, dns: { ...s.kernel.dns, enable: false } } })).then(() => window.api.uiTest.emitWindowVisibility(true))`)
+      await waitFor(`document.querySelector('#dns-enable').value === 'false'`)
+      assert.equal(await evaluate(`document.querySelector('#override-dns').dataset.unsavedChanges`), 'false', 'clean DNS editor follows refreshed settings')
+      await setControl('#dns-enable', 'true')
+      await evaluate(`document.querySelector('button[form="override-dns"]').click()`)
+      await waitFor(`document.querySelector('button[form="override-dns"]').disabled`)
       await navigate('Sniffer')
       await navigate('DNS')
       assert.equal(await evaluate(`document.querySelector('#dns-enable').value`), 'true', 'DNS values survive page changes')
@@ -451,6 +463,10 @@ if (process.type === 'renderer') {
       await navigate('Sniffer')
       await setControl('#sniffer-enable', 'true')
       await setControl('#sniffer-sniff', 'TLS:\n  ports: [443]\nQUIC:\n  ports: [443]')
+      await evaluate(`window.api.uiTest.emitWindowVisibility(true)`)
+      await delay(100)
+      assert.equal(await evaluate(`document.querySelector('#sniffer-sniff').value`), 'TLS:\n  ports: [443]\nQUIC:\n  ports: [443]', 'window refresh preserves the sniffer draft')
+      assert.equal(await evaluate(`document.querySelector('#override-sniffer').dataset.unsavedChanges`), 'true')
       await evaluate(`document.querySelector('button[form="override-sniffer"]').click()`)
       await waitFor(`document.querySelector('button[form="override-sniffer"]').disabled`)
       assert.deepEqual(await evaluate(`window.api.settings.get().then(s => s.kernel.sniffer.sniff.TLS.ports)`), [443])
@@ -458,6 +474,10 @@ if (process.type === 'renderer') {
       await setControl('#resources-geo-auto-update', 'true')
       await setControl('#resources-geo-update-interval', '48')
       await setControl('#resources-profile', 'store-selected: true\nstore-fake-ip: true')
+      await evaluate(`window.api.uiTest.emitWindowVisibility(true)`)
+      await delay(100)
+      assert.equal(await evaluate(`document.querySelector('#resources-geo-update-interval').value`), '48', 'window refresh preserves the resource draft')
+      assert.equal(await evaluate(`document.querySelector('#override-resources').dataset.unsavedChanges`), 'true')
       await evaluate(`document.querySelector('button[form="override-resources"]').click()`)
       await waitFor(`document.querySelector('button[form="override-resources"]').disabled`)
       assert.equal(await evaluate(`window.api.settings.get().then(s => s.kernel.resources['geo-update-interval'])`), 48)

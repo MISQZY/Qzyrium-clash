@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Globe } from 'lucide-react'
 import type { AppConfig } from '@shared/app-config'
 import { dnsFields, resourceFields, snifferFields, type ConfigValues } from '@shared/settings-fields'
@@ -90,7 +90,9 @@ export function ProfileConfigPage({
   const prevSettingsRef = useRef(settings)
   const prevSectionRef = useRef(section)
   useEffect(() => {
-    if (prevSettingsRef.current !== settings || prevSectionRef.current !== section) {
+    // Showing the window refreshes settings even when their values are unchanged.
+    // Keep an edited section until it is saved or discarded; a new section starts fresh.
+    if (prevSectionRef.current !== section || (!dirty && prevSettingsRef.current !== settings)) {
       prevSettingsRef.current = settings
       prevSectionRef.current = section
       setValue(settings.kernel[section] ?? {})
@@ -100,7 +102,7 @@ export function ProfileConfigPage({
       }
       setDirty(false)
     }
-  }, [settings, section])
+  }, [settings, section, dirty])
   const fields = section === 'dns' ? dnsFields : section === 'sniffer' ? snifferFields : resourceFields
   return <Page title={common(section)} actions={
     <div className="flex items-center gap-2">
