@@ -32,7 +32,7 @@ export function createProcessGroupComparator(
 ): (a: ProcessGroup, b: ProcessGroup) => number {
   if (sort === 'traffic') return (a, b) => b.totalDownload + b.totalUpload - (a.totalDownload + a.totalUpload)
   if (sort === 'time') return (a, b) => b.latestStart - a.latestStart
-  return (a, b) => a.name.localeCompare(b.name)
+  return (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
 }
 
 export function createConnectionComparator(
@@ -44,7 +44,7 @@ export function createConnectionComparator(
   return (a, b) => {
     const nameA = extractProcessName(a.metadata.processPath) || a.metadata.process || systemLabel
     const nameB = extractProcessName(b.metadata.processPath) || b.metadata.process || systemLabel
-    return nameA.localeCompare(nameB)
+    return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' })
   }
 }
 
