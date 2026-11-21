@@ -102,6 +102,13 @@ export class MihomoConfigFactory {
       } else if (parsed['ipv6'] === undefined) {
         parsed['ipv6'] = false
       }
+      const userDnsHijack = appConfig.kernel.tun.dnsHijack && appConfig.kernel.tun.dnsHijack.length > 0
+        ? appConfig.kernel.tun.dnsHijack
+        : ['any:53', 'tcp://any:53']
+      const effectiveDnsHijack = userDnsHijack.includes('any:53') && !userDnsHijack.some(h => h.startsWith('tcp://'))
+        ? [...userDnsHijack, 'tcp://any:53']
+        : userDnsHijack
+
       parsed['tun'] = {
         ...(parsed.tun as Record<string, unknown> ?? {}),
         ...appConfig.kernel.tun.options,
@@ -110,9 +117,7 @@ export class MihomoConfigFactory {
         'auto-route': appConfig.kernel.tun.autoRoute ?? true,
         'auto-detect-interface': appConfig.kernel.tun.options?.['auto-detect-interface'] ?? true,
         'strict-route': appConfig.kernel.tun.strictRoute ?? true,
-        'dns-hijack': appConfig.kernel.tun.dnsHijack && appConfig.kernel.tun.dnsHijack.length > 0
-          ? appConfig.kernel.tun.dnsHijack
-          : ['any:53', 'tcp://any:53']
+        'dns-hijack': effectiveDnsHijack
       }
       if (process.platform === 'linux' && !(parsed.tun as Record<string, unknown>).device) {
         (parsed.tun as Record<string, unknown>).device = 'Qzyrium'

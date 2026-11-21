@@ -466,7 +466,7 @@ export class KernelService implements BaseService {
         }
 
         // Gracefully request Mihomo to teardown TUN adapter before process termination
-        await withTimeout(this.apiClient.patchConfigs({ tun: { enable: false } }), 800).catch(() => {})
+        await withTimeout(this.apiClient.patchConfigs({ tun: { enable: false } }), 1500).catch(() => {})
 
         // Gracefully close active proxy streams in Mihomo engine
         await withTimeout(this.apiClient.closeAllConnections(), 500).catch(() => {})
