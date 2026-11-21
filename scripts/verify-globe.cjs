@@ -274,7 +274,9 @@ async function main() {
     { chains: ['v6'], metadata: { remoteDestination: '[2606:4700:4700::1111]:443' } },
     { chains: ['DIRECT'], metadata: { remoteDestination: '8.8.8.8:443' } },
     { chains: ['fallback'], metadata: {} },
-    { chains: ['unknown'], metadata: { destinationIP: 'website-ip' } }
+    { chains: ['unknown'], metadata: { destinationIP: 'website-ip' } },
+    { chains: ['DNS-OUT'], metadata: { destinationIP: '1.1.1.1' } },
+    { chains: ['node', 'OldGroup'], metadata: { remoteDestination: '1.1.1.1:443' } }
   ] })
   const { KernelGlobeResolver } = load('src/main/core/KernelGlobeResolver.ts', {})
   kernel.globeResolver = new KernelGlobeResolver({
@@ -289,6 +291,9 @@ async function main() {
   const result = await kernel.getGlobeLocations()
   assert.deepEqual(hosts, ['1.1.1.1', '2606:4700:4700::1111', 'fallback.example.com'])
   assert.equal(result.routes.length, 3, 'direct, groups and unknown server locations are excluded')
+  assert.ok(!result.pendingNodes?.includes('DNS-OUT'), 'DNS-OUT is excluded from pending nodes')
+  assert.ok(!result.routes.some(r => r.node === 'OldGroup'), 'Old proxy groups are excluded from routes')
+  assert.ok(!result.pendingNodes?.includes('OldGroup'), 'Old proxy groups are excluded from pending nodes')
   kernel.getStatus = () => 'stopped'
   assert.deepEqual((await kernel.getGlobeLocations()).routes, [], 'stopped core cannot produce profile-based tunnels')
   kernel.getStatus = () => 'running'

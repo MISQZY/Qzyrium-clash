@@ -38,6 +38,7 @@ export class KernelGlobeResolver {
   invalidate(): void {
     this.geoGeneration++
     this.globeRequest = null
+    this.releaseCaches()
   }
 
   getLocations(): Promise<GlobeLocations> {

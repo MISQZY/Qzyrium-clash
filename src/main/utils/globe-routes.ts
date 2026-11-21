@@ -1,7 +1,8 @@
 import { isIP } from 'node:net'
 import type { ConnectionsSnapshot, ProxyNode } from '@shared/mihomo'
+import { NON_PROXY_TYPES } from '@shared/mihomo'
 
-const builtins = new Set(['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE'])
+const builtins = new Set(['DIRECT', 'REJECT', 'REJECT-DROP', 'REJECTDROP', 'PASS', 'PASS-RULE', 'PASSRULE', 'PATHRULE', 'COMPATIBLE'])
 export function serverHost(address: string): string | undefined {
   if (isIP(address)) return address
   if (address.startsWith('[')) {
@@ -37,7 +38,24 @@ export function globeCandidates(
     ...Object.entries(proxies).filter(([, proxy]) => proxy.type?.toLowerCase() === 'dns').map(([name]) => name),
     ...proxyList.filter((proxy) => proxy.type?.toLowerCase() === 'dns').map((proxy) => proxy.name)
   ])
-  const isTunnel = (name: string) => !builtins.has(name) && !dnsOutbounds.has(name)
+  const isDnsOutbound = (name: string): boolean => {
+    const upper = name.toUpperCase()
+    if (dnsOutbounds.has(name) || upper === 'DNS-OUT' || upper === 'DNS') {
+      const p = proxies[name] || proxyList.find((proxy) => proxy?.name === name)
+      const rawType = (p?.type || '').toLowerCase().replace(/[-_]/g, '')
+      return !rawType || NON_PROXY_TYPES.has(rawType)
+    }
+    return false
+  }
+  const isTunnel = (name: string) => !builtins.has(name) && !isDnsOutbound(name)
+
+  const isKnownNode = (name: string): boolean => {
+    if (hosts.has(name) || proxyList.some((p) => p?.name === name)) return true
+    const p = proxies[name]
+    if (!p || p.now || 'all' in p) return false
+    const rawType = (p.type || '').toLowerCase().replace(/[-_]/g, '')
+    return rawType !== '' && !NON_PROXY_TYPES.has(rawType)
+  }
 
   const dialerMap = new Map<string, string>(dialers ?? [])
   for (const p of proxyList) {
@@ -60,12 +78,14 @@ export function globeCandidates(
     return chain
   }
 
-  const isLeafNode = (name: string): boolean => {
+  const isLeafNode = (name: string, isExitNode = false): boolean => {
     if (!name || !isTunnel(name)) return false
     if (proxies[name]?.now) return false
     if (proxies[name] && 'all' in proxies[name]) return false
-    if (['Direct', 'Reject', 'RejectDrop', 'Pass'].includes(proxies[name]?.type || '')) return false
+    const rawType = (proxies[name]?.type || '').toLowerCase().replace(/[-_]/g, '')
+    if (NON_PROXY_TYPES.has(rawType)) return false
     if (groups.some((g) => g.name === name)) return false
+    if (!isExitNode && !isKnownNode(name)) return false
     return true
   }
 
@@ -93,14 +113,15 @@ export function globeCandidates(
     visited.add(name)
     const proxy = proxies[name]
     if (proxy?.now) return leaf(proxy.now, visited)
-    if (proxy && ('all' in proxy || ['Direct', 'Reject', 'RejectDrop', 'Pass'].includes(proxy.type))) return
+    const rawType = (proxy?.type || '').toLowerCase().replace(/[-_]/g, '')
+    if (proxy && ('all' in proxy || NON_PROXY_TYPES.has(rawType))) return
     const group = groups.find((g) => g.name === name)
     if (group) {
       const next = resolveGroupProxy(group)
       if (next && next !== name) return leaf(next, visited)
       return
     }
-    return name
+    return isKnownNode(name) ? name : undefined
   }
   const add = (node: string, remote?: string) => {
     const candidates = result.get(node) ?? []
@@ -115,8 +136,15 @@ export function globeCandidates(
   const seenChainKeys = new Set<string>()
 
   for (const connection of snapshot.connections) {
-    const reversed = [...connection.chains].reverse()
-    const leafNodes = reversed.filter((name) => isLeafNode(name))
+    const chains = Array.isArray(connection.chains) ? connection.chains : []
+    const leafNodes: string[] = []
+    for (let i = chains.length - 1; i >= 0; i--) {
+      const name = chains[i]
+      const isExit = i === 0
+      if (isLeafNode(name, isExit)) {
+        leafNodes.push(name)
+      }
+    }
 
     if (leafNodes.length >= 2) {
       const chainKey = leafNodes.join('>')
