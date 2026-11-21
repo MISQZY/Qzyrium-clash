@@ -35,7 +35,8 @@ class LogFile {
     this.maxBytes = sizeMb * 1024 * 1024
     this.maxArchives = archives
     this.maxAgeMs = days * 86400000
-    if (this.logFilePath) { this.needsPrune = true; this.schedule() }
+    this.needsPrune = true
+    if (this.logFilePath) { this.schedule() }
   }
 
   // Resolve paths after userData migration and only in the instance holding the lock.
@@ -81,6 +82,15 @@ class LogFile {
     for (const [index, file] of archives.entries()) {
       if (index >= this.maxArchives || Date.now() - file.modified > this.maxAgeMs) {
         fs.unlinkSync(path.join(directory, file.name))
+      }
+    }
+    const now = Date.now()
+    for (const name of fs.readdirSync(directory)) {
+      if (name.endsWith('.tmp')) {
+        try {
+          const stat = fs.statSync(path.join(directory, name))
+          if (now - stat.mtimeMs > 3600_000) fs.unlinkSync(path.join(directory, name))
+        } catch {}
       }
     }
   }
@@ -133,12 +143,22 @@ class LogFile {
     this.needsPrune = false
     try {
       const directory = path.dirname(this.logFilePath)
-      const archives = await Promise.all((await fs.promises.readdir(directory))
+      const files = await fs.promises.readdir(directory)
+      const archives = await Promise.all(files
         .filter(name => ARCHIVE_PATTERN.test(name))
         .map(async name => ({ name, modified: (await fs.promises.stat(path.join(directory, name))).mtimeMs })))
       archives.sort((a, b) => b.modified - a.modified || b.name.localeCompare(a.name))
       for (const [index, file] of archives.entries()) {
         if (index >= this.maxArchives || Date.now() - file.modified > this.maxAgeMs) await fs.promises.unlink(path.join(directory, file.name))
+      }
+      const now = Date.now()
+      for (const name of files) {
+        if (name.endsWith('.tmp')) {
+          try {
+            const stat = await fs.promises.stat(path.join(directory, name))
+            if (now - stat.mtimeMs > 3600_000) await fs.promises.unlink(path.join(directory, name))
+          } catch {}
+        }
       }
     } catch (error) { this.reportFailure(error) }
   }
