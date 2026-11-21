@@ -89,12 +89,23 @@ const COUNTRY_NAME_TO_CODE: Record<string, string> = {
   korea: 'KR'
 }
 
+const displayNamesCache = new Map<string, Intl.DisplayNames>()
+
+function getDisplayNames(locale: string): Intl.DisplayNames {
+  let formatter = displayNamesCache.get(locale)
+  if (!formatter) {
+    formatter = new Intl.DisplayNames([locale, 'en'], { type: 'region' })
+    displayNamesCache.set(locale, formatter)
+  }
+  return formatter
+}
+
 export function localizeCountry(country?: string, code?: string, locale: string = 'ru'): string {
   if (!country && !code) return ''
   const isoCode = code || (country ? COUNTRY_NAME_TO_CODE[country.toLowerCase().trim()] : undefined)
   if (isoCode) {
     try {
-      const localized = new Intl.DisplayNames([locale, 'en'], { type: 'region' }).of(isoCode.toUpperCase())
+      const localized = getDisplayNames(locale).of(isoCode.toUpperCase())
       if (localized) return localized
     } catch {
       // fallback to original string

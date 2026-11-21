@@ -69,6 +69,8 @@ parentPort.on('message', ({ id, bytes }) => {
 })
 `
 
+const enRegionNames = new Intl.DisplayNames(['en'], { type: 'region' })
+
 export class LocalGeoIp {
   private worker: Worker | null = null
   private failed = false
@@ -158,7 +160,7 @@ export class LocalGeoIp {
     this.checkIdle()
     const coordinate = country && (centers as Record<string, number[]>)[country]
     if (!country || !coordinate) return null
-    return { ip, longitude: coordinate[0], latitude: coordinate[1], city: '', country: new Intl.DisplayNames(['en'], { type: 'region' }).of(country) || country, countryCode: country, precision: 'country' }
+    return { ip, longitude: coordinate[0], latitude: coordinate[1], city: '', country: enRegionNames.of(country) || country, countryCode: country, precision: 'country' }
   }
 
   dispose(): void {
