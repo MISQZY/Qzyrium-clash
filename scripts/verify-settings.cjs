@@ -376,6 +376,26 @@ async function verifyDesktop() {
   assert.equal(calls.filter(call => call === 'reload').length, 1, 'startup updates apply to the active core once')
   await startupDesktop.dispose()
   assert.equal(timers.size, 0)
+
+  // Latency checks leave an idle diagnostics process behind with VPN status stopped.
+  // Updated subscriptions must reach that process too, without starting a VPN.
+  for (const processRunning of [true, false]) {
+    calls.length = 0
+    const args = [...desktopArgs]
+    args[2] = {
+      getStatus: () => 'stopped',
+      isProcessRunning: () => processRunning,
+      reloadConfig: async () => calls.push('reload'),
+      start: async () => { throw new Error('Background updates must not start the VPN') }
+    }
+    const idleDesktop = new DesktopService(...args, {})
+    await idleDesktop.updateSubscriptions(true)
+    assert.ok(calls.includes('update:active'))
+    assert.equal(calls.filter(call => call === 'reload').length, processRunning ? 1 : 0,
+      'Refresh an existing idle process; leave a fully stopped core stopped')
+    await idleDesktop.dispose()
+  }
+  assert.equal(timers.size, 0)
 }
 
 function verifySession() {

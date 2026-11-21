@@ -134,7 +134,7 @@ export class DesktopService implements BaseService {
       } catch (err) { logger.warn(`Background subscription update failed: ${profile.id}: ${err instanceof Error ? err.message : String(err)}`) }
     }
     if (this.disposed) return
-    if (changedActive && ['running', 'starting'].includes(this.kernel.getStatus())) {
+    if (changedActive && (this.kernel.isProcessRunning?.() || ['running', 'starting'].includes(this.kernel.getStatus()))) {
       try { await this.kernel.reloadConfig() } catch (err) { logger.error('Applying updated subscription failed', err) }
     }
     this.changed()
