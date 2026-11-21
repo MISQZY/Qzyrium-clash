@@ -141,8 +141,8 @@ export function connectionRoutes(
 
     let selector: string | undefined
     let rule: string | undefined
-    const isNodeInChain = (c: { chains: string[] }) =>
-      c.chains.includes(node) || c.chains.at(-1) === node || (chain !== undefined && chain.some((h) => c.chains.includes(h.node)))
+    const isNodeInChain = (c: { chains?: string[] }) =>
+      Array.isArray(c.chains) && (c.chains.includes(node) || c.chains.at(-1) === node || (chain !== undefined && chain.some((h) => c.chains?.includes(h.node))))
 
     // 1. Find live connections routed through this node or chain
     const matching = activeConnections.filter(isNodeInChain)
@@ -156,7 +156,7 @@ export function connectionRoutes(
 
     if (matching.length > 0) {
       const primary = matching[0]
-      const nodeIndex = primary.chains.indexOf(node)
+      const nodeIndex = Array.isArray(primary.chains) ? primary.chains.indexOf(node) : -1
       let upstream: string[] = []
       if (nodeIndex > 0) {
         upstream = primary.chains.slice(0, nodeIndex).filter((name) => !BUILTIN_PROXY_NAMES.has(name) || name === 'GLOBAL')
