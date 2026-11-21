@@ -558,7 +558,21 @@ html, body, #root { width: 100%; height: 100%; min-width: 0; min-height: 0; }
   min-height: 0;
   overflow: hidden;
 }
-.page-scroll { display: flex; flex-direction: column; gap: 20px; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 24px; scrollbar-gutter: stable; }
+.page-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px;
+  scrollbar-gutter: stable;
+  overscroll-behavior-y: contain;
+  transform: translateZ(0);
+}
 .page-scroll > * { flex-shrink: 0; min-width: 0; }
 .page-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 14px; }
 .adaptive-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px; }
