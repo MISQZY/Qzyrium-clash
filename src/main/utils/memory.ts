@@ -16,7 +16,7 @@ export async function trimProcessMemory(): Promise<void> {
     const v8 = await import('node:v8')
     v8.setFlagsFromString('--expose_gc')
     const vm = await import('node:vm')
-    vm.runInNewContext('gc()')
+    vm.runInThisContext('gc()')
   } catch {
     // Ignore GC error
   }
