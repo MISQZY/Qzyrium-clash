@@ -30,7 +30,7 @@ export function WhatsNewDialog() {
         } catch {}
       }
       if (!data) {
-        const ver = (await window.api?.app?.getVersion?.().catch(() => '0.5.2')) ?? '0.5.2'
+        const ver = (await window.api?.app?.getVersion?.().catch(() => '')) ?? ''
         data = { fromVersion: ver, toVersion: ver, entries: [] }
       }
       setPayload(data)
@@ -53,7 +53,7 @@ export function WhatsNewDialog() {
           <DialogTitle>{t('whatsNewTitle')}</DialogTitle>
           <DialogDescription>
             {payload.fromVersion === payload.toVersion
-              ? `v${payload.toVersion}`
+              ? (payload.toVersion ? `v${payload.toVersion}` : '')
               : t('whatsNewDescription', { from: payload.fromVersion, to: payload.toVersion })}
           </DialogDescription>
         </DialogHeader>
