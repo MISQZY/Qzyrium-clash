@@ -24,6 +24,45 @@ function load(file, dependencies = {}, runtime = {}) {
 }
 const fresh = () => structuredClone(load('src/shared/app-config.ts').DEFAULT_APP_CONFIG)
 
+async function verifyGeoResourceFreshness() {
+  const root = await fs.promises.mkdtemp(path.join(require('node:os').tmpdir(), 'qzyrium-geo-freshness-'))
+  const geoFilesDir = path.join(root, 'bundled'), mihomoDir = path.join(root, 'runtime')
+  const { installGeoResources } = load('src/main/core/installGeoResources.ts', {
+    '../utils/logger': { logger: { info() {} } }
+  })
+  const older = new Date('2025-01-01T00:00:00Z'), newer = new Date('2025-02-01T00:00:00Z')
+  try {
+    await fs.promises.mkdir(geoFilesDir)
+    await fs.promises.mkdir(mihomoDir)
+    for (const file of ['country.mmdb', 'geosite.dat', 'geoip.dat']) {
+      await fs.promises.writeFile(path.join(geoFilesDir, file), 'bundled database')
+      await fs.promises.utimes(path.join(geoFilesDir, file), older, older)
+    }
+    await installGeoResources({ geoFilesDir, mihomoDir })
+    for (const file of ['country.mmdb', 'geosite.dat', 'geoip.dat']) {
+      assert.equal(await fs.promises.readFile(path.join(mihomoDir, file), 'utf8'), 'bundled database', 'initialize a missing database')
+      await fs.promises.writeFile(path.join(mihomoDir, file), 'downloaded database with a different size')
+      await fs.promises.utimes(path.join(mihomoDir, file), newer, newer)
+    }
+    // Both profile validation and startup install resources; neither may undo
+    // updateGeoData merely because a downloaded release has a different size.
+    await installGeoResources({ geoFilesDir, mihomoDir })
+    await installGeoResources({ geoFilesDir, mihomoDir })
+    for (const file of ['country.mmdb', 'geosite.dat', 'geoip.dat']) {
+      assert.equal(await fs.promises.readFile(path.join(mihomoDir, file), 'utf8'), 'downloaded database with a different size')
+    }
+    await fs.promises.utimes(path.join(mihomoDir, 'country.mmdb'), older, older)
+    await fs.promises.utimes(path.join(geoFilesDir, 'country.mmdb'), newer, newer)
+    await installGeoResources({ geoFilesDir, mihomoDir })
+    assert.equal(await fs.promises.readFile(path.join(mihomoDir, 'country.mmdb'), 'utf8'), 'bundled database', 'install a genuinely newer bundled database')
+    await fs.promises.utimes(path.join(mihomoDir, 'geosite.dat'), older, older)
+    await installGeoResources({ geoFilesDir, mihomoDir })
+    assert.equal(await fs.promises.readFile(path.join(mihomoDir, 'geosite.dat'), 'utf8'), 'downloaded database with a different size', 'equal timestamps do not imply that differently sized data is stale')
+  } finally {
+    await fs.promises.rm(root, { recursive: true, force: true })
+  }
+}
+
 async function verifyPersistenceAndProfiles() {
   const root = path.resolve('artifacts/recovery-check')
   fs.mkdirSync(root, { recursive: true })
@@ -345,6 +384,6 @@ async function verifyResourceFailure() {
   }
 }
 
-Promise.resolve().then(verifyPersistenceAndProfiles).then(verifyProfileRepository).then(verifyProxyLifecycle).then(verifyElevationRecovery).then(verifyServiceLifecycle).then(verifyStreams).then(verifyResourceFailure)
+Promise.resolve().then(verifyGeoResourceFreshness).then(verifyPersistenceAndProfiles).then(verifyProfileRepository).then(verifyProxyLifecycle).then(verifyElevationRecovery).then(verifyServiceLifecycle).then(verifyStreams).then(verifyResourceFailure)
   .then(() => console.log('PASS: atomic persistence/recovery, rejected subscriptions with real Mihomo, proxy startup/restarts, cancelled elevation, stale WebSockets, encoded tokens and failed resource preparation'))
   .catch(error => { console.error(error); process.exitCode = 1 })

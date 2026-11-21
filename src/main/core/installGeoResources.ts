@@ -16,7 +16,9 @@ export async function installGeoResources(paths: Pick<AppPaths, 'geoFilesDir' | 
         if (!shouldCopy) {
           const srcStat = await fs.promises.stat(src)
           const dstStat = await fs.promises.stat(dst)
-          if (srcStat.mtimeMs > dstStat.mtimeMs || srcStat.size !== dstStat.size) {
+          // Remote database updates normally change size. Keep a newer local
+          // download instead of treating every size difference as stale data.
+          if (srcStat.mtimeMs > dstStat.mtimeMs) {
             shouldCopy = true
           }
         }
