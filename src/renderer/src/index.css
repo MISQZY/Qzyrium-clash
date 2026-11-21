@@ -64,7 +64,14 @@
 .tour-progress { display: flex; gap: 5px; }
 .tour-progress span { height: 3px; flex: 1; border-radius: 2px; background: var(--muted); }
 .tour-progress span[data-complete="true"] { background: var(--primary); }
-.tour-settings-mascot { display: flex; justify-content: center; width: 64px; }
+.tour-settings-mascot {
+  display: flex;
+  justify-content: center;
+  width: 64px;
+  transform: translateZ(0);
+  will-change: transform;
+  contain: paint;
+}
 .tour-settings-mascot .tour-mascot { height: 68px; }
 @media (max-height: 620px) {
   .tour-card { gap: 12px; padding: 16px; }
