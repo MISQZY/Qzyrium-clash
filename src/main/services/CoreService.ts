@@ -221,8 +221,8 @@ export class CoreService implements BaseService {
       return response.data
     } catch (directErr) {
       if (this.kernelService.getStatus() === 'running') {
-        const port = this.settingService.getSettings().kernel.mixedPort
         try {
+          const port = await this.kernelService.getMixedPort()
           const response = await axios.get<T>(url, {
             ...options,
             proxy: { host: '127.0.0.1', port, protocol: 'http' }
@@ -458,7 +458,7 @@ export class CoreService implements BaseService {
       response = await axios.get<ArrayBuffer>(targetDownloadUrl, downloadOptions)
     } catch (downloadErr) {
       if (this.kernelService.getStatus() === 'running') {
-        const port = this.settingService.getSettings().kernel.mixedPort
+        const port = await this.kernelService.getMixedPort()
         response = await axios.get<ArrayBuffer>(downloadUrl, {
           ...downloadOptions,
           proxy: { host: '127.0.0.1', port, protocol: 'http' }

@@ -356,7 +356,9 @@ async function verifyCoreServiceInstallation() {
   const binary = path.join('/cores', 'alpha', `mihomo${ext}`)
   const files = new Map([[binary, Buffer.from('previous executable')]])
   const requests = []
-  const settings = { kernel: { channel: 'stable' } }
+  const proxyRequests = []
+  const settings = { kernel: { channel: 'stable', mixedPort: 7890, inheritMixedPort: true } }
+  let blockDirectRequests = false
   let failPromotion = false
   let failStartup = false
   let failJournalCommit = false
@@ -392,8 +394,10 @@ async function verifyCoreServiceInstallation() {
         files.set(to, files.get(from)); files.delete(from)
       }
     },
-    axios: { get: async url => {
+    axios: { get: async (url, options) => {
       requests.push(url)
+      if (blockDirectRequests && !options?.proxy) throw new Error('Direct connection blocked')
+      if (options?.proxy) proxyRequests.push({ url, port: options.proxy.port })
       if (url.includes('api.github.com')) {
         await new Promise(resolve => setImmediate(resolve))
         const alpha = url.includes('Prerelease-Alpha')
@@ -413,6 +417,8 @@ async function verifyCoreServiceInstallation() {
     updateSettings: async patch => { settings.kernel = { ...settings.kernel, ...patch.kernel } }
   }
   const service = new CoreService(settingService, {
+    getStatus: () => 'running',
+    getMixedPort: async () => 10809,
     switchCoreBinary: async (channel, candidate, installation) => {
       const previous = active
       try {
@@ -471,7 +477,18 @@ async function verifyCoreServiceInstallation() {
   assert.equal(settings.kernel.channel, 'stable')
   failJournalCommit = false
 
+  // A subscription may inherit a mixed listener different from the app default.
+  // Exercise both release metadata and the separately implemented archive retry.
+  blockDirectRequests = true
   const installed = await service.installCore('alpha')
+  await service.fetchText('https://example/checksums.txt')
+  await service.downloadBinary('https://example/geodata.dat')
+  assert.ok(proxyRequests.some(request => request.url.includes('api.github.com')), 'Release metadata retries through the active listener')
+  for (const url of ['https://example/alpha.gz', 'https://example/checksums.txt', 'https://example/geodata.dat']) {
+    assert.ok(proxyRequests.some(request => request.url === url), `Expected proxy fallback for ${url}`)
+  }
+  assert.ok(proxyRequests.every(request => request.port === 10809), 'All fallback requests must use the effective listener, not settings.mixedPort')
+  blockDirectRequests = false
   assert.equal(installed.channel, 'alpha')
   assert.equal(active, binary)
   assert.equal(files.get(binary).toString(), 'new executable')
