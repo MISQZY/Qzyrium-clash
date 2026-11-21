@@ -148,6 +148,8 @@ async function verify() {
   const now = Date.now()
   assert.equal(subscriptionHealth({ expire: now / 1000 - 1 }, now).expiry, 'expired')
   assert.equal(subscriptionHealth({ expire: now / 1000 + 86400 }, now).expiry, 'soon')
+  assert.equal(subscriptionHealth({ expire: now - 1000 }, now).expiry, 'expired')
+  assert.equal(subscriptionHealth({ expire: now + 86400000 }, now).expiry, 'soon')
   assert.equal(subscriptionHealth({ expire: 0 }, now).expiry, undefined)
   const notices = []
   const { SubscriptionNotifications } = load('src/main/services/SubscriptionNotifications.ts', { electron: {} })

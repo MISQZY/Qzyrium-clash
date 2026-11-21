@@ -29,7 +29,7 @@ export function subscriptionExpiry(info?: ProfileUserInfo, now = Date.now()) {
   const expire = info?.expire
   const noExpiration = expire === 0
   const valid = typeof expire === 'number' && Number.isFinite(expire) && expire > 0
-  const expiresMs = valid ? expire * 1000 : undefined
+  const expiresMs = valid ? (expire > 10_000_000_000 ? expire : expire * 1000) : undefined
   const validExpires = expiresMs !== undefined && !Number.isNaN(new Date(expiresMs).getTime()) ? expiresMs : undefined
   const days = validExpires !== undefined ? Math.max(0, Math.ceil((validExpires - now) / 86_400_000)) : undefined
   const isExpired = days === 0
