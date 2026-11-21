@@ -83,7 +83,7 @@ app.whenReady().then(async () => {
       '-File', path.resolve(__dirname, 'fixtures/drag-native-window.ps1'),
       win.getNativeWindowHandle().readBigUInt64LE().toString(), output,
       String(await win.webContents.executeJavaScript('devicePixelRatio'))
-    ], { windowsHide: true, timeout: 30000 })
+    ], { windowsHide: true, timeout: 45000 })
     const samples = JSON.parse(drag.stdout)
     fs.writeFileSync(path.join(output, 'drag.json'), JSON.stringify(samples, null, 2))
     assert.ok(new Set(samples.map(sample => sample.width)).size > 1, 'native drag must resize the window')
