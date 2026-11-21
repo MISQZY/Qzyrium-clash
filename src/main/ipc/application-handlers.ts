@@ -77,7 +77,7 @@ export function registerApplicationHandlers(
     if (typeof url === 'string') {
       try {
         const parsed = new URL(url)
-        if (parsed.protocol === 'https:') {
+        if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
           await shell.openExternal(parsed.href)
         } else {
           logger.warn(`Rejected opening unsafe URL protocol: ${parsed.protocol}`)
