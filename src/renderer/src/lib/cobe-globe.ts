@@ -205,11 +205,19 @@ export function groupProjectedEndpoints(routes: ProjectedRoute[]): ProjectedEndp
   for (const route of routes) {
     if (!route.endpoint?.visible) continue
     const existing = groups.get(route.locationKey)
-    if (existing) existing.routeIds.push(...route.routeIds)
-    else groups.set(route.locationKey, {
-      id: route.locationKey, routeIds: [...route.routeIds], point: route.endpoint,
-      color: route.color, country: route.country
-    })
+    if (existing) {
+      for (const id of route.routeIds) {
+        if (!existing.routeIds.includes(id)) existing.routeIds.push(id)
+      }
+    } else {
+      groups.set(route.locationKey, {
+        id: route.locationKey,
+        routeIds: [...new Set(route.routeIds)],
+        point: route.endpoint,
+        color: route.color,
+        country: route.country
+      })
+    }
   }
   return [...groups.values()]
 }
