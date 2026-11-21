@@ -244,7 +244,7 @@ export class KernelService implements BaseService {
       }
       if (state === 'running' && !this.isIdleCoreRunning) this.sessionStartedAt = Date.now()
       else if (this.isIdleCoreRunning || state !== 'running') this.sessionStartedAt = null
-      this.broadcaster?.('event:core-status', this.getStatus())
+      this.broadcaster?.(IPC_CHANNELS.EVENT_CORE_STATUS, this.getStatus())
       if (state === 'running' && !this.isIdleCoreRunning) {
         this.apiClient.startTrafficStream()
       } else if (state === 'stopped' || state === 'error' || this.isIdleCoreRunning) {
@@ -258,14 +258,14 @@ export class KernelService implements BaseService {
 
     this.processManager.on('tun-error', (errText: string) => {
       this.reportFailure(new Error(errText))
-      this.broadcaster?.('event:tun-error', errText)
+      this.broadcaster?.(IPC_CHANNELS.EVENT_TUN_ERROR, errText)
       if (this.settingService.getSettings().kernel.tun.enable) {
         void this.stop()
       }
     })
 
     this.apiClient.on('traffic', (stats: TrafficStats) => {
-      this.broadcaster?.('event:traffic', stats)
+      this.broadcaster?.(IPC_CHANNELS.EVENT_TRAFFIC, stats)
     })
 
     // The process pipes are the single source of core logs, including startup
@@ -401,7 +401,7 @@ export class KernelService implements BaseService {
         this.warnInvalidRules(activeProfile?.id)
         await restoreProxySelection(activeProfile, this.apiClient)
         this.apiClient.startTrafficStream()
-        this.broadcaster?.('event:core-status', 'running')
+        this.broadcaster?.(IPC_CHANNELS.EVENT_CORE_STATUS, 'running')
         return
       } catch {
         await this.processManager.stop()

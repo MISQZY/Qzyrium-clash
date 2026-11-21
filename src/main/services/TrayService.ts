@@ -9,6 +9,7 @@ import { SettingService } from './SettingService'
 import type { ProfileService } from './ProfileService'
 import { nativeMessages } from '@shared/localization'
 import { getVpnStatus, type VpnStatus } from '@shared/vpn-status'
+import { IPC_CHANNELS } from '@shared/ipc'
 import { createTrayIcon } from '../utils/tray-icon'
 import type { ProxyNode } from '@shared/mihomo'
 import type { TunnelMode } from '@shared/types'
@@ -147,7 +148,7 @@ export class TrayService implements BaseService {
   private async setRoutingMode(mode: TunnelMode): Promise<void> {
     try {
       await this.commands.setRoutingMode(mode)
-      this.windowService.broadcast?.('event:settings-changed', null)
+      this.windowService.broadcast?.(IPC_CHANNELS.EVENT_SETTINGS_CHANGED, null)
       if (this.kernelService.getStatus() === 'running') {
         await this.refreshProxies()
       }
@@ -168,7 +169,7 @@ export class TrayService implements BaseService {
     } catch (err) {
       console.error(`Failed to activate profile ${id} from tray:`, err)
     } finally {
-      this.windowService.broadcast?.('event:settings-changed', null)
+      this.windowService.broadcast?.(IPC_CHANNELS.EVENT_SETTINGS_CHANGED, null)
       this.updateContextMenu()
     }
   }
@@ -192,7 +193,7 @@ export class TrayService implements BaseService {
           await this.commands.setSystemProxy(false)
         }
       }
-      this.windowService.broadcast?.('event:settings-changed', null)
+      this.windowService.broadcast?.(IPC_CHANNELS.EVENT_SETTINGS_CHANGED, null)
     } catch (err) {
       console.error(`Failed to set routing type to ${type}:`, err)
       const settings = this.settingService.getSettings()
@@ -291,7 +292,7 @@ export class TrayService implements BaseService {
               await this.kernelService.selectProxy(groupName, nodeName)
             }
             this.setProxySelection(groupName, nodeName)
-            this.windowService.broadcast?.('event:settings-changed', null)
+            this.windowService.broadcast?.(IPC_CHANNELS.EVENT_SETTINGS_CHANGED, null)
           } catch (err) {
             console.error(`Failed to select proxy ${nodeName} in group ${groupName}:`, err)
           }

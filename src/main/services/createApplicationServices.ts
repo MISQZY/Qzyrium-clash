@@ -10,6 +10,7 @@ import { DesktopService } from './DesktopService'
 import { ThemeStore } from './ThemeStore'
 import { UpdateService } from './UpdateService'
 import { CoreService } from './CoreService'
+import { IPC_CHANNELS } from '@shared/ipc'
 import type { TrafficStats } from '@shared/types'
 import { getAppPaths } from '../utils/paths'
 import { logger } from '../utils/logger'
@@ -43,7 +44,7 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
           windowService.updateTheme()
           windowService.refreshAutoReleasePolicy?.()
         }
-        windowService.broadcast('event:settings-changed', null)
+        windowService.broadcast(IPC_CHANNELS.EVENT_SETTINGS_CHANGED, null)
         servicesRef.trayService?.updateContextMenu()
       })
     const coreService = new types.CoreService(settingService, kernelService,
@@ -58,7 +59,7 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
     )
     servicesRef.trayService = trayService
     const desktopService = new types.DesktopService(settingService, profileService, kernelService, sysProxyService, windowService, () => {
-      windowService.broadcast('event:settings-changed', null)
+      windowService.broadcast(IPC_CHANNELS.EVENT_SETTINGS_CHANGED, null)
       trayService.updateContextMenu()
     }, networkModeController)
     servicesRef.desktopService = desktopService
@@ -77,19 +78,19 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
 
     // Route kernel broadcasts to renderer via WindowService
     kernelService.setBroadcaster((channel, data) => {
-      if (channel !== 'event:traffic' || windowService.getMainWindow()?.isVisible()) {
+      if (channel !== IPC_CHANNELS.EVENT_TRAFFIC || windowService.getMainWindow()?.isVisible()) {
         windowService.broadcast(channel, data)
       }
-      if (channel === 'event:traffic') {
+      if (channel === IPC_CHANNELS.EVENT_TRAFFIC) {
         trayService.updateTraffic(data as TrafficStats)
       }
-      if (channel === 'event:settings-changed') {
+      if (channel === IPC_CHANNELS.EVENT_SETTINGS_CHANGED) {
         void sysProxyService.setCoreRunning(kernelService.getStatus() === 'running')
           .catch(error => logger.error('Failed to synchronize proxy after config update', error))
         void trayService.refreshProxies().then(() => trayService.updateContextMenu())
           .catch(error => logger.error('Failed to refresh tray proxies after config update', error))
       }
-      if (channel === 'event:core-status') {
+      if (channel === IPC_CHANNELS.EVENT_CORE_STATUS) {
         if (data === 'running') {
           void trayService.refreshProxies().then(() => {
             trayService.updateContextMenu()
@@ -103,7 +104,7 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
         trayService.updateContextMenu()
         if (data === 'running' || data === 'error' || data === 'stopped') {
           void sysProxyService.setCoreRunning(data === 'running').then(() => {
-            windowService.broadcast('event:settings-changed', null)
+            windowService.broadcast(IPC_CHANNELS.EVENT_SETTINGS_CHANGED, null)
             trayService.updateContextMenu()
           }).catch((error) => logger.error('Failed to synchronize system proxy with the core', error))
         }
