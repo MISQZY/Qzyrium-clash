@@ -20,8 +20,7 @@ export function writeFileAtomic(filePath: string, data: string, encoding: Buffer
         try {
           Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50 * (attempt + 1))
         } catch {
-          const start = Date.now()
-          while (Date.now() - start < 50) { /* fallback spin */ }
+          /* continue to next attempt if SharedArrayBuffer is unavailable */
         }
         continue
       }
