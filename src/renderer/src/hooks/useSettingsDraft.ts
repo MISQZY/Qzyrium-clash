@@ -28,6 +28,14 @@ export function useSettingsDraft(section: SettingsSection, settings: AppConfig,
   }, [settings.general.language, settings.general.theme, settings.general.customLocalization])
 
   useEffect(() => {
+    // General preferences expose capture as an immediate action, outside this draft.
+    // Follow saved TUN state without discarding pending preference/override edits.
+    if (section === 'settings') {
+      setForm(previous => ({ ...previous, kernel: { ...previous.kernel, tun: settings.kernel.tun } }))
+    }
+  }, [section, settings.kernel.tun])
+
+  useEffect(() => {
     if (prevSettingsRef.current !== settings) {
       prevSettingsRef.current = settings
       if (!hasEdits) {

@@ -24,7 +24,7 @@ type Section = SettingsSection
 interface Props {
   section: Section; settings: AppConfig; sysProxy: SysProxyStatus; busy: boolean
   onSaveSettings: (patch: Partial<AppConfig>) => Promise<void>
-  onToggleSysProxy: () => void
+  onToggleSysProxy: () => void | Promise<boolean>
   onNavigate?: (tab: NavTab) => void
 }
 
@@ -32,7 +32,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
   const t = useTranslations('networksettings')
 
   const draft = useSettingsDraft(section, settings, onSaveSettings)
-  const { form, dirty, message, setMessage, updateTun, discard, resetToDefaults, save } = draft
+  const { form, dirty, message, setMessage, discard, resetToDefaults, save } = draft
 
   const [isElevated, setIsElevated] = useState<boolean | null>(null)
   const [tunAdminPrompt, setTunAdminPrompt] = useState(false)
@@ -61,7 +61,7 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
   const { title: titleKey } = SETTINGS_SECTIONS[section]
   const title = t(titleKey)
 
-  const activeCaptureMode: 'off' | 'tun' | 'sysproxy' = form.kernel.tun.enable
+  const activeCaptureMode: 'off' | 'tun' | 'sysproxy' = settings.kernel.tun.enable
     ? 'tun'
     : sysProxy.enabled
     ? 'sysproxy'
@@ -80,32 +80,31 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
         return
       }
       setTunAdminPrompt(false)
-      if (sysProxy.enabled) {
-        await onToggleSysProxy()
-      }
-      updateTun({ enable: true })
       try {
-        await onSaveSettings({ kernel: { ...settings.kernel, tun: { ...form.kernel.tun, enable: true } } })
+        if (sysProxy.enabled && await onToggleSysProxy() === false) {
+          setMessage('changesCouldNotBeAppliedCheckTheErrorAbove')
+          return
+        }
+        await onSaveSettings({ kernel: { ...settings.kernel, tun: { ...settings.kernel.tun, enable: true } } })
       } catch {
         setMessage('changesCouldNotBeAppliedCheckTheErrorAbove')
       }
     } else if (mode === 'sysproxy') {
-      if (form.kernel.tun.enable) {
-        updateTun({ enable: false })
+      if (settings.kernel.tun.enable) {
         try {
-          await onSaveSettings({ kernel: { ...settings.kernel, tun: { ...form.kernel.tun, enable: false } } })
+          await onSaveSettings({ kernel: { ...settings.kernel, tun: { ...settings.kernel.tun, enable: false } } })
         } catch {
           setMessage('changesCouldNotBeAppliedCheckTheErrorAbove')
+          return
         }
       }
       if (!sysProxy.enabled) {
         onToggleSysProxy()
       }
     } else {
-      if (form.kernel.tun.enable) {
-        updateTun({ enable: false })
+      if (settings.kernel.tun.enable) {
         try {
-          await onSaveSettings({ kernel: { ...settings.kernel, tun: { ...form.kernel.tun, enable: false } } })
+          await onSaveSettings({ kernel: { ...settings.kernel, tun: { ...settings.kernel.tun, enable: false } } })
         } catch {
           setMessage('changesCouldNotBeAppliedCheckTheErrorAbove')
         }

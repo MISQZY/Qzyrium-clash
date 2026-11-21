@@ -61,6 +61,18 @@ if (process.type === 'renderer') {
   api.uiTest.getSettings = () => settings
   api.events.onWindowVisibility = callback => { visibilityCallback = callback; return () => { visibilityCallback = undefined } }
   api.uiTest.emitWindowVisibility = visible => visibilityCallback?.(visible)
+  let elevated = false, failNextSettingsUpdate = false
+  api.app.isElevated = async () => elevated
+  api.uiTest.setElevated = value => { elevated = value }
+  api.uiTest.failNextSettingsUpdate = () => { failNextSettingsUpdate = true }
+  const updateSettings = api.settings.update
+  api.settings.update = async patch => {
+    if (failNextSettingsUpdate) {
+      failNextSettingsUpdate = false
+      throw new Error('Fixture settings update failed')
+    }
+    return updateSettings(patch)
+  }
   let coreFailure = null, failureCallback
   api.kernel.getFailure = async () => coreFailure
   api.events.onCoreFailure = callback => { failureCallback = callback; return () => { failureCallback = undefined } }
@@ -382,7 +394,39 @@ if (process.type === 'renderer') {
       assert.equal(await evaluate(`document.querySelector('[class*="group/chainline"] span').textContent`), chain)
       await evaluate(`Array.from(document.querySelectorAll('[role="dialog"] button')).find(el => el.textContent.trim() === 'Close').click()`)
       result.checks.push('Traffic highlights only increasing counters and fades; connection details show group-to-node chain')
+      await evaluate(`window.api.uiTest.setElevated(true)`)
       await navigate('Settings')
+      const offCapture = '[data-tour="capture"] [role="group"] button:nth-child(1)'
+      const proxyCapture = '[data-tour="capture"] [role="group"] button:nth-child(2)'
+      const tunCapture = '[data-tour="capture"] [role="group"] button:nth-child(3)'
+      const refreshTun = enable => evaluate(`window.api.settings.get().then(s => window.api.settings.update({ kernel: { ...s.kernel, tun: { ...s.kernel.tun, enable: ${enable} } } })).then(() => window.api.uiTest.emitWindowVisibility(true))`)
+      await evaluate(`document.querySelector('${tunCapture}').click()`)
+      await waitFor(`document.querySelector('${tunCapture}').getAttribute('aria-pressed') === 'true' && !document.querySelector('${tunCapture}').disabled`)
+      assert.equal(await evaluate(`document.querySelector('#settings-settings').dataset.unsavedChanges`), 'false', 'immediate TUN save leaves no draft edits')
+      await refreshTun(false)
+      await waitFor(`document.querySelector('${offCapture}').getAttribute('aria-pressed') === 'true'`)
+      assert.equal(await evaluate(`document.querySelector('#settings-settings').dataset.unsavedChanges`), 'false', 'external TUN changes do not create phantom edits')
+      await evaluate(`document.querySelector('#general-autoConnect').click(); document.querySelector('${tunCapture}').click()`)
+      await waitFor(`document.querySelector('${tunCapture}').getAttribute('aria-pressed') === 'true' && !document.querySelector('${tunCapture}').disabled`)
+      await refreshTun(false)
+      await waitFor(`document.querySelector('${offCapture}').getAttribute('aria-pressed') === 'true'`)
+      assert.equal(await evaluate(`document.querySelector('#general-autoConnect').getAttribute('aria-checked')`), 'false', 'capture updates preserve pending general preferences')
+      assert.equal(await evaluate(`document.querySelector('#settings-settings').dataset.unsavedChanges`), 'true')
+      await evaluate(`window.api.uiTest.failNextSettingsUpdate(); document.querySelector('${tunCapture}').click()`)
+      await waitFor(`document.querySelector('.floating-save-bar')?.dataset.variant === 'error' && !document.querySelector('${tunCapture}').disabled`)
+      assert.equal(await evaluate(`document.querySelector('${offCapture}').getAttribute('aria-pressed')`), 'true', 'failed TUN enable keeps the saved capture mode')
+      assert.equal(await evaluate(`window.api.uiTest.getSettings().kernel.tun.enable`), false)
+      await refreshTun(true)
+      await waitFor(`document.querySelector('${tunCapture}').getAttribute('aria-pressed') === 'true'`)
+      await evaluate(`window.api.uiTest.failNextSettingsUpdate(); document.querySelector('${proxyCapture}').click()`)
+      await waitFor(`document.querySelector('.floating-save-bar')?.dataset.variant === 'error' && !document.querySelector('${tunCapture}').disabled`)
+      assert.equal(await evaluate(`document.querySelector('${tunCapture}').getAttribute('aria-pressed')`), 'true', 'failed TUN disable keeps the saved capture mode')
+      assert.equal(await evaluate(`window.api.uiTest.getSettings().sysProxy.enable`), false, 'failed TUN disable does not enable a conflicting system proxy')
+      await refreshTun(false)
+      await waitFor(`document.querySelector('${offCapture}').getAttribute('aria-pressed') === 'true'`)
+      await evaluate(`Array.from(document.querySelectorAll('.floating-save-bar button')).find(button => button.textContent.trim() === 'Discard').click(); window.api.uiTest.setElevated(false)`)
+      await waitFor(`document.querySelector('#settings-settings').dataset.unsavedChanges === 'false'`)
+      result.checks.push('Immediate TUN changes follow saved state, preserve preference drafts and recover from failed saves')
       await evaluate(`document.querySelector('#general-autoReleaseWindow').closest('details').open = true`)
       assert.equal(await evaluate(`document.querySelector('#general-autoReleaseWindow').getAttribute('aria-checked')`), 'false')
       await evaluate(`document.querySelector('#general-autoReleaseWindow').click()`)
