@@ -518,12 +518,7 @@ export class KernelService implements BaseService {
       this.failure = null
       this.invalidateGlobe()
       const configPath = getAppPaths().activeConfigPath
-      let previous = ''
-      try {
-        previous = await fs.readFile(configPath, 'utf8')
-      } catch {
-        previous = ''
-      }
+      const previous = await fs.readFile(configPath, 'utf8').catch(() => '')
       const settings = this.settingService.getSettings()
       const effectiveSettings: AppConfig = !this.isIdleCoreRunning
         ? settings
