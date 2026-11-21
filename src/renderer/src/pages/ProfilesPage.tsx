@@ -51,6 +51,8 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
         Promise.resolve(onSwitchProfile(id)),
         new Promise((resolve) => setTimeout(resolve, 350))
       ])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setSwitchingId(null)
     }
