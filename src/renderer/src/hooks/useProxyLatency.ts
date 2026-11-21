@@ -63,10 +63,18 @@ export function useProxyLatency(options: {
   }, [options.concurrency])
 
   const updateTesting = (session: TestSession) => {
+    const groups = new Set<string>()
+    for (const group of session.jobs.keys()) {
+      if (group !== null) groups.add(group)
+    }
+    const nodes = new Set<string>()
+    for (const jobNodes of session.jobs.values()) {
+      for (const node of jobNodes) nodes.add(node)
+    }
     setTesting({
-      groups: new Set([...session.jobs.keys()].filter((group): group is string => group !== null)),
+      groups,
       all: session.jobs.has(null),
-      nodes: new Set([...session.jobs.values()].flatMap(nodes => [...nodes]))
+      nodes
     })
   }
 
