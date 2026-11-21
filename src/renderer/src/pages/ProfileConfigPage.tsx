@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
-import { Save, ArrowLeft, Globe } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, Globe } from 'lucide-react'
 import type { AppConfig } from '@shared/app-config'
 import { dnsFields, resourceFields, snifferFields, type ConfigValues } from '@shared/settings-fields'
 import type { NavTab } from '../lib/navigation'
 import { useTranslations } from '../i18n'
 import { Page } from '../components/Page'
 import { SettingsFields } from '../components/SettingsFields'
+import { SaveBar } from '../components/settings/SaveBar'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Switch } from '../components/ui/switch'
@@ -68,15 +69,38 @@ export function ProfileConfigPage({
   const [fallbackEnabled, setFallbackEnabled] = useState(settings.kernel.tun.resilientDns ?? false)
   const [fallbackText, setFallbackText] = useState((settings.kernel.tun.fallbackDns ?? ['77.88.8.8']).join('\n'))
 
+  const checkDirty = (nextVal: ConfigValues, nextFallbackEnabled = fallbackEnabled, nextFallbackText = fallbackText) => {
+    const origVal = settings.kernel[section] ?? {}
+    if (JSON.stringify(nextVal) !== JSON.stringify(origVal)) return true
+    if (section === 'dns') {
+      const origResilient = settings.kernel.tun.resilientDns ?? false
+      if (nextFallbackEnabled !== origResilient) return true
+      const origFallback = (settings.kernel.tun.fallbackDns ?? ['77.88.8.8']).join('\n')
+      if (nextFallbackText.trim() !== origFallback.trim()) return true
+    }
+    return false
+  }
+
+  const updateValue = (next: ConfigValues) => {
+    setValue(next)
+    setMessage('')
+    setDirty(checkDirty(next))
+  }
+
+  const prevSettingsRef = useRef(settings)
+  const prevSectionRef = useRef(section)
   useEffect(() => {
-    if (!dirty) {
+    if (prevSettingsRef.current !== settings || prevSectionRef.current !== section) {
+      prevSettingsRef.current = settings
+      prevSectionRef.current = section
       setValue(settings.kernel[section] ?? {})
       if (section === 'dns') {
         setFallbackEnabled(settings.kernel.tun.resilientDns ?? false)
         setFallbackText((settings.kernel.tun.fallbackDns ?? ['77.88.8.8']).join('\n'))
       }
+      setDirty(false)
     }
-  }, [settings, section, dirty])
+  }, [settings, section])
   const fields = section === 'dns' ? dnsFields : section === 'sniffer' ? snifferFields : resourceFields
   return <Page title={common(section)} actions={
     <div className="flex items-center gap-2">
@@ -92,10 +116,6 @@ export function ProfileConfigPage({
           <span>{t('backToSettings')}</span>
         </Button>
       )}
-      <Button type="submit" form={`override-${section}`} disabled={busy || !dirty || (!enabled && section !== 'dns')} size="sm">
-        <Save className="size-3.5" />
-        {busy ? t('saving') : t('saveChanges')}
-      </Button>
     </div>
   }>
     <form data-unsaved-changes={dirty} id={`override-${section}`} className="relative flex flex-col gap-4" onSubmit={async (event) => {
@@ -159,7 +179,7 @@ export function ProfileConfigPage({
                           ? [...defaultNameservers, preset.bootstrap]
                           : defaultNameservers
 
-                      setValue({
+                      updateValue({
                         ...value,
                         enable: true,
                         nameserver: nextNameservers,
@@ -167,8 +187,6 @@ export function ProfileConfigPage({
                           ? { 'default-nameserver': nextDefaultNameservers }
                           : {})
                       })
-                      setDirty(true)
-                      setMessage('')
                     }}
                     className={cn(
                       'text-xs h-7 gap-1.5 transition-colors cursor-pointer',
@@ -202,8 +220,8 @@ export function ProfileConfigPage({
                 checked={fallbackEnabled}
                 onCheckedChange={(checked) => {
                   setFallbackEnabled(checked)
-                  setDirty(true)
                   setMessage('')
+                  setDirty(checkDirty(value, checked, fallbackText))
                 }}
               />
             </div>
@@ -214,9 +232,10 @@ export function ProfileConfigPage({
                   value={fallbackText}
                   placeholder={t('fallbackDnsPlaceholder')}
                   onChange={(e) => {
-                    setFallbackText(e.target.value)
-                    setDirty(true)
+                    const nextText = e.target.value
+                    setFallbackText(nextText)
                     setMessage('')
+                    setDirty(checkDirty(value, fallbackEnabled, nextText))
                   }}
                   rows={2}
                   className="font-mono text-xs"
@@ -229,9 +248,24 @@ export function ProfileConfigPage({
           </div>
         </Card>
       )}
-      {enabled ? <SettingsFields prefix={section} fields={fields} value={value} onChange={(next) => { setValue(next); setDirty(true); setMessage('') }} />
+      {enabled ? <SettingsFields prefix={section} fields={fields} value={value} onChange={updateValue} />
         : <p className="text-xs text-muted-foreground">{t('subscriptionSettingsHint')}</p>}
-      {message && <p role="status" className="text-xs text-muted-foreground">{message}</p>}
     </form>
+    <SaveBar
+      formId={`override-${section}`}
+      dirty={dirty}
+      busy={busy}
+      disabled={!enabled && section !== 'dns'}
+      message={message}
+      onDiscard={() => {
+        setValue(settings.kernel[section] ?? {})
+        if (section === 'dns') {
+          setFallbackEnabled(settings.kernel.tun.resilientDns ?? false)
+          setFallbackText((settings.kernel.tun.fallbackDns ?? ['77.88.8.8']).join('\n'))
+        }
+        setDirty(false)
+        setMessage('')
+      }}
+    />
   </Page>
 }

@@ -5,12 +5,13 @@ import { SettingsOverview } from '../components/settings/SettingsOverview'
 import { SettingsNetworkLinks } from '../components/settings/SettingsNetworkLinks'
 import { NetworkSettingsPanel } from '../components/settings/NetworkSettingsPanel'
 import { AdminElevationNotice } from '../components/settings/AdminElevationNotice'
+import { SaveBar } from '../components/settings/SaveBar'
 import { useSettingsDraft } from '../hooks/useSettingsDraft'
 import { type SettingsSection } from '@shared/settings-config'
 import { SETTINGS_SECTIONS } from '../lib/settings-sections'
 import { useTranslations } from '../i18n'
 import { useState, useEffect } from 'react'
-import { Save, ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { SystemProxyIcon, TunIcon } from '../lib/icons'
 import type { AppConfig } from '@shared/app-config'
 import type { SysProxyStatus } from '@shared/ipc'
@@ -142,21 +143,6 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
       >
         {t('resetSection')}
       </Button>
-      {dirty && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={discard}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          {t('discard')}
-        </Button>
-      )}
-      <Button type="submit" form={`settings-${section}`} size="sm" disabled={busy || !dirty}>
-        <Save className="size-3.5" />
-        {busy ? t('saving') : t('saveChanges')}
-      </Button>
     </div>
   }>
     {section === 'settings' && (
@@ -237,11 +223,17 @@ export function NetworkSettingsPage({ section, settings, sysProxy, busy, onSaveS
         busy={busy} onToggleSysProxy={onToggleSysProxy} isElevated={isElevated} restartingAdmin={restartingAdmin}
         handleRestartAsAdmin={handleRestartAsAdmin} setTunAdminPrompt={setTunAdminPrompt} />}
       {section === 'settings' && <GeneralPreferencesPanel draft={draft} busy={busy} />}
-      {message && <p role="status" className="text-xs text-muted-foreground">{t(message)}</p>}
     </form>
     {section === 'settings' && <SettingsOverview draft={draft} onNavigate={onNavigate} />}
     {section === 'settings' && <BackupSettings disabled={busy || dirty} />}
     {section === 'settings' && <DiagnosticSettings disabled={busy || dirty} />}
 
+    <SaveBar
+      formId={`settings-${section}`}
+      dirty={dirty}
+      busy={busy}
+      message={message}
+      onDiscard={discard}
+    />
   </Page>
 }

@@ -7,8 +7,26 @@ export interface SettingsDraftValues { form: AppConfig; bypass: string; dnsHijac
 
 const lines = (value: string): string[] => value.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
 const sectionPatches: Record<SettingsSection, (draft: SettingsDraftValues, saved: AppConfig) => Partial<AppConfig>> = {
-  settings: ({ form }) => ({ general: Object.fromEntries(Object.entries({ ...DEFAULT_APP_CONFIG.general, ...form.general })
-    .map(([key, value]) => [key, value === undefined ? DEFAULT_APP_CONFIG.general[key as keyof AppConfig['general']] : value])) as AppConfig['general'] }),
+  settings: ({ form }, saved) => {
+    const patch: Partial<AppConfig> = {
+      general: Object.fromEntries(Object.entries({ ...DEFAULT_APP_CONFIG.general, ...form.general })
+        .map(([key, value]) => [key, value === undefined ? DEFAULT_APP_CONFIG.general[key as keyof AppConfig['general']] : value])) as AppConfig['general']
+    }
+    const kernelPatch: Partial<AppConfig['kernel']> = {}
+    let hasKernelOverride = false
+    for (const key of ['dns', 'sniffer', 'resources'] as const) {
+      const formVal = form.kernel?.[key] ?? null
+      const savedVal = saved.kernel?.[key] ?? null
+      if (JSON.stringify(formVal) !== JSON.stringify(savedVal)) {
+        kernelPatch[key] = formVal
+        hasKernelOverride = true
+      }
+    }
+    if (hasKernelOverride) {
+      patch.kernel = { ...saved.kernel, ...kernelPatch }
+    }
+    return patch
+  },
   sysproxy: ({ form, bypass }, saved) => ({ sysProxy: { ...form.sysProxy,
     host: form.sysProxy.host?.trim() || DEFAULT_APP_CONFIG.sysProxy.host,
     enable: saved.sysProxy.enable, bypass: lines(bypass) } }),

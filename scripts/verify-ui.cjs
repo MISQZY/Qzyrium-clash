@@ -444,6 +444,8 @@ if (process.type === 'renderer') {
       await navigate('Settings')
       await evaluate(`document.querySelector('[data-override-section="dns"]').click()`)
       await waitFor(`document.querySelector('[data-nav-target="dns"]').disabled && !document.querySelector('[data-override-section="dns"]').disabled`)
+      await evaluate(`document.querySelector('button[form="settings-settings"]')?.click()`)
+      await waitFor(`document.querySelector('#settings-settings').dataset.unsavedChanges === 'false'`)
       assert.equal(await evaluate(`window.api.settings.get().then(s => s.kernel.dns)`), null, 'turning off an override returns control to the subscription')
       result.checks.push('DNS editing validates YAML, persists values and restores subscription inheritance')
       await navigate('Sniffer')

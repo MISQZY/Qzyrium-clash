@@ -201,6 +201,8 @@
   "latestVersionInstalled": "Latest version installed",
   "updateCheckFailed": "Update check failed",
   "discard": "Discard",
+  "unsavedChangesNotice": "There are unsaved changes",
+  "allChangesSaved": "All changes saved",
   "resetSection": "Reset",
   "resetSectionHint": "Reset this section to defaults",
   "tunAdminExplanation": "TUN mode requires Administrator privileges to create and configure the virtual network adapter in Windows.",
