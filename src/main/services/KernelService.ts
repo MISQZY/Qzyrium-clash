@@ -518,7 +518,12 @@ export class KernelService implements BaseService {
       this.failure = null
       this.invalidateGlobe()
       const configPath = getAppPaths().activeConfigPath
-      const previous = await fs.readFile(configPath, 'utf8')
+      let previous = ''
+      try {
+        previous = await fs.readFile(configPath, 'utf8')
+      } catch {
+        previous = ''
+      }
       const settings = this.settingService.getSettings()
       const effectiveSettings: AppConfig = !this.isIdleCoreRunning
         ? settings
@@ -531,7 +536,7 @@ export class KernelService implements BaseService {
       try {
         activeProfile = await this.configBuilder.build(effectiveSettings, true)
       } catch (error) {
-        await writeFileAtomicAsync(configPath, previous)
+        if (previous) await writeFileAtomicAsync(configPath, previous)
         throw this.reportFailure(error, 'configuration')
       }
       try {
@@ -544,7 +549,7 @@ export class KernelService implements BaseService {
           try { await this.apiClient.getVersion(); healthy = true } catch { /* Recover an unreachable core below. */ }
         }
         if (rejected || healthy) {
-          await writeFileAtomicAsync(configPath, previous)
+          if (previous) await writeFileAtomicAsync(configPath, previous)
           throw this.reportFailure(err, rejected ? 'configuration' : undefined)
         }
         logger.warn('Hot config reload failed and the controller is unreachable; restarting the core')
