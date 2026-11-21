@@ -77,6 +77,15 @@ function verifyClashUrls() {
   assert.equal(parsedQz.url, 'https://provider.example.com/sub2')
   assert.equal(parsedQz.name, undefined)
 
+  const metaLink = 'clash-meta://install-config?url=' + encodeURIComponent('https://provider.example.com/meta') + '&name=MetaProfile'
+  const parsedMeta = parseSubscriptionImportUrl(metaLink)
+  assert.equal(parsedMeta.url, 'https://provider.example.com/meta')
+  assert.equal(parsedMeta.name, 'MetaProfile')
+
+  const clashmetaLink = 'clashmeta://install-config?url=' + encodeURIComponent('https://provider.example.com/meta2')
+  const parsedClashmeta = parseSubscriptionImportUrl(clashmetaLink)
+  assert.equal(parsedClashmeta.url, 'https://provider.example.com/meta2')
+
   const plain = parseSubscriptionImportUrl('https://plain.example.com/sub')
   assert.equal(plain.url, 'https://plain.example.com/sub')
 

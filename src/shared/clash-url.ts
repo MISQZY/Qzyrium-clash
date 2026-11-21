@@ -7,7 +7,7 @@ export function parseSubscriptionImportUrl(input: string): ParsedSubscriptionUrl
   const trimmed = input.trim()
   if (!trimmed) return { url: '' }
 
-  if (/^(clash|qzyrium|mihomo):\/\//i.test(trimmed)) {
+  if (/^(?:clash(?:-?meta)?|qzyrium|mihomo):\/\//i.test(trimmed)) {
     try {
       const qIndex = trimmed.indexOf('?')
       if (qIndex !== -1) {
