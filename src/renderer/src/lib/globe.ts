@@ -1,6 +1,6 @@
 import type { CustomLocalizationPack } from '@shared/custom-localization'
 import { translate, type Locale } from '../i18n/catalogs'
-import type { ProxyNode, ConnectionsSnapshot, MihomoRule } from '@shared/mihomo'
+import { BUILTIN_PROXY_NAMES, type ProxyNode, type ConnectionsSnapshot, type MihomoRule } from '@shared/mihomo'
 import type { GlobeLocations } from '@shared/geo'
 
 export type Coordinate = [longitude: number, latitude: number]
@@ -157,7 +157,12 @@ export function connectionRoutes(
     if (matching.length > 0) {
       const primary = matching[0]
       const nodeIndex = primary.chains.indexOf(node)
-      const upstream = nodeIndex > 0 ? primary.chains.slice(0, nodeIndex) : []
+      let upstream: string[] = []
+      if (nodeIndex > 0) {
+        upstream = primary.chains.slice(0, nodeIndex).filter((name) => !BUILTIN_PROXY_NAMES.has(name) || name === 'GLOBAL')
+      } else if (nodeIndex === 0 && primary.chains.length > 1) {
+        upstream = primary.chains.slice(1).reverse().filter((name) => !BUILTIN_PROXY_NAMES.has(name) || name === 'GLOBAL')
+      }
       if (upstream.length > 0) {
         selector = upstream.join(' → ')
       } else {
