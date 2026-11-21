@@ -339,29 +339,35 @@ export function parseWireGuardUri(uri: string): ProxyNodeConfig | null {
     if (!privateKey) return null
 
     const publicKey = params.get('publickey') || params.get('public-key') || params.get('pk')
-    const ip = params.get('ip') || params.get('address')
+    const ipRaw = params.get('ip') || params.get('address')
     const presharedKey = params.get('pre-shared-key') || params.get('presharedkey') || params.get('preshared-key') || params.get('psk')
     const mtu = params.get('mtu') ? Number(params.get('mtu')) : undefined
     const reserved = params.get('reserved')
 
-    if (!publicKey || !ip) return null
+    if (!publicKey || !ipRaw) return null
+
+    const ipList = ipRaw.split(',').map((s) => s.trim()).filter(Boolean)
+    const ipv4 = ipList.find((addr) => !addr.includes(':')) || ipList[0]
+    const ipv6 = ipList.find((addr) => addr.includes(':'))
 
     const node: ProxyNodeConfig = {
       name,
       type: 'wireguard',
       server,
       port,
-      ip,
+      ip: ipv4,
       'public-key': publicKey,
       'private-key': privateKey,
       udp: true
     }
 
+    if (ipv6) node.ipv6 = ipv6
     if (presharedKey) node['pre-shared-key'] = presharedKey
     if (mtu && !isNaN(mtu)) node.mtu = mtu
     if (reserved) {
       try {
-        const parts = reserved.split(',').map((v) => parseInt(v.trim(), 10)).filter((n) => Number.isInteger(n) && n >= 0 && n <= 255)
+        const cleanReserved = reserved.replace(/^\[|\]$/g, '')
+        const parts = cleanReserved.split(',').map((v) => parseInt(v.trim(), 10)).filter((n) => Number.isInteger(n) && n >= 0 && n <= 255)
         if (parts.length > 0) node.reserved = parts
       } catch {}
     }
@@ -382,7 +388,7 @@ export function parseHysteriaUri(uri: string): ProxyNodeConfig | null {
     const peer = params.get('peer') || params.get('sni')
     const up = params.get('up') || params.get('upmbps')
     const down = params.get('down') || params.get('downmbps')
-    const insecure = params.get('insecure') === '1'
+    const insecure = params.get('allow_insecure') === '1' || params.get('allowInsecure') === '1' || params.get('insecure') === '1' || params.get('allow_insecure')?.toLowerCase() === 'true' || params.get('allowInsecure')?.toLowerCase() === 'true' || params.get('insecure')?.toLowerCase() === 'true'
     const alpn = params.get('alpn')
     const protocol = params.get('protocol') || 'udp'
 
@@ -500,7 +506,8 @@ export function parseHysteria2Uri(uri: string): ProxyNodeConfig | null {
     const sni = params.get('sni')
     const obfs = params.get('obfs')
     const obfsPassword = params.get('obfs-password')
-    const insecure = params.get('insecure') === '1'
+    const insecure = params.get('allow_insecure') === '1' || params.get('allowInsecure') === '1' || params.get('insecure') === '1' || params.get('allow_insecure')?.toLowerCase() === 'true' || params.get('allowInsecure')?.toLowerCase() === 'true' || params.get('insecure')?.toLowerCase() === 'true'
+    const alpn = params.get('alpn')
     const mport = params.get('mport') || params.get('ports')
     if (mport) ports = mport
 
@@ -515,6 +522,7 @@ export function parseHysteria2Uri(uri: string): ProxyNodeConfig | null {
 
     if (ports) node.ports = ports
     if (sni) node.sni = sni
+    if (alpn) node.alpn = alpn.split(',').map((s) => s.trim())
     if (obfs) {
       node.obfs = obfs
       if (obfsPassword) node['obfs-password'] = obfsPassword

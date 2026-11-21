@@ -9,7 +9,9 @@ const {
   parseVmessUri,
   parseVlessUri,
   parseTrojanUri,
+  parseHysteriaUri,
   parseHysteria2Uri,
+  parseWireGuardUri,
   parseTuicUri,
   deduplicateProxyNames
 } = load('src/shared/subscription-converter.ts')
@@ -334,7 +336,23 @@ const hy2Mport = parseHysteria2Uri('hy2://pass@hy2.example.com:443?mport=10000,1
 assert.ok(hy2Mport)
 assert.equal(hy2Mport.ports, '10000,10001,20000-25000')
 
-// 15. Invalid content still throws expected error
+const hy2AlpnInsecure = parseHysteria2Uri('hy2://pass@hy2.example.com:443?alpn=h3,custom&allowInsecure=1#Hy2-Alpn')
+assert.ok(hy2AlpnInsecure)
+assert.deepEqual(hy2AlpnInsecure.alpn, ['h3', 'custom'])
+assert.equal(hy2AlpnInsecure['skip-cert-verify'], true)
+
+const hy1Insecure = parseHysteriaUri('hysteria://auth@hy.example.com:443?allow_insecure=true#Hy1-Insecure')
+assert.ok(hy1Insecure)
+assert.equal(hy1Insecure['skip-cert-verify'], true)
+
+// 15. WireGuard dual-stack IP and bracketed reserved
+const wgDual = parseWireGuardUri('wireguard://cHJpdmF0ZWtleQ==@wg.example.com:51820?publickey=cHVibGlja2V5&ip=10.0.0.2%2Cfd00%3A%3A2&reserved=%5B0%2C1%2C2%5D#WG-Dual')
+assert.ok(wgDual)
+assert.equal(wgDual.ip, '10.0.0.2')
+assert.equal(wgDual.ipv6, 'fd00::2')
+assert.deepEqual(wgDual.reserved, [0, 1, 2])
+
+// 16. Invalid content still throws expected error
 assert.throws(() => parseProfileConfig('this is not a valid proxy config or base64'), /Profile must contain a non-empty Clash\/Mihomo YAML object/)
 
 console.log('PASS: subscription converter correctly parses SS, VMess, VLESS, Trojan, Hysteria2, TUIC, Base64 subscriptions and converts to Clash YAML')
