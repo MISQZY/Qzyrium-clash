@@ -557,6 +557,9 @@ export class KernelService implements BaseService {
       // Selection restoration must not turn an applied configuration into a failed reload.
       await restoreProxySelection(activeProfile, this.apiClient)
         .catch(error => logger.warn(`Could not restore proxy selections after config reload: ${String(error)}`))
+      await this.apiClient.closeAllConnections?.()
+        .catch(error => logger.debug(`Could not close previous connections after reload: ${String(error)}`))
+      this.invalidateGlobe()
       this.broadcaster?.(IPC_CHANNELS.EVENT_SETTINGS_CHANGED, null)
     }).catch(error => { throw this.reportFailure(error) })
   }

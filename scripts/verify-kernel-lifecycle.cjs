@@ -302,6 +302,7 @@ async function verifyHotReload() {
     '../utils/atomicWrite': { writeFileAtomicAsync: async (_path, content) => { disk = content } },
     '../core/ProxySelection': { restoreProxySelection: async () => { selections++ } }
   })
+  let closedConnections = 0
   const kernel = Object.assign(Object.create(KernelService.prototype), {
     lifecycle: Promise.resolve(), invalidateGlobe() {}, warnInvalidRules() {},
     processManager: { getState: () => state },
@@ -309,12 +310,14 @@ async function verifyHotReload() {
     configBuilder: { build: async () => { disk = 'candidate'; if (buildFailure) throw buildFailure; return { id: 'active' } } },
     apiClient: {
       reloadConfig: async (configPath) => { assert.equal(configPath, '/fixture/active.yaml'); if (failure) throw failure },
-      getVersion: async () => { if (!healthy) throw new Error('unreachable'); return { version: 'fixture' } }
+      getVersion: async () => { if (!healthy) throw new Error('unreachable'); return { version: 'fixture' } },
+      closeAllConnections: async () => { closedConnections++ }
     },
     stopCore: async () => { state = 'stopped' }, startCore: async () => { state = 'running'; restarts++ }
   })
   await kernel.reloadConfig()
   assert.equal(disk, 'candidate'); assert.equal(selections, 1); assert.equal(restarts, 0)
+  assert.equal(closedConnections, 1, 'connections are closed after hot reload')
   disk = 'previous'
   failure = Object.assign(new Error('rejected'), { isAxiosError: true, response: { status: 400 } })
   await assert.rejects(kernel.reloadConfig(), { reason: 'configuration' })
