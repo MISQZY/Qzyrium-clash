@@ -92,9 +92,11 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
       )
       if (alreadyExists) return
 
-      // If Add Profile dialog is currently open, immediately insert the link and do not show popup
-      const isAddModalOpen = Boolean(document.getElementById('profile-url'))
+      // If Add Profile dialog is currently open and URL field is empty, immediately insert the link
+      const input = document.getElementById('profile-url') as HTMLInputElement | null
+      const isAddModalOpen = Boolean(input)
       if (isAddModalOpen) {
+        if (input && input.value.trim()) return
         dismissedUrls.current.add(targetUrl)
         dismissedUrls.current.add(text)
         setDetected(null)
@@ -104,7 +106,6 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
             detail: { url: targetUrl, name: parsed.name }
           })
         )
-        const input = document.getElementById('profile-url') as HTMLInputElement | null
         if (input) {
           input.focus()
         }
@@ -124,7 +125,9 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
     if (!detected) return
     // If Add Profile modal opens while banner is displayed, auto-insert into modal and dismiss banner
     const checkModal = (): boolean => {
-      if (document.getElementById('profile-url')) {
+      const input = document.getElementById('profile-url') as HTMLInputElement | null
+      if (input) {
+        if (input.value.trim()) return false
         const toInsert = detected
         dismissedUrls.current.add(toInsert.url)
         setDetected(null)
@@ -134,10 +137,7 @@ export function SmartClipboardBanner({ onImport }: SmartClipboardBannerProps) {
             detail: toInsert
           })
         )
-        const input = document.getElementById('profile-url') as HTMLInputElement | null
-        if (input) {
-          input.focus()
-        }
+        input.focus()
         return true
       }
       return false
