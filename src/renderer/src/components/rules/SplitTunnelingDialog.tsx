@@ -99,7 +99,7 @@ export function SplitTunnelingDialog({ open, onOpenChange, onSaved }: SplitTunne
         processes.set(name.toLowerCase(), { name, path: processPath })
       }
     }
-    return [...processes.values()].sort((a, b) => a.name.localeCompare(b.name))
+    return [...processes.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
   }, [connections])
 
   const changed = JSON.stringify(appRules) !== JSON.stringify(initialRules)
