@@ -101,7 +101,7 @@ export function SaveBar({
         'sticky bottom-5 z-30 w-full max-w-4xl mx-auto px-1 select-none transition-all duration-300 ease-out',
         isVisible
           ? 'opacity-100 translate-y-0 max-h-32 pointer-events-auto mt-6'
-          : 'opacity-0 translate-y-6 max-h-0 pointer-events-none mt-0 overflow-hidden',
+          : 'opacity-0 translate-y-6 max-h-0 pointer-events-none mt-0 overflow-hidden invisible',
         className
       )}
     >
