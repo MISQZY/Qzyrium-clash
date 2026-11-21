@@ -325,6 +325,28 @@ async function verifySafeSwitchAndRollback() {
   assert.equal(builds.at(-1)[0].kernel.channel, 'alpha')
   assert.equal(builds.at(-1)[2], '/cores/alpha/candidate.exe')
   assert.equal(builds.at(-1)[3], false)
+
+  // Diagnostics can leave a real core running while the VPN status is stopped.
+  // Switching must release that binary without connecting the VPN implicitly.
+  kernel.isIdleCoreRunning = true
+  coreState = 'running'
+  steps.length = 0
+  failConfigTest = true
+  await assert.rejects(kernel.switchCoreBinary('stable', '/cores/stable/candidate.exe'), /Core configuration test failed/)
+  assert.equal(kernel.isIdleCoreRunning, true, 'Rejected candidate leaves the idle process intact')
+  assert.ok(!steps.includes('stop-core'))
+
+  failConfigTest = false
+  steps.length = 0
+  await kernel.switchCoreBinary('stable', '/cores/stable/candidate.exe')
+  assert.ok(steps.includes('stop-core'), 'Idle process must release its old executable')
+  assert.ok(!steps.includes('start-core'), 'Channel switching must not connect a disconnected VPN')
+  assert.equal(kernel.getStatus(), 'stopped')
+  assert.equal(coreState, 'stopped')
+  assert.equal(mockSettings.kernel.channel, 'stable')
+  await kernel.start()
+  assert.equal(coreState, 'running')
+  assert.equal(builds.at(-1)[0].kernel.channel, 'stable', 'Next VPN start uses the selected channel')
 }
 
 async function verifyCoreServiceInstallation() {

@@ -74,7 +74,9 @@ export class CoreBinaryManager {
 
     let settingsSaved = false
     try {
-      if (wasRunning) await this.lifecycle.stopCore()
+      // An idle diagnostics core reports stopped to the UI, but its executable
+      // must still be released before replacing or selecting another binary.
+      if (wasRunning || this.processManager.getState?.() === 'running') await this.lifecycle.stopCore()
       const binary = installation ? await installation.promote() : candidateBinaryPath
       this.processManager.setBinaryPath(binary)
       if (wasRunning) await this.lifecycle.startCore(testSettings, binary, false)
