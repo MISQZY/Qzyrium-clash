@@ -11,7 +11,7 @@ import { ConnectionDetailsDialog } from '../components/ConnectionDetailsDialog'
 import { QuickRuleDialog } from '../components/connections/QuickRuleDialog'
 
 import { useTranslations } from '../i18n'
-import { memo, useCallback, useRef, useState, useMemo } from 'react'
+import { memo, useCallback, useEffect, useRef, useState, useMemo } from 'react'
 
 import type { ConnectionItem, ConnectionsSnapshot } from '@shared/mihomo'
 import type { ProcessGroup } from '../lib/connections'
@@ -60,11 +60,31 @@ const ConnectionsView = memo(function ConnectionsView({ connections, onRefresh, 
   const filteredAndSortedList = useMemo(() => viewMode === 'flat' ? sortConnections(matchingConnections, sortBy, t('system')) : [],
     [viewMode, matchingConnections, sortBy, t])
 
-  // Active selected group in drilldown view
-  const activeProcessGroup = useMemo(() => {
+  const allProcessGroups = useMemo(
+    () => (viewMode === 'process' && selectedProcessKey ? groupConnections(connections.connections, sortBy, t('system')) : []),
+    [viewMode, selectedProcessKey, connections.connections, sortBy, t]
+  )
+
+  const selectedBaseGroup = useMemo(() => {
     if (!selectedProcessKey) return null
-    return processGroups.find((g) => g.key === selectedProcessKey) || null
-  }, [selectedProcessKey, processGroups])
+    return allProcessGroups.find((g) => g.key === selectedProcessKey) || null
+  }, [selectedProcessKey, allProcessGroups])
+
+  // Automatically return to process list when all connections for the selected process close
+  useEffect(() => {
+    if (selectedProcessKey && !selectedBaseGroup) {
+      setSelectedProcessKey(null)
+    }
+  }, [selectedProcessKey, selectedBaseGroup])
+
+  // Active selected group in drilldown view with search and protocol filters applied
+  const activeProcessGroup = useMemo(() => {
+    if (!selectedBaseGroup) return null
+    return {
+      ...selectedBaseGroup,
+      connections: filterConnections(selectedBaseGroup.connections, query, protocolFilter)
+    }
+  }, [selectedBaseGroup, query, protocolFilter])
 
   // Keep selectedConnection fresh with real-time speed/data if it updates
   const activeDetail = useMemo(() => {
@@ -128,7 +148,7 @@ const ConnectionsView = memo(function ConnectionsView({ connections, onRefresh, 
       title={selectedProcessKey && activeProcessGroup ? activeProcessGroup.name : t('connections')}
       actions={
         <ConnectionToolbar
-          selectedProcessKey={selectedProcessKey}
+          selectedProcessKey={activeProcessGroup ? selectedProcessKey : null}
           setSelectedProcessKey={setSelectedProcessKey}
           connectionCount={connections.connections.length}
           actions={actions}
@@ -148,7 +168,7 @@ const ConnectionsView = memo(function ConnectionsView({ connections, onRefresh, 
           setSortBy={setSortBy}
           viewMode={viewMode}
           setViewMode={setViewMode}
-          selectedProcessKey={selectedProcessKey}
+          selectedProcessKey={activeProcessGroup ? selectedProcessKey : null}
           setSelectedProcessKey={setSelectedProcessKey}
           processCount={processGroups.length}
           connectionCount={matchingConnections.length}
@@ -166,7 +186,11 @@ const ConnectionsView = memo(function ConnectionsView({ connections, onRefresh, 
           <ProcessGroupHero group={activeProcessGroup} actions={actions} onQuickRule={setRuleTargetGroup} />
 
           {/* List of connections for this process */}
-          <VirtualList data={activeProcessGroup.connections} itemKey={item => item.id} renderItem={renderDrilldownConnectionCard} />
+          {activeProcessGroup.connections.length > 0 ? (
+            <VirtualList data={activeProcessGroup.connections} itemKey={item => item.id} renderItem={renderDrilldownConnectionCard} />
+          ) : (
+            <ConnectionEmptyState query={query} />
+          )}
         </div>
       ) : viewMode === 'process' ? (
         /* Level 1: Process Cards List */
