@@ -245,6 +245,9 @@ export function parseVmessUri(uri: string): ProxyNodeConfig | null {
       node.alpn = Array.isArray(json.alpn) ? json.alpn : String(json.alpn).split(',')
     }
     if (json.fp) node['client-fingerprint'] = String(json.fp)
+    if (json.verify_cert === false || json.allowInsecure === '1' || json.allowInsecure === true || json['skip-cert-verify'] === true) {
+      node['skip-cert-verify'] = true
+    }
 
     if (network === 'ws') {
       node['ws-opts'] = {
@@ -280,7 +283,7 @@ export function parseVlessUri(uri: string): ProxyNodeConfig | null {
     const { server, port, name, params } = ctx
     const uuid = ctx.url.username
 
-    const security = params.get('security')?.toLowerCase() || 'none'
+    const security = params.get('security')?.toLowerCase() || (['1', 'tls', 'true'].includes(params.get('tls')?.toLowerCase() ?? '') ? 'tls' : 'none')
     const pbk = params.get('pbk')
     if (security === 'reality' && !pbk) return null
     const network = params.get('type')?.toLowerCase() || 'tcp'
@@ -288,6 +291,7 @@ export function parseVlessUri(uri: string): ProxyNodeConfig | null {
     const sni = params.get('sni') || params.get('host')
     const fp = params.get('fp')
     const sid = params.get('sid')
+    const insecure = params.get('allowInsecure') === '1' || params.get('insecure') === '1' || params.get('allowInsecure')?.toLowerCase() === 'true' || params.get('insecure')?.toLowerCase() === 'true'
 
     const node: ProxyNodeConfig = {
       name,
@@ -306,6 +310,7 @@ export function parseVlessUri(uri: string): ProxyNodeConfig | null {
       node.tls = true
       if (sni) node.servername = sni
       if (fp) node['client-fingerprint'] = fp
+      if (insecure) node['skip-cert-verify'] = true
       if (security === 'reality' && pbk) {
         node['reality-opts'] = {
           'public-key': pbk,
@@ -450,6 +455,7 @@ export function parseTrojanUri(uri: string): ProxyNodeConfig | null {
     const alpn = params.get('alpn')
     const network = params.get('type')?.toLowerCase() || 'tcp'
     const fp = params.get('fp')
+    const insecure = params.get('allowInsecure') === '1' || params.get('insecure') === '1' || params.get('allowInsecure')?.toLowerCase() === 'true' || params.get('insecure')?.toLowerCase() === 'true'
 
     const node: ProxyNodeConfig = {
       name,
@@ -465,6 +471,7 @@ export function parseTrojanUri(uri: string): ProxyNodeConfig | null {
     if (sni) node.sni = sni
     if (alpn) node.alpn = alpn.split(',').map((s) => s.trim())
     if (fp) node['client-fingerprint'] = fp
+    if (insecure) node['skip-cert-verify'] = true
 
     return node
   } catch {
@@ -531,6 +538,8 @@ export function parseTuicUri(uri: string): ProxyNodeConfig | null {
     const sni = params.get('sni')
     const congestion = params.get('congestion_control')
     const alpn = params.get('alpn')
+    const insecure = params.get('allow_insecure') === '1' || params.get('insecure') === '1' || params.get('allow_insecure')?.toLowerCase() === 'true' || params.get('insecure')?.toLowerCase() === 'true'
+    const disableSni = params.get('disable_sni') === '1' || params.get('disable_sni')?.toLowerCase() === 'true'
 
     const node: ProxyNodeConfig = {
       name,
@@ -546,6 +555,8 @@ export function parseTuicUri(uri: string): ProxyNodeConfig | null {
     if (sni) node.sni = sni
     if (congestion) node['congestion-controller'] = congestion
     if (alpn) node.alpn = alpn.split(',').map((s) => s.trim())
+    if (insecure) node['skip-cert-verify'] = true
+    if (disableSni) node['disable-sni'] = true
 
     return node
   } catch {

@@ -198,6 +198,14 @@ assert.equal(parsedTuic.uuid, 'c8d20391-768a-4cbb-a400-f6551bca463e')
 assert.equal(parsedTuic.password, 'tuicpass')
 assert.equal(parsedTuic['congestion-controller'], 'bbr')
 
+const tuicInsecure = parseTuicUri('tuic://id:pass@127.0.0.1:443?insecure=1&disable_sni=1')
+assert.equal(tuicInsecure['skip-cert-verify'], true)
+assert.equal(tuicInsecure['disable-sni'], true)
+assert.equal(parseVlessUri('vless://id@127.0.0.1:443?security=tls&insecure=1')['skip-cert-verify'], true)
+assert.equal(parseVlessUri('vless://id@127.0.0.1:443?tls=1').tls, true)
+assert.equal(parseTrojanUri('trojan://pass@127.0.0.1:443?allowInsecure=1')['skip-cert-verify'], true)
+assert.equal(parseVmessUri('vmess://' + Buffer.from(JSON.stringify({ ...vmessJson, allowInsecure: '1' })).toString('base64'))['skip-cert-verify'], true)
+
 // WHATWG URL removes an explicitly specified default HTTP port.
 for (const [authority, expectedServer, expectedPort] of [
   ['example.com', 'example.com', 80],
