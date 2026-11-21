@@ -201,6 +201,17 @@ function verifyConfiguration() {
   assert.ok(customSynthDns['default-nameserver'].includes('1.2.3.4'), 'enabled fallback DNS includes configured servers')
   assert.ok(customSynthDns.nameserver.includes('1.2.3.4'))
   config.kernel.tun.resilientDns = false
+
+  // Profile with existing DNS and TUN enabled
+  const existingDnsProfile = 'dns:\n  enable: true\n  nameserver:\n    - 8.8.8.8\n  fake-ip-filter:\n    - custom.local\nproxies: []\nproxy-groups: []\nrules: [MATCH,DIRECT]\n'
+  const tunDnsSynth = yaml.parse(MihomoConfigFactory.synthesize(existingDnsProfile, config))
+  assert.equal(tunDnsSynth.dns['enhanced-mode'], 'fake-ip', 'TUN mode enforces fake-ip even when profile had custom DNS')
+  assert.deepEqual(tunDnsSynth.dns.nameserver, ['8.8.8.8'])
+  assert.ok(tunDnsSynth.dns['fake-ip-filter'].includes('custom.local'))
+  assert.ok(tunDnsSynth.dns['fake-ip-filter'].includes('*.msftncsi.com'), 'essential NCSI filters are merged into profile filters')
+  assert.ok(Array.isArray(tunDnsSynth.dns['default-nameserver']) && tunDnsSynth.dns['default-nameserver'].length > 0)
+  assert.equal(tunDnsSynth['find-process-mode'], 'strict', 'TUN mode defaults find-process-mode to strict')
+
   const base64Sample = 'aHlzdGVyaWEyOi8vbm9kZTE='
   assert.throws(() => MihomoConfigFactory.synthesize(base64Sample, config), /Profile must contain/, 'invalid profiles must never silently enable direct routing')
   const invalid = fresh()

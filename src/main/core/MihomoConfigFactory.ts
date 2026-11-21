@@ -148,45 +148,66 @@ export class MihomoConfigFactory {
       const fallbackDns = (appConfig.kernel.tun.fallbackDns && appConfig.kernel.tun.fallbackDns.length > 0)
         ? appConfig.kernel.tun.fallbackDns
         : ['77.88.8.8']
-      if (currentDns.enable !== true) {
-        parsed['dns'] = {
-          'enhanced-mode': 'fake-ip',
-          'fake-ip-range': '198.18.0.1/16',
-          'fake-ip-range6': 'fc00::/18',
-          'fake-ip-filter': [
-            '*.lan',
-            '*.local',
-            '*.internal',
-            '*.localhost',
-            'localhost.ptlogin2.qq.com',
-            'dns.msftncsi.com',
-            'www.msftncsi.com',
-            'msftncsi.com',
-            '*.msftconnecttest.com',
-            '*.msftncsi.com'
-          ],
-          'default-nameserver': [
-            '1.1.1.1',
-            '8.8.8.8',
-            ...(useResilientDns ? fallbackDns : []),
-            '9.9.9.9'
-          ],
-          nameserver: [
-            'https://cloudflare-dns.com/dns-query',
-            'https://dns.google/dns-query',
-            'https://dns.quad9.net/dns-query',
-            ...(useResilientDns ? fallbackDns : [])
-          ],
-          'proxy-server-nameserver': [
-            'https://cloudflare-dns.com/dns-query',
-            'https://dns.google/dns-query',
-            ...(useResilientDns ? fallbackDns : []),
-            '1.1.1.1',
-            '8.8.8.8'
-          ],
-          ...currentDns,
-          enable: true
-        }
+
+      const essentialFakeIpFilters = [
+        '*.lan',
+        '*.local',
+        '*.internal',
+        '*.localhost',
+        'localhost.ptlogin2.qq.com',
+        'dns.msftncsi.com',
+        'www.msftncsi.com',
+        'msftncsi.com',
+        '*.msftconnecttest.com',
+        '*.msftncsi.com'
+      ]
+      const existingFilters = Array.isArray(currentDns['fake-ip-filter'])
+        ? (currentDns['fake-ip-filter'] as string[])
+        : []
+      const mergedFakeIpFilter = Array.from(new Set([...existingFilters, ...essentialFakeIpFilters]))
+
+      const defaultNameservers = [
+        'https://cloudflare-dns.com/dns-query',
+        'https://dns.google/dns-query',
+        'https://dns.quad9.net/dns-query'
+      ]
+      const defaultBootstrap = ['1.1.1.1', '8.8.8.8', '9.9.9.9']
+
+      let nameservers = Array.isArray(currentDns.nameserver) && currentDns.nameserver.length > 0
+        ? [...currentDns.nameserver as string[]]
+        : [...defaultNameservers]
+      if (useResilientDns) {
+        nameservers = Array.from(new Set([...nameservers, ...fallbackDns]))
+      }
+
+      let defaultNs = Array.isArray(currentDns['default-nameserver']) && currentDns['default-nameserver'].length > 0
+        ? [...currentDns['default-nameserver'] as string[]]
+        : [...defaultBootstrap]
+      if (useResilientDns) {
+        defaultNs = Array.from(new Set([...defaultNs, ...fallbackDns]))
+      }
+
+      let proxyNs = Array.isArray(currentDns['proxy-server-nameserver']) && currentDns['proxy-server-nameserver'].length > 0
+        ? [...currentDns['proxy-server-nameserver'] as string[]]
+        : ['https://cloudflare-dns.com/dns-query', 'https://dns.google/dns-query', '1.1.1.1', '8.8.8.8']
+      if (useResilientDns) {
+        proxyNs = Array.from(new Set([...proxyNs, ...fallbackDns]))
+      }
+
+      parsed['dns'] = {
+        ...currentDns,
+        enable: true,
+        'enhanced-mode': 'fake-ip',
+        'fake-ip-range': (currentDns['fake-ip-range'] as string) || '198.18.0.1/16',
+        'fake-ip-range6': (currentDns['fake-ip-range6'] as string) || 'fc00::/18',
+        'fake-ip-filter': mergedFakeIpFilter,
+        'default-nameserver': defaultNs,
+        nameserver: nameservers,
+        'proxy-server-nameserver': proxyNs
+      }
+
+      if (!parsed['find-process-mode']) {
+        parsed['find-process-mode'] = 'strict'
       }
     } else if (parsed.tun && typeof parsed.tun === 'object' && !Array.isArray(parsed.tun)) {
       // Keep the profile's TUN parameters visible while the app controls activation.
