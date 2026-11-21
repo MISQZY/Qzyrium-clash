@@ -83,11 +83,11 @@ export function DashboardRoutesProvider({ running, connecting, settings, activeP
     : ''
 
   useEffect(() => {
-    if (!visible || liteMode || !running || !window.api || routeNodes.length === 0) return
+    if (!visible || liteMode || !running || !window.api || !routeKey) return
     let disposed = false
     let timer: ReturnType<typeof setTimeout>
     const measure = async () => {
-      const nodes = routeNodes
+      const nodes = routeKey.split('|')
       const results: PromiseSettledResult<number>[] = new Array(nodes.length)
       let next = 0
       await Promise.all(Array.from({ length: Math.min(settings.general.delayTestConcurrency ?? 6, nodes.length) }, async () => {
@@ -105,7 +105,7 @@ export function DashboardRoutesProvider({ running, connecting, settings, activeP
     }
     void measure()
     return () => { disposed = true; clearTimeout(timer) }
-  }, [visible, liteMode, running, routeKey, routeNodes, onUpdateDelays, settings.general.delayTestConcurrency])
+  }, [visible, liteMode, running, routeKey, onUpdateDelays, settings.general.delayTestConcurrency])
 
   const value = useMemo(() => ({ routes, pendingNodes: locations.pendingNodes, statusMessage, locating }),
     [routes, locations.pendingNodes, statusMessage, locating])
