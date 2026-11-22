@@ -263,18 +263,18 @@ export function ProfileCard({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-0.5">
+            <div className="grid grid-cols-2 gap-2 pt-0.5 items-stretch">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => onEditRules(p)}
                 disabled={isSwitching}
-                className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground justify-center cursor-pointer"
+                className="h-auto min-h-9 py-1.5 px-2.5 gap-1.5 text-xs text-muted-foreground hover:text-foreground justify-center cursor-pointer text-center leading-tight whitespace-normal shrink"
                 title={t('editRules')}
               >
                 <RulesIcon className="size-3.5 shrink-0" />
-                <span>{t('editRules')}</span>
+                <span className="leading-tight">{t('editRules')}</span>
               </Button>
               <Button
                 type="button"
@@ -282,11 +282,11 @@ export function ProfileCard({
                 size="sm"
                 onClick={() => onEditFile(p)}
                 disabled={isSwitching}
-                className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground justify-center cursor-pointer"
+                className="h-auto min-h-9 py-1.5 px-2.5 gap-1.5 text-xs text-muted-foreground hover:text-foreground justify-center cursor-pointer text-center leading-tight whitespace-normal shrink"
                 title={t('editFile')}
               >
                 <FileCode className="size-3.5 shrink-0" />
-                <span>{t('editFile')}</span>
+                <span className="leading-tight">{t('editFile')}</span>
               </Button>
             </div>
           </div>
@@ -323,10 +323,10 @@ export function ProfileCard({
                 variant="secondary"
                 size="sm"
                 disabled
-                className="w-full h-8.5 gap-1.5 px-3 text-xs font-semibold bg-primary/15 text-primary border border-primary/30 opacity-100 cursor-default select-none shadow-2xs justify-center"
+                className="w-full h-auto min-h-9 py-2 px-3 gap-1.5 text-xs font-semibold bg-primary/15 text-primary border border-primary/30 opacity-100 cursor-default select-none shadow-2xs justify-center text-center whitespace-normal leading-tight"
                 aria-label={t('active')}
               >
-                <Check className="size-3.5 stroke-[2.5]" />
+                <Check className="size-3.5 stroke-[2.5] shrink-0" />
                 <span>{t('active')}</span>
               </Button>
             ) : isSwitching ? (
@@ -335,7 +335,7 @@ export function ProfileCard({
                 disabled
                 variant="outline"
                 size="sm"
-                className="w-full h-8.5 gap-1.5 px-3 text-xs font-medium latency-testing-button border-primary/40 text-primary relative shadow-2xs justify-center"
+                className="w-full h-auto min-h-9 py-2 px-3 gap-1.5 text-xs font-medium latency-testing-button border-primary/40 text-primary relative shadow-2xs justify-center text-center whitespace-normal leading-tight"
                 aria-busy="true"
                 aria-label={t('activating')}
               >
@@ -349,7 +349,7 @@ export function ProfileCard({
                 disabled={isAnySwitching}
                 variant="outline"
                 size="sm"
-                className="w-full h-8.5 gap-1.5 px-3 text-xs font-medium border-border/80 text-foreground hover:border-primary/60 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer shadow-2xs active:scale-[0.98] justify-center"
+                className="w-full h-auto min-h-9 py-2 px-3 gap-1.5 text-xs font-medium border-border/80 text-foreground hover:border-primary/60 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer shadow-2xs active:scale-[0.98] justify-center text-center whitespace-normal leading-tight"
                 title={t('select')}
                 aria-label={t('select')}
               >
