@@ -14,7 +14,8 @@ async function verify() {
   const state = load('src/main/utils/restart-state.ts', {
     electron: { app: { getPath: () => 'fixture' } },
     'node:fs': { readFileSync: () => stored, unlinkSync: () => { stored = undefined; deleted++ } },
-    './atomicWrite': { writeFileAtomic: (_, data) => { stored = data } }
+    './atomicWrite': { writeFileAtomic: (_, data) => { stored = data } },
+    './executable-security': { getVerifiedCoreDigests: () => [], registerVerifiedCoreDigest: () => {} }
   })
   const running = { running: true, visible: true, elevated: true }
   state.saveRestartState(running)

@@ -200,6 +200,16 @@ export function registerVerifiedCore(bytes: Uint8Array): void {
   verifiedCoreDigests.add(createHash('sha256').update(bytes).digest('hex'))
 }
 
+export function getVerifiedCoreDigests(): string[] {
+  return Array.from(verifiedCoreDigests)
+}
+
+export function registerVerifiedCoreDigest(digest: string): void {
+  if (/^[a-f0-9]{64}$/i.test(digest)) {
+    verifiedCoreDigests.add(digest.toLowerCase())
+  }
+}
+
 export function prepareExecutableForExecution(source: string, role: ExecutableRole): string {
   if (!needsExecutionGuard()) return source
   if (!['core', 'runner', 'watchdog'].includes(role)) throw new Error('Invalid executable role')
