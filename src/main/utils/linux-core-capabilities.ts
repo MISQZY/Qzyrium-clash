@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { chmodSync, copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs'
+import path from 'node:path'
 import { promisify } from 'node:util'
 
 const runFile = promisify(execFile)
@@ -36,9 +37,29 @@ export async function grantLinuxCoreCapabilities(binary: string): Promise<void> 
 }
 
 /** Ensure Mihomo binary has required capabilities before launching TUN on Linux without root. */
-export async function ensureLinuxCoreCapabilities(binary: string): Promise<void> {
-  if (process.platform !== 'linux') return
-  if (process.getuid?.() === 0) return
-  if (await hasLinuxCoreCapabilities(binary)) return
-  await grantLinuxCoreCapabilities(binary)
+export async function ensureLinuxCoreCapabilities(binary: string): Promise<string> {
+  if (process.platform !== 'linux') return binary
+  if (process.getuid?.() === 0) return binary
+  if (await hasLinuxCoreCapabilities(binary)) return binary
+
+  let targetBinary = binary
+  if (process.env.APPIMAGE || process.env.APPDIR || binary.includes('.mount_')) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { getAppPaths } = require('./paths')
+      const targetDir = path.join(getAppPaths().coresDir, 'bundled')
+      mkdirSync(targetDir, { recursive: true })
+      targetBinary = path.join(targetDir, path.basename(binary))
+      if (!existsSync(targetBinary) || (existsSync(binary) && statSync(binary).size !== statSync(targetBinary).size)) {
+        copyFileSync(binary, targetBinary)
+        chmodSync(targetBinary, 0o755)
+      }
+    } catch {
+      targetBinary = binary
+    }
+    if (await hasLinuxCoreCapabilities(targetBinary)) return targetBinary
+  }
+
+  await grantLinuxCoreCapabilities(targetBinary)
+  return targetBinary
 }

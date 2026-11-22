@@ -117,7 +117,7 @@ export class MihomoProcessManager extends EventEmitter {
     if (sequence !== this.startSequence || this.explicitStop || this.getState() !== 'starting') return
 
     const channel = (channelOrBinary === 'stable' || channelOrBinary === 'alpha') ? channelOrBinary : undefined
-    const binary = await this.resolveBinaryPath(channel)
+    let binary = await this.resolveBinaryPath(channel)
     if (sequence !== this.startSequence || this.explicitStop || this.getState() !== 'starting') return
     if (!binary) {
       logger.warn('Cannot start Mihomo: executable is missing')
@@ -153,7 +153,7 @@ export class MihomoProcessManager extends EventEmitter {
       const tun = linux ? (yaml.parse(readFileSync(configPath, 'utf8')) as Record<string, unknown>)?.tun : undefined
       if (linux && tun && (tun as Record<string, unknown>).enable) {
         try {
-          await ensureLinuxCoreCapabilities(binary)
+          binary = await ensureLinuxCoreCapabilities(binary)
         } catch (capErr) {
           logger.warn(`Failed to ensure Linux TUN capabilities: ${String(capErr)}`)
         }
