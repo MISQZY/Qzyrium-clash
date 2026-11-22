@@ -53,10 +53,10 @@ export function restartAsAdmin(): Promise<boolean> {
         return
       }
 
-      const portableExe = process.env.PORTABLE_EXECUTABLE_FILE
+      const portableExe = process.env?.PORTABLE_EXECUTABLE_FILE
       const execPath = portableExe && existsSync(portableExe) ? portableExe : process.execPath
       const isPackaged = electronApp.isPackaged
-      const workingDir = portableExe && process.env.PORTABLE_EXECUTABLE_DIR && existsSync(process.env.PORTABLE_EXECUTABLE_DIR)
+      const workingDir = portableExe && process.env?.PORTABLE_EXECUTABLE_DIR && existsSync(process.env.PORTABLE_EXECUTABLE_DIR)
         ? process.env.PORTABLE_EXECUTABLE_DIR
         : (isPackaged ? path.dirname(execPath) : (electronApp.getAppPath() || process.cwd()))
       const appUserData = typeof electronApp.getPath === 'function' ? electronApp.getPath('userData') : ''
