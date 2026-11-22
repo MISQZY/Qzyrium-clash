@@ -125,13 +125,13 @@ export function createApplicationServices(overrides: Partial<ServiceConstructors
     const services: BaseService[] = [
       settingService,
       profileService,
-      updateService,
       coreService,
       sysProxyService,
       trayService,
       kernelService,
       desktopService,
-      windowService
+      windowService,
+      updateService
     ]
     return { settingService, profileService, sysProxyService, kernelService, windowService, trayService, desktopService, themeStore, updateService, coreService, networkModeController, services }
 }

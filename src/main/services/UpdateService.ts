@@ -81,7 +81,7 @@ export class UpdateService implements BaseService {
     })
     // Check failures also reject checkForUpdates(); handle them once in the retry loop.
     this.listen('error', (error: Error) => { if (!this.checkInProgress) this.fail(error) })
-    if (this.autoCheckEnabled()) void this.checkUpdates()
+    if (this.autoCheckEnabled()) void this.checkUpdates(false)
   }
 
   private listen(event: Parameters<typeof autoUpdater.on>[0], listener: Parameters<typeof autoUpdater.on>[1]): void {
@@ -131,7 +131,7 @@ export class UpdateService implements BaseService {
     try {
       const releases: GithubRelease[] = []
       for (let page = 1; page <= 5; page++) {
-        const batch = await this.githubGet<GithubRelease[]>(`/releases?per_page=30&page=${page}`)
+        const batch = await this.githubGet<GithubRelease[]>(`/releases?per_page=30&page=${page}`, true, 6_000)
         releases.push(...batch.filter((release) => !release.draft && !release.prerelease && isStableVersion(release.tag_name)))
         if (batch.length < 30 || releases.some((release) => compareVersions(release.tag_name, currentVersion) < 0)) break
       }
@@ -147,7 +147,7 @@ export class UpdateService implements BaseService {
       let notes: string[] = []
       if (previousTag) {
         try {
-          const comparison = await this.githubGet<GithubCompare>(`/compare/${encodeURIComponent(previousTag)}...${encodeURIComponent(release.tag_name)}?per_page=100&page=1`)
+          const comparison = await this.githubGet<GithubCompare>(`/compare/${encodeURIComponent(previousTag)}...${encodeURIComponent(release.tag_name)}?per_page=100&page=1`, true, 6_000)
           notes.push(...comparison.commits.map(({ commit }) => commit.message.split('\n')[0].trim()).filter((subject) => subject && !subject.startsWith('Merge ') && !BUMP_COMMIT.test(subject)))
           notes.reverse()
         } catch (error) {
@@ -205,7 +205,7 @@ export class UpdateService implements BaseService {
     }
   }
 
-  checkUpdates(): Promise<AppUpdaterStatus> {
+  checkUpdates(allowIdle = false): Promise<AppUpdaterStatus> {
     if (this.lifetime.signal.aborted) return Promise.resolve(this.status)
     if (this.checking) return this.checking
     if (this.downloading || ['unsupported', 'available', 'downloading', 'downloaded'].includes(this.status.state)) return Promise.resolve(this.status)
@@ -218,7 +218,7 @@ export class UpdateService implements BaseService {
           break
         } catch (error) {
           if (this.lifetime.signal.aborted) break
-          if (!triedProxy && this.proxyFallback) {
+          if (!triedProxy && this.proxyFallback && (this.proxyFallback.isCoreRunning() || allowIdle)) {
             triedProxy = true
             try {
               if (!this.proxyFallback.isCoreRunning()) {
@@ -276,17 +276,17 @@ export class UpdateService implements BaseService {
     return this.downloading
   }
 
-  private async githubGet<T>(endpoint: string): Promise<T> {
+  private async githubGet<T>(endpoint: string, allowIdle = false, timeoutMs = 4_000): Promise<T> {
     const { owner, repo } = RELEASE_REPOSITORY
     const url = `https://api.github.com/repos/${owner}/${repo}${endpoint}`
     try {
       const response = await net.fetch(url, {
-        headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(15_000)
+        headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(timeoutMs)
       })
       if (!response.ok) throw new Error(`GitHub API: ${response.status}`)
       return await response.json() as T
     } catch (directError) {
-      if (this.proxyFallback) {
+      if (this.proxyFallback && (this.proxyFallback.isCoreRunning() || allowIdle)) {
         try {
           if (!this.proxyFallback.isCoreRunning()) {
             await this.proxyFallback.startIdleCore()
@@ -294,7 +294,7 @@ export class UpdateService implements BaseService {
           const port = await this.proxyFallback.getMixedPort()
           await this.applyProxy(port)
           const response = await net.fetch(url, {
-            headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(15_000)
+            headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(10_000)
           })
           if (!response.ok) throw new Error(`GitHub API via proxy: ${response.status}`, { cause: directError })
           return await response.json() as T
@@ -320,7 +320,7 @@ export class UpdateService implements BaseService {
       const releases: GithubRelease[] = []
       // GitHub orders by publication date. Sort by version and page until reaching the old version.
       for (let page = 1; page <= 10; page++) {
-        const batch = await this.githubGet<GithubRelease[]>(`/releases?per_page=100&page=${page}`)
+        const batch = await this.githubGet<GithubRelease[]>(`/releases?per_page=100&page=${page}`, false, 4_000)
         releases.push(...batch.filter((release) => !release.draft && !release.prerelease && isStableVersion(release.tag_name)))
         if (batch.length < 100 || releases.some((release) => compareVersions(release.tag_name, lastVersion) <= 0)) break
       }
@@ -331,7 +331,7 @@ export class UpdateService implements BaseService {
         let notes: string[] = []
         try {
           for (let page = 1; page <= 10; page++) {
-            const comparison = await this.githubGet<GithubCompare>(`/compare/${encodeURIComponent(previousTag)}...${encodeURIComponent(release.tag_name)}?per_page=100&page=${page}`)
+            const comparison = await this.githubGet<GithubCompare>(`/compare/${encodeURIComponent(previousTag)}...${encodeURIComponent(release.tag_name)}?per_page=100&page=${page}`, false, 4_000)
             notes.push(...comparison.commits.map(({ commit }) => commit.message.split('\n')[0].trim()).filter((subject) => subject && !subject.startsWith('Merge ') && !BUMP_COMMIT.test(subject)))
             if (comparison.commits.length < 100) break
           }

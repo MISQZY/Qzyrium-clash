@@ -65,7 +65,7 @@ export function registerApplicationHandlers(
     return app.getVersion()
   })
 
-  handle(IPC_CHANNELS.APP_CHECK_UPDATES, () => services.updateService.checkUpdates())
+  handle(IPC_CHANNELS.APP_CHECK_UPDATES, () => services.updateService.checkUpdates(true))
 
   handle(IPC_CHANNELS.APP_GET_UPDATER_STATUS, () => services.updateService.getStatus())
 
