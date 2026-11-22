@@ -2,7 +2,7 @@ import { execFileSync, execFile } from 'child_process'
 import { randomUUID } from 'node:crypto'
 import path from 'path'
 import os from 'os'
-import { writeFileSync, unlinkSync } from 'fs'
+import { writeFileSync, unlinkSync, existsSync } from 'fs'
 import { app } from 'electron'
 import { logger } from './logger'
 import { checkElevateTask, tryRunElevateTask } from './elevate-task'
@@ -53,9 +53,12 @@ export function restartAsAdmin(): Promise<boolean> {
         return
       }
 
-      const execPath = process.execPath
+      const portableExe = process.env.PORTABLE_EXECUTABLE_FILE
+      const execPath = portableExe && existsSync(portableExe) ? portableExe : process.execPath
       const isPackaged = electronApp.isPackaged
-      const workingDir = isPackaged ? path.dirname(execPath) : (electronApp.getAppPath() || process.cwd())
+      const workingDir = portableExe && process.env.PORTABLE_EXECUTABLE_DIR && existsSync(process.env.PORTABLE_EXECUTABLE_DIR)
+        ? process.env.PORTABLE_EXECUTABLE_DIR
+        : (isPackaged ? path.dirname(execPath) : (electronApp.getAppPath() || process.cwd()))
       const appUserData = typeof electronApp.getPath === 'function' ? electronApp.getPath('userData') : ''
 
       const filteredArgs = (isPackaged ? process.argv.slice(1) : process.argv.slice(2))
