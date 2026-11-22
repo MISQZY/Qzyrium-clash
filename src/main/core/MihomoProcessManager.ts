@@ -152,11 +152,7 @@ export class MihomoProcessManager extends EventEmitter {
       const paths = getAppPaths()
       const tun = linux ? (yaml.parse(readFileSync(configPath, 'utf8')) as Record<string, unknown>)?.tun : undefined
       if (linux && tun && (tun as Record<string, unknown>).enable) {
-        try {
-          binary = await ensureLinuxCoreCapabilities(binary)
-        } catch (capErr) {
-          logger.warn(`Failed to ensure Linux TUN capabilities: ${String(capErr)}`)
-        }
+        binary = await ensureLinuxCoreCapabilities(binary)
       }
       const command = linux ? process.execPath : prepareExecutableForExecution(binary, 'core')
       const launchArgs = linux ? [path.join(paths.geoFilesDir, 'linux-core-supervisor.cjs'), binary, JSON.stringify(tun ?? null), ...args] : args

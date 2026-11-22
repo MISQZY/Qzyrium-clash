@@ -50,7 +50,7 @@ export async function ensureLinuxCoreCapabilities(binary: string): Promise<strin
       const targetDir = path.join(getAppPaths().coresDir, 'bundled')
       mkdirSync(targetDir, { recursive: true })
       targetBinary = path.join(targetDir, path.basename(binary))
-      if (!existsSync(targetBinary) || (existsSync(binary) && statSync(binary).size !== statSync(targetBinary).size)) {
+      if (!existsSync(targetBinary) || (existsSync(binary) && (statSync(binary).size !== statSync(targetBinary).size || statSync(binary).mtimeMs > statSync(targetBinary).mtimeMs))) {
         copyFileSync(binary, targetBinary)
         chmodSync(targetBinary, 0o755)
       }
