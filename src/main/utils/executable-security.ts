@@ -156,10 +156,11 @@ function policy(request: object): string {
   const script = `$request = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}')) | ConvertFrom-Json\n${WINDOWS_EXECUTABLE_POLICY}`
   try {
     const powershellBinary = trustedSystemBinary('WindowsPowerShell/v1.0/powershell.exe')
-    const systemRoot = path.win32.dirname(path.win32.dirname(powershellBinary))
-    const system32 = path.win32.join(systemRoot, 'System32')
+    const system32 = trustedSystemBinary('')
+    const systemRoot = path.win32.dirname(system32)
     const systemModules = path.win32.join(system32, 'WindowsPowerShell', 'v1.0', 'Modules')
     const env: NodeJS.ProcessEnv = {
+      ...process.env,
       SystemRoot: systemRoot,
       SystemDrive: systemRoot.slice(0, 2),
       windir: systemRoot,
