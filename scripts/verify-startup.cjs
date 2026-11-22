@@ -35,6 +35,7 @@ async function verify() {
       if (registrationFails) throw new Error('registration failed')
       login.push(options.openAtLogin)
     } } },
+    './elevation-state': { rememberElevation() {}, clearElevationState() {} },
     './logger': { logger: { info() {}, warn(message) { warnings.push(message) } } },
     './system-binaries': { getSystemBinary: (name) => path.join(runtime.env.SystemRoot || 'C:\\Windows', 'System32', name) },
     'node:child_process': { execFile: (file, args, options, callback) => {

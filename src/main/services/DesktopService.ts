@@ -57,7 +57,7 @@ export class DesktopService implements BaseService {
         registered.set(action, accelerator)
       }
       // Electron development binaries are not valid installed login targets.
-      const startup = JSON.stringify(config.general.autoStart)
+      const startup = JSON.stringify({ autoStart: config.general.autoStart, autoStartAsAdmin: config.general.autoStartAsAdmin })
       if (this.startupApplied !== startup) {
         if (app.isPackaged && process.platform === 'win32') await applyWindowsStartup(config.general)
         else if (app.isPackaged && process.platform === 'linux') applyLinuxStartup(config.general.autoStart)

@@ -4,6 +4,7 @@ import path from 'node:path'
 import type { AppConfig } from '@shared/app-config'
 import { logger } from './logger'
 import { getSystemBinary } from './system-binaries'
+import { clearElevationState, rememberElevation } from './elevation-state'
 
 // Old releases passed encoded PowerShell commands directly to the process;
 // they did not install .ps1 files. Only their per-user startup tasks persist.
@@ -39,5 +40,10 @@ export async function removeLegacyStartupTasks(): Promise<void> {
 export async function applyWindowsStartup(general: AppConfig['general']): Promise<void> {
   if (process.platform !== 'win32') return
   app.setLoginItemSettings({ openAtLogin: general.autoStart })
+  if (general.autoStart && general.autoStartAsAdmin) {
+    rememberElevation()
+  } else if (!general.autoStartAsAdmin) {
+    clearElevationState()
+  }
   await removeLegacyStartupTasks()
 }
