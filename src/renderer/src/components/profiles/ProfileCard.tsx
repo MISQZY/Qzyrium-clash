@@ -3,7 +3,6 @@ import { useLocale, useTranslations, useCustomLocalization } from '../../i18n'
 import { RefreshCw, Trash2, Globe, FileCode, EllipsisVertical, Pencil, Check, Layers, LayoutList, Megaphone } from 'lucide-react'
 import { RulesIcon } from '../../lib/icons'
 import { ProfileItem, canToggleProfileDisplayMode, subscriptionUpdateInterval } from '@shared/profile'
-import { profileSource } from '../../lib/profile-source'
 import { cn } from '../../lib/utils'
 
 import { Button } from '../ui/button'
@@ -98,8 +97,8 @@ export function ProfileCard({
                   <EmojiText text={displayName(p, locale, customLocalization)} />
                 </span>
               </div>
-              <p className="text-[11px] text-muted-foreground truncate mt-0.5" title={profileSource(p.url) ?? (p.type === 'remote' ? t('remoteSubscription') : t('localYAML'))}>
-                {profileSource(p.url) ?? (p.type === 'remote' ? t('remoteSubscription') : t('localYAML'))}
+              <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                {p.type === 'remote' ? t('remoteSubscription') : t('localYAML')}
               </p>
             </div>
           </div>
