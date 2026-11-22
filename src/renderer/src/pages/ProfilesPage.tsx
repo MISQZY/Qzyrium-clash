@@ -8,6 +8,7 @@ import React, { lazy, Suspense, useState } from 'react'
 import { Plus, Globe, LayoutGrid, LayoutList } from 'lucide-react'
 
 import { ProfileItem } from '@shared/profile'
+import { cn } from '../lib/utils'
 
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
@@ -89,7 +90,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
   }
 
   return (
-    <div className="page-scroll">
+    <div className={cn("page-scroll", viewMode === 'cards' && "page-scroll-cards")}>
       {/* Header */}
       <div className="page-heading">
         <div>
@@ -129,7 +130,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
         <div
           className={
             viewMode === 'cards'
-              ? 'flex flex-row overflow-x-auto gap-3.5 pb-4 pt-0.5 px-0.5 scrollbar-thin'
+              ? 'profiles-cards-container flex flex-row overflow-x-auto overflow-y-hidden gap-4 pb-2 pt-0.5 px-0.5 scrollbar-thin items-stretch'
               : 'flex flex-col gap-3'
           }
         >
@@ -153,7 +154,7 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
           ))}
         </div>
       ) : (
-        <Card className="p-12 text-center flex flex-col items-center justify-center">
+        <Card className={cn("text-center flex flex-col items-center justify-center", viewMode === 'cards' ? 'profiles-cards-container p-8' : 'p-12')}>
           <Globe className="size-8 text-muted-foreground/40 mb-2" />
           <span className="text-sm font-medium text-foreground">{t('noSubscriptionsLoaded')}</span>
           <span className="text-xs text-muted-foreground mt-1">

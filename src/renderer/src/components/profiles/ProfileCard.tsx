@@ -61,16 +61,16 @@ export function ProfileCard({
       aria-current={isActive ? 'true' : undefined}
       className={cn(
         'bg-card transition-all relative',
-        isCards ? 'w-72 min-w-[18rem] max-w-[18rem] shrink-0 flex flex-col justify-between' : 'w-full',
+        isCards ? 'w-72 sm:w-80 min-w-[18rem] max-w-[20rem] h-full shrink-0 flex flex-col justify-between' : 'w-full',
         isActive ? 'border-primary ring-1 ring-primary/20 shadow-xs' : 'border-border hover:border-border/80',
         isSwitching && 'profile-switching-card border-primary/50 shadow-md shadow-primary/10'
       )}
     >
-      <CardContent className={cn('p-4 flex flex-col justify-between', isCards ? 'space-y-3 h-full' : 'space-y-4')}>
-        <div className="flex items-center justify-between gap-2.5">
+      <CardContent className={cn('p-4 sm:p-5 flex flex-col justify-between h-full', isCards ? 'space-y-4' : 'space-y-4')}>
+        <div className="flex items-start justify-between gap-2.5 shrink-0">
           <div className="flex flex-1 min-w-0 items-center gap-2.5">
             <div
-              className={`size-9 shrink-0 rounded-lg flex items-center justify-center overflow-hidden transition-colors ${
+              className={`size-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden transition-colors ${
                 p.type === 'remote'
                   ? 'bg-primary/15 text-primary border border-primary/30'
                   : 'bg-warning/15 text-warning border border-warning/30'
@@ -94,6 +94,9 @@ export function ProfileCard({
                   <EmojiText text={displayName(p, locale, customLocalization)} />
                 </span>
               </div>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {p.type === 'remote' ? t('remoteSubscription') : t('localYAML')}
+              </p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -190,69 +193,177 @@ export function ProfileCard({
             </DropdownMenu>
           </div>
         </div>
-    
-        {p.type === 'remote' && <SubscriptionInfo info={p.userInfo} compact={isCards} />}
-        {p.deviceStatus && <div role="status" className="rounded-lg border border-warning/25 bg-warning/5 p-3 text-xs text-warning">
-          <p>{t(p.deviceStatus === 'limit' ? 'deviceLimitNotice' : 'hwidRequiredNotice')}</p>
-          {p.supportUrl?.startsWith('https://') && <Button type="button" variant="ghost" size="sm" className="mt-1 h-auto p-0 text-warning underline underline-offset-2"
-            onClick={() => { void window.api.app.openUrl(p.supportUrl!) }}>{t('providerSupport')}</Button>}
-        </div>}
-    
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border/60 pt-3 mt-auto">
-          <p className="text-[10px] text-muted-foreground truncate" title={dateStr}>{t('updated', { date: dateStr })}</p>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {isActive ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled
-                className="h-7 gap-1 px-2.5 text-xs font-semibold bg-primary/15 text-primary border border-primary/30 opacity-100 cursor-default select-none shadow-2xs"
-                aria-label={t('active')}
-              >
-                <Check className="size-3.5 stroke-[2.5]" />
-                <span>{t('active')}</span>
-              </Button>
-            ) : isSwitching ? (
-              <Button
-                type="button"
-                disabled
-                variant="outline"
-                size="sm"
-                className="h-7 gap-1 px-2.5 text-xs font-medium latency-testing-button border-primary/40 text-primary relative shadow-2xs"
-                aria-busy="true"
-                aria-label={t('activating')}
-              >
-                <span className="latency-loader" />
-                <span>{t('activating')}</span>
-              </Button>
+
+        {isCards ? (
+          <div className="flex-1 min-h-0 flex flex-col justify-start space-y-3 overflow-y-auto scrollbar-thin">
+            {p.type === 'remote' ? (
+              <SubscriptionInfo info={p.userInfo} compact={true} />
             ) : (
+              <div className="flex-1 min-h-[140px] flex flex-col items-center justify-center p-4 rounded-xl border border-dashed border-border/60 bg-muted/20 text-center">
+                <FileCode className="size-7 text-muted-foreground/50 mb-2" />
+                <span className="text-xs font-medium text-foreground">{t('localYAML')}</span>
+                <span className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
+                  {t('editProfileFile')}
+                </span>
+              </div>
+            )}
+            {p.deviceStatus && (
+              <div role="status" className="rounded-lg border border-warning/25 bg-warning/5 p-3 text-xs text-warning">
+                <p>{t(p.deviceStatus === 'limit' ? 'deviceLimitNotice' : 'hwidRequiredNotice')}</p>
+                {p.supportUrl?.startsWith('https://') && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-1 h-auto p-0 text-warning underline underline-offset-2"
+                    onClick={() => { void window.api.app.openUrl(p.supportUrl!) }}
+                  >
+                    {t('providerSupport')}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            {p.type === 'remote' && <SubscriptionInfo info={p.userInfo} compact={false} />}
+            {p.deviceStatus && (
+              <div role="status" className="rounded-lg border border-warning/25 bg-warning/5 p-3 text-xs text-warning">
+                <p>{t(p.deviceStatus === 'limit' ? 'deviceLimitNotice' : 'hwidRequiredNotice')}</p>
+                {p.supportUrl?.startsWith('https://') && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-1 h-auto p-0 text-warning underline underline-offset-2"
+                    onClick={() => { void window.api.app.openUrl(p.supportUrl!) }}
+                  >
+                    {t('providerSupport')}
+                  </Button>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {isCards ? (
+          <div className="border-t border-border/60 pt-3 mt-auto flex flex-col gap-2.5 shrink-0">
+            <p className="text-[10px] text-muted-foreground truncate" title={dateStr}>
+              {t('updated', { date: dateStr })}
+            </p>
+            <div className="flex items-center gap-2 w-full">
+              {isActive ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled
+                  className="flex-1 h-8 gap-1 px-3 text-xs font-semibold bg-primary/15 text-primary border border-primary/30 opacity-100 cursor-default select-none shadow-2xs justify-center"
+                  aria-label={t('active')}
+                >
+                  <Check className="size-3.5 stroke-[2.5]" />
+                  <span>{t('active')}</span>
+                </Button>
+              ) : isSwitching ? (
+                <Button
+                  type="button"
+                  disabled
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 h-8 gap-1 px-3 text-xs font-medium latency-testing-button border-primary/40 text-primary relative shadow-2xs justify-center"
+                  aria-busy="true"
+                  aria-label={t('activating')}
+                >
+                  <span className="latency-loader" />
+                  <span>{t('activating')}</span>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => onSwitchProfile(p.id)}
+                  disabled={isAnySwitching}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 h-8 gap-1 px-3 text-xs font-medium border-border/80 text-foreground hover:border-primary/60 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer shadow-2xs active:scale-[0.98] justify-center"
+                  title={t('select')}
+                  aria-label={t('select')}
+                >
+                  <span>{t('select')}</span>
+                </Button>
+              )}
               <Button
                 type="button"
-                onClick={() => onSwitchProfile(p.id)}
-                disabled={isAnySwitching}
+                onClick={() => onEditRules(p)}
                 variant="outline"
-                size="sm"
-                className="h-7 gap-1 px-2.5 text-xs font-medium border-border/80 text-foreground hover:border-primary/60 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
-                title={t('select')}
-                aria-label={t('select')}
+                size="icon-sm"
+                className="size-8 shrink-0"
+                title={t('editRules')}
+                aria-label={t('editRules')}
+                disabled={isSwitching}
               >
-                <span>{t('select')}</span>
+                <RulesIcon className="size-3.5 shrink-0" />
               </Button>
-            )}
-            <Button
-              type="button"
-              onClick={() => onEditRules(p)}
-              variant="outline"
-              size="icon-sm"
-              title={t('editRules')}
-              aria-label={t('editRules')}
-              disabled={isSwitching}
-            >
-              <RulesIcon className="size-3.5 shrink-0" />
-            </Button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border/60 pt-3 mt-auto shrink-0">
+            <p className="text-[10px] text-muted-foreground truncate" title={dateStr}>
+              {t('updated', { date: dateStr })}
+            </p>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {isActive ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled
+                  className="h-7 gap-1 px-2.5 text-xs font-semibold bg-primary/15 text-primary border border-primary/30 opacity-100 cursor-default select-none shadow-2xs"
+                  aria-label={t('active')}
+                >
+                  <Check className="size-3.5 stroke-[2.5]" />
+                  <span>{t('active')}</span>
+                </Button>
+              ) : isSwitching ? (
+                <Button
+                  type="button"
+                  disabled
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 px-2.5 text-xs font-medium latency-testing-button border-primary/40 text-primary relative shadow-2xs"
+                  aria-busy="true"
+                  aria-label={t('activating')}
+                >
+                  <span className="latency-loader" />
+                  <span>{t('activating')}</span>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => onSwitchProfile(p.id)}
+                  disabled={isAnySwitching}
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 px-2.5 text-xs font-medium border-border/80 text-foreground hover:border-primary/60 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
+                  title={t('select')}
+                  aria-label={t('select')}
+                >
+                  <span>{t('select')}</span>
+                </Button>
+              )}
+              <Button
+                type="button"
+                onClick={() => onEditRules(p)}
+                variant="outline"
+                size="icon-sm"
+                title={t('editRules')}
+                aria-label={t('editRules')}
+                disabled={isSwitching}
+              >
+                <RulesIcon className="size-3.5 shrink-0" />
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

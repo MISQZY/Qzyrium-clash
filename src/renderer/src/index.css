@@ -580,7 +580,16 @@ html, body, #root { width: 100%; height: 100%; min-width: 0; min-height: 0; }
   overscroll-behavior-y: contain;
   transform: translateZ(0);
 }
+.page-scroll.page-scroll-cards {
+  overflow: hidden;
+}
 .page-scroll > * { flex-shrink: 0; min-width: 0; }
+.page-scroll > .profiles-cards-container {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
+  flex-shrink: 1;
+}
 .page-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 14px; }
 .adaptive-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px; }
 .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 16px; }
