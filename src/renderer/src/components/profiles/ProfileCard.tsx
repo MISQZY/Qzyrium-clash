@@ -8,6 +8,7 @@ import { cn } from '../../lib/utils'
 
 import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
+import { ScrollArea } from '../ui/scroll-area'
 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '../ui/dropdown-menu'
 
@@ -63,7 +64,7 @@ export function ProfileCard({
       className={cn(
         'bg-card transition-all relative',
         isCards
-          ? 'w-80 sm:w-88 min-w-[20rem] max-w-[22rem] h-full max-h-[640px] shrink-0 flex flex-col justify-between'
+          ? 'w-80 sm:w-88 min-w-[20rem] max-w-[22rem] h-full shrink-0 flex flex-col justify-between'
           : 'w-full',
         isActive ? 'border-primary ring-1 ring-primary/20 shadow-xs' : 'border-border hover:border-border/80',
         isSwitching && 'profile-switching-card border-primary/50 shadow-md shadow-primary/10'
@@ -186,7 +187,8 @@ export function ProfileCard({
         </div>
 
         {isCards ? (
-          <div className="flex-1 min-h-0 flex flex-col justify-start space-y-3 overflow-y-auto scrollbar-thin pr-0.5">
+          <ScrollArea className="flex-1 min-h-0 -mr-2.5 pr-2.5">
+            <div className="space-y-3.5 pr-3 pb-1">
             {p.announce && (
               <div className="rounded-xl border border-primary/25 bg-primary/5 p-2.5 text-xs text-foreground flex items-start gap-2">
                 <Megaphone className="size-3.5 text-primary shrink-0 mt-0.5" />
@@ -262,34 +264,8 @@ export function ProfileCard({
                 </div>
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-0.5 items-stretch">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => onEditRules(p)}
-                disabled={isSwitching}
-                className="h-auto min-h-9 py-1.5 px-2.5 gap-1.5 text-xs text-muted-foreground hover:text-foreground justify-center cursor-pointer text-center leading-tight whitespace-normal shrink"
-                title={t('editRules')}
-              >
-                <RulesIcon className="size-3.5 shrink-0" />
-                <span className="leading-tight">{t('editRules')}</span>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => onEditFile(p)}
-                disabled={isSwitching}
-                className="h-auto min-h-9 py-1.5 px-2.5 gap-1.5 text-xs text-muted-foreground hover:text-foreground justify-center cursor-pointer text-center leading-tight whitespace-normal shrink"
-                title={t('editFile')}
-              >
-                <FileCode className="size-3.5 shrink-0" />
-                <span className="leading-tight">{t('editFile')}</span>
-              </Button>
-            </div>
           </div>
+        </ScrollArea>
         ) : (
           <>
             {p.type === 'remote' && <SubscriptionInfo info={p.userInfo} compact={false} />}
@@ -317,45 +293,59 @@ export function ProfileCard({
             <p className="text-[10px] text-muted-foreground truncate" title={dateStr}>
               {t('updated', { date: dateStr })}
             </p>
-            {isActive ? (
+            <div className="flex items-center gap-2 w-full">
+              {isActive ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled
+                  className="flex-1 h-auto min-h-9 py-2 px-3 gap-1.5 text-xs font-semibold bg-primary/15 text-primary border border-primary/30 opacity-100 cursor-default select-none shadow-2xs justify-center text-center whitespace-normal leading-tight"
+                  aria-label={t('active')}
+                >
+                  <Check className="size-3.5 stroke-[2.5] shrink-0" />
+                  <span>{t('active')}</span>
+                </Button>
+              ) : isSwitching ? (
+                <Button
+                  type="button"
+                  disabled
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 h-auto min-h-9 py-2 px-3 gap-1.5 text-xs font-medium latency-testing-button border-primary/40 text-primary relative shadow-2xs justify-center text-center whitespace-normal leading-tight"
+                  aria-busy="true"
+                  aria-label={t('activating')}
+                >
+                  <span className="latency-loader" />
+                  <span>{t('activating')}</span>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => onSwitchProfile(p.id)}
+                  disabled={isAnySwitching}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 h-auto min-h-9 py-2 px-3 gap-1.5 text-xs font-medium border-border/80 text-foreground hover:border-primary/60 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer shadow-2xs active:scale-[0.98] justify-center text-center whitespace-normal leading-tight"
+                  title={t('select')}
+                  aria-label={t('select')}
+                >
+                  <span>{t('select')}</span>
+                </Button>
+              )}
               <Button
                 type="button"
-                variant="secondary"
-                size="sm"
-                disabled
-                className="w-full h-auto min-h-9 py-2 px-3 gap-1.5 text-xs font-semibold bg-primary/15 text-primary border border-primary/30 opacity-100 cursor-default select-none shadow-2xs justify-center text-center whitespace-normal leading-tight"
-                aria-label={t('active')}
-              >
-                <Check className="size-3.5 stroke-[2.5] shrink-0" />
-                <span>{t('active')}</span>
-              </Button>
-            ) : isSwitching ? (
-              <Button
-                type="button"
-                disabled
+                onClick={() => onEditRules(p)}
                 variant="outline"
-                size="sm"
-                className="w-full h-auto min-h-9 py-2 px-3 gap-1.5 text-xs font-medium latency-testing-button border-primary/40 text-primary relative shadow-2xs justify-center text-center whitespace-normal leading-tight"
-                aria-busy="true"
-                aria-label={t('activating')}
+                size="icon-sm"
+                className="size-9 shrink-0 cursor-pointer"
+                title={t('editRules')}
+                aria-label={t('editRules')}
+                disabled={isSwitching}
               >
-                <span className="latency-loader" />
-                <span>{t('activating')}</span>
+                <RulesIcon className="size-4 shrink-0" />
               </Button>
-            ) : (
-              <Button
-                type="button"
-                onClick={() => onSwitchProfile(p.id)}
-                disabled={isAnySwitching}
-                variant="outline"
-                size="sm"
-                className="w-full h-auto min-h-9 py-2 px-3 gap-1.5 text-xs font-medium border-border/80 text-foreground hover:border-primary/60 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer shadow-2xs active:scale-[0.98] justify-center text-center whitespace-normal leading-tight"
-                title={t('select')}
-                aria-label={t('select')}
-              >
-                <span>{t('select')}</span>
-              </Button>
-            )}
+            </div>
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border/60 pt-3 mt-auto shrink-0">
