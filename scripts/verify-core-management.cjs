@@ -65,7 +65,6 @@ a087ace56595d2a12f66518ab690fa9e563c129fe6583936cdd5f1f9b60a7a82  ./mihomo-windo
 async function verifyBinaryResolution() {
   const existingFiles = new Set(['/app/sidecar/mihomo.exe', '/userData/cores/alpha/mihomo.exe'])
   const { resolveCoreBinaryPath } = load('src/main/utils/paths.ts', {
-    './executable-security': { usesProtectedCoreStore: () => false },
     electron: {
       app: {
         getPath: () => '/userData',
@@ -358,7 +357,7 @@ async function verifyCoreServiceInstallation() {
   const files = new Map([[binary, Buffer.from('previous executable')]])
   const requests = []
   const proxyRequests = []
-  const settings = { kernel: { channel: 'stable', mixedPort: 7890, inheritMixedPort: true } }
+  const settings = { kernel: { channel: 'stable', mixedPort: 7890, inheritMixedPort: true, coreDownloadMirror: 'https://mirror.invalid' } }
   let blockDirectRequests = false
   let failPromotion = false
   let failStartup = false
@@ -366,7 +365,33 @@ async function verifyCoreServiceInstallation() {
   let failCapabilities = false
   let digest = `sha256:${hash}`
   let active = '/bundled/mihomo'
+  const officialAssets = 'https://github.com/MetaCubeX/mihomo/releases/download/fixture/'
+  const authenticated = []
+  const request = async (url, options) => {
+    requests.push(url)
+    if (blockDirectRequests && !options?.proxy) throw new Error('Direct connection blocked')
+    if (options?.proxy) proxyRequests.push({ url, port: options.proxy.port })
+    if (url.includes('api.github.com')) {
+      await new Promise(resolve => setImmediate(resolve))
+      const alpha = url.includes('Prerelease-Alpha')
+      const prefix = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'darwin' : 'linux'
+      const arch = process.arch === 'x64' ? 'amd64-v1' : process.arch === 'ia32' ? '386' : 'arm64'
+      return { data: { tag_name: alpha ? 'alpha-abcdef1' : 'v2.0.0', assets: [{
+        name: `mihomo-${prefix}-${arch}-${alpha ? 'alpha-abcdef1' : 'v2.0.0'}${process.platform === 'win32' ? '.zip' : '.gz'}`,
+        browser_download_url: `${officialAssets}${alpha ? 'alpha' : 'stable'}.gz`, digest
+      }] } }
+    }
+    return { data: archive }
+  }
   const { CoreService } = load('src/main/services/CoreService.ts', {
+    '../core/core-release-fetch': { fetchCoreReleaseResource: async (url, options) => {
+      assert.ok(!url.includes('mirror'), 'Release metadata and checksums bypass the user mirror')
+      return (await request(url, options.proxyPort ? { proxy: { port: options.proxyPort } } : {})).data
+    } },
+    '../utils/executable-security': {
+      prepareExecutableForExecution: file => file,
+      registerVerifiedCore: bytes => authenticated.push(Buffer.from(bytes))
+    },
     '../utils/linux-core-capabilities': { grantLinuxCoreCapabilities: async candidate => {
       assert.ok(files.has(candidate), 'capabilities apply to the fully written candidate')
       assert.ok(candidate.endsWith('.tmp'), 'capabilities are granted before promotion')
@@ -395,22 +420,7 @@ async function verifyCoreServiceInstallation() {
         files.set(to, files.get(from)); files.delete(from)
       }
     },
-    axios: { get: async (url, options) => {
-      requests.push(url)
-      if (blockDirectRequests && !options?.proxy) throw new Error('Direct connection blocked')
-      if (options?.proxy) proxyRequests.push({ url, port: options.proxy.port })
-      if (url.includes('api.github.com')) {
-        await new Promise(resolve => setImmediate(resolve))
-        const alpha = url.includes('Prerelease-Alpha')
-        const prefix = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'darwin' : 'linux'
-        const arch = process.arch === 'x64' ? 'amd64-v1' : process.arch === 'ia32' ? '386' : 'arm64'
-        return { data: { tag_name: alpha ? 'alpha-abcdef1' : 'v2.0.0', assets: [{
-          name: `mihomo-${prefix}-${arch}-${alpha ? 'alpha-abcdef1' : 'v2.0.0'}${process.platform === 'win32' ? '.zip' : '.gz'}`,
-          browser_download_url: `https://example/${alpha ? 'alpha' : 'stable'}.gz`, digest
-        }] } }
-      }
-      return { data: archive }
-    } }
+    axios: { get: request }
   })
   // Model the KernelService transaction boundary; its rollback behavior is tested above.
   const settingService = {
@@ -443,9 +453,10 @@ async function verifyCoreServiceInstallation() {
   assert.equal(requests.filter(url => url.includes('api.github.com')).length, 2)
 
   digest = undefined
-  const downloads = requests.filter(url => url.includes('example')).length
+  const downloads = requests.filter(url => url.includes('/releases/download/')).length
   await assert.rejects(service.installCore('alpha'), /No trusted SHA-256/)
-  assert.equal(requests.filter(url => url.includes('example')).length, downloads)
+  assert.equal(requests.filter(url => url.includes('/releases/download/')).length, downloads)
+  assert.equal(authenticated.length, 0, 'Missing trusted digest cannot authorize elevated execution')
   digest = `sha256:${'0'.repeat(64)}`
   await assert.rejects(service.installCore('alpha'), /SHA-256 verification mismatch/)
   assert.equal(files.get(binary).toString(), 'previous executable')
@@ -482,10 +493,10 @@ async function verifyCoreServiceInstallation() {
   // Exercise both release metadata and the separately implemented archive retry.
   blockDirectRequests = true
   const installed = await service.installCore('alpha')
-  await service.fetchText('https://example/checksums.txt')
+  await service.fetchText(`${officialAssets}checksums.txt`)
   await service.downloadBinary('https://example/geodata.dat')
   assert.ok(proxyRequests.some(request => request.url.includes('api.github.com')), 'Release metadata retries through the active listener')
-  for (const url of ['https://example/alpha.gz', 'https://example/checksums.txt', 'https://example/geodata.dat']) {
+  for (const url of [`${officialAssets}alpha.gz`, `${officialAssets}checksums.txt`, 'https://example/geodata.dat']) {
     assert.ok(proxyRequests.some(request => request.url === url), `Expected proxy fallback for ${url}`)
   }
   assert.ok(proxyRequests.every(request => request.port === 10809), 'All fallback requests must use the effective listener, not settings.mixedPort')
@@ -493,6 +504,7 @@ async function verifyCoreServiceInstallation() {
   assert.equal(installed.channel, 'alpha')
   assert.equal(active, binary)
   assert.equal(files.get(binary).toString(), 'new executable')
+  assert.ok(authenticated.length > 0 && authenticated.every(bytes => bytes.toString() === 'new executable'), 'Only verified extracted executable bytes are authorized')
   assert.ok(![...files.keys()].some(file => /\.(tmp|backup)$/.test(file)))
 
   // Recreate the service with durable files left at each interruption point.

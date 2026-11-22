@@ -7,7 +7,6 @@ import { app } from 'electron'
 import { logger } from './logger'
 import { checkElevateTask, tryRunElevateTask } from './elevate-task'
 import { getSystemBinary } from './system-binaries'
-import { assertTrustedInstallation } from './executable-security'
 
 let cachedElevated: boolean | null = null
 
@@ -56,7 +55,6 @@ export function restartAsAdmin(): Promise<boolean> {
 
       const execPath = process.execPath
       const isPackaged = electronApp.isPackaged
-      if (isPackaged) assertTrustedInstallation()
       const workingDir = isPackaged ? path.dirname(execPath) : (electronApp.getAppPath() || process.cwd())
       const appUserData = typeof electronApp.getPath === 'function' ? electronApp.getPath('userData') : ''
 

@@ -11,6 +11,9 @@ node_modules/
 *.pfx
 *.p12
 *.crt
+# Public, self-signed TLS fixtures used to verify rejection of untrusted servers.
+!scripts/fixtures/core-release-untrusted.key.pem
+!scripts/fixtures/core-release-untrusted.cert.pem
 
 # Knowledge base & documentation
 /docs/

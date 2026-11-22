@@ -1,13 +1,27 @@
 import { resolve } from 'path'
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
+import { existsSync, readFileSync } from 'node:fs'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 const devNonce = randomBytes(32).toString('base64')
+// Embed exact build inputs in app.asar; never trust a writable sidecar hash file.
+const executableInputs = {
+  core: resolve('extra/sidecar', process.platform === 'win32' ? 'mihomo.exe' : 'mihomo'),
+  runner: resolve('extra/files/qzyrium-run.exe'),
+  watchdog: resolve('extra/files/qzyrium-watchdog.exe')
+}
+const executablePins = Object.fromEntries(Object.entries(executableInputs)
+  .filter(([, filename]) => existsSync(filename))
+  .map(([role, filename]) => [role, createHash('sha256').update(readFileSync(filename)).digest('hex')]))
+const resourceLock = JSON.parse(readFileSync(resolve('scripts/resources.lock.json'), 'utf8'))
+const pinnedCore = resourceLock.mihomo.targets[`${process.platform}-${process.arch}`]?.sha256
+if (executablePins.core && executablePins.core !== pinnedCore) throw new Error('Bundled core does not match resources.lock.json; run prepare:resources')
 
 export default defineConfig({
   main: {
+    define: { __QZYRIUM_EXECUTABLE_PINS__: JSON.stringify(executablePins) },
     plugins: [externalizeDepsPlugin()],
     resolve: {
       alias: {

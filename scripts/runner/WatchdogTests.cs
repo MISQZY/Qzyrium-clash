@@ -17,10 +17,29 @@ static class WatchdogTests
         {
             using (Process core = Process.Start(new ProcessStartInfo(executable, "--core") { UseShellExecute = false, CreateNoWindow = true }))
             {
-                try { track.Invoke(null, new object[] { core.Id, new string[] { executable }, DateTime.UtcNow.AddMinutes(-1) }); }
+                try { track.Invoke(null, new object[] { core.Id, new string[] { executable }, "", DateTime.UtcNow.AddMinutes(-1) }); }
                 finally { if (!core.HasExited) core.Kill(); core.WaitForExit(); }
             }
         }
+        MethodInfo runtimeCore = typeof(NetworkWatchdog).GetMethod("RuntimeCore", flags);
+        string runtime = Path.Combine(args[0], "runtime");
+        string digest = new string('a', 64);
+        foreach (string candidate in new string[] {
+            Path.Combine(runtime, digest, "mihomo.exe"),
+            Path.Combine(runtime, new string('F', 64), "MIHOMO.EXE")
+        })
+            if (!(bool)runtimeCore.Invoke(null, new object[] { candidate, runtime })) throw new Exception("Runtime core rejected");
+        foreach (string candidate in new string[] {
+            Path.Combine(runtime, digest, "other.exe"),
+            Path.Combine(runtime, new string('g', 64), "mihomo.exe"),
+            Path.Combine(runtime, new string('a', 63), "mihomo.exe"),
+            Path.Combine(runtime, digest, "nested", "mihomo.exe"),
+            Path.Combine(runtime + "-other", digest, "mihomo.exe"),
+            Path.Combine(args[0], digest, "mihomo.exe")
+        })
+            if ((bool)runtimeCore.Invoke(null, new object[] { candidate, runtime })) throw new Exception("Foreign runtime path accepted");
+        if ((bool)runtimeCore.Invoke(null, new object[] { Path.Combine(runtime, digest, "mihomo.exe"), "" }))
+            throw new Exception("An absent runtime root must disable cached core supervision");
         MethodInfo restore = typeof(NetworkWatchdog).GetMethod("RestoreProxy", flags);
         string registryPath = @"Software\QzyriumWatchdogTests\" + Guid.NewGuid().ToString("N");
         string filename = Path.Combine(args[0], "proxy-test.json");

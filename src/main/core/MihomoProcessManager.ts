@@ -15,7 +15,7 @@ import { classifyKernelFailure, kernelFailureDetails, KernelOperationError } fro
 import type { KernelFailure, KernelFailureReason } from '@shared/kernel-failure'
 import { getSystemBinary } from '../utils/system-binaries'
 import { ensureLinuxCoreCapabilities } from '../utils/linux-core-capabilities'
-import { assertTrustedExecutable } from '../utils/executable-security'
+import { prepareExecutableForExecution } from '../utils/executable-security'
 
 const runFile = promisify(execFile)
 
@@ -158,11 +158,11 @@ export class MihomoProcessManager extends EventEmitter {
           logger.warn(`Failed to ensure Linux TUN capabilities: ${String(capErr)}`)
         }
       }
-      const command = linux ? process.execPath : binary
+      const command = linux ? process.execPath : prepareExecutableForExecution(binary, 'core')
       const launchArgs = linux ? [path.join(paths.geoFilesDir, 'linux-core-supervisor.cjs'), binary, JSON.stringify(tun ?? null), ...args] : args
-      assertTrustedExecutable(command)
       const spawned = spawn(command, launchArgs, {
         windowsHide: true,
+        ...(process.platform === 'win32' && command !== binary ? { cwd: path.dirname(command) } : {}),
         stdio: [linux ? 'pipe' : 'ignore', 'pipe', 'pipe'],
         ...(linux ? { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } } : {})
       })

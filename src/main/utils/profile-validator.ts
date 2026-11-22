@@ -8,7 +8,7 @@ import type { CustomRuleItem } from '@shared/profile'
 import { installGeoResources } from '../core/installGeoResources'
 import { MihomoConfigFactory } from '../core/MihomoConfigFactory'
 import { getAppPaths, resolveCoreBinaryPath } from './paths'
-import { assertTrustedExecutable } from './executable-security'
+import { prepareExecutableForExecution } from './executable-security'
 
 const runFile = promisify(execFile)
 
@@ -35,9 +35,10 @@ export async function prepareProfileContent(
       const config = MihomoConfigFactory.synthesize(content, settings, checkedRules, ruleIds)
       await fs.writeFile(filename, config, { encoding: 'utf8' })
       try {
-        assertTrustedExecutable(binary)
-        await runFile(binary, ['-t', '-d', paths.mihomoDir, '-f', filename], {
-          windowsHide: true, timeout: 15_000, maxBuffer: 1024 * 1024
+        const executable = prepareExecutableForExecution(binary, 'core')
+        await runFile(executable, ['-t', '-d', paths.mihomoDir, '-f', filename], {
+          windowsHide: true, timeout: 15_000, maxBuffer: 1024 * 1024,
+          ...(executable !== binary ? { cwd: path.dirname(executable) } : {})
         })
         return { config, rules: checkedRules }
       } catch (error) {

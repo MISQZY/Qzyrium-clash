@@ -169,6 +169,37 @@ async function verifyRememberedElevation() {
   }
 }
 
+async function verifyPortableUac() {
+  const api = {}, invocations = []
+  let exited = false
+  const app = {
+    isPackaged: true,
+    getPath: name => name === 'temp' ? 'D:\\portable-temp' : 'D:\\portable-data',
+    releaseSingleInstanceLock() {}, requestSingleInstanceLock() {},
+    exit() { exited = true }
+  }
+  const code = ts.transpileModule(fs.readFileSync('src/main/utils/elevation.ts', 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true }
+  }).outputText
+  const dependencies = {
+    electron: { app }, path, os,
+    fs: { writeFileSync() {}, unlinkSync() {} },
+    './logger': { logger: { warn() {}, info() {}, error() {} } },
+    './elevate-task': { checkElevateTask: () => false, tryRunElevateTask: () => false },
+    './system-binaries': { getSystemBinary: name => path.join('C:\\Windows\\System32', name) },
+    './executable-security': { assertTrustedInstallation() { throw new Error('Writable portable installation') } },
+    child_process: { execFile(_file, args, options, callback) {
+      invocations.push({ args, options }); callback(null)
+    } }
+  }
+  new Function('exports', 'require', 'process', code)(api, name => dependencies[name] ?? require(name), {
+    platform: 'win32', execPath: 'D:\\portable\\Qzyrium-clash.exe', argv: ['app.exe'], pid: 123, env: {}
+  })
+  assert.equal(await api.restartAsAdmin(), true, 'Writable portable apps may request explicit UAC consent')
+  assert.equal(invocations.length, 1)
+  assert.equal(exited, true)
+}
+
 if (process.platform === 'win32') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'qzyrium-runner-test-'))
   const csc = path.join(process.env.SystemRoot, 'Microsoft.NET', 'Framework64', 'v4.0.30319', 'csc.exe')
@@ -179,6 +210,6 @@ if (process.platform === 'win32') {
     path.resolve('scripts/runner/Program.cs'), path.resolve('scripts/runner/Tests.cs')], { windowsHide: true })
   execFileSync(binary, [root], { windowsHide: true, stdio: 'pipe' })
 }
-verifyRememberedElevation().then(() => {
+verifyRememberedElevation().then(verifyPortableUac).then(() => {
   console.log('PASS: custom installation runner, remembered administrator launches, UAC fallback/cancellation and launch overrides')
 }).catch(error => { console.error(error); process.exitCode = 1 })

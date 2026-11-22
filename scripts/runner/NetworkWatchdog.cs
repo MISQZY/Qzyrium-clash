@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.IO;
 using System.Management;
 using System.Threading;
@@ -100,7 +101,17 @@ static class NetworkWatchdog
             ? unchecked((int)Convert.ToUInt32(data.Substring(2), 16)) : unchecked((int)Convert.ToUInt32(data));
     }
 
-    static void TrackCore(int pid, string[] executables, DateTime parentStarted)
+    static bool RuntimeCore(string executable, string runtimeRoot)
+    {
+        if (string.IsNullOrEmpty(runtimeRoot)) return false;
+        string filename = Path.GetFullPath(executable);
+        if (!string.Equals(Path.GetFileName(filename), "mihomo.exe", StringComparison.OrdinalIgnoreCase)) return false;
+        string directory = Path.GetDirectoryName(filename);
+        return Regex.IsMatch(Path.GetFileName(directory), "\\A[0-9a-fA-F]{64}\\z") &&
+            SamePath(Path.GetDirectoryName(directory), runtimeRoot);
+    }
+
+    static void TrackCore(int pid, string[] executables, string runtimeRoot, DateTime parentStarted)
     {
         Process core = Process.GetProcessById(pid);
         try
@@ -108,7 +119,7 @@ static class NetworkWatchdog
             // Open a process handle now; never kill by a recycled PID later.
             IntPtr handle = core.Handle;
             string executable = ExecutablePath(core);
-            bool allowed = false;
+            bool allowed = RuntimeCore(executable, runtimeRoot);
             foreach (string candidate in executables)
                 if (SamePath(executable, candidate)) { allowed = true; break; }
             if (!allowed || core.StartTime.ToUniversalTime() < parentStarted)
@@ -125,7 +136,7 @@ static class NetworkWatchdog
 
     static int Main(string[] args)
     {
-        if (args.Length != 5) return 1;
+        if (args.Length != 6) return 1;
         try
         {
             using (Process parent = Process.GetProcessById(int.Parse(args[0])))
@@ -134,9 +145,10 @@ static class NetworkWatchdog
                 if (!SamePath(ExecutablePath(parent), args[1])) return 1;
                 DateTime started = parent.StartTime.ToUniversalTime();
                 string directory = Path.GetFullPath(args[3]);
-                // The parent resolves the protected core store. Keep its exact
-                // channel paths alongside the bundled core in the allowlist.
+                // Source channels remain in userData; elevated executions use
+                // an exact content-addressed path under the protected cache.
                 string cores = Path.GetFullPath(args[4]);
+                string runtimeRoot = string.IsNullOrEmpty(args[5]) ? "" : Path.GetFullPath(args[5]);
                 string[] executables = {
                     args[2],
                     Path.Combine(cores, "stable", "mihomo.exe"),
@@ -157,7 +169,7 @@ static class NetworkWatchdog
                                 if (line.Length > 64) break;
                                 int pid;
                                 if (!int.TryParse(line, out pid) || pid <= 0) break;
-                                try { TrackCore(pid, executables, started); Console.WriteLine("CORE " + pid); Console.Out.Flush(); }
+                                try { TrackCore(pid, executables, runtimeRoot, started); Console.WriteLine("CORE " + pid); Console.Out.Flush(); }
                                 catch (Exception error)
                                 {
                                     Console.Error.WriteLine("Unable to track core " + pid + ": " + error);
@@ -183,7 +195,7 @@ static class NetworkWatchdog
                         {
                             foreach (ManagementObject child in children)
                             {
-                                try { TrackCore(Convert.ToInt32(child["ProcessId"]), executables, started); }
+                                try { TrackCore(Convert.ToInt32(child["ProcessId"]), executables, runtimeRoot, started); }
                                 catch { /* A child may already have exited. */ }
                                 finally { child.Dispose(); }
                             }

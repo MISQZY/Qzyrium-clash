@@ -24,7 +24,10 @@ async function verify() {
   const stable = path.join(protectedCores, 'stable', 'mihomo.exe')
   const alpha = path.join(protectedCores, 'alpha', 'mihomo.exe')
   const foreign = path.join(directory, 'cores', 'stable', 'mihomo.exe')
-  for (const destination of [stable, alpha, foreign]) {
+  const runtimeRoot = path.join(directory, 'protected-runtime', 'executables')
+  const cached = path.join(runtimeRoot, 'a'.repeat(64), 'mihomo.exe')
+  const invalidCached = path.join(runtimeRoot, 'b'.repeat(63), 'mihomo.exe')
+  for (const destination of [stable, alpha, foreign, cached, invalidCached]) {
     fs.mkdirSync(path.dirname(destination), { recursive: true })
     fs.copyFileSync(fixture, destination)
   }
@@ -35,7 +38,17 @@ async function verify() {
     const { NetworkWatchdog } = loadTypeScript(${JSON.stringify(path.resolve('src/main/utils/network-watchdog.ts'))}, {
       './paths': { getAppPaths: () => ({ geoFilesDir: ${JSON.stringify(directory)}, coreBinaryPath: ${JSON.stringify(fixture)}, userData: ${JSON.stringify(directory)}, coresDir: ${JSON.stringify(protectedCores)} }) },
       './logger': { logger: { error() {} } },
-      'node:child_process': { spawn: (file, args, options) => spawn(${JSON.stringify(watchdog)}, args, options) }
+      './executable-security': {
+        prepareExecutableForExecution: (file, role) => {
+          if (role !== 'watchdog') throw new Error('Unexpected helper role');
+          return ${JSON.stringify(watchdog)};
+        },
+        getProtectedRuntimeDirectory: () => ${JSON.stringify(runtimeRoot)}
+      },
+      'node:child_process': { spawn: (file, args, options) => {
+        if (file !== ${JSON.stringify(watchdog)}) throw new Error('Watchdog must execute the prepared helper');
+        return spawn(file, args, options);
+      } }
     });
     (async () => {
       const watcher = new NetworkWatchdog(error => { throw error });
@@ -51,6 +64,8 @@ async function verify() {
       await watcher.trackCore(stable.pid);
       const alpha = spawn(${JSON.stringify(alpha)}, [], { windowsHide: true, stdio: 'ignore' });
       await watcher.trackCore(alpha.pid);
+      const cached = spawn(${JSON.stringify(cached)}, [], { windowsHide: true, stdio: 'ignore' });
+      await watcher.trackCore(cached.pid);
       let rejected = false;
       try { await watcher.trackCore(process.pid); } catch { rejected = true; }
       if (!rejected) throw new Error('Foreign executable accepted');
@@ -60,10 +75,17 @@ async function verify() {
         try { await watcher.trackCore(foreign.pid); } catch { rejected = true; }
         if (!rejected) throw new Error('Unapproved core directory accepted');
       } finally { foreign.kill(); }
+      const invalidCached = spawn(${JSON.stringify(invalidCached)}, [], { windowsHide: true, stdio: 'ignore' });
+      try {
+        let rejected = false;
+        try { await watcher.trackCore(invalidCached.pid); } catch { rejected = true; }
+        if (!rejected) throw new Error('Malformed runtime digest accepted');
+      } finally { invalidCached.kill(); }
       const unregistered = spawn(${JSON.stringify(fixture)}, [], { windowsHide: true, stdio: 'ignore' });
       const unregisteredAlpha = spawn(${JSON.stringify(alpha)}, [], { windowsHide: true, stdio: 'ignore' });
-      process.send({ ready: true, core: core.pid, stable: stable.pid, alpha: alpha.pid,
-        unregistered: unregistered.pid, unregisteredAlpha: unregisteredAlpha.pid });
+      const unregisteredCached = spawn(${JSON.stringify(cached)}, [], { windowsHide: true, stdio: 'ignore' });
+      process.send({ ready: true, core: core.pid, stable: stable.pid, alpha: alpha.pid, cached: cached.pid,
+        unregistered: unregistered.pid, unregisteredAlpha: unregisteredAlpha.pid, unregisteredCached: unregisteredCached.pid });
     })().catch(error => { process.send({ error: error.stack }); process.exit(1); });
   `)
   const parent = spawn(process.execPath, [parentScript], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] })
@@ -80,7 +102,7 @@ async function verify() {
       parent.once('exit', code => { clearTimeout(timer); reject(new Error(`Parent exited ${code}: ${output}`)) })
     })
     assert.ok(message.ready, message.error)
-    pids.push(message.core, message.stable, message.alpha, message.unregistered, message.unregisteredAlpha)
+    pids.push(message.core, message.stable, message.alpha, message.cached, message.unregistered, message.unregisteredAlpha, message.unregisteredCached)
     assert.ok(pids.every(alive))
     // Kill only the parent, leaving the detached watcher and cores to recover.
     parent.kill()
@@ -104,7 +126,7 @@ async function verify() {
         graceful.once('message', message => { clearTimeout(timer); resolve(message) })
       })
       assert.ok(next.ready, next.error)
-      const gracefulPids = [next.core, next.stable, next.alpha, next.unregistered, next.unregisteredAlpha]
+      const gracefulPids = [next.core, next.stable, next.alpha, next.cached, next.unregistered, next.unregisteredAlpha, next.unregisteredCached]
       pids.push(...gracefulPids)
       const stopped = new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('Graceful watchdog shutdown timed out')), 30_000)
@@ -114,7 +136,7 @@ async function verify() {
       assert.ok((await stopped).stopped)
       assert.ok(gracefulPids.every(pid => !alive(pid)), 'graceful shutdown completes before installer replaces helper files')
     } finally { if (graceful.exitCode === null) graceful.kill() }
-    console.log('PASS: bundled/Stable/Alpha core supervision, foreign path rejection, parent crash, stable process handles, spawn/registration race and isolated registry recovery')
+    console.log('PASS: bundled/Stable/Alpha/cached core supervision, exact runtime paths, foreign path rejection, parent crash, stable process handles, spawn/registration race and isolated registry recovery')
   } finally {
     if (parent.exitCode === null) parent.kill()
     for (const pid of pids) if (alive(pid)) process.kill(pid)

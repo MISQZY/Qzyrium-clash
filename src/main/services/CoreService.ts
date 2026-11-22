@@ -28,7 +28,8 @@ import type { SettingService } from './SettingService'
 import type { NetworkModeController } from './NetworkModeController'
 import { writeFileAtomicAsync } from '../utils/atomicWrite'
 import { grantLinuxCoreCapabilities } from '../utils/linux-core-capabilities'
-import { assertTrustedExecutable, canManageProtectedCoreStore, ensureProtectedCoreStore, usesProtectedCoreStore } from '../utils/executable-security'
+import { prepareExecutableForExecution, registerVerifiedCore } from '../utils/executable-security'
+import { fetchCoreReleaseResource } from '../core/core-release-fetch'
 
 const runFile = promisify(execFile)
 
@@ -66,8 +67,7 @@ export class CoreService implements BaseService {
 
   async initialize(): Promise<void> {
     const paths = getAppPaths()
-    if (usesProtectedCoreStore() && !canManageProtectedCoreStore()) return
-    if (!usesProtectedCoreStore() && !fs.existsSync(paths.coresDir)) {
+    if (!fs.existsSync(paths.coresDir)) {
       fs.mkdirSync(paths.coresDir, { recursive: true })
     }
     // Recovery must finish before KernelService initializes and starts the selected core.
@@ -158,8 +158,11 @@ export class CoreService implements BaseService {
   async inspectBinary(binaryPath: string): Promise<{ version: string; build?: string; raw: string }> {
     try {
       if (!fs.existsSync(binaryPath)) return { version: 'unknown', raw: '' }
-      assertTrustedExecutable(binaryPath)
-      const { stdout } = await runFile(binaryPath, ['-v'], { windowsHide: true, timeout: 5000 })
+      const executable = prepareExecutableForExecution(binaryPath, 'core')
+      const { stdout } = await runFile(executable, ['-v'], {
+        windowsHide: true, timeout: 5000,
+        ...(executable !== binaryPath ? { cwd: path.dirname(executable) } : {})
+      })
       const raw = stdout.trim()
       const match = /Mihomo\s+(?:Meta\s+)?([^\s]+)(?:.*?((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+[^\r\n]+))?/i.exec(raw)
       const version = match?.[1] || raw.split('\n')[0].trim()
@@ -180,8 +183,8 @@ export class CoreService implements BaseService {
     const stableCustomPath = path.join(paths.coresDir, 'stable', `mihomo${ext}`)
     const alphaPath = path.join(paths.coresDir, 'alpha', `mihomo${ext}`)
 
-    const hasAlpha = fs.existsSync(alphaPath) && (!usesProtectedCoreStore() || !fs.existsSync(this.installationPaths('alpha').journal))
-    const hasCustomStable = fs.existsSync(stableCustomPath) && (!usesProtectedCoreStore() || !fs.existsSync(this.installationPaths('stable').journal))
+    const hasAlpha = fs.existsSync(alphaPath)
+    const hasCustomStable = fs.existsSync(stableCustomPath)
 
     const bundledInfo = await this.inspectBinary(paths.coreBinaryPath)
     const stableInfo = hasCustomStable
@@ -240,20 +243,21 @@ export class CoreService implements BaseService {
   private async fetchGithub<T>(endpoint: string): Promise<T> {
     const { owner, repo } = MIHOMO_REPOSITORY
     const url = `https://api.github.com/repos/${owner}/${repo}${endpoint}`
-    return this.requestWithProxyFallback<T>(url, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'QzyriumVPN'
-      },
-      timeout: 15_000
-    })
+    return this.fetchReleaseResource<T>(url, 'json', 15_000)
   }
 
   private async fetchText(url: string, timeout = 10_000): Promise<string> {
-    return this.requestWithProxyFallback<string>(url, {
-      responseType: 'text',
-      timeout
-    })
+    return this.fetchReleaseResource<string>(url, 'text', timeout)
+  }
+
+  private async fetchReleaseResource<T>(url: string, responseType: 'json' | 'text', timeout: number): Promise<T> {
+    let proxyPort: number | undefined
+    if (this.kernelService.getStatus() === 'running') {
+      try { proxyPort = await this.kernelService.getMixedPort() } catch { /* Direct access may still work. */ }
+    }
+    // This transport owns one deadline and verifies GitHub TLS itself, including
+    // its CONNECT fallback through the local core.
+    return fetchCoreReleaseResource<T>(url, { responseType, timeout, proxyPort })
   }
 
   private async downloadBinary(url: string, timeout = 60_000): Promise<ArrayBuffer> {
@@ -316,6 +320,11 @@ export class CoreService implements BaseService {
         const asset = matchMihomoAsset(release.assets, process.platform, process.arch)
         if (!asset) {
           throw new Error(`No compatible Mihomo binary found in ${release.tag_name} for ${process.platform}-${process.arch}`)
+        }
+        const assetUrl = new URL(asset.browser_download_url)
+        if (assetUrl.protocol !== 'https:' || assetUrl.hostname !== 'github.com' || assetUrl.port ||
+          assetUrl.username || assetUrl.password || !assetUrl.pathname.startsWith('/MetaCubeX/mihomo/releases/download/')) {
+          throw new Error('Core release archive must belong to the official Mihomo repository')
         }
 
         let sha256 = /^sha256:([a-f0-9]{64})$/i.exec(asset.digest ?? '')?.[1].toLowerCase()
@@ -417,7 +426,6 @@ export class CoreService implements BaseService {
   }
 
   private async installCoreNow(channel: CoreChannel): Promise<CoreVersionInfo> {
-    ensureProtectedCoreStore()
     const updateCheck = await this.checkUpdate(channel)
     if (updateCheck.state === 'error') {
       throw new Error(updateCheck.message)
@@ -497,6 +505,10 @@ export class CoreService implements BaseService {
     } else {
       throw new Error(`Unsupported archive format: ${downloadUrl}`)
     }
+
+    // Only archive bytes authenticated against official release metadata may
+    // authorize a new elevated runtime copy. User metadata is never authority.
+    registerVerifiedCore(executableBytes)
 
     // Prepare target directory and temporary file
     await fsPromises.mkdir(channelDir, { recursive: true })

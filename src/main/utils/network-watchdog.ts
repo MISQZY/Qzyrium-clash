@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import path from 'node:path'
 import { getAppPaths } from './paths'
 import { logger } from './logger'
-import { assertTrustedExecutable } from './executable-security'
+import { getProtectedRuntimeDirectory, prepareExecutableForExecution } from './executable-security'
 
 export class NetworkWatchdog {
   private child?: ChildProcessWithoutNullStreams
@@ -20,12 +20,13 @@ export class NetworkWatchdog {
     this.stopping = false
     const paths = getAppPaths()
     const linux = process.platform === 'linux'
-    const binary = linux ? process.execPath : path.join(paths.geoFilesDir, 'qzyrium-watchdog.exe')
+    const binary = linux ? process.execPath
+      : prepareExecutableForExecution(path.join(paths.geoFilesDir, 'qzyrium-watchdog.exe'), 'watchdog')
     const args = linux ? [path.join(paths.geoFilesDir, 'linux-proxy-watchdog.cjs'), paths.userData]
-      : [String(process.pid), process.execPath, paths.coreBinaryPath, paths.userData, paths.coresDir]
-    assertTrustedExecutable(binary)
+      : [String(process.pid), process.execPath, paths.coreBinaryPath, paths.userData, paths.coresDir, getProtectedRuntimeDirectory()]
     const child = spawn(binary, args, {
       windowsHide: true, detached: true, stdio: ['pipe', 'pipe', 'pipe'],
+      ...(!linux ? { cwd: path.dirname(binary) } : {}),
       ...(linux ? { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } } : {})
     })
     this.child = child

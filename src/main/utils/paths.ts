@@ -1,7 +1,6 @@
 import { app } from 'electron'
 import { existsSync, mkdirSync } from 'fs'
 import path from 'path'
-import { getProtectedCoreStore, usesProtectedCoreStore } from './executable-security'
 
 export interface AppPaths {
   userData: string
@@ -26,10 +25,10 @@ export function resolveCoreBinaryPath(channel?: 'stable' | 'alpha'): string {
   const ext = process.platform === 'win32' ? '.exe' : ''
   if (channel === 'alpha') {
     const alphaBinary = path.join(paths.coresDir, 'alpha', `mihomo${ext}`)
-    if (existsSync(alphaBinary) && (!usesProtectedCoreStore() || !existsSync(path.join(paths.coresDir, 'alpha', 'installation.json')))) return alphaBinary
+    if (existsSync(alphaBinary)) return alphaBinary
   } else if (channel === 'stable') {
     const customStableBinary = path.join(paths.coresDir, 'stable', `mihomo${ext}`)
-    if (existsSync(customStableBinary) && (!usesProtectedCoreStore() || !existsSync(path.join(paths.coresDir, 'stable', 'installation.json')))) return customStableBinary
+    if (existsSync(customStableBinary)) return customStableBinary
   }
   return paths.coreBinaryPath
 }
@@ -42,9 +41,7 @@ export function getAppPaths(): AppPaths {
   const profilesDir = path.join(userData, 'profiles')
   const logsDir = path.join(userData, 'logs')
   const tasksDir = path.join(userData, 'tasks')
-  // Never migrate/inspect legacy userData executables across elevation.
-  // Installed channels in the protected store are downloaded and verified anew.
-  const coresDir = usesProtectedCoreStore() ? getProtectedCoreStore() : path.join(userData, 'cores')
+  const coresDir = path.join(userData, 'cores')
 
   // Find sidecar core directory
   const isDev = !app.isPackaged
@@ -65,7 +62,7 @@ export function getAppPaths(): AppPaths {
   const profilesFilePath = path.join(userData, 'profiles.json')
 
   // Ensure directories exist
-  const dirs = [userData, mihomoDir, profilesDir, logsDir, tasksDir, ...(usesProtectedCoreStore() ? [] : [coresDir])]
+  const dirs = [userData, mihomoDir, profilesDir, logsDir, tasksDir, coresDir]
   for (const dir of dirs) {
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true })

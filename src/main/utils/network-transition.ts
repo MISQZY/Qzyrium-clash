@@ -1,10 +1,11 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import path from 'node:path'
 import { logger } from './logger'
 import { getSystemBinary } from './system-binaries'
 import { getAppPaths } from './paths'
 import { app } from 'electron'
-import { assertTrustedExecutable } from './executable-security'
+import { prepareExecutableForExecution } from './executable-security'
 
 /**
  * Notifies the operating system and WinINet subsystem that internet proxy
@@ -16,8 +17,8 @@ export function notifySystemProxyChanged(): void {
     try {
       const runner = getAppPaths().runnerBinaryPath
       if (existsSync(runner)) {
-        assertTrustedExecutable(runner)
-        execFile(runner, ['--refresh-proxy'], { windowsHide: true }, (err) => {
+        const executable = prepareExecutableForExecution(runner, 'runner')
+        execFile(executable, ['--refresh-proxy'], { windowsHide: true, cwd: path.dirname(executable) }, (err) => {
           if (err) {
             logger.debug(`Failed to notify WinINet of proxy changes: ${String(err)}`)
           } else {
@@ -42,8 +43,8 @@ export function flushSystemDns(): void {
       try {
         const runner = getAppPaths().runnerBinaryPath
         if (existsSync(runner)) {
-          assertTrustedExecutable(runner)
-          execFile(runner, ['--flush-dns'], { windowsHide: true }, (err) => {
+          const executable = prepareExecutableForExecution(runner, 'runner')
+          execFile(executable, ['--flush-dns'], { windowsHide: true, cwd: path.dirname(executable) }, (err) => {
             if (err) {
               logger.debug(`Failed to flush Windows DNS cache via helper: ${String(err)}`)
               fallbackWinDnsFlush()
