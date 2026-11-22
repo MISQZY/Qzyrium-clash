@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, Clock3, Gauge } from 'lucide-react'
+import { CalendarDays, Clock3, Gauge, ArrowDown, ArrowUp } from 'lucide-react'
 import type { ProfileUserInfo } from '@shared/profile'
 import { useLocale, useTranslations } from '../i18n'
 import { formatBytes } from '../lib/format'
@@ -34,33 +34,61 @@ export function SubscriptionInfo({ info, compact = false }: { info?: ProfileUser
 
   if (compact) {
     return (
-      <div className="rounded-xl border border-border/50 bg-background/25 p-3 space-y-3" data-subscription-info>
+      <div className="rounded-xl border border-border/50 bg-background/25 p-3.5 space-y-3" data-subscription-info>
         <dl className="space-y-2.5">
-          <div className="space-y-0.5">
+          <div className="flex items-center justify-between gap-2">
             <dt className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Gauge className="size-3.5" />
+              <Gauge className="size-3.5 text-primary" />
               <span>{t('trafficRemaining')}</span>
             </dt>
             <dd className={`text-base font-bold tabular-nums tracking-tight ${usage?.remaining === 0 ? 'text-warning' : 'text-foreground'}`}>
               {info?.total === 0 ? t('unlimitedTraffic') : usage ? formatBytes(usage.remaining, locale) : t('notProvided')}
             </dd>
           </div>
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40">
+          {usage && <SubscriptionUsageBar info={info} compact />}
+          <div className="grid grid-cols-2 gap-2.5 pt-2.5 border-t border-border/40">
             <div>
-              <dt className="text-[10px] text-muted-foreground">{t('daysRemaining')}</dt>
+              <dt className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Clock3 className="size-3" />
+                <span>{t('daysRemaining')}</span>
+              </dt>
               <dd className={`font-medium tabular-nums text-xs mt-0.5 ${expiry.isExpiringSoon ? 'text-warning' : 'text-foreground'}`}>
                 {expiry.noExpiration ? t('noExpiration') : expiry.daysRemaining === undefined ? t('notProvided') : expiry.isExpired ? t('expired') : t('daysValue', { count: expiry.daysRemaining })}
               </dd>
             </div>
             <div>
-              <dt className="text-[10px] text-muted-foreground">{t('expiresOn')}</dt>
+              <dt className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <CalendarDays className="size-3" />
+                <span>{t('expiresOn')}</span>
+              </dt>
               <dd className={`font-medium tabular-nums text-xs mt-0.5 ${expiry.isExpired ? 'text-warning' : 'text-foreground'}`}>
                 {expiry.noExpiration ? t('noExpiration') : expirationDate ?? t('notProvided')}
               </dd>
             </div>
+            {info?.download !== undefined && (
+              <div>
+                <dt className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <ArrowDown className="size-3" />
+                  <span>{t('trafficDownload')}</span>
+                </dt>
+                <dd className="font-medium tabular-nums text-xs mt-0.5 text-foreground">
+                  {formatBytes(info.download, locale)}
+                </dd>
+              </div>
+            )}
+            {info?.upload !== undefined && (
+              <div>
+                <dt className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <ArrowUp className="size-3" />
+                  <span>{t('trafficUpload')}</span>
+                </dt>
+                <dd className="font-medium tabular-nums text-xs mt-0.5 text-foreground">
+                  {formatBytes(info.upload, locale)}
+                </dd>
+              </div>
+            )}
           </div>
         </dl>
-        {usage && <div className="border-t border-border/40 pt-2"><SubscriptionUsageBar info={info} /></div>}
       </div>
     )
   }

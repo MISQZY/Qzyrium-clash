@@ -154,5 +154,12 @@
   "viewModeList": "Список",
   "viewModeCards": "Карточки",
   "viewModeListTooltip": "Отображать списком",
-  "viewModeCardsTooltip": "Отображать узкими карточками"
+  "viewModeCardsTooltip": "Отображать узкими карточками",
+  "trafficDownload": "Загрузка",
+  "trafficUpload": "Отдача",
+  "autoUpdateDisabled": "Отключено",
+  "noCustomRules": "Стандартные",
+  "localYAMLConfigDesc": "Локальная конфигурация на устройстве",
+  "enabledShort": "Вкл.",
+  "disabledShort": "Выкл."
 }

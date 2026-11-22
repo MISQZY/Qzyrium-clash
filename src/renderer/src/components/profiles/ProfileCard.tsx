@@ -1,8 +1,9 @@
 import { useLocale, useTranslations, useCustomLocalization } from '../../i18n'
 
-import { RefreshCw, Trash2, Globe, FileCode, EllipsisVertical, Pencil, Check, Layers, LayoutList } from 'lucide-react'
+import { RefreshCw, Trash2, Globe, FileCode, EllipsisVertical, Pencil, Check, Layers, LayoutList, Megaphone } from 'lucide-react'
 import { RulesIcon } from '../../lib/icons'
-import { ProfileItem, canToggleProfileDisplayMode } from '@shared/profile'
+import { ProfileItem, canToggleProfileDisplayMode, subscriptionUpdateInterval } from '@shared/profile'
+import { profileSource } from '../../lib/profile-source'
 import { cn } from '../../lib/utils'
 
 import { Button } from '../ui/button'
@@ -61,16 +62,18 @@ export function ProfileCard({
       aria-current={isActive ? 'true' : undefined}
       className={cn(
         'bg-card transition-all relative',
-        isCards ? 'w-72 sm:w-80 min-w-[18rem] max-w-[20rem] h-full shrink-0 flex flex-col justify-between' : 'w-full',
+        isCards
+          ? 'w-80 sm:w-88 min-w-[20rem] max-w-[22rem] h-full max-h-[640px] shrink-0 flex flex-col justify-between'
+          : 'w-full',
         isActive ? 'border-primary ring-1 ring-primary/20 shadow-xs' : 'border-border hover:border-border/80',
         isSwitching && 'profile-switching-card border-primary/50 shadow-md shadow-primary/10'
       )}
     >
-      <CardContent className={cn('p-4 sm:p-5 flex flex-col justify-between h-full', isCards ? 'space-y-4' : 'space-y-4')}>
+      <CardContent className={cn('p-4 sm:p-5 flex flex-col justify-between h-full', isCards ? 'space-y-3.5' : 'space-y-4')}>
         <div className="flex items-start justify-between gap-2.5 shrink-0">
           <div className="flex flex-1 min-w-0 items-center gap-2.5">
             <div
-              className={`size-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden transition-colors ${
+              className={`size-10 shrink-0 rounded-xl flex items-center justify-center overflow-hidden transition-colors ${
                 p.type === 'remote'
                   ? 'bg-primary/15 text-primary border border-primary/30'
                   : 'bg-warning/15 text-warning border border-warning/30'
@@ -94,8 +97,8 @@ export function ProfileCard({
                   <EmojiText text={displayName(p, locale, customLocalization)} />
                 </span>
               </div>
-              <p className="text-[11px] text-muted-foreground truncate">
-                {p.type === 'remote' ? t('remoteSubscription') : t('localYAML')}
+              <p className="text-[11px] text-muted-foreground truncate mt-0.5" title={profileSource(p.url) ?? (p.type === 'remote' ? t('remoteSubscription') : t('localYAML'))}>
+                {profileSource(p.url) ?? (p.type === 'remote' ? t('remoteSubscription') : t('localYAML'))}
               </p>
             </div>
           </div>
@@ -115,18 +118,6 @@ export function ProfileCard({
                 {isFull ? <Layers className="size-3.5 shrink-0" /> : <LayoutList className="size-3.5 shrink-0" />}
               </Button>
             )}
-            {!isCards && (
-              <Button
-                variant="outline"
-                size="icon-sm"
-                title={t('editInfo')}
-                aria-label={t('editInfo')}
-                onClick={() => onEditInfo(p)}
-                disabled={isSwitching}
-              >
-                <Pencil className="size-3.5 shrink-0" />
-              </Button>
-            )}
             {p.type === 'remote' && (
               <Button
                 onClick={() => onUpdate(p.id)}
@@ -140,6 +131,16 @@ export function ProfileCard({
                 <RefreshCw className={`size-3.5 shrink-0${updating ? ' animate-spin' : ''}`} />
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="icon-sm"
+              title={t('editInfo')}
+              aria-label={t('editInfo')}
+              onClick={() => onEditInfo(p)}
+              disabled={isSwitching}
+            >
+              <Pencil className="size-3.5 shrink-0" />
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -164,16 +165,6 @@ export function ProfileCard({
                     <span>{t(isFull ? 'switchToSingleMode' : 'switchToFullMode')}</span>
                   </DropdownMenuItem>
                 )}
-                {isCards && (
-                  <DropdownMenuItem
-                    onClick={() => onEditInfo(p)}
-                    disabled={isSwitching}
-                    className="gap-2 cursor-pointer"
-                  >
-                    <Pencil className="size-3.5 text-muted-foreground" />
-                    <span>{t('editInfo')}</span>
-                  </DropdownMenuItem>
-                )}
                 <DropdownMenuItem
                   onClick={() => onEditFile(p)}
                   className="gap-2 cursor-pointer"
@@ -195,27 +186,42 @@ export function ProfileCard({
         </div>
 
         {isCards ? (
-          <div className="flex-1 min-h-0 flex flex-col justify-start space-y-3 overflow-y-auto scrollbar-thin">
+          <div className="flex-1 min-h-0 flex flex-col justify-start space-y-3 overflow-y-auto scrollbar-thin pr-0.5">
+            {p.announce && (
+              <div className="rounded-xl border border-primary/25 bg-primary/5 p-2.5 text-xs text-foreground flex items-start gap-2">
+                <Megaphone className="size-3.5 text-primary shrink-0 mt-0.5" />
+                <span className="text-[11px] leading-relaxed line-clamp-3">{p.announce}</span>
+              </div>
+            )}
+
             {p.type === 'remote' ? (
               <SubscriptionInfo info={p.userInfo} compact={true} />
             ) : (
-              <div className="flex-1 min-h-[140px] flex flex-col items-center justify-center p-4 rounded-xl border border-dashed border-border/60 bg-muted/20 text-center">
-                <FileCode className="size-7 text-muted-foreground/50 mb-2" />
-                <span className="text-xs font-medium text-foreground">{t('localYAML')}</span>
-                <span className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
-                  {t('editProfileFile')}
-                </span>
+              <div className="rounded-xl border border-border/50 bg-background/25 p-3.5 space-y-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-8 rounded-lg bg-warning/15 text-warning border border-warning/30 flex items-center justify-center shrink-0">
+                    <FileCode className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-foreground">{t('localYAML')}</p>
+                    <p className="text-[11px] text-muted-foreground">{t('localYAMLConfigDesc')}</p>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed pt-1.5 border-t border-border/40">
+                  {t('yamlProfileHint')}
+                </p>
               </div>
             )}
+
             {p.deviceStatus && (
-              <div role="status" className="rounded-lg border border-warning/25 bg-warning/5 p-3 text-xs text-warning">
-                <p>{t(p.deviceStatus === 'limit' ? 'deviceLimitNotice' : 'hwidRequiredNotice')}</p>
+              <div role="status" className="rounded-lg border border-warning/25 bg-warning/5 p-2.5 text-xs text-warning">
+                <p className="text-[11px]">{t(p.deviceStatus === 'limit' ? 'deviceLimitNotice' : 'hwidRequiredNotice')}</p>
                 {p.supportUrl?.startsWith('https://') && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="mt-1 h-auto p-0 text-warning underline underline-offset-2"
+                    className="mt-1 h-auto p-0 text-[11px] text-warning underline underline-offset-2"
                     onClick={() => { void window.api.app.openUrl(p.supportUrl!) }}
                   >
                     {t('providerSupport')}
@@ -223,6 +229,66 @@ export function ProfileCard({
                 )}
               </div>
             )}
+
+            <div className="rounded-xl border border-border/50 bg-background/25 p-3 space-y-2.5">
+              <div className="grid grid-cols-2 gap-2.5 text-xs">
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">{t('autoUpdate')}</span>
+                  <span className="font-medium text-xs text-foreground block truncate mt-0.5">
+                    {p.type === 'remote'
+                      ? p.autoUpdate
+                        ? `${subscriptionUpdateInterval(p)} мин.`
+                        : t('autoUpdateDisabled')
+                      : t('localYAML')}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">{t('displayMode')}</span>
+                  <span className="font-medium text-xs text-foreground block truncate mt-0.5">
+                    {t(isFull ? 'displayModeFull' : 'displayModeSingle')}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">{t('customRulesTab')}</span>
+                  <span className="font-medium text-xs text-foreground block truncate mt-0.5">
+                    {p.customRules?.length ? `${p.customRules.length} шт.` : t('noCustomRules')}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">{t('updateViaProxy')}</span>
+                  <span className="font-medium text-xs text-foreground block truncate mt-0.5">
+                    {p.updateViaProxy ? t('enabledShort') : t('disabledShort')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-0.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onEditRules(p)}
+                disabled={isSwitching}
+                className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground justify-center cursor-pointer"
+                title={t('editRules')}
+              >
+                <RulesIcon className="size-3.5 shrink-0" />
+                <span>{t('editRules')}</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onEditFile(p)}
+                disabled={isSwitching}
+                className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground justify-center cursor-pointer"
+                title={t('editFile')}
+              >
+                <FileCode className="size-3.5 shrink-0" />
+                <span>{t('editFile')}</span>
+              </Button>
+            </div>
           </div>
         ) : (
           <>
@@ -247,63 +313,49 @@ export function ProfileCard({
         )}
 
         {isCards ? (
-          <div className="border-t border-border/60 pt-3 mt-auto flex flex-col gap-2.5 shrink-0">
+          <div className="border-t border-border/60 pt-3 mt-auto flex flex-col gap-2 shrink-0">
             <p className="text-[10px] text-muted-foreground truncate" title={dateStr}>
               {t('updated', { date: dateStr })}
             </p>
-            <div className="flex items-center gap-2 w-full">
-              {isActive ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled
-                  className="flex-1 h-8 gap-1 px-3 text-xs font-semibold bg-primary/15 text-primary border border-primary/30 opacity-100 cursor-default select-none shadow-2xs justify-center"
-                  aria-label={t('active')}
-                >
-                  <Check className="size-3.5 stroke-[2.5]" />
-                  <span>{t('active')}</span>
-                </Button>
-              ) : isSwitching ? (
-                <Button
-                  type="button"
-                  disabled
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 h-8 gap-1 px-3 text-xs font-medium latency-testing-button border-primary/40 text-primary relative shadow-2xs justify-center"
-                  aria-busy="true"
-                  aria-label={t('activating')}
-                >
-                  <span className="latency-loader" />
-                  <span>{t('activating')}</span>
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  onClick={() => onSwitchProfile(p.id)}
-                  disabled={isAnySwitching}
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 h-8 gap-1 px-3 text-xs font-medium border-border/80 text-foreground hover:border-primary/60 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer shadow-2xs active:scale-[0.98] justify-center"
-                  title={t('select')}
-                  aria-label={t('select')}
-                >
-                  <span>{t('select')}</span>
-                </Button>
-              )}
+            {isActive ? (
               <Button
                 type="button"
-                onClick={() => onEditRules(p)}
-                variant="outline"
-                size="icon-sm"
-                className="size-8 shrink-0"
-                title={t('editRules')}
-                aria-label={t('editRules')}
-                disabled={isSwitching}
+                variant="secondary"
+                size="sm"
+                disabled
+                className="w-full h-8.5 gap-1.5 px-3 text-xs font-semibold bg-primary/15 text-primary border border-primary/30 opacity-100 cursor-default select-none shadow-2xs justify-center"
+                aria-label={t('active')}
               >
-                <RulesIcon className="size-3.5 shrink-0" />
+                <Check className="size-3.5 stroke-[2.5]" />
+                <span>{t('active')}</span>
               </Button>
-            </div>
+            ) : isSwitching ? (
+              <Button
+                type="button"
+                disabled
+                variant="outline"
+                size="sm"
+                className="w-full h-8.5 gap-1.5 px-3 text-xs font-medium latency-testing-button border-primary/40 text-primary relative shadow-2xs justify-center"
+                aria-busy="true"
+                aria-label={t('activating')}
+              >
+                <span className="latency-loader" />
+                <span>{t('activating')}</span>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={() => onSwitchProfile(p.id)}
+                disabled={isAnySwitching}
+                variant="outline"
+                size="sm"
+                className="w-full h-8.5 gap-1.5 px-3 text-xs font-medium border-border/80 text-foreground hover:border-primary/60 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer shadow-2xs active:scale-[0.98] justify-center"
+                title={t('select')}
+                aria-label={t('select')}
+              >
+                <span>{t('select')}</span>
+              </Button>
+            )}
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border/60 pt-3 mt-auto shrink-0">

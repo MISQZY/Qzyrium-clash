@@ -154,5 +154,12 @@
   "viewModeList": "List",
   "viewModeCards": "Cards",
   "viewModeListTooltip": "Display as list",
-  "viewModeCardsTooltip": "Display as narrow cards"
+  "viewModeCardsTooltip": "Display as narrow cards",
+  "trafficDownload": "Download",
+  "trafficUpload": "Upload",
+  "autoUpdateDisabled": "Disabled",
+  "noCustomRules": "Standard",
+  "localYAMLConfigDesc": "Local configuration on device",
+  "enabledShort": "On",
+  "disabledShort": "Off"
 }
