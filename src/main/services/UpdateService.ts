@@ -172,7 +172,10 @@ export class UpdateService implements BaseService {
     }
   }
 
+  private proxyApplied = false
+
   private async clearProxy(): Promise<void> {
+    this.proxyApplied = false
     try {
       const updaterSession = (autoUpdater as unknown as { netSession?: { setProxy?: (opts: { mode: string }) => Promise<void> } }).netSession
       if (updaterSession?.setProxy) {
@@ -187,6 +190,7 @@ export class UpdateService implements BaseService {
   }
 
   private async applyProxy(port: number): Promise<void> {
+    this.proxyApplied = true
     const proxyRules = `http=127.0.0.1:${port};https=127.0.0.1:${port}`
     try {
       const updaterSession = (autoUpdater as unknown as { netSession?: { setProxy?: (opts: { proxyRules: string }) => Promise<void> } }).netSession
@@ -304,6 +308,7 @@ export class UpdateService implements BaseService {
 
   private async loadWhatsNew(): Promise<WhatsNewPayload | null> {
     if (!app.isPackaged) return null
+    const hadProxy = this.proxyApplied
     const filename = path.join(getAppPaths().userData, 'app-version.json')
     const currentVersion = app.getVersion()
     try {
@@ -343,6 +348,10 @@ export class UpdateService implements BaseService {
     } catch (error) {
       logger.error('Unable to load release notes', error)
       return null
+    } finally {
+      if (!hadProxy && this.proxyApplied && !this.checkInProgress && !this.downloading) {
+        await this.clearProxy()
+      }
     }
   }
 
