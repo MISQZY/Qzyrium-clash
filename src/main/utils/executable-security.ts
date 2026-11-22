@@ -12,8 +12,21 @@ declare const __QZYRIUM_EXECUTABLE_PINS__: Partial<Record<ExecutableRole, string
 export const WINDOWS_EXECUTABLE_POLICY = String.raw`
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+$PSModuleAutoloadingPreference = 'None'
+$env:PSModulePath = [IO.Path]::Combine($PSHOME, 'Modules')
+if (-not (Get-Command New-Object -ErrorAction SilentlyContinue)) {
+  Import-Module ([IO.Path]::Combine($PSHOME, 'Modules', 'Microsoft.PowerShell.Utility'))
+}
+if (-not (Get-Command Get-ChildItem -ErrorAction SilentlyContinue)) {
+  Import-Module ([IO.Path]::Combine($PSHOME, 'Modules', 'Microsoft.PowerShell.Management'))
+}
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 $trustedOwners = @('S-1-5-18', 'S-1-5-32-544', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
+function Get-ItemObject([string]$path) {
+  if ([IO.Directory]::Exists($path)) { return New-Object IO.DirectoryInfo($path) }
+  if ([IO.File]::Exists($path)) { return New-Object IO.FileInfo($path) }
+  throw 'Target does not exist'
+}
 function Test-AclPolicy($acl, [bool]$ancestor) {
   if ($trustedOwners -notcontains $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value) { throw 'Untrusted executable owner' }
   $descriptor = New-Object System.Security.AccessControl.RawSecurityDescriptor($acl.GetSecurityDescriptorSddlForm('All'))
@@ -25,11 +38,12 @@ function Test-AclPolicy($acl, [bool]$ancestor) {
   }
 }
 function Assert-Location([string]$filename, [string]$boundary = $filename) {
-  $item = Get-Item -LiteralPath $filename -Force
+  $item = Get-ItemObject $filename
   $ancestor = [string]::IsNullOrEmpty($boundary)
   while ($null -ne $item) {
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Executable location contains a reparse point' }
-    Test-AclPolicy (Get-Acl -LiteralPath $item.FullName) $ancestor
+    $acl = if ($item -is [IO.DirectoryInfo]) { [IO.Directory]::GetAccessControl($item.FullName) } else { [IO.File]::GetAccessControl($item.FullName) }
+    Test-AclPolicy $acl $ancestor
     if ($item.FullName.TrimEnd('\') -eq $boundary.TrimEnd('\')) { $ancestor = $true }
     $item = if ($item -is [IO.DirectoryInfo]) { $item.Parent } else { $item.Directory }
   }
@@ -141,9 +155,20 @@ function policy(request: object): string {
   const payload = Buffer.from(JSON.stringify({ arch: `win32-${process.arch}`, ...request }), 'utf8').toString('base64')
   const script = `$request = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}')) | ConvertFrom-Json\n${WINDOWS_EXECUTABLE_POLICY}`
   try {
-    return execFileSync(trustedSystemBinary('WindowsPowerShell/v1.0/powershell.exe'),
+    const powershellBinary = trustedSystemBinary('WindowsPowerShell/v1.0/powershell.exe')
+    const systemRoot = path.win32.dirname(path.win32.dirname(powershellBinary))
+    const system32 = path.win32.join(systemRoot, 'System32')
+    const systemModules = path.win32.join(system32, 'WindowsPowerShell', 'v1.0', 'Modules')
+    const env: NodeJS.ProcessEnv = {
+      SystemRoot: systemRoot,
+      SystemDrive: systemRoot.slice(0, 2),
+      windir: systemRoot,
+      PATH: system32,
+      PSModulePath: systemModules
+    }
+    return execFileSync(powershellBinary,
       ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
-      { encoding: 'utf8', windowsHide: true, timeout: 30_000, maxBuffer: 64 * 1024 }).trim()
+      { encoding: 'utf8', windowsHide: true, timeout: 30_000, maxBuffer: 64 * 1024, env }).trim()
   } catch {
     throw new Error('Executable verification failed. Update or download the official core again before running it as administrator.')
   }
