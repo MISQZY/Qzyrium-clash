@@ -5,7 +5,7 @@ import { useProfileImport } from '../hooks/useProfileImport'
 import { ProfileCard } from '../components/profiles/ProfileCard'
 import { useTranslations } from '../i18n'
 import React, { lazy, Suspense, useState } from 'react'
-import { Plus, Globe } from 'lucide-react'
+import { Plus, Globe, LayoutGrid, LayoutList } from 'lucide-react'
 
 import { ProfileItem } from '@shared/profile'
 
@@ -39,9 +39,28 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
   const [editingFileProfile, setEditingFileProfile] = useState<ProfileItem | null>(null)
   const [editingInfoProfile, setEditingInfoProfile] = useState<ProfileItem | null>(null)
   const [switchingId, setSwitchingId] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'list' | 'cards'>(() => {
+    try {
+      return (localStorage.getItem('profiles_view_mode') as 'list' | 'cards') || 'list'
+    } catch {
+      return 'list'
+    }
+  })
   const { error, setError, updating, profileToDelete, setProfileToDelete, confirmDelete, handleUpdate } = useProfileActions(onRefreshAll)
   const importDraft = useProfileImport({ importRequest, onClearImportRequest, onRefreshAll, error, setError })
   const { showAddModal, setShowAddModal } = importDraft
+
+  const toggleViewMode = () => {
+    setViewMode((prev) => {
+      const next = prev === 'list' ? 'cards' : 'list'
+      try {
+        localStorage.setItem('profiles_view_mode', next)
+      } catch {
+        /* ignore */
+      }
+      return next
+    })
+  }
 
   const handleSwitchProfile = async (id: string) => {
     if (switchingId || activeProfile?.id === id) return
@@ -77,26 +96,48 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
           <h1 className="text-xl font-semibold tracking-tight">{t('profiles')}</h1>
         </div>
 
-        <Button
-          data-tour="add-profile"
-          onClick={() => setShowAddModal(true)}
-          variant="glow"
-          size="sm"
-          className="gap-2"
-        >
-          <Plus className="size-3.5" />
-          <span>{t('addSubscription')}</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={toggleViewMode}
+            className="gap-1.5 cursor-pointer"
+            title={viewMode === 'list' ? t('viewModeCardsTooltip') : t('viewModeListTooltip')}
+            aria-label={viewMode === 'list' ? t('viewModeCardsTooltip') : t('viewModeListTooltip')}
+          >
+            {viewMode === 'list' ? <LayoutGrid className="size-3.5" /> : <LayoutList className="size-3.5" />}
+            <span className="hidden sm:inline">{viewMode === 'list' ? t('viewModeCards') : t('viewModeList')}</span>
+          </Button>
+
+          <Button
+            data-tour="add-profile"
+            onClick={() => setShowAddModal(true)}
+            variant="glow"
+            size="sm"
+            className="gap-2"
+          >
+            <Plus className="size-3.5" />
+            <span>{t('addSubscription')}</span>
+          </Button>
+        </div>
       </div>
 
       {/* Profile List */}
       {error && !showAddModal && <p role="alert" className="text-xs text-destructive">{error}</p>}
-      <div className="flex flex-col gap-3">
-        {profiles.length > 0 ? (
-          profiles.map(profile => (
+      {profiles.length > 0 ? (
+        <div
+          className={
+            viewMode === 'cards'
+              ? 'flex flex-row overflow-x-auto gap-3.5 pb-4 pt-0.5 px-0.5 scrollbar-thin'
+              : 'flex flex-col gap-3'
+          }
+        >
+          {profiles.map((profile) => (
             <ProfileCard
               key={profile.id}
               profile={profile}
+              layout={viewMode}
               isActive={activeProfile?.id === profile.id}
               updating={updating.has(profile.id)}
               isSwitching={switchingId === profile.id}
@@ -109,17 +150,17 @@ export const ProfilesPage: React.FC<ProfilesPageProps> = ({
               onEditRules={setEditingProfile}
               onToggleDisplayMode={handleToggleDisplayMode}
             />
-          ))
-        ) : (
-          <Card className="p-12 text-center flex flex-col items-center justify-center">
-            <Globe className="size-8 text-muted-foreground/40 mb-2" />
-            <span className="text-sm font-medium text-foreground">{t('noSubscriptionsLoaded')}</span>
-            <span className="text-xs text-muted-foreground mt-1">
-              {t('clickAddSubscriptionToImportYourClashMihomoProviderURLOrLocalYAML')}
-            </span>
-          </Card>
-        )}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <Card className="p-12 text-center flex flex-col items-center justify-center">
+          <Globe className="size-8 text-muted-foreground/40 mb-2" />
+          <span className="text-sm font-medium text-foreground">{t('noSubscriptionsLoaded')}</span>
+          <span className="text-xs text-muted-foreground mt-1">
+            {t('clickAddSubscriptionToImportYourClashMihomoProviderURLOrLocalYAML')}
+          </span>
+        </Card>
+      )}
 
       {/* Add Subscription Dialog */}
       <AddProfileDialog draft={importDraft} />

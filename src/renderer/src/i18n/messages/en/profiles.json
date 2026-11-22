@@ -150,5 +150,9 @@
   "subscriptionDetected": "Subscription link detected",
   "subscriptionDetectedDesc": "Found subscription link in clipboard",
   "importSubscription": "Import profile",
-  "dismiss": "Dismiss"
+  "dismiss": "Dismiss",
+  "viewModeList": "List",
+  "viewModeCards": "Cards",
+  "viewModeListTooltip": "Display as list",
+  "viewModeCardsTooltip": "Display as narrow cards"
 }

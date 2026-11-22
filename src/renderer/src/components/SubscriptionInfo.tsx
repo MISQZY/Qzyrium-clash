@@ -17,7 +17,7 @@ function getExpiryDateFormatter(locale: string): Intl.DateTimeFormat {
   return formatter
 }
 
-export function SubscriptionInfo({ info }: { info?: ProfileUserInfo }) {
+export function SubscriptionInfo({ info, compact = false }: { info?: ProfileUserInfo; compact?: boolean }) {
   const t = useTranslations('profiles')
   const locale = useLocale()
   const [now, setNow] = useState(Date.now)
@@ -31,6 +31,28 @@ export function SubscriptionInfo({ info }: { info?: ProfileUserInfo }) {
   const expirationDate = expiry.expiresMs !== undefined
     ? getExpiryDateFormatter(locale).format(expiry.expiresMs)
     : undefined
+
+  if (compact) {
+    return (
+      <div className="rounded-xl border border-border/50 bg-background/25 p-2.5 space-y-2" data-subscription-info>
+        <dl className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <dt className="text-[10px] text-muted-foreground truncate">{t('trafficRemaining')}</dt>
+            <dd className={`font-medium tabular-nums text-xs ${usage?.remaining === 0 ? 'text-warning' : 'text-foreground'}`}>
+              {info?.total === 0 ? t('unlimitedTraffic') : usage ? formatBytes(usage.remaining, locale) : t('notProvided')}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <dt className="text-[10px] text-muted-foreground truncate">{t('expiresOn')}</dt>
+            <dd className={`font-medium tabular-nums text-xs ${expiry.isExpired ? 'text-warning' : 'text-foreground'}`}>
+              {expiry.noExpiration ? t('noExpiration') : expirationDate ?? t('notProvided')}
+            </dd>
+          </div>
+        </dl>
+        {usage && <div className="border-t border-border/40 pt-2"><SubscriptionUsageBar info={info} /></div>}
+      </div>
+    )
+  }
   const items = [
     {
       icon: Gauge,

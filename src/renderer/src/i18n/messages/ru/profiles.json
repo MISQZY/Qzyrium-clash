@@ -150,5 +150,9 @@
   "subscriptionDetected": "Обнаружена ссылка на подписку",
   "subscriptionDetectedDesc": "В буфере обмена найдена ссылка на подписку",
   "importSubscription": "Импортировать",
-  "dismiss": "Скрыть"
+  "dismiss": "Скрыть",
+  "viewModeList": "Список",
+  "viewModeCards": "Карточки",
+  "viewModeListTooltip": "Отображать списком",
+  "viewModeCardsTooltip": "Отображать узкими карточками"
 }
