@@ -102,6 +102,30 @@ function verifyStagingAndPins(directory) {
   }
 }
 
+function verifyNetworkFreeDiscovery() {
+  for (const original of [false, true]) {
+    const { api, runtime } = fixture()
+    runtime.report.excludeNetwork = original
+    runtime.report.getReport = () => {
+      assert.equal(runtime.report.excludeNetwork, true, 'DLL discovery must never perform reverse DNS')
+      return { sharedObjects: ['C:\\Windows\\System32\\ntdll.dll'] }
+    }
+    assert.equal(api.trustedSystemBinary('reg.exe'), 'C:\\Windows\\System32\\reg.exe')
+    assert.equal(runtime.report.excludeNetwork, original, 'successful discovery preserves report preferences')
+
+    const failing = fixture()
+    failing.runtime.report.excludeNetwork = original
+    failing.runtime.report.getReport = () => { throw new Error('report failed') }
+    assert.throws(() => failing.api.trustedSystemBinary('reg.exe'), /report failed/)
+    assert.equal(failing.runtime.report.excludeNetwork, original, 'failed reports preserve report preferences')
+  }
+  for (const sharedObjects of [[], ['ntdll.dll']]) {
+    const { api, runtime } = fixture()
+    runtime.report.getReport = () => ({ sharedObjects })
+    assert.throws(() => api.trustedSystemBinary('reg.exe'), /Cannot determine/, 'missing or relative DLL paths fail closed')
+  }
+}
+
 function verifyNativePolicy(directory) {
   if (process.platform !== 'win32') return
   const actual = {}
@@ -185,17 +209,28 @@ Write-Output 'PASS: native snapshot, cache, locking and ACL policy'
   const resultFile = path.join(directory, 'report.json')
   fs.writeFileSync(electronScript, `const { app } = require('electron');
     app.setPath('userData', ${JSON.stringify(path.join(directory, 'electron-userData'))});
-    require('node:fs').writeFileSync(${JSON.stringify(resultFile)}, JSON.stringify(process.report.getReport().sharedObjects.filter(name => /[\\\\/]ntdll\\.dll$/i.test(name))));
+    const api = {};
+    new Function('exports', 'require', 'process', ${JSON.stringify(code)})(api, require, process);
+    const getReport = process.report.getReport;
+    const previous = process.report.excludeNetwork;
+    process.report.getReport = function () {
+      require('node:assert/strict').equal(process.report.excludeNetwork, true);
+      return getReport.call(this);
+    };
+    const binary = api.trustedSystemBinary('reg.exe');
+    require('node:assert/strict').equal(process.report.excludeNetwork, previous);
+    require('node:fs').writeFileSync(${JSON.stringify(resultFile)}, JSON.stringify(binary));
     app.quit();`)
   const env = { ...process.env }
   delete env.ELECTRON_RUN_AS_NODE
   const child = spawnSync(require('electron'), [electronScript], { windowsHide: true, timeout: 30_000, encoding: 'utf8', env })
   assert.equal(child.status, 0, child.stderr || child.error?.message)
-  assert.equal(JSON.parse(fs.readFileSync(resultFile, 'utf8')).length, 1, 'KnownDLL resolver must work in Electron main')
+  assert.equal(JSON.parse(fs.readFileSync(resultFile, 'utf8')), path.win32.join(path.win32.dirname(powershell), '..', '..', 'reg.exe'), 'KnownDLL resolver must work in Electron main')
 }
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'qzyrium-runtime-staging-'))
 try {
+  verifyNetworkFreeDiscovery()
   verifyStagingAndPins(directory)
   verifyNativePolicy(directory)
   console.log('PASS: portable core storage, content provenance, embedded build pins, protected execution snapshots, cache integrity, native locking/ACL and Electron main compatibility')

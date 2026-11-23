@@ -145,7 +145,18 @@ if ($request.mode -eq 'elevation') {
 
 /** Resolve the OS loader's KnownDLL, independently of SystemRoot/PATH. */
 export function trustedSystemBinary(name: string): string {
-  const report = process.report?.getReport() as { sharedObjects?: string[] } | undefined
+  // Node's report resolves socket addresses synchronously unless networking is
+  // excluded. Only loaded DLLs are needed here; DNS must never block the UI.
+  const reporter = process.report as (NodeJS.ProcessReport & { excludeNetwork: boolean }) | undefined
+  if (!reporter) throw new Error('Cannot determine the trusted Windows system directory')
+  const excludeNetwork = reporter.excludeNetwork
+  let report: { sharedObjects?: string[] }
+  try {
+    reporter.excludeNetwork = true
+    report = reporter.getReport() as { sharedObjects?: string[] }
+  } finally {
+    reporter.excludeNetwork = excludeNetwork
+  }
   const ntdll = report?.sharedObjects?.find(filename => path.win32.basename(filename).toLowerCase() === 'ntdll.dll')
   if (!ntdll || !path.win32.isAbsolute(ntdll)) throw new Error('Cannot determine the trusted Windows system directory')
   return path.win32.join(path.win32.dirname(ntdll), name)
