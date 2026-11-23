@@ -126,6 +126,29 @@ function verifyNetworkFreeDiscovery() {
   }
 }
 
+function verifyDiscoveryCache() {
+  const { api, runtime } = fixture()
+  let reports = 0
+  runtime.report.excludeNetwork = false
+  runtime.report.getReport = () => {
+    reports++
+    assert.equal(runtime.report.excludeNetwork, true)
+    if (reports === 1) throw new Error('report failed')
+    if (reports === 2) return { sharedObjects: [] }
+    return { sharedObjects: ['C:\\Windows\\System32\\ntdll.dll'] }
+  }
+  assert.throws(() => api.trustedSystemBinary('reg.exe'), /report failed/)
+  assert.throws(() => api.trustedSystemBinary('reg.exe'), /Cannot determine/)
+  assert.equal(api.trustedSystemBinary(''), 'C:\\Windows\\System32')
+  assert.equal(reports, 3, 'failed discovery must remain retryable')
+  runtime.report.getReport = () => { throw new Error('cached discovery must not collect another report') }
+  runtime.env.SystemRoot = 'D:\\untrusted'
+  assert.equal(api.trustedSystemBinary('reg.exe'), 'C:\\Windows\\System32\\reg.exe')
+  assert.equal(api.trustedSystemBinary('WindowsPowerShell/v1.0/powershell.exe'),
+    'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe')
+  assert.equal(runtime.report.excludeNetwork, false)
+}
+
 function verifyNativePolicy(directory) {
   if (process.platform !== 'win32') return
   const actual = {}
@@ -231,6 +254,7 @@ Write-Output 'PASS: native snapshot, cache, locking and ACL policy'
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'qzyrium-runtime-staging-'))
 try {
   verifyNetworkFreeDiscovery()
+  verifyDiscoveryCache()
   verifyStagingAndPins(directory)
   verifyNativePolicy(directory)
   console.log('PASS: portable core storage, content provenance, embedded build pins, protected execution snapshots, cache integrity, native locking/ACL and Electron main compatibility')
